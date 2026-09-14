@@ -14,15 +14,15 @@ equipo y el docente.
 
 ## Nombres de archivos
 
-| Tipo | Convencion | Ejemplo |
-|---|---|---|
-| Carpetas | kebab-case | `support-resources/` |
-| Modelos de dominio | PascalCase | `ActivityResult.ts` |
-| Puertos | PascalCase con sufijo | `ActivityRepositoryPort.ts` |
-| Casos de uso | PascalCase con sufijo | `CreateActivityResultUseCase.ts` |
-| Adaptadores | PascalCase con sufijo | `PrismaActivityRepositoryAdapter.ts` |
-| Componentes React | PascalCase | `ActivityCard.tsx` |
-| Pruebas | igual que el archivo, con sufijo `.spec` | `ActivityResult.spec.ts` |
+| Tipo               | Convencion                               | Ejemplo                              |
+| ------------------ | ---------------------------------------- | ------------------------------------ |
+| Carpetas           | kebab-case                               | `support-resources/`                 |
+| Modelos de dominio | PascalCase                               | `ActivityResult.ts`                  |
+| Puertos            | PascalCase con sufijo                    | `ActivityRepositoryPort.ts`          |
+| Casos de uso       | PascalCase con sufijo                    | `CreateActivityResultUseCase.ts`     |
+| Adaptadores        | PascalCase con sufijo                    | `PrismaActivityRepositoryAdapter.ts` |
+| Componentes React  | PascalCase                               | `ActivityCard.tsx`                   |
+| Pruebas            | igual que el archivo, con sufijo `.spec` | `ActivityResult.spec.ts`             |
 
 ## Nombres en base de datos
 

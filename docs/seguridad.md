@@ -33,13 +33,13 @@ Borrar un secreto en un commit posterior no lo elimina del historial.
 Todo lo que llega al frontend es publico. El usuario puede abrir las
 herramientas de desarrollo y leerlo.
 
-| Variable | Donde vive | Por que |
-|---|---|---|
-| `VITE_SUPABASE_ANON_KEY` | Frontend | Publica por diseno |
-| `VITE_API_BASE_URL` | Frontend | Publica |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Solo backend** | Salta todas las politicas de seguridad |
-| `SUPABASE_JWT_SECRET` | **Solo backend** | Permite falsificar identidades |
-| `DATABASE_URL` / `DIRECT_URL` | **Solo backend** | Acceso directo a la base |
+| Variable                      | Donde vive       | Por que                                |
+| ----------------------------- | ---------------- | -------------------------------------- |
+| `VITE_SUPABASE_ANON_KEY`      | Frontend         | Publica por diseno                     |
+| `VITE_API_BASE_URL`           | Frontend         | Publica                                |
+| `SUPABASE_SERVICE_ROLE_KEY`   | **Solo backend** | Salta todas las politicas de seguridad |
+| `SUPABASE_JWT_SECRET`         | **Solo backend** | Permite falsificar identidades         |
+| `DATABASE_URL` / `DIRECT_URL` | **Solo backend** | Acceso directo a la base               |
 
 El frontend **no** tiene acceso ilimitado a la base de datos. Habla con
 `vsd-backend`, y es el backend quien decide que devuelve.

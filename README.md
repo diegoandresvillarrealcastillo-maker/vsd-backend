@@ -15,22 +15,22 @@ del bienestar emocional y cognitivo.
 
 ## Contexto academico
 
-| | |
-|---|---|
-| **Institucion** | Universidad de Cundinamarca |
-| **Programa** | Ingenieria de Software |
-| **Grupo** | 501M |
-| **Docente** | Luiferney Ortiz Parra |
-| **Equipo** | Diego Andres Villarreal Castillo · Samuel Villa Perez |
+|                 |                                                       |
+| --------------- | ----------------------------------------------------- |
+| **Institucion** | Universidad de Cundinamarca                           |
+| **Programa**    | Ingenieria de Software                                |
+| **Grupo**       | 501M                                                  |
+| **Docente**     | Luiferney Ortiz Parra                                 |
+| **Equipo**      | Diego Andres Villarreal Castillo · Samuel Villa Perez |
 
 ---
 
 ## Los dos repositorios
 
-| Repositorio | Contenido |
-|---|---|
-| **vsd-backend** (este) | API en NestJS, base de datos y documentacion tecnica del proyecto. |
-| [vsd-frontend](https://github.com/diegoandresvillarrealcastillo-maker/vsd-frontend) | PWA en React + TypeScript. |
+| Repositorio                                                                         | Contenido                                                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **vsd-backend** (este)                                                              | API en NestJS, base de datos y documentacion tecnica del proyecto. |
+| [vsd-frontend](https://github.com/diegoandresvillarrealcastillo-maker/vsd-frontend) | PWA en React + TypeScript.                                         |
 
 ---
 
@@ -38,13 +38,14 @@ del bienestar emocional y cognitivo.
 
 Toda la documentacion tecnica del proyecto vive en [docs/](docs/):
 
-| Documento | Contenido |
-|---|---|
-| [Arquitectura](docs/arquitectura.md) | Arquitectura hexagonal en tres capas y como se organiza el codigo |
-| [Ambientes](docs/ambientes.md) | Los tres ambientes DEV, PRE y PROD y su configuracion |
-| [Convenciones](docs/convenciones.md) | Nombres, estructura de carpetas y estilo |
-| [Seguridad](docs/seguridad.md) | Secretos, aislamiento entre usuarios y datos sensibles |
-| [Decisiones de arquitectura](docs/adr/) | Por que el proyecto es como es |
+| Documento                               | Contenido                                                         |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| [Arquitectura](docs/arquitectura.md)    | Arquitectura hexagonal en tres capas y como se organiza el codigo |
+| [Ambientes](docs/ambientes.md)          | Los tres ambientes DEV, PRE y PROD y su configuracion             |
+| [Dominio](docs/dominio.md)              | Las reglas de negocio que ya estan construidas                    |
+| [Convenciones](docs/convenciones.md)    | Nombres, estructura de carpetas y estilo                          |
+| [Seguridad](docs/seguridad.md)          | Secretos, aislamiento entre usuarios y datos sensibles            |
+| [Decisiones de arquitectura](docs/adr/) | Por que el proyecto es como es                                    |
 
 ---
 
@@ -56,12 +57,12 @@ documentacion.
 
 La API todavia no existe. Se incorpora por ciclos:
 
-| Ciclo | Que se incorpora | Estado |
-|---|---|---|
-| 1 | Repositorio, ramas, CI inicial, documentacion | En curso |
-| 4 | Arquitectura hexagonal y contratos de API | Pendiente |
-| 5 | Prisma + PostgreSQL + Supabase | Pendiente |
-| 6 | API NestJS funcional | Pendiente |
+| Ciclo | Que se incorpora                              | Estado    |
+| ----- | --------------------------------------------- | --------- |
+| 1     | Repositorio, ramas, CI inicial, documentacion | En curso  |
+| 4     | Arquitectura hexagonal y contratos de API     | Pendiente |
+| 5     | Prisma + PostgreSQL + Supabase                | Pendiente |
+| 6     | API NestJS funcional                          | Pendiente |
 
 No se documentan aqui comandos de instalacion o ejecucion porque
 todavia no hay nada que instalar ni ejecutar. Esta seccion se completa

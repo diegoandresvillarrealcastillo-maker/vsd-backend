@@ -17,11 +17,11 @@ La regla que sigue VSD Health es una sola:
 
 ## Los tres ambientes
 
-| Ambiente | Proposito | Donde se ejecuta | Rama |
-|---|---|---|---|
-| **DEV** | Desarrollo diario | El computador de cada integrante | `desarrollo` |
-| **PRE** | Validacion antes de publicar | Servicio de despliegue de pruebas | `preproduccion` |
-| **PROD** | Uso por personas reales | Servicio de despliegue productivo | `produccion` |
+| Ambiente | Proposito                    | Donde se ejecuta                  | Rama            |
+| -------- | ---------------------------- | --------------------------------- | --------------- |
+| **DEV**  | Desarrollo diario            | El computador de cada integrante  | `desarrollo`    |
+| **PRE**  | Validacion antes de publicar | Servicio de despliegue de pruebas | `preproduccion` |
+| **PROD** | Uso por personas reales      | Servicio de despliegue productivo | `produccion`    |
 
 Un cambio recorre siempre el mismo camino y en el mismo orden:
 
@@ -36,12 +36,12 @@ Nada llega a PROD sin haber pasado por PRE. Ver `CONTRIBUTING.md`.
 
 Solo la configuracion. Ninguna de estas diferencias vive en el codigo:
 
-| Variable | DEV | PRE | PROD |
-|---|---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:3000` | URL de la API de pruebas | URL de la API productiva |
-| `DATABASE_URL` | Base de datos de desarrollo | Base de datos de pruebas | Base de datos productiva |
-| `CORS_ORIGIN` | `http://localhost:5173` | Dominio de la PWA en pruebas | Dominio exacto de la PWA |
-| `NODE_ENV` / `VITE_APP_ENV` | `development` | `preproduction` | `production` |
+| Variable                    | DEV                         | PRE                          | PROD                     |
+| --------------------------- | --------------------------- | ---------------------------- | ------------------------ |
+| `VITE_API_BASE_URL`         | `http://localhost:3000`     | URL de la API de pruebas     | URL de la API productiva |
+| `DATABASE_URL`              | Base de datos de desarrollo | Base de datos de pruebas     | Base de datos productiva |
+| `CORS_ORIGIN`               | `http://localhost:5173`     | Dominio de la PWA en pruebas | Dominio exacto de la PWA |
+| `NODE_ENV` / `VITE_APP_ENV` | `development`               | `preproduction`              | `production`             |
 
 `CORS_ORIGIN` nunca puede ser `*` en PRE ni en PROD: debe nombrar el
 dominio exacto.
@@ -60,7 +60,7 @@ se mezclan con los de personas reales.
 
 ## Los principios que aplicamos
 
-Esta forma de trabajar viene de los *doce factores*, un conjunto de
+Esta forma de trabajar viene de los _doce factores_, un conjunto de
 practicas para aplicaciones que deben desplegarse y operarse, no solo
 ejecutarse. De los doce, estos cuatro son los que condicionan
 directamente el diseno de VSD Health:

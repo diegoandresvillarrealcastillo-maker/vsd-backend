@@ -68,5 +68,5 @@ se anadira una regla de ESLint que prohiba esos imports.
 
 ## Referencias
 
-- Cockburn, A. (2005). *Hexagonal Architecture*.
-- Espanadero, D. *arquitectura-hexagonal-java*.
+- Cockburn, A. (2005). _Hexagonal Architecture_.
+- Espanadero, D. _arquitectura-hexagonal-java_.

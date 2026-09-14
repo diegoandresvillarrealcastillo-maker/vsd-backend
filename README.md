@@ -41,6 +41,7 @@ Toda la documentacion tecnica del proyecto vive en [docs/](docs/):
 | Documento | Contenido |
 |---|---|
 | [Arquitectura](docs/arquitectura.md) | Arquitectura hexagonal en tres capas y como se organiza el codigo |
+| [Ambientes](docs/ambientes.md) | Los tres ambientes DEV, PRE y PROD y su configuracion |
 | [Convenciones](docs/convenciones.md) | Nombres, estructura de carpetas y estilo |
 | [Seguridad](docs/seguridad.md) | Secretos, aislamiento entre usuarios y datos sensibles |
 | [Decisiones de arquitectura](docs/adr/) | Por que el proyecto es como es |

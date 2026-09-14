@@ -97,9 +97,29 @@ deriva sus tipos de TypeScript a partir de ese contrato. Una
 comprobacion del CI detecta la divergencia. Se implementa en el Ciclo 4.
 Ver [ADR 0001](adr/0001-dos-repositorios-separados.md).
 
+## Configuracion y ambientes
+
+La arquitectura resuelve donde vive cada responsabilidad. Falta decir de
+donde salen los valores que cambian entre un entorno y otro.
+
+VSD Health no escribe en el codigo ninguna URL, credencial ni puerto.
+Todo eso entra como variable de entorno, de modo que el mismo codigo
+corre en los tres ambientes cambiando solo la configuracion. Ese
+principio, junto con la paridad entre entornos, viene de los *doce
+factores*, y es lo que sostiene la separacion DEV, PRE y PROD.
+
+Encaja de forma natural con la regla de dependencia: la configuracion es
+un detalle de infraestructura, asi que se lee en `infrastructure/config/`
+y se entrega hacia adentro. El dominio nunca consulta una variable de
+entorno.
+
+Ver [ambientes.md](ambientes.md).
+
 ## Referencias
 
 - Cockburn, A. (2005). *Hexagonal Architecture*.
   <https://alistair.cockburn.us/hexagonal-architecture/>
 - Espanadero, D. *arquitectura-hexagonal-java*.
   <https://github.com/DanielEspanadero/arquitectura-hexagonal-java>
+- Wiggins, A. (2017). *The Twelve-Factor App*.
+  <https://12factor.net/es/>

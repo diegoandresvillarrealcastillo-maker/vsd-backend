@@ -8,6 +8,7 @@ proyecto, y cubre tanto `vsd-backend` como `vsd-frontend`.
 | Documento | Para que sirve |
 |---|---|
 | [arquitectura.md](arquitectura.md) | Como se organiza el codigo y por que |
+| [ambientes.md](ambientes.md) | Los tres ambientes DEV, PRE y PROD y su configuracion |
 | [convenciones.md](convenciones.md) | Nombres, carpetas y estilo |
 | [seguridad.md](seguridad.md) | Reglas de seguridad y privacidad que no se negocian |
 | [adr/](adr/) | Decisiones de arquitectura y su justificacion |

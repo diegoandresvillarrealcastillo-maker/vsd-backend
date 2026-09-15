@@ -83,6 +83,20 @@ de registro: escribe los eventos a la salida estandar y es el entorno de
 despliegue quien los recoge. Los registros nunca incluyen datos
 personales ni informacion de salud de ningun usuario.
 
+El formato cambia con el ambiente, que es otra vez el mismo codigo con
+distinta configuracion. En DESARROLLO se escribe el formato legible de
+NestJS, con colores, porque lo lee una persona en su terminal. En PRE y
+PROD se escribe JSON de una linea por evento, sin colores, porque lo lee
+un indexador: con texto suelto y codigos de color no hay manera de
+filtrar por estado o por ruta cuando toca buscar algo.
+
+Cada peticion deja una sola linea con metodo, ruta, estado y duracion, y
+nada mas. La forma es cerrada y hay una prueba que la exige, de modo que
+si alguien anade un campo mas adelante la suite falla antes de que ese
+campo llegue a produccion. Se anota la plantilla de la ruta
+—`/api/resultados/:id`— y no la URL concreta, para que los
+identificadores no acaben en el registro solo por viajar en la direccion.
+
 ## Estado actual
 
 Las variables de los tres ambientes estan documentadas en

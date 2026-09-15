@@ -56,8 +56,14 @@ pnpm-debug.log*
 
 # ---------- Editores ----------
 .idea/
+# Del editor se comparte lo que afecta al proyecto (extensiones
+# recomendadas, formato al guardar, configuracion de depuracion) y se ignora
+# lo que es personal de cada maquina.
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.swp
 *.swo
 

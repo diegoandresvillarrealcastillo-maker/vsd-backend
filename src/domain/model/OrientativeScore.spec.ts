@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError';
-import { NivelOrientativo, OrientativeScore } from './OrientativeScore';
+import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError.js';
+import { NivelOrientativo, OrientativeScore } from './OrientativeScore.js';
 
 describe('OrientativeScore', () => {
   it('guarda el puntaje y su maximo', () => {

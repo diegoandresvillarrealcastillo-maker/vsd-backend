@@ -1,12 +1,12 @@
-import { ActivityResult } from '../../domain/model/ActivityResult';
-import { OperationBelongsToAnotherUserError } from '../../domain/model/DomainError';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier';
-import { OrientativeScore } from '../../domain/model/OrientativeScore';
+import { ActivityResult } from '../../domain/model/ActivityResult.js';
+import { OperationBelongsToAnotherUserError } from '../../domain/model/DomainError.js';
+import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
-} from '../../domain/ports/in/RegisterActivityResultUseCase';
-import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort';
+} from '../../domain/ports/in/RegisterActivityResultUseCase.js';
+import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 
 /**
  * Registra el resultado de una actividad.

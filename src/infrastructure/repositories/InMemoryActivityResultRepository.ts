@@ -1,6 +1,6 @@
-import type { ActivityResult } from '../../domain/model/ActivityResult';
-import type { ClientOperationId } from '../../domain/model/Identifier';
-import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort';
+import type { ActivityResult } from '../../domain/model/ActivityResult.js';
+import type { ClientOperationId } from '../../domain/model/Identifier.js';
+import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 
 /**
  * Adaptador de persistencia en memoria.

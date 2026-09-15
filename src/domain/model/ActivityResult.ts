@@ -1,6 +1,6 @@
-import { FutureCompletionDateError } from './DomainError';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier';
-import { OrientativeScore } from './OrientativeScore';
+import { FutureCompletionDateError } from './DomainError.js';
+import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { OrientativeScore } from './OrientativeScore.js';
 
 /** Datos necesarios para registrar un resultado. */
 export interface DatosDeResultado {

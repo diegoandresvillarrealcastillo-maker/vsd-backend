@@ -1,4 +1,4 @@
-import type { ActivityResult } from '../../model/ActivityResult';
+import type { ActivityResult } from '../../model/ActivityResult.js';
 
 /**
  * Orden de registrar el resultado de una actividad.

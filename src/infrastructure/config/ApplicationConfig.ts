@@ -1,7 +1,7 @@
-import { ActivityResultService } from '../../application/services/ActivityResultService';
-import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl';
-import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort';
-import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository';
+import { ActivityResultService } from '../../application/services/ActivityResultService.js';
+import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
+import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
 
 /**
  * Cableado de dependencias.

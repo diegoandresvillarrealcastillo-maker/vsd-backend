@@ -1,5 +1,5 @@
-import type { ActivityResult } from '../../model/ActivityResult';
-import type { ClientOperationId } from '../../model/Identifier';
+import type { ActivityResult } from '../../model/ActivityResult.js';
+import type { ClientOperationId } from '../../model/Identifier.js';
 
 /**
  * Puerto de salida: lo que el dominio necesita del mundo para poder cumplir

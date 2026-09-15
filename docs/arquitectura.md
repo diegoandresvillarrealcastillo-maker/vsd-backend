@@ -53,16 +53,34 @@ src/
 │       └── ActivityResultService.ts    fachada hacia la infraestructura
 │
 └── infrastructure/             <- lo unico que toca el mundo exterior
+    ├── main.ts                         arranque del servidor
+    ├── controllers/
+    │   ├── ActivityResultController.ts adaptador de entrada HTTP
+    │   ├── HealthController.ts
+    │   └── dto/                        forma de lo que entra y sale por HTTP
+    ├── filters/
+    │   └── DomainExceptionFilter.ts    errores de dominio -> codigos HTTP
+    ├── logging/
+    │   └── RequestLoggingInterceptor.ts
     ├── repositories/
     │   └── InMemoryActivityResultRepository.ts
     └── config/
-        └── ApplicationConfig.ts        cableado explicito de dependencias
+        ├── AppModule.ts                modulo raiz
+        ├── ActivityResultModule.ts     cableado de dependencias
+        ├── aplicacion.ts               protecciones y validacion
+        ├── environment.ts              configuracion validada al arrancar
+        └── openapi.ts                  contrato de la API
 ```
 
-Todavia no hay `controllers/` ni `entities/`: entran en los ciclos 3 y 4, con
-NestJS y Prisma. Lo que ya existe se puede ejecutar y probar entero sin
-framework y sin base de datos, que es justamente la prueba de que la separacion
-funciona. Ver [dominio.md](dominio.md) y
+Todavia no hay `entities/`: entran en el Ciclo 4 con Prisma.
+
+**Lo que demuestra este arbol:** NestJS aparece unicamente dentro de
+`infrastructure/`. Al integrarlo en el Ciclo 3 no hubo que tocar una sola
+linea de `domain/` ni de `application/`, que era la prueba real de que el
+diseno del Ciclo 2 estaba bien. Ni el caso de uso ni el servicio llevan un
+decorador del framework: se construyen con fabricas en
+`ActivityResultModule`, y por eso siguen siendo ejecutables y probables sin
+levantar nada. Ver [dominio.md](dominio.md) y
 [ADR 0006](adr/0006-el-dominio-se-escribe-sin-framework.md).
 
 ## La regla de dependencia

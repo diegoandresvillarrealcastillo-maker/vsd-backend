@@ -104,6 +104,24 @@ export default tseslint.config(
     },
   },
 
+  // ---------- Convencion del guion bajo ----------
+  {
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          // Un nombre que empieza por guion bajo se descarta a proposito.
+          // Hace falta para extraer una clave de un objeto y quedarse con el
+          // resto: `const { clave: _descartada, ...resto } = objeto`.
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+
   // ---------- Pruebas ----------
   {
     files: ['src/**/*.spec.ts'],

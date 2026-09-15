@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ActivityResult, type DatosDeResultado } from './ActivityResult';
-import { FutureCompletionDateError } from './DomainError';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier';
-import { OrientativeScore } from './OrientativeScore';
+import { ActivityResult, type DatosDeResultado } from './ActivityResult.js';
+import { FutureCompletionDateError } from './DomainError.js';
+import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { OrientativeScore } from './OrientativeScore.js';
 
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
 const USUARIO_B = '22222222-2222-4222-9222-222222222222';

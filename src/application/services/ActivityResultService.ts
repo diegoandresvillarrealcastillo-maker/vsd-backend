@@ -1,8 +1,8 @@
-import type { ActivityResult } from '../../domain/model/ActivityResult';
+import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
-} from '../../domain/ports/in/RegisterActivityResultUseCase';
+} from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 
 /**
  * Fachada de los casos de uso de resultados.

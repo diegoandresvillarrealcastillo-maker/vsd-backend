@@ -14,6 +14,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0004](0004-autenticacion-sin-contrasenas.md)       | Autenticacion sin contrasenas con Supabase Auth    | Aceptada |
 | [0005](0005-vitest-como-ejecutor-de-pruebas.md)     | Vitest como ejecutor de pruebas                    | Aceptada |
 | [0006](0006-el-dominio-se-escribe-sin-framework.md) | El dominio se escribe sin framework                | Aceptada |
+| [0007](0007-nestjs-12-y-modulos-esm.md)             | NestJS 12 y modulos ESM                            | Aceptada |
 
 ## Reglas
 

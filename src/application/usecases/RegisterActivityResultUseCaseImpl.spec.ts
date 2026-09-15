@@ -3,12 +3,12 @@ import {
   InvalidIdentifierError,
   OperationBelongsToAnotherUserError,
   ScoreOutOfRangeError,
-} from '../../domain/model/DomainError';
-import type { ActivityResult } from '../../domain/model/ActivityResult';
-import { ClientOperationId, ResultId } from '../../domain/model/Identifier';
-import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase';
-import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort';
-import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl';
+} from '../../domain/model/DomainError.js';
+import type { ActivityResult } from '../../domain/model/ActivityResult.js';
+import { ClientOperationId, ResultId } from '../../domain/model/Identifier.js';
+import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
+import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl.js';
 
 /**
  * Doble del puerto de salida.

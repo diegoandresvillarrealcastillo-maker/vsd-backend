@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ActivityResult } from '../../domain/model/ActivityResult';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier';
-import { OrientativeScore } from '../../domain/model/OrientativeScore';
-import { construirActivityResultService } from '../config/ApplicationConfig';
-import { InMemoryActivityResultRepository } from './InMemoryActivityResultRepository';
+import { ActivityResult } from '../../domain/model/ActivityResult.js';
+import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import { construirActivityResultService } from '../config/ApplicationConfig.js';
+import { InMemoryActivityResultRepository } from './InMemoryActivityResultRepository.js';
 
 const USUARIO = '11111111-1111-4111-8111-111111111111';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';

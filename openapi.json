@@ -1,0 +1,179 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_comprobar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "El servicio esta operativo."
+          }
+        },
+        "summary": "Comprobar que el servicio responde",
+        "tags": [
+          "Estado"
+        ]
+      }
+    },
+    "/api/resultados": {
+      "post": {
+        "description": "La operacion es idempotente. Reenviar la misma peticion con el mismo clientOperationId devuelve el resultado ya registrado en lugar de crear otro, de modo que un reintento tras una caida de red es seguro.",
+        "operationId": "ActivityResultController_registrar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrarResultadoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Resultado registrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo de la peticion no es valido o incumple una regla del dominio."
+          },
+          "404": {
+            "description": "La operacion solicitada no esta disponible. Se responde asi tanto si no existe como si pertenece a otra persona, para no revelar cual de las dos cosas ocurre."
+          },
+          "429": {
+            "description": "Demasiadas peticiones."
+          }
+        },
+        "summary": "Registrar el resultado de una actividad",
+        "tags": [
+          "Resultados"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "VSD Health API",
+    "description": "API de VSD Health, herramienta de acompanamiento del bienestar emocional y cognitivo.\n\nVSD Health no diagnostica, no formula medicamentos y no reemplaza la atencion de psicologos, medicos ni psiquiatras. Los resultados que devuelve esta API son orientativos.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Resultados",
+      "description": "Registro de resultados de actividades"
+    },
+    {
+      "name": "Estado",
+      "description": "Comprobacion de vida del servicio"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "RegistrarResultadoDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Identificador de la persona que realizo la actividad.",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111"
+          },
+          "activityId": {
+            "type": "string",
+            "description": "Identificador de la actividad realizada.",
+            "format": "uuid",
+            "example": "33333333-3333-4333-a333-333333333333"
+          },
+          "clientOperationId": {
+            "type": "string",
+            "description": "Identificador de la operacion, generado por el dispositivo. Reenviar el mismo valor en un reintento evita que se duplique el resultado.",
+            "format": "uuid",
+            "example": "44444444-4444-4444-b444-444444444444"
+          },
+          "score": {
+            "type": "number",
+            "description": "Puntaje obtenido. Debe ser un entero entre 0 y maxScore.",
+            "example": 8,
+            "minimum": 0
+          },
+          "maxScore": {
+            "type": "number",
+            "description": "Puntaje maximo posible de la actividad.",
+            "example": 10,
+            "minimum": 1
+          },
+          "completedAt": {
+            "type": "string",
+            "description": "Momento en que se completo la actividad. No puede estar en el futuro.",
+            "format": "date-time",
+            "example": "2026-09-14T11:00:00.000Z"
+          }
+        },
+        "required": [
+          "userId",
+          "activityId",
+          "clientOperationId",
+          "score",
+          "maxScore",
+          "completedAt"
+        ]
+      },
+      "ResultadoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": "number",
+            "example": 8
+          },
+          "maxScore": {
+            "type": "number",
+            "example": 10
+          },
+          "nivelOrientativo": {
+            "type": "string",
+            "description": "Nivel orientativo derivado del puntaje. Es una orientacion sobre como fue la actividad, nunca un diagnostico.",
+            "enum": [
+              "favorable",
+              "en_seguimiento",
+              "requiere_atencion"
+            ]
+          },
+          "sugiereAcompanamiento": {
+            "type": "boolean",
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado."
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "activityId",
+          "score",
+          "maxScore",
+          "nivelOrientativo",
+          "sugiereAcompanamiento",
+          "completedAt"
+        ]
+      }
+    }
+  }
+}

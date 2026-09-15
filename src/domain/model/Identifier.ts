@@ -1,4 +1,4 @@
-import { InvalidIdentifierError } from './DomainError';
+import { InvalidIdentifierError } from './DomainError.js';
 
 /**
  * Formato UUID segun la RFC 9562. Acepta las versiones 1 a 8.

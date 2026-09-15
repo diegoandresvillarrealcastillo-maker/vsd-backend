@@ -2,3 +2,7 @@ dist/
 coverage/
 node_modules/
 package-lock.json
+
+# Prettier no sabe interpretar los archivos de peticiones HTTP.
+*.http
+openapi.json

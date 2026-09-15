@@ -9,7 +9,14 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.spec.ts', 'src/infrastructure/config/**'],
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/infrastructure/config/**',
+        // Arranque del proceso: solo se puede ejercitar levantando un
+        // servidor que escuche de verdad, y eso ya lo cubren las pruebas de
+        // integracion a traves de configurarAplicacion().
+        'src/infrastructure/main.ts',
+      ],
       // El umbral se exige donde la cobertura significa algo: domain/ y
       // application/ son las capas con logica. infrastructure/ es cableado,
       // y pedirle el mismo porcentaje empuja a escribir pruebas sin valor.

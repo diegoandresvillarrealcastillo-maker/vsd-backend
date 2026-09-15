@@ -33,7 +33,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "start": "node dist/infrastructure/main.js",
-    "start:dev": "nest start --watch --path tsconfig.json",
+    "start:dev": "nest start --watch",
     "start:prod": "node dist/infrastructure/main.js",
     "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js"
   },

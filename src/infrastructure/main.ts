@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 
-import { Logger } from '@nestjs/common';
+import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './config/AppModule.js';
 import { configurarAplicacion } from './config/aplicacion.js';
-import type { Configuracion } from './config/environment.js';
+import { Ambiente, type Configuracion } from './config/environment.js';
 import { configurarDocumentacion } from './config/openapi.js';
 import { CONFIGURACION } from './config/tokens.js';
 
@@ -28,6 +28,14 @@ async function arrancar(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
 
   const configuracion = app.get<Configuracion>(CONFIGURACION);
+
+  // Fuera de local se escribe JSON de una linea por evento. Render y cualquier
+  // otro proveedor recogen la salida estandar y la indexan, y con texto suelto
+  // y codigos de color no hay forma de filtrar por estado o por ruta cuando
+  // hace falta buscar algo. En local se deja el formato legible de siempre.
+  if (configuracion.ambiente !== Ambiente.DESARROLLO) {
+    app.useLogger(new ConsoleLogger({ json: true, colors: false, compact: true }));
+  }
 
   configurarAplicacion(app, configuracion);
   configurarDocumentacion(app, configuracion);

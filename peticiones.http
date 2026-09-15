@@ -1,0 +1,128 @@
+###############################################################################
+#  VSD Health API - peticiones de ejemplo
+#
+#  Se ejecutan desde VS Code con la extension REST Client (humao.rest-client).
+#  Aparece un boton "Send Request" encima de cada bloque.
+#
+#  Antes: arranca la API con `npm run start:dev`.
+###############################################################################
+
+@host = http://localhost:3000
+
+# Identificadores de ejemplo. Son UUID validos inventados para probar.
+@usuarioA = 11111111-1111-4111-8111-111111111111
+@usuarioB = 22222222-2222-4222-9222-222222222222
+@actividad = 33333333-3333-4333-a333-333333333333
+@operacion = 44444444-4444-4444-b444-444444444444
+
+
+### 1. Comprobar que el servicio responde
+GET {{host}}/health
+
+
+### 2. Registrar un resultado
+# Responde 201 con el resultado y su nivel orientativo.
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioA}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "{{operacion}}",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z"
+}
+
+
+### 3. Reintento identico: la idempotencia en accion
+# Manda exactamente lo mismo que el bloque 2. Devuelve el MISMO id, no crea
+# un segundo resultado. Es lo que hace seguro reintentar tras una caida de red.
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioA}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "{{operacion}}",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z"
+}
+
+
+### 4. Otro usuario con la misma operacion: 404
+# Ejecutar despues del bloque 2. Responde 404 y no confirma que la operacion
+# exista: conocer un identificador ajeno no sirve para nada.
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioB}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "{{operacion}}",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z"
+}
+
+
+### 5. Puntaje bajo: sugiere acompanamiento
+# El nivel es "requiere_atencion" y sugiereAcompanamiento viene en true, que
+# es la senal para mostrar recursos de apoyo. Nunca es un diagnostico.
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioA}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "55555555-5555-4555-8555-555555555555",
+  "score": 2,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z"
+}
+
+
+### 6. Identificador mal formado: 400
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "no-es-un-uuid",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "66666666-6666-4666-8666-666666666666",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z"
+}
+
+
+### 7. Campo que no existe en el contrato: 400
+# Proteccion contra asignacion masiva. Mandar un campo de mas no se ignora en
+# silencio: se rechaza.
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioA}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "77777777-7777-4777-8777-777777777777",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2026-09-14T11:00:00.000Z",
+  "esAdministrador": true
+}
+
+
+### 8. Fecha en el futuro: 400 con el codigo del dominio
+POST {{host}}/api/resultados
+Content-Type: application/json
+
+{
+  "userId": "{{usuarioA}}",
+  "activityId": "{{actividad}}",
+  "clientOperationId": "88888888-8888-4888-8888-888888888888",
+  "score": 8,
+  "maxScore": 10,
+  "completedAt": "2030-01-01T00:00:00.000Z"
+}

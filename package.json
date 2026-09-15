@@ -1,13 +1,18 @@
 {
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@nestjs/cli": "^12.0.1",
+    "@nestjs/testing": "^12.0.3",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.5.1",
+    "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.0",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "prettier": "^3.9.6",
+    "supertest": "^7.2.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.0"
@@ -26,7 +31,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "start": "node dist/infrastructure/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/infrastructure/main.js",
+    "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js"
   },
   "engines": {
     "node": ">=24"
@@ -39,5 +48,20 @@
     "*.{json,md,mjs,mts,yml,yaml}": [
       "prettier --write"
     ]
-  }
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.3",
+    "@nestjs/config": "^12.0.0",
+    "@nestjs/core": "^12.0.3",
+    "@nestjs/platform-express": "^12.0.3",
+    "@nestjs/swagger": "^12.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
+  },
+  "type": "module"
 }

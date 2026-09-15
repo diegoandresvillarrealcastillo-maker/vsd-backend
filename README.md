@@ -51,24 +51,78 @@ Toda la documentacion tecnica del proyecto vive en [docs/](docs/):
 
 ## Estado actual
 
-Este repositorio contiene, por ahora, **solo la base de gestion del
-proyecto**: estructura de ramas, configuracion, integracion continua y
-documentacion.
+La API ya funciona. Registra resultados de actividades y esta documentada,
+pero **todavia guarda en memoria**: al reiniciar el servicio se pierde lo
+registrado. La persistencia real entra en el Ciclo 4.
 
-La API todavia no existe. Se incorpora por ciclos:
+| Ciclo | Que se incorporo                                      | Estado    |
+| ----- | ----------------------------------------------------- | --------- |
+| 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
+| 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
+| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | En curso  |
+| 4     | Prisma + PostgreSQL + Supabase                        | Pendiente |
+| 5     | Usuarios y autenticacion                              | Pendiente |
 
-| Ciclo | Que se incorpora                              | Estado    |
-| ----- | --------------------------------------------- | --------- |
-| 1     | Repositorio, ramas, CI inicial, documentacion | En curso  |
-| 4     | Arquitectura hexagonal y contratos de API     | Pendiente |
-| 5     | Prisma + PostgreSQL + Supabase                | Pendiente |
-| 6     | API NestJS funcional                          | Pendiente |
+## Como ejecutarlo en local
 
-No se documentan aqui comandos de instalacion o ejecucion porque
-todavia no hay nada que instalar ni ejecutar. Esta seccion se completa
-en el Ciclo 6.
+Necesitas Node 24 y Git. Cuatro pasos:
 
----
+```bash
+git clone https://github.com/diegoandresvillarrealcastillo-maker/vsd-backend.git
+cd vsd-backend
+npm install
+```
+
+Crea tu archivo de entorno a partir del ejemplo:
+
+```bash
+cp .env.example .env
+```
+
+Para desarrollo local los valores por defecto sirven tal cual. Las variables
+de base de datos todavia no se usan: llegan en el Ciclo 4.
+
+Arranca la API:
+
+```bash
+npm run start:dev
+```
+
+Ya puedes abrir:
+
+- **http://localhost:3000/health** — comprueba que responde
+- **http://localhost:3000/api/docs** — documentacion navegable de la API
+
+### Probar la API sin salir del editor
+
+El archivo [`peticiones.http`](peticiones.http) trae ocho ejemplos listos:
+registrar un resultado, ver la idempotencia en accion, y los casos que deben
+fallar. Instala la extension **REST Client** y aparecera un boton _Send
+Request_ encima de cada bloque.
+
+### Depurar
+
+Pulsa **F5** y elige _Depurar la API_. Compila, arranca y los puntos de
+interrupcion funcionan sobre los archivos `.ts`.
+
+### Comandos disponibles
+
+| Comando                 | Que hace                                       |
+| ----------------------- | ---------------------------------------------- |
+| `npm run start:dev`     | Arranca la API y recarga al guardar            |
+| `npm test`              | Ejecuta las pruebas                            |
+| `npm run test:watch`    | Pruebas en modo continuo                       |
+| `npm run test:coverage` | Pruebas con informe de cobertura               |
+| `npm run lint`          | Estilo y fronteras de la arquitectura          |
+| `npm run typecheck`     | Revisa los tipos sin compilar                  |
+| `npm run build`         | Compila a `dist/`                              |
+| `npm run openapi`       | Genera `openapi.json` sin levantar el servidor |
+
+### Si algo no arranca
+
+El servicio **no arranca** si falta una variable de entorno o tiene un valor
+invalido. Es a proposito: el mensaje te dice cual es y que se esperaba. Es
+preferible eso a arrancar a medias y fallar mas tarde con un error confuso.
 
 ## Stack previsto
 

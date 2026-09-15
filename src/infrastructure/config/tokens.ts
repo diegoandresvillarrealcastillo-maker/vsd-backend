@@ -1,0 +1,12 @@
+/**
+ * Tokens de inyeccion de dependencias.
+ *
+ * Una interfaz de TypeScript no existe en tiempo de ejecucion, asi que no se
+ * puede usar como identificador para inyectar. Estos simbolos hacen ese papel:
+ * son el nombre por el que NestJS conoce a cada puerto.
+ *
+ * Gracias a ellos la capa de aplicacion sigue dependiendo solo de la interfaz,
+ * y es este modulo el que decide que implementacion concreta se entrega.
+ */
+export const ACTIVITY_RESULT_REPOSITORY = Symbol('ActivityResultRepositoryPort');
+export const CONFIGURACION = Symbol('Configuracion');

@@ -1,4 +1,4 @@
-import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError';
+import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError.js';
 
 /**
  * Nivel orientativo de un resultado.

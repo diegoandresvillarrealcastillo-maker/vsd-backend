@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Metadata } from '../../domain/model/ActivityResult.js';
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
 import { RegistrarResultadoDto } from './dto/RegistrarResultadoDto.js';
 import { ResultadoRespuestaDto } from './dto/ResultadoRespuestaDto.js';
@@ -49,6 +50,7 @@ export class ActivityResultController {
       score: dto.score,
       maxScore: dto.maxScore,
       completedAt: dto.completedAt,
+      metadata: dto.metadata as Metadata | undefined,
     });
 
     return ResultadoRespuestaDto.desde(resultado);

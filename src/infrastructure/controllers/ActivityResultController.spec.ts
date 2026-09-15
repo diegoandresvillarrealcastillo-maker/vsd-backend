@@ -68,11 +68,20 @@ describe('POST /api/resultados', () => {
     expect(respuesta.status).toBe(201);
     expect(respuesta.body).toMatchObject({
       activityId: ACTIVIDAD,
-      score: 8,
-      maxScore: 10,
       nivelOrientativo: 'favorable',
       sugiereAcompanamiento: false,
     });
+  });
+
+  it('no devuelve el puntaje numerico en ninguna forma', async () => {
+    // El numero vive en la base para calcular tendencias. Un "8 sobre 10" en
+    // algo relacionado con el animo no informa: se lee como una calificacion
+    // sobre uno mismo. Lo que ve la persona es el nivel.
+    const respuesta = await request(app.getHttpServer()).post('/api/resultados').send(cuerpo());
+
+    expect(respuesta.body).not.toHaveProperty('score');
+    expect(respuesta.body).not.toHaveProperty('maxScore');
+    expect(respuesta.body).not.toHaveProperty('puntaje');
   });
 
   it('no devuelve el identificador del usuario en la respuesta', async () => {
@@ -232,5 +241,72 @@ describe('Protecciones y estado del servicio', () => {
       .set('Origin', 'http://localhost:5173');
 
     expect(respuesta.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+  });
+});
+
+describe('POST /api/resultados de una actividad sin puntaje', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  /** Una bitacora de sueno: produce datos, no una calificacion. */
+  function bitacora(extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      userId: USUARIO_A,
+      activityId: ACTIVIDAD,
+      clientOperationId: nuevaOperacion(),
+      completedAt: '2026-09-14T11:00:00.000Z',
+      metadata: { horasDormidas: 6.5, despertares: 2, comoAmanecio: 'cansado' },
+      ...extra,
+    };
+  }
+
+  it('registra un resultado sin puntaje y devuelve 201', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send(bitacora())
+      .expect(201);
+
+    expect(respuesta.body).toMatchObject({
+      activityId: ACTIVIDAD,
+      sugiereAcompanamiento: false,
+      metadata: { horasDormidas: 6.5, despertares: 2, comoAmanecio: 'cansado' },
+    });
+  });
+
+  it('no incluye nivel orientativo cuando no hubo puntaje', async () => {
+    const respuesta = await request(app.getHttpServer()).post('/api/resultados').send(bitacora());
+
+    expect(respuesta.body).not.toHaveProperty('nivelOrientativo');
+  });
+
+  it('reintentar la misma operacion no crea un segundo resultado', async () => {
+    const cuerpoFijo = bitacora();
+
+    const primera = await request(app.getHttpServer()).post('/api/resultados').send(cuerpoFijo);
+    const segunda = await request(app.getHttpServer()).post('/api/resultados').send(cuerpoFijo);
+
+    expect(segunda.status).toBe(201);
+    expect((segunda.body as { id: string }).id).toBe((primera.body as { id: string }).id);
+  });
+
+  it('exige el maximo cuando si se envia puntaje', async () => {
+    await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send(bitacora({ score: 8 }))
+      .expect(400);
+  });
+
+  it('rechaza metadata con una clave que ya es un campo propio', async () => {
+    await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send(bitacora({ metadata: { puntaje: 99 } }))
+      .expect(400);
   });
 });

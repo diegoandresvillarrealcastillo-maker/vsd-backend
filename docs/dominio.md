@@ -65,8 +65,40 @@ Es la entidad central. Hace cumplir tres reglas:
 2. La fecha de realizacion no puede estar en el futuro. Importa en modo sin
    conexion: el reloj del dispositivo puede estar desajustado, y aceptar una
    fecha futura desordenaria el historial.
-3. El puntaje debe caer dentro del rango de la actividad, regla que delega en
-   `OrientativeScore`.
+3. El puntaje, **si lo hay**, debe caer dentro del rango de la actividad, regla
+   que delega en `OrientativeScore`.
+4. `metadata` no puede traer claves que ya sean campos propios.
+
+### El puntaje es opcional
+
+No todas las actividades califican. Una bitacora de sueno o una anotacion de
+animo producen **datos**, no una nota: el diccionario del entregable lo dice
+desde el principio, «cuando aplique». Un resultado sin puntaje es valido y
+conserva usuario, actividad, fecha e identificador de operacion.
+
+Un resultado sin puntaje tampoco sugiere acompanamiento por si solo. Un
+registro cobra sentido en la tendencia, no en una anotacion suelta, y hacer que
+una sola noche mala dispare una sugerencia seria leer de mas.
+
+### `metadata`
+
+Guarda lo propio de cada tipo de actividad: las horas de una bitacora de sueno,
+las respuestas de un registro emocional. Es lo que permite anadir actividades
+sin crear una tabla por cada una, y por tanto lo que cumple el requerimiento de
+escalabilidad.
+
+La regla que decide que va ahi y que va en un campo propio esta en el
+[ADR 0008](adr/0008-campos-jsonb-para-datos-variables.md): si el sistema
+necesita consultarlo, filtrarlo u ordenarlo, es un campo propio. Una clave
+repetida se rechaza, porque dos verdades sobre el mismo dato acaban
+divergiendo.
+
+### El puntaje no sale por la API
+
+Ninguna respuesta expone el numero ni el maximo. Vive en la base para calcular
+tendencias; lo que ve la persona es el nivel. Un «8 sobre 10» en algo
+relacionado con el animo no informa: se lee como una calificacion sobre uno
+mismo, y esta aplicacion existe para acompanar y no para calificar.
 
 Se trata como **un hecho ocurrido, no como un registro editable**. No expone
 metodos para cambiar el puntaje ni la fecha. Si algo se registro mal, se
@@ -107,13 +139,14 @@ Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
 conoce HTTP ni codigos de estado: lanza errores propios, y sera la
 infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 
-| Error                                | Codigo                      | Cuando ocurre                          |
-| ------------------------------------ | --------------------------- | -------------------------------------- |
-| `InvalidIdentifierError`             | `IDENTIFICADOR_INVALIDO`    | El texto no tiene forma de UUID        |
-| `ScoreOutOfRangeError`               | `PUNTAJE_FUERA_DE_RANGO`    | El puntaje esta fuera del rango        |
-| `InvalidScoreRangeError`             | `RANGO_DE_PUNTAJE_INVALIDO` | El maximo de la actividad no es usable |
-| `FutureCompletionDateError`          | `FECHA_EN_EL_FUTURO`        | La fecha de realizacion es futura      |
-| `OperationBelongsToAnotherUserError` | `OPERACION_DE_OTRO_USUARIO` | La operacion pertenece a otra persona  |
+| Error                                | Codigo                        | Cuando ocurre                          |
+| ------------------------------------ | ----------------------------- | -------------------------------------- |
+| `InvalidIdentifierError`             | `IDENTIFICADOR_INVALIDO`      | El texto no tiene forma de UUID        |
+| `ScoreOutOfRangeError`               | `PUNTAJE_FUERA_DE_RANGO`      | El puntaje esta fuera del rango        |
+| `InvalidScoreRangeError`             | `RANGO_DE_PUNTAJE_INVALIDO`   | El maximo de la actividad no es usable |
+| `FutureCompletionDateError`          | `FECHA_EN_EL_FUTURO`          | La fecha de realizacion es futura      |
+| `OperationBelongsToAnotherUserError` | `OPERACION_DE_OTRO_USUARIO`   | La operacion pertenece a otra persona  |
+| `ReservedMetadataKeyError`           | `CLAVE_DE_METADATA_RESERVADA` | metadata repite un campo propio        |
 
 ## Lo que todavia no existe
 

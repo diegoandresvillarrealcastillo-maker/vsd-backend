@@ -32,7 +32,13 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
     const userId = new UserId(command.userId);
     const activityId = new ActivityId(command.activityId);
     const clientOperationId = new ClientOperationId(command.clientOperationId);
-    const score = OrientativeScore.create(command.score, command.maxScore);
+    // Un resultado sin puntaje es valido: las actividades de registro
+    // producen datos, no una calificacion. Si viene el puntaje, el maximo
+    // tiene que venir con el, y el DTO ya lo exige en la frontera HTTP.
+    const score =
+      command.score !== undefined && command.maxScore !== undefined
+        ? OrientativeScore.create(command.score, command.maxScore)
+        : undefined;
 
     const existente = await this.repositorio.findByClientOperationId(clientOperationId);
 
@@ -58,6 +64,7 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
         clientOperationId,
         score,
         completedAt: command.completedAt,
+        metadata: command.metadata,
       },
       this.reloj(),
     );

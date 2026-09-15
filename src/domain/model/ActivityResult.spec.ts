@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ActivityResult, type DatosDeResultado } from './ActivityResult.js';
-import { FutureCompletionDateError } from './DomainError.js';
+import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
 
@@ -70,5 +70,95 @@ describe('ActivityResult', () => {
 
     expect(bajo.sugiereAcompanamiento()).toBe(true);
     expect(alto.sugiereAcompanamiento()).toBe(false);
+  });
+});
+
+describe('ActivityResult sin puntaje', () => {
+  // Una bitacora de sueno o un registro de animo producen datos, no una
+  // calificacion. El diccionario de datos lo dice desde el entregable
+  // inicial: el puntaje aplica "cuando aplique".
+
+  it('es valido un resultado que no produjo puntaje', () => {
+    const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);
+
+    expect(resultado.tienePuntaje()).toBe(false);
+    expect(resultado.score).toBeUndefined();
+  });
+
+  it('conserva el resto de los datos aunque no haya puntaje', () => {
+    const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);
+
+    expect(resultado.userId.value).toBe(USUARIO_A);
+    expect(resultado.activityId.value).toBe(ACTIVIDAD);
+    expect(resultado.clientOperationId.value).toBe(OPERACION);
+    expect(resultado.completedAt.toISOString()).toBe('2026-09-14T11:00:00.000Z');
+  });
+
+  it('sigue rechazando una fecha futura aunque no haya puntaje', () => {
+    const futuro = new Date(AHORA.getTime() + 1000);
+
+    expect(() =>
+      ActivityResult.create(datos({ score: undefined, completedAt: futuro }), AHORA),
+    ).toThrow(FutureCompletionDateError);
+  });
+
+  it('no sugiere acompanamiento por si solo', () => {
+    // Una sola noche mala no dispara nada. Un registro cobra sentido en la
+    // tendencia, no en una anotacion suelta.
+    const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);
+
+    expect(resultado.sugiereAcompanamiento()).toBe(false);
+  });
+});
+
+describe('ActivityResult y su metadata', () => {
+  it('guarda la informacion propia del tipo de actividad', () => {
+    const resultado = ActivityResult.create(
+      datos({
+        score: undefined,
+        metadata: { horasDormidas: 6.5, despertares: 2, comoAmanecio: 'cansado' },
+      }),
+      AHORA,
+    );
+
+    expect(resultado.metadata).toEqual({
+      horasDormidas: 6.5,
+      despertares: 2,
+      comoAmanecio: 'cansado',
+    });
+  });
+
+  it('deja metadata vacia cuando no se envia', () => {
+    const resultado = ActivityResult.create(datos(), AHORA);
+
+    expect(resultado.metadata).toEqual({});
+  });
+
+  it('admite estructuras anidadas', () => {
+    const resultado = ActivityResult.create(
+      datos({ metadata: { respuestas: [{ pregunta: 1, opcion: 'b' }] } }),
+      AHORA,
+    );
+
+    expect(resultado.metadata['respuestas']).toEqual([{ pregunta: 1, opcion: 'b' }]);
+  });
+
+  it('rechaza una clave que ya es un campo propio', () => {
+    // Dos verdades sobre el mismo dato terminan divergiendo. Ver ADR 0008.
+    expect(() => ActivityResult.create(datos({ metadata: { puntaje: 99 } }), AHORA)).toThrow(
+      ReservedMetadataKeyError,
+    );
+  });
+
+  it('rechaza tambien la clave escrita como en el dominio', () => {
+    expect(() => ActivityResult.create(datos({ metadata: { userId: 'otro' } }), AHORA)).toThrow(
+      ReservedMetadataKeyError,
+    );
+  });
+
+  it('no se puede modificar despues de construido', () => {
+    const resultado = ActivityResult.create(datos({ metadata: { nota: 'algo' } }), AHORA);
+
+    expect(Object.isFrozen(resultado.metadata)).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import type { ActivityResult } from '../../model/ActivityResult.js';
+import type { ActivityResult, Metadata } from '../../model/ActivityResult.js';
 
 /**
  * Orden de registrar el resultado de una actividad.
@@ -12,9 +12,16 @@ export interface RegistrarResultadoCommand {
   readonly userId: string;
   readonly activityId: string;
   readonly clientOperationId: string;
-  readonly score: number;
-  readonly maxScore: number;
+  /**
+   * Ausentes en las actividades de registro, que producen datos y no una
+   * calificacion: una bitacora de sueno o una anotacion de animo no se
+   * puntuan. Si viene uno, tiene que venir el otro.
+   */
+  readonly score?: number | undefined;
+  readonly maxScore?: number | undefined;
   readonly completedAt: Date;
+  /** Informacion propia del tipo de actividad. Ver ADR 0008. */
+  readonly metadata?: Metadata | undefined;
 }
 
 /**

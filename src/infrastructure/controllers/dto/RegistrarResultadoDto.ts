@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Max, Min, ValidateIf } from 'class-validator';
 
 /**
  * Cuerpo de la peticion para registrar el resultado de una actividad.
@@ -39,24 +39,37 @@ export class RegistrarResultadoDto {
   @IsUUID()
   clientOperationId!: string;
 
-  @ApiProperty({
-    description: 'Puntaje obtenido. Debe ser un entero entre 0 y maxScore.',
+  @ApiPropertyOptional({
+    description:
+      'Puntaje obtenido. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion.',
     example: 8,
     minimum: 0,
   })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  score!: number;
+  score?: number;
 
-  @ApiProperty({
-    description: 'Puntaje maximo posible de la actividad.',
+  @ApiPropertyOptional({
+    description:
+      'Puntaje maximo posible de la actividad. Obligatorio si se envia score. Migrara a la propia actividad en SCRUM-55.',
     example: 10,
     minimum: 1,
   })
+  @ValidateIf((dto: RegistrarResultadoDto) => dto.score !== undefined)
   @IsInt()
   @Min(1)
   @Max(1000)
-  maxScore!: number;
+  maxScore?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Informacion propia del tipo de actividad: las horas de una bitacora de sueno, las respuestas de un registro emocional. No puede traer claves que ya sean campos propios.',
+    example: { horasDormidas: 6.5, despertares: 2 },
+  })
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 
   @ApiProperty({
     description: 'Momento en que se completo la actividad. No puede estar en el futuro.',

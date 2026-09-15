@@ -72,3 +72,18 @@ export class OperationBelongsToAnotherUserError extends DomainError {
     super('La operacion solicitada no esta disponible.');
   }
 }
+
+/**
+ * `metadata` trae una clave que ya existe como columna.
+ *
+ * Dos verdades sobre el mismo dato terminan divergiendo: si el puntaje vive
+ * en su columna y tambien dentro de `metadata`, tarde o temprano dejan de
+ * coincidir y nadie sabe cual mandaba. Ver ADR 0008.
+ */
+export class ReservedMetadataKeyError extends DomainError {
+  readonly code = 'CLAVE_DE_METADATA_RESERVADA';
+
+  constructor(clave: string) {
+    super(`La clave "${clave}" ya existe como campo propio y no puede ir en metadata.`);
+  }
+}

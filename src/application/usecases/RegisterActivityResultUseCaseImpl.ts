@@ -1,9 +1,5 @@
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
-import {
-  ActivityNotFoundError,
-  OperationBelongsToAnotherUserError,
-  ScoreNotApplicableError,
-} from '../../domain/model/DomainError.js';
+import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type {
@@ -57,16 +53,17 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
     const score =
       command.score !== undefined ? OrientativeScore.create(command.score, actividad) : undefined;
 
-    const existente = await this.repositorio.findByClientOperationId(clientOperationId);
+    // La busqueda esta acotada a esta persona. Un identificador de operacion
+    // ajeno no se encuentra, y la peticion sigue su curso como cualquier otra:
+    // se registra un resultado nuevo de quien pregunta.
+    //
+    // Antes la clave era unica en toda la tabla y este mismo caso se rechazaba.
+    // Parecia lo prudente, pero la respuesta era distinta a la de un
+    // identificador inexistente, y esa diferencia sola bastaba para ir
+    // probando identificadores y averiguar cuales existen. Ver ADR 0010.
+    const existente = await this.repositorio.findByClientOperationId(clientOperationId, userId);
 
     if (existente !== null) {
-      // La operacion pertenece a otra persona. Se rechaza con un mensaje
-      // neutro: confirmar que ese identificador existe ya seria filtrar
-      // informacion sobre datos ajenos.
-      if (!existente.perteneceA(userId)) {
-        throw new OperationBelongsToAnotherUserError();
-      }
-
       // Reintento de la misma operacion. Se devuelve lo ya registrado en
       // lugar de crear un duplicado: es lo que hace seguro reintentar
       // cuando la red se cae a mitad de una sincronizacion.

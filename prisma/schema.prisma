@@ -134,7 +134,12 @@ model Resultado {
   /// La restriccion UNIQUE es lo que convierte la idempotencia de una regla de
   /// la aplicacion en una garantia de la base: aunque el codigo falle, el
   /// duplicado no entra.
-  idOperacionCliente String @unique @map("id_operacion_cliente") @db.Uuid
+  ///
+  /// Es unico **por persona**, no en toda la tabla. Ver ADR 0010: con un
+  /// unico global, mandar el identificador de otra persona daba una respuesta
+  /// distinta a mandar uno inexistente, y esa diferencia sola ya permite
+  /// averiguar que operaciones ajenas existen.
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
   fecha DateTime @default(now()) @db.Timestamptz(3)
 
@@ -143,6 +148,7 @@ model Resultado {
   usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   actividad Actividad @relation(fields: [idActividad], references: [id], onDelete: Restrict)
 
+  @@unique([idUsuario, idOperacionCliente])
   /// El historial se consulta por persona y por fecha; de ahi el indice.
   @@index([idUsuario, fecha])
   @@index([idActividad])
@@ -184,7 +190,8 @@ model EntradaDiario {
   etiquetas Json?
   adjuntos  Json?
 
-  idOperacionCliente String @unique @map("id_operacion_cliente") @db.Uuid
+  /// Unico por persona, igual que en RESULTADO y por el mismo motivo.
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
   /// Aumenta con cada edicion. Permite detectar que dos dispositivos editaron
   /// la misma entrada. La sincronizacion nunca sobrescribe: ante un conflicto
@@ -196,6 +203,7 @@ model EntradaDiario {
 
   usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
 
+  @@unique([idUsuario, idOperacionCliente])
   @@index([idUsuario, fechaCreacion])
   @@map("entrada_diario")
 }

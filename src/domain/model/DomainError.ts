@@ -59,21 +59,6 @@ export class FutureCompletionDateError extends DomainError {
 }
 
 /**
- * El identificador de operacion recibido ya pertenece a otro usuario.
- *
- * No es un problema de integridad sino de seguridad: impide que alguien use
- * un identificador ajeno para escribir sobre datos de otra persona o para
- * deducir que ese registro existe.
- */
-export class OperationBelongsToAnotherUserError extends DomainError {
-  readonly code = 'OPERACION_DE_OTRO_USUARIO';
-
-  constructor() {
-    super('La operacion solicitada no esta disponible.');
-  }
-}
-
-/**
  * `metadata` trae una clave que ya existe como columna.
  *
  * Dos verdades sobre el mismo dato terminan divergiendo: si el puntaje vive

@@ -21,6 +21,16 @@ function nuevaOperacion(): string {
   return '44444444-4444-4444-b444-' + String(contador).padStart(12, '0');
 }
 
+/**
+ * El cuerpo de la respuesta, con tipo.
+ *
+ * `response.body` de supertest es `any`, y el proyecto no deja usar valores
+ * `any` sin mas. Pasar por aqui obliga a nombrar lo que se espera encontrar.
+ */
+function respuestaDe(respuesta: request.Response): Record<string, unknown> {
+  return respuesta.body as Record<string, unknown>;
+}
+
 function cuerpo(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     userId: USUARIO_A,
@@ -135,23 +145,27 @@ describe('Aislamiento entre usuarios y manejo de errores', () => {
     await app.close();
   });
 
-  it('responde 404 si la operacion pertenece a otro usuario', async () => {
+  it('usar el identificador de operacion de otra persona no llega a sus datos', async () => {
     const peticion = cuerpo();
 
-    await request(app.getHttpServer()).post('/api/resultados').send(peticion);
+    const propia = await request(app.getHttpServer()).post('/api/resultados').send(peticion);
 
     const ajena = await request(app.getHttpServer())
       .post('/api/resultados')
-      .send({ ...peticion, userId: USUARIO_B });
+      .send({ ...peticion, userId: USUARIO_B, score: 2 });
 
-    expect(ajena.status).toBe(404);
-    expect(ajena.body).toMatchObject({ codigo: 'OPERACION_DE_OTRO_USUARIO' });
+    // Se registra un resultado nuevo, de quien pregunta. No se devuelve el de
+    // la otra persona, no se sobrescribe y no se responde con un error que
+    // delate que ese identificador estaba ocupado.
+    expect(ajena.status).toBe(201);
+    expect(respuestaDe(ajena).id).not.toBe(respuestaDe(propia).id);
+    expect(ajena.body).toMatchObject({ nivelOrientativo: 'requiere_atencion' });
   });
 
-  it('el mensaje de la operacion ajena no confirma que exista', async () => {
-    // Un 403, o un mensaje que dijera "esa operacion ya existe", confirmaria
-    // que hay algo detras de ese identificador. El 404 no distingue entre
-    // "no existe" y "no es tuyo".
+  it('no responde distinto ante una operacion ajena que ante una nueva', async () => {
+    // Si las dos respuestas se diferenciaran en algo, esa diferencia seria
+    // suficiente para ir probando identificadores y averiguar cuales estan en
+    // uso, sin llegar a ver ni un dato. Ver ADR 0010.
     const peticion = cuerpo();
 
     await request(app.getHttpServer()).post('/api/resultados').send(peticion);
@@ -160,7 +174,13 @@ describe('Aislamiento entre usuarios y manejo de errores', () => {
       .post('/api/resultados')
       .send({ ...peticion, userId: USUARIO_B });
 
-    expect(JSON.stringify(ajena.body)).not.toMatch(/existe|registrad|otro usuario|duplicad/i);
+    const nueva = await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send({ ...cuerpo(), userId: USUARIO_B });
+
+    expect(ajena.status).toBe(nueva.status);
+    expect(Object.keys(respuestaDe(ajena)).sort()).toEqual(Object.keys(respuestaDe(nueva)).sort());
+    expect(respuestaDe(ajena).nivelOrientativo).toBe(respuestaDe(nueva).nivelOrientativo);
   });
 
   it('rechaza un identificador mal formado con 400', async () => {

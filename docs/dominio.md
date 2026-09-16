@@ -38,14 +38,60 @@ En base de datos llevara una restriccion UNIQUE. Esa restriccion, y no el
 codigo, es la garantia ultima de que no haya duplicados cuando haya
 concurrencia real.
 
+## `Activity`
+
+Ademas de describirse a si misma, **declara como se interpreta su puntaje**:
+hacia donde va su escala, cual es su maximo, donde estan sus cortes de nivel y
+que textos ve la persona.
+
+Esa responsabilidad vive aqui y no en el resultado porque la escala es una
+propiedad de la actividad: no cambia de una ejecucion a otra.
+
+### La inversion de escala
+
+Es el defecto que corrige esta entidad, y es silencioso: no rompe ninguna
+prueba, no falla la compilacion, y solo se nota cuando alguien lee un resultado
+que dice lo contrario de lo que siente.
+
+En un juego de memoria un puntaje alto significa que le fue bien. En un
+cuestionario sobre la carga de la semana significa lo contrario. Derivar el
+nivel igual para las dos le mostraria un resultado favorable justamente a quien
+peor esta.
+
+Por eso cada actividad declara `direccionEscala`: `mayor_es_mejor`,
+`mayor_requiere_atencion` o `sin_puntaje`.
+
+Los umbrales tampoco son comunes. Partir en tercios es arbitrario: no hay razon
+para que una bitacora de sueno y un juego de atencion quiebren en el mismo
+punto.
+
+### Los textos los pone cada actividad
+
+La base guarda tres niveles estables, que son los que se consultan y se
+comparan. El texto lo define la actividad: la misma `requiere_atencion` se lee
+como "Cuesta sostenerlo" en un juego de memoria y como "Semana pesada" en un
+cuestionario de carga.
+
+Datos limpios por dentro, lenguaje humano por fuera. Y a nadie se le dice que
+su memoria "requiere atencion", que suena a dictamen.
+
+Si una actividad no trae sus textos se devuelve el nivel tal cual, que es feo
+pero honesto. Inventar una frase es como acaban saliendo las que suenan a
+diagnostico.
+
 ## `OrientativeScore`
 
-Guarda el puntaje obtenido y deriva de el un **nivel orientativo** por bandas:
-hasta un tercio del maximo requiere atencion, hasta dos tercios queda en
-seguimiento, y por encima es favorable.
+Guarda el puntaje **ya normalizado** a una escala de 0 a 100 y el nivel que la
+actividad derivo de el.
 
-El nivel no se puede fijar a mano, se deriva siempre. Asi dos resultados con el
-mismo puntaje significan lo mismo, sin depender de quien construya el objeto.
+Normalizar es lo que permite cumplir el RF7: no se puede dibujar el progreso de
+alguien si una actividad va de 0 a 10 y otra de 0 a 20. El valor sin normalizar
+no se pierde, queda en `metadata`.
+
+El nivel no se puede fijar a mano y ya no se deriva aqui: lo calcula la
+actividad. Asi dos resultados de la misma actividad con el mismo puntaje
+significan siempre lo mismo, y dos actividades distintas pueden interpretar el
+mismo numero de forma opuesta, que es justo lo que hace falta.
 
 **Las etiquetas son deliberadamente descriptivas y no clinicas.** VSD Health no
 diagnostica: un resultado describe como le fue a la persona en la actividad y,
@@ -139,17 +185,20 @@ Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
 conoce HTTP ni codigos de estado: lanza errores propios, y sera la
 infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 
-| Error                                | Codigo                        | Cuando ocurre                          |
-| ------------------------------------ | ----------------------------- | -------------------------------------- |
-| `InvalidIdentifierError`             | `IDENTIFICADOR_INVALIDO`      | El texto no tiene forma de UUID        |
-| `ScoreOutOfRangeError`               | `PUNTAJE_FUERA_DE_RANGO`      | El puntaje esta fuera del rango        |
-| `InvalidScoreRangeError`             | `RANGO_DE_PUNTAJE_INVALIDO`   | El maximo de la actividad no es usable |
-| `FutureCompletionDateError`          | `FECHA_EN_EL_FUTURO`          | La fecha de realizacion es futura      |
-| `OperationBelongsToAnotherUserError` | `OPERACION_DE_OTRO_USUARIO`   | La operacion pertenece a otra persona  |
-| `ReservedMetadataKeyError`           | `CLAVE_DE_METADATA_RESERVADA` | metadata repite un campo propio        |
+| Error                                | Codigo                                | Cuando ocurre                                |
+| ------------------------------------ | ------------------------------------- | -------------------------------------------- |
+| `InvalidIdentifierError`             | `IDENTIFICADOR_INVALIDO`              | El texto no tiene forma de UUID              |
+| `ScoreOutOfRangeError`               | `PUNTAJE_FUERA_DE_RANGO`              | El puntaje esta fuera del rango              |
+| `InvalidScoreRangeError`             | `RANGO_DE_PUNTAJE_INVALIDO`           | El maximo de la actividad no es usable       |
+| `FutureCompletionDateError`          | `FECHA_EN_EL_FUTURO`                  | La fecha de realizacion es futura            |
+| `OperationBelongsToAnotherUserError` | `OPERACION_DE_OTRO_USUARIO`           | La operacion pertenece a otra persona        |
+| `ReservedMetadataKeyError`           | `CLAVE_DE_METADATA_RESERVADA`         | metadata repite un campo propio              |
+| `ActivityNotFoundError`              | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
+| `ScoreNotApplicableError`            | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
+| `InvalidActivityConfigurationError`  | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
 
 ## Lo que todavia no existe
 
-No hay entidades `Usuario`, `Categoria`, `Actividad` ni `RecursoApoyo`. Se
+No hay entidades `Usuario`, `Categoria` ni `RecursoApoyo`. Se
 incorporan cuando se necesiten, no antes. Tampoco hay persistencia real: el
 unico adaptador es en memoria, y el de Prisma llega en el Ciclo 4.

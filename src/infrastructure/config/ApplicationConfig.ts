@@ -1,6 +1,8 @@
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
+import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
 
 /**
@@ -16,12 +18,19 @@ import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivi
  */
 export interface Dependencias {
   readonly activityResultRepository: ActivityResultRepositoryPort;
+  readonly activityRepository: ActivityRepositoryPort;
 }
 
 export function construirActivityResultService(
-  dependencias: Dependencias = { activityResultRepository: new InMemoryActivityResultRepository() },
+  dependencias: Dependencias = {
+    activityResultRepository: new InMemoryActivityResultRepository(),
+    activityRepository: new InMemoryActivityRepository(),
+  },
 ): ActivityResultService {
-  const casoDeUso = new RegisterActivityResultUseCaseImpl(dependencias.activityResultRepository);
+  const casoDeUso = new RegisterActivityResultUseCaseImpl(
+    dependencias.activityResultRepository,
+    dependencias.activityRepository,
+  );
 
   return new ActivityResultService(casoDeUso);
 }

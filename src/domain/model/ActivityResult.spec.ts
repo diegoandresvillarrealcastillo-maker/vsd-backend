@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Activity, DireccionEscala } from './Activity.js';
 import { ActivityResult, type DatosDeResultado } from './ActivityResult.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
@@ -12,13 +13,23 @@ const RESULTADO = '55555555-5555-4555-8555-555555555555';
 
 const AHORA = new Date('2026-09-14T12:00:00.000Z');
 
+/** Actividad de referencia: de 0 a 10, donde mas puntaje es mejor. */
+function actividad(): Activity {
+  return Activity.create({
+    id: new ActivityId(ACTIVIDAD),
+    nombre: 'Secuencias',
+    direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
+    puntajeMaximo: 10,
+  });
+}
+
 function datos(sobrescribir: Partial<DatosDeResultado> = {}): DatosDeResultado {
   return {
     id: new ResultId(RESULTADO),
     userId: new UserId(USUARIO_A),
     activityId: new ActivityId(ACTIVIDAD),
     clientOperationId: new ClientOperationId(OPERACION),
-    score: OrientativeScore.create(8, 10),
+    score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
     ...sobrescribir,
   };
@@ -31,7 +42,8 @@ describe('ActivityResult', () => {
     expect(resultado.userId.value).toBe(USUARIO_A);
     expect(resultado.activityId.value).toBe(ACTIVIDAD);
     expect(resultado.clientOperationId.value).toBe(OPERACION);
-    expect(resultado.score.value).toBe(8);
+    // 8 sobre 10 se guarda normalizado a la escala comun de 0 a 100.
+    expect(resultado.score?.value).toBe(80);
   });
 
   it('acepta una fecha igual al instante actual', () => {
@@ -65,8 +77,14 @@ describe('ActivityResult', () => {
   });
 
   it('sugiere acompanamiento cuando el puntaje lo indica', () => {
-    const bajo = ActivityResult.create(datos({ score: OrientativeScore.create(1, 10) }), AHORA);
-    const alto = ActivityResult.create(datos({ score: OrientativeScore.create(9, 10) }), AHORA);
+    const bajo = ActivityResult.create(
+      datos({ score: OrientativeScore.create(1, actividad()) }),
+      AHORA,
+    );
+    const alto = ActivityResult.create(
+      datos({ score: OrientativeScore.create(9, actividad()) }),
+      AHORA,
+    );
 
     expect(bajo.sugiereAcompanamiento()).toBe(true);
     expect(alto.sugiereAcompanamiento()).toBe(false);

@@ -13,12 +13,13 @@ export interface RegistrarResultadoCommand {
   readonly activityId: string;
   readonly clientOperationId: string;
   /**
-   * Ausentes en las actividades de registro, que producen datos y no una
-   * calificacion: una bitacora de sueno o una anotacion de animo no se
-   * puntuan. Si viene uno, tiene que venir el otro.
+   * Puntaje crudo, en la escala de la actividad. Ausente en las actividades
+   * de registro, que producen datos y no una calificacion.
+   *
+   * El maximo **no** viaja en el comando: lo declara la actividad. Que lo
+   * enviara el cliente permitia elegir el maximo y con el, el nivel.
    */
   readonly score?: number | undefined;
-  readonly maxScore?: number | undefined;
   readonly completedAt: Date;
   /** Informacion propia del tipo de actividad. Ver ADR 0008. */
   readonly metadata?: Metadata | undefined;

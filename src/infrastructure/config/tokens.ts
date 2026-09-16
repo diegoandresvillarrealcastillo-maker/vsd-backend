@@ -9,4 +9,5 @@
  * y es este modulo el que decide que implementacion concreta se entrega.
  */
 export const ACTIVITY_RESULT_REPOSITORY = Symbol('ActivityResultRepositoryPort');
+export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 export const CONFIGURACION = Symbol('Configuracion');

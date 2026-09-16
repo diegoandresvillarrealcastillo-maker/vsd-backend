@@ -48,7 +48,6 @@ export class ActivityResultController {
       activityId: dto.activityId,
       clientOperationId: dto.clientOperationId,
       score: dto.score,
-      maxScore: dto.maxScore,
       completedAt: dto.completedAt,
       metadata: dto.metadata as Metadata | undefined,
     });

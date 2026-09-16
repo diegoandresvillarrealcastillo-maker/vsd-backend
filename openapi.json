@@ -101,15 +101,9 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje obtenido. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
-          },
-          "maxScore": {
-            "type": "number",
-            "description": "Puntaje maximo posible de la actividad. Obligatorio si se envia score. Migrara a la propia actividad en SCRUM-55.",
-            "example": 10,
-            "minimum": 1
           },
           "metadata": {
             "type": "object",

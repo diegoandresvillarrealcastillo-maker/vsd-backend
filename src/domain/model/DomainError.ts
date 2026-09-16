@@ -87,3 +87,49 @@ export class ReservedMetadataKeyError extends DomainError {
     super(`La clave "${clave}" ya existe como campo propio y no puede ir en metadata.`);
   }
 }
+
+/**
+ * La configuracion de la actividad es incoherente.
+ *
+ * Por ejemplo: declara que produce puntaje pero no dice sobre que maximo, o
+ * trae umbrales que no separan tres bandas. Una actividad mal configurada
+ * produciria niveles sin sentido, y es preferible que falle al cargarse el
+ * catalogo y no cuando alguien ya termino la actividad.
+ */
+export class InvalidActivityConfigurationError extends DomainError {
+  readonly code = 'CONFIGURACION_DE_ACTIVIDAD_INVALIDA';
+
+  constructor(nombre: string, motivo: string) {
+    super(`La actividad "${nombre}" ${motivo}.`);
+  }
+}
+
+/**
+ * La actividad reportada no existe en el catalogo.
+ *
+ * Sin la actividad no se puede interpretar el puntaje: no se sabe sobre que
+ * maximo se obtuvo ni hacia donde va la escala. Es preferible rechazar el
+ * resultado a guardarlo con un nivel derivado de suposiciones.
+ */
+export class ActivityNotFoundError extends DomainError {
+  readonly code = 'ACTIVIDAD_NO_ENCONTRADA';
+
+  constructor() {
+    super('La actividad indicada no esta disponible.');
+  }
+}
+
+/**
+ * Llego un puntaje para una actividad que no puntua.
+ *
+ * Se rechaza en lugar de ignorarlo en silencio. Descartar sin avisar un dato
+ * que alguien envio esconde el error de quien llama, y ese dato podria ser
+ * justo lo que la persona respondio.
+ */
+export class ScoreNotApplicableError extends DomainError {
+  readonly code = 'LA_ACTIVIDAD_NO_PUNTUA';
+
+  constructor(nombre: string) {
+    super(`La actividad "${nombre}" no produce puntaje, y se recibio uno.`);
+  }
+}

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Max, Min, ValidateIf } from 'class-validator';
+import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Min } from 'class-validator';
 
 /**
  * Cuerpo de la peticion para registrar el resultado de una actividad.
@@ -41,7 +41,7 @@ export class RegistrarResultadoDto {
 
   @ApiPropertyOptional({
     description:
-      'Puntaje obtenido. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion.',
+      'Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion. El maximo lo declara la actividad, no esta peticion.',
     example: 8,
     minimum: 0,
   })
@@ -49,18 +49,6 @@ export class RegistrarResultadoDto {
   @IsInt()
   @Min(0)
   score?: number;
-
-  @ApiPropertyOptional({
-    description:
-      'Puntaje maximo posible de la actividad. Obligatorio si se envia score. Migrara a la propia actividad en SCRUM-55.',
-    example: 10,
-    minimum: 1,
-  })
-  @ValidateIf((dto: RegistrarResultadoDto) => dto.score !== undefined)
-  @IsInt()
-  @Min(1)
-  @Max(1000)
-  maxScore?: number;
 
   @ApiPropertyOptional({
     description:

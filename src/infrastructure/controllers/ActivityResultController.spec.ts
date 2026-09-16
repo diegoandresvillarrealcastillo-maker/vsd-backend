@@ -10,6 +10,8 @@ import { CONFIGURACION } from '../config/tokens.js';
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
 const USUARIO_B = '22222222-2222-4222-9222-222222222222';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
+/** Bitacora de sueno: es la actividad del catalogo que no puntua. */
+const BITACORA = '88888888-8888-4888-a888-888888888888';
 
 /** Cada prueba usa su propia operacion para no interferir con las demas. */
 let contador = 0;
@@ -25,7 +27,6 @@ function cuerpo(extra: Record<string, unknown> = {}): Record<string, unknown> {
     activityId: ACTIVIDAD,
     clientOperationId: nuevaOperacion(),
     score: 8,
-    maxScore: 10,
     completedAt: '2026-09-14T11:00:00.000Z',
     ...extra,
   };
@@ -259,7 +260,7 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
   function bitacora(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       userId: USUARIO_A,
-      activityId: ACTIVIDAD,
+      activityId: BITACORA,
       clientOperationId: nuevaOperacion(),
       completedAt: '2026-09-14T11:00:00.000Z',
       metadata: { horasDormidas: 6.5, despertares: 2, comoAmanecio: 'cansado' },
@@ -274,7 +275,7 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
       .expect(201);
 
     expect(respuesta.body).toMatchObject({
-      activityId: ACTIVIDAD,
+      activityId: BITACORA,
       sugiereAcompanamiento: false,
       metadata: { horasDormidas: 6.5, despertares: 2, comoAmanecio: 'cansado' },
     });
@@ -296,11 +297,35 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     expect((segunda.body as { id: string }).id).toBe((primera.body as { id: string }).id);
   });
 
-  it('exige el maximo cuando si se envia puntaje', async () => {
-    await request(app.getHttpServer())
+  it('rechaza un puntaje en una actividad que no puntua', async () => {
+    // Se avisa en vez de descartarlo en silencio: ese dato podria ser justo
+    // lo que la persona respondio.
+    const respuesta = await request(app.getHttpServer())
       .post('/api/resultados')
       .send(bitacora({ score: 8 }))
       .expect(400);
+
+    expect(respuesta.body).toMatchObject({ codigo: 'LA_ACTIVIDAD_NO_PUNTUA' });
+  });
+
+  it('el maximo lo declara la actividad, no quien reporta', async () => {
+    // Antes el maximo viajaba en la peticion, de modo que quien reportara
+    // podia elegir su propia escala y con ella el nivel que salia.
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send({ ...cuerpo(), maxScore: 1000 })
+      .expect(400);
+
+    expect(JSON.stringify(respuesta.body)).toContain('maxScore');
+  });
+
+  it('un puntaje por encima del maximo de la actividad se rechaza', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send(cuerpo({ score: 15 }))
+      .expect(400);
+
+    expect(respuesta.body).toMatchObject({ codigo: 'PUNTAJE_FUERA_DE_RANGO' });
   });
 
   it('rechaza metadata con una clave que ya es un campo propio', async () => {

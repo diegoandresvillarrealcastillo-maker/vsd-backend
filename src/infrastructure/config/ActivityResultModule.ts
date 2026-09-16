@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
+import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { ActivityResultController } from '../controllers/ActivityResultController.js';
+import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
-import { ACTIVITY_RESULT_REPOSITORY } from './tokens.js';
+import { ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY } from './tokens.js';
 
 /**
  * Cableado de dependencias de los resultados de actividad.
@@ -28,10 +30,16 @@ import { ACTIVITY_RESULT_REPOSITORY } from './tokens.js';
       useClass: InMemoryActivityResultRepository,
     },
     {
+      provide: ACTIVITY_REPOSITORY,
+      useClass: InMemoryActivityRepository,
+    },
+    {
       provide: RegisterActivityResultUseCaseImpl,
-      useFactory: (repositorio: ActivityResultRepositoryPort) =>
-        new RegisterActivityResultUseCaseImpl(repositorio),
-      inject: [ACTIVITY_RESULT_REPOSITORY],
+      useFactory: (
+        repositorio: ActivityResultRepositoryPort,
+        actividades: ActivityRepositoryPort,
+      ) => new RegisterActivityResultUseCaseImpl(repositorio, actividades),
+      inject: [ACTIVITY_RESULT_REPOSITORY, ACTIVITY_REPOSITORY],
     },
     {
       provide: ActivityResultService,

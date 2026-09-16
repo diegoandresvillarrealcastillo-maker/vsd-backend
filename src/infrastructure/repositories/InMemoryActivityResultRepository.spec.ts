@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { construirActivityResultService } from '../config/ApplicationConfig.js';
 import { InMemoryActivityResultRepository } from './InMemoryActivityResultRepository.js';
@@ -11,13 +12,23 @@ const OPERACION = '44444444-4444-4444-b444-444444444444';
 const OTRA_OPERACION = '66666666-6666-4666-8666-666666666666';
 const RESULTADO = '55555555-5555-4555-8555-555555555555';
 
+/** Actividad de referencia: de 0 a 10, donde mas puntaje es mejor. */
+function actividad(): Activity {
+  return Activity.create({
+    id: new ActivityId(ACTIVIDAD),
+    nombre: 'Secuencias',
+    direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
+    puntajeMaximo: 10,
+  });
+}
+
 function unResultado(operacion = OPERACION): ActivityResult {
   return ActivityResult.create({
     id: new ResultId(RESULTADO),
     userId: new UserId(USUARIO),
     activityId: new ActivityId(ACTIVIDAD),
     clientOperationId: new ClientOperationId(operacion),
-    score: OrientativeScore.create(8, 10),
+    score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
   });
 }
@@ -61,7 +72,6 @@ describe('Cableado completo', () => {
       activityId: ACTIVIDAD,
       clientOperationId: OPERACION,
       score: 8,
-      maxScore: 10,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
     });
 
@@ -76,7 +86,6 @@ describe('Cableado completo', () => {
       activityId: ACTIVIDAD,
       clientOperationId: OPERACION,
       score: 8,
-      maxScore: 10,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
     };
 

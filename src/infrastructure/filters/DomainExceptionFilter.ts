@@ -28,6 +28,18 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // que es justo lo que queremos: conocer un identificador ajeno no puede
   // servir ni para escribir ni para deducir que hay algo detras.
   OPERACION_DE_OTRO_USUARIO: HttpStatus.NOT_FOUND,
+
+  // La actividad no esta en el catalogo. 404 porque el recurso que se nombra
+  // no existe, y quien llama no puede hacer nada distinto con su peticion.
+  ACTIVIDAD_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+
+  CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
+  LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
+
+  // Esto no es culpa de quien llama: significa que el catalogo del servidor
+  // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
+  // en su mano.
+  CONFIGURACION_DE_ACTIVIDAD_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
 interface CuerpoDeError {

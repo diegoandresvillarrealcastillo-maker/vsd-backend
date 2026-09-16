@@ -103,6 +103,46 @@ prueba que falla si alguien introduce terminologia diagnostica en los niveles.
 Las bandas son una escala de producto, no un instrumento clinico validado. Los
 instrumentos con licencia restringida quedan fuera del alcance del proyecto.
 
+## `User`
+
+La cuenta de una persona. No guarda contrasenas: la autenticacion la resuelve
+el proveedor externo y aqui solo queda su identificador. Ver
+[ADR 0004](adr/0004-autenticacion-sin-contrasenas.md).
+
+### El consentimiento es parte del modelo, no un tramite
+
+Se guarda **que version** de la politica acepto y **cuando**. No basta con un
+si o un no: las politicas cambian, y ante una reclamacion hay que poder
+demostrar exactamente a que dio permiso cada quien y en que momento. Es lo que
+exige la Ley 1581 de 2012 para datos sensibles, categoria en la que entra la
+informacion relacionada con salud que maneja la aplicacion.
+
+Una cuenta sin consentimiento **no puede** tratar datos de salud. La regla vive
+en `exigirConsentimiento()`, que falla en vez de devolver un booleano que
+alguien pueda olvidarse de mirar. Aqui el olvido no seria un error de
+programacion, seria un incumplimiento legal.
+
+**Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
+sensibles de menores exige garantias adicionales que quedan fuera del alcance
+de esta version.
+
+### El administrador gestiona contenidos, no personas
+
+`puedeLeerDatosDe()` solo devuelve verdadero para el propio dueno. **El rol de
+administrador no da acceso a nada ajeno**, y es deliberado: el entregable dice
+que el administrador gestiona categorias, actividades y recursos, y que no
+tiene acceso a los resultados, al historial ni a la informacion personal de
+ningun usuario.
+
+Ser administrador no es tener una llave maestra. Hay una prueba que lo
+comprueba.
+
+### Lo que falta por conectar
+
+La regla del consentimiento esta modelada y probada en el dominio, pero
+todavia no se aplica en el flujo HTTP: para exigirla hace falta saber quien
+hace la peticion, y eso es autenticacion. Se conecta en el Ciclo 5.
+
 ## `ActivityResult`
 
 Es la entidad central. Hace cumplir tres reglas:
@@ -199,6 +239,6 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 
 ## Lo que todavia no existe
 
-No hay entidades `Usuario`, `Categoria` ni `RecursoApoyo`. Se
+No hay entidades `Categoria` ni `RecursoApoyo`. Se
 incorporan cuando se necesiten, no antes. Tampoco hay persistencia real: el
 unico adaptador es en memoria, y el de Prisma llega en el Ciclo 4.

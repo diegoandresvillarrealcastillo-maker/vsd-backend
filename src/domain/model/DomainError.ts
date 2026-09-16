@@ -133,3 +133,41 @@ export class ScoreNotApplicableError extends DomainError {
     super(`La actividad "${nombre}" no produce puntaje, y se recibio uno.`);
   }
 }
+
+/**
+ * La cuenta no tiene registrado el consentimiento de tratamiento de datos.
+ *
+ * VSD Health trata informacion relacionada con salud, que la Ley 1581 de 2012
+ * clasifica como sensible. Sin consentimiento no hay base legal para tratarla,
+ * asi que la ausencia bloquea la funcion en lugar de solo anotarse.
+ */
+export class MissingConsentError extends DomainError {
+  readonly code = 'CONSENTIMIENTO_NO_REGISTRADO';
+
+  constructor() {
+    super('La cuenta no tiene registrado el consentimiento de tratamiento de datos.');
+  }
+}
+
+/** El rol recibido no es uno de los definidos por el sistema. */
+export class InvalidRoleError extends DomainError {
+  readonly code = 'ROL_INVALIDO';
+
+  constructor(valor: string) {
+    super(`El rol "${valor}" no existe.`);
+  }
+}
+
+/**
+ * La fecha de aceptacion de la politica esta en el futuro.
+ *
+ * Nadie puede haber aceptado algo que todavia no ha ocurrido, y una fecha asi
+ * invalida la prueba de consentimiento justo cuando hace falta demostrarla.
+ */
+export class FutureConsentDateError extends DomainError {
+  readonly code = 'FECHA_DE_CONSENTIMIENTO_EN_EL_FUTURO';
+
+  constructor() {
+    super('La fecha de aceptacion de la politica no puede estar en el futuro.');
+  }
+}

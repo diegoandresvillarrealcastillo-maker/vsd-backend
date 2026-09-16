@@ -10,4 +10,7 @@
  */
 export const ACTIVITY_RESULT_REPOSITORY = Symbol('ActivityResultRepositoryPort');
 export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
+
+/** Cliente de Prisma, o null cuando el servicio corre sin base de datos. */
+export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');

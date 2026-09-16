@@ -37,6 +37,12 @@ async function arrancar(): Promise<void> {
     app.useLogger(new ConsoleLogger({ json: true, colors: false, compact: true }));
   }
 
+  // Sin esto, `onModuleDestroy` no se ejecuta cuando el proceso recibe una
+  // senal, y la conexion a PostgreSQL queda colgando. Render reinicia el
+  // servicio en cada despliegue y el plan gratuito de Supabase tiene un limite
+  // bajo de conexiones: unas cuantas conexiones huerfanas lo agotan.
+  app.enableShutdownHooks();
+
   configurarAplicacion(app, configuracion);
   configurarDocumentacion(app, configuracion);
 

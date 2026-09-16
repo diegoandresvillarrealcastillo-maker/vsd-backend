@@ -73,6 +73,12 @@ let app: NestExpressApplication;
 async function levantarAplicacion(): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
+  // Estas pruebas son del comportamiento HTTP, no de la persistencia, asi que
+  // se fija el adaptador en memoria. Sin esto, tener un .env con DATABASE_URL
+  // las haria hablar con PostgreSQL sin avisar, y pasarian o fallarian segun
+  // lo que hubiera en la base de cada quien. Las pruebas contra la base real
+  // son las de SCRUM-61 y viven aparte.
+  delete process.env.DATABASE_URL;
 
   registro = new RegistroDePrueba();
 

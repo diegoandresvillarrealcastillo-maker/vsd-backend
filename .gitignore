@@ -78,3 +78,7 @@ prisma/generated/
 *.sqlite
 *.sqlite3
 *.db
+
+# Datos del PostgreSQL local de desarrollo (scripts/postgres-local.mjs).
+# Es una base de trabajo, no algo que compartir.
+/.postgres-local/

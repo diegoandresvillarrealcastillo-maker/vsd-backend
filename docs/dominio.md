@@ -225,17 +225,21 @@ Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
 conoce HTTP ni codigos de estado: lanza errores propios, y sera la
 infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 
-| Error                                | Codigo                                | Cuando ocurre                                |
-| ------------------------------------ | ------------------------------------- | -------------------------------------------- |
-| `InvalidIdentifierError`             | `IDENTIFICADOR_INVALIDO`              | El texto no tiene forma de UUID              |
-| `ScoreOutOfRangeError`               | `PUNTAJE_FUERA_DE_RANGO`              | El puntaje esta fuera del rango              |
-| `InvalidScoreRangeError`             | `RANGO_DE_PUNTAJE_INVALIDO`           | El maximo de la actividad no es usable       |
-| `FutureCompletionDateError`          | `FECHA_EN_EL_FUTURO`                  | La fecha de realizacion es futura            |
-| `OperationBelongsToAnotherUserError` | `OPERACION_DE_OTRO_USUARIO`           | La operacion pertenece a otra persona        |
-| `ReservedMetadataKeyError`           | `CLAVE_DE_METADATA_RESERVADA`         | metadata repite un campo propio              |
-| `ActivityNotFoundError`              | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
-| `ScoreNotApplicableError`            | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
-| `InvalidActivityConfigurationError`  | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
+| Error                               | Codigo                                | Cuando ocurre                                |
+| ----------------------------------- | ------------------------------------- | -------------------------------------------- |
+| `InvalidIdentifierError`            | `IDENTIFICADOR_INVALIDO`              | El texto no tiene forma de UUID              |
+| `ScoreOutOfRangeError`              | `PUNTAJE_FUERA_DE_RANGO`              | El puntaje esta fuera del rango              |
+| `InvalidScoreRangeError`            | `RANGO_DE_PUNTAJE_INVALIDO`           | El maximo de la actividad no es usable       |
+| `FutureCompletionDateError`         | `FECHA_EN_EL_FUTURO`                  | La fecha de realizacion es futura            |
+| `ReservedMetadataKeyError`          | `CLAVE_DE_METADATA_RESERVADA`         | metadata repite un campo propio              |
+| `ActivityNotFoundError`             | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
+| `ScoreNotApplicableError`           | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
+| `InvalidActivityConfigurationError` | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
+
+La clave de operacion es unica **por persona** desde el ADR 0010, asi que usar
+la de otra ya no produce un error distinto: se registra un resultado propio,
+como cualquier otra peticion. Aqui vivia `OperationBelongsToAnotherUserError`,
+que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 

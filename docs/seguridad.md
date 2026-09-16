@@ -64,10 +64,30 @@ Esto se implementa asi:
    Ver [ADR 0003](adr/0003-uuid-como-clave-primaria.md).
 4. **Toda regla de acceso tiene una prueba en negativo** que verifica
    que un tercero recibe un rechazo.
-5. **RLS en PostgreSQL como defensa en profundidad**, no como defensa
-   principal. Prisma se conecta con un rol de aplicacion y no propaga el
-   JWT del usuario a la sesion de PostgreSQL, asi que RLS no puede ser
-   la unica barrera.
+5. **Row Level Security en PostgreSQL**, desde SCRUM-59. La identidad si
+   llega a la sesion de la base: viaja en la variable `vsd.usuario_actual`,
+   que la aplicacion fija dentro de cada transaccion. Si nadie la fija, no
+   se ve nada. Las politicas se versionan como migracion, no se configuran
+   a mano en Supabase.
+   Ver [ADR 0010](adr/0010-aislamiento-en-la-base-de-datos.md).
+6. **La aplicacion se conecta con el rol `vsd_app`**, que no es dueno de
+   ninguna tabla ni tiene privilegios especiales. Es lo que la deja sujeta
+   a las politicas: el dueno de una tabla esta exento de las suyas. Al
+   arrancar se comprueba, y fuera de desarrollo una conexion sin
+   aislamiento impide arrancar.
+
+### Hasta donde llega cada capa, y hasta donde no
+
+Conviene ser exacto, porque decir "tenemos RLS" sin mas suena a mas
+proteccion de la que hay:
+
+- **El caso de uso** protege contra una peticion que pide datos ajenos.
+- **RLS** protege contra un error nuestro: una consulta que olvide filtrar,
+  un endpoint nuevo que no repita la comprobacion. Sin el, ese olvido
+  devuelve datos de mas sin dar ningun error.
+- **Ninguna de las dos** protege contra un backend comprometido, que podria
+  declarar la identidad que quisiera. Esa capa es la autenticacion, y llega
+  en el Ciclo 5. Hasta entonces, la identidad viene en la peticion.
 
 ### La seguridad nunca depende solo del frontend
 

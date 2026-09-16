@@ -17,6 +17,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0007](0007-nestjs-12-y-modulos-esm.md)             | NestJS 12 y modulos ESM                              | Aceptada |
 | [0008](0008-campos-jsonb-para-datos-variables.md)   | Campos JSONB para los datos que varian por actividad | Aceptada |
 | [0009](0009-versionado-de-entradas-de-diario.md)    | Versionado del diario y la regla de no sobrescribir  | Aceptada |
+| [0010](0010-aislamiento-en-la-base-de-datos.md)     | El aislamiento entre personas lo impone la base      | Aceptada |
 
 ## Reglas
 

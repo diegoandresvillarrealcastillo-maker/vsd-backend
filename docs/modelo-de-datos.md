@@ -201,7 +201,7 @@ arriesgarse a que alguien lo lea como una calificación sobre sí mismo, y esta
 aplicación existe para acompañar, no para calificar. Ninguna respuesta de la API
 expone este campo.
 
-### Por qué `id_operacion_cliente` es UNIQUE
+### Por qué `id_operacion_cliente` es UNIQUE por persona
 
 Es lo que sostiene la sincronización. El dispositivo genera ese identificador al
 terminar la actividad, incluso sin conexión. Si la respuesta del servidor se
@@ -209,8 +209,17 @@ pierde y el dispositivo reintenta, la restricción impide que el resultado quede
 duplicado. La regla vive también en el caso de uso, pero aquí abajo es donde se
 garantiza aunque el código falle.
 
-Un identificador de operación que pertenece a otra persona se responde **404**,
-no 403: un 403 confirmaría que existe.
+La restricción es `UNIQUE (id_usuario, id_operacion_cliente)`, no sobre la
+columna sola. Cuando era única en toda la tabla, enviar el identificador de otra
+persona daba **404** y enviar uno inventado daba **201**. Nadie llegaba a ver
+datos ajenos, pero esa diferencia convertía el endpoint en un oráculo: probando
+identificadores se averigua cuáles existen.
+
+Siendo única por persona, usar un identificador ajeno simplemente registra un
+resultado propio y no hay dos respuestas que comparar. La idempotencia no pierde
+nada: lo que protege es que un mismo dispositivo no duplique su propia
+operación, y eso siempre ocurre dentro de una misma cuenta. Ver
+[ADR 0010](adr/0010-aislamiento-en-la-base-de-datos.md).
 
 **Política de acceso:** cada persona lee y escribe únicamente sus propios
 resultados. El administrador **no** tiene acceso a ninguno.
@@ -310,6 +319,47 @@ entradas. El administrador **no** tiene acceso a ninguna.
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.
 
+### Esta tabla no es una intención: es lo que hace el motor
+
+Desde SCRUM-59 cada fila de arriba está escrita como una política de **Row Level
+Security** en la migración `20260916120000_aislamiento_por_rls`. No se
+configuran a mano en el panel de Supabase, donde nadie las revisaría ni
+quedarían en la historia del repositorio.
+
+Quién pregunta viaja en una variable de sesión, `vsd.usuario_actual`, que la
+aplicación fija dentro de la transacción. Si nadie la fija vale `NULL`, y toda
+comparación contra `NULL` es falsa: **sin sesión no se ve nada**.
+
+Tres cosas que conviene tener presentes:
+
+- **Un `UPDATE` sin permiso no da error.** No encuentra filas que actualizar y
+  termina en silencio. Un `INSERT` sí falla, porque lo rechaza el `WITH CHECK`.
+  Son dos formas distintas de la misma regla, y la primera confunde a todo el
+  mundo la primera vez.
+- **El dueño de una tabla está exento de sus políticas.** Por eso las tablas con
+  datos personales llevan además `FORCE ROW LEVEL SECURITY`, y por eso la
+  aplicación se conecta con el rol `vsd_app`, que no es dueño de nada.
+- **Una tabla nueva nace sin políticas y sin permisos.** Falla haciendo ruido en
+  lugar de conceder en silencio. Hay una prueba que falla si alguna tabla del
+  esquema se queda sin RLS.
+
+### Dar acceso al rol `vsd_app` en un ambiente nuevo
+
+La migración crea el rol **sin contraseña y sin permiso de conexión**, a
+propósito: una migración se versiona en Git, y una contraseña en Git es una
+contraseña publicada. Una sola vez por ambiente, a mano:
+
+```sql
+ALTER ROLE vsd_app WITH LOGIN PASSWORD 'la-que-quede-guardada-en-el-gestor';
+```
+
+Después, `DATABASE_URL` se apunta a ese rol. `DIRECT_URL`, que solo usan las
+migraciones, sigue apuntando al dueño.
+
+Si se olvida este paso, la aplicación se conectará como dueño y el aislamiento
+no se aplicará **sin dar ningún error**. Por eso lo comprueba al arrancar: en
+desarrollo avisa, y fuera de desarrollo se niega a arrancar.
+
 ## Documentos relacionados
 
 - [Arquitectura](arquitectura.md) — dónde encaja la persistencia como adaptador
@@ -318,3 +368,4 @@ entregable y lo que imponen las políticas.
 - [ADR 0003](adr/0003-uuid-como-clave-primaria.md) — UUID como clave primaria
 - [ADR 0008](adr/0008-campos-jsonb-para-datos-variables.md) — por qué JSONB
 - [ADR 0009](adr/0009-versionado-de-entradas-de-diario.md) — versionado del diario
+- [ADR 0010](adr/0010-aislamiento-en-la-base-de-datos.md) — Row Level Security y la clave única por persona

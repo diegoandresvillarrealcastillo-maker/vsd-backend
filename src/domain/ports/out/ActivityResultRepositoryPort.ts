@@ -1,5 +1,5 @@
 import type { ActivityResult } from '../../model/ActivityResult.js';
-import type { ClientOperationId } from '../../model/Identifier.js';
+import type { ClientOperationId, UserId } from '../../model/Identifier.js';
 
 /**
  * Puerto de salida: lo que el dominio necesita del mundo para poder cumplir
@@ -16,13 +16,23 @@ import type { ClientOperationId } from '../../model/Identifier.js';
  */
 export interface ActivityResultRepositoryPort {
   /**
-   * Busca el resultado asociado a un identificador de operacion del cliente.
+   * Busca, **entre los resultados de esa persona**, el asociado a un
+   * identificador de operacion del cliente.
    *
    * Es la consulta que sostiene la idempotencia de la sincronizacion: antes
    * de crear un resultado hay que saber si esa misma operacion ya se
    * registro. Devuelve `null` si no existe.
+   *
+   * El identificador de la persona forma parte de la pregunta, no es un
+   * filtro que se anade despues. Una firma que no lo pidiera dejaria a cada
+   * implementacion la decision de acordarse de filtrar, y esa es exactamente
+   * la clase de olvido que termina mostrando datos ajenos. Aqui no hay nada
+   * que olvidar: sin persona no se puede ni llamar al metodo.
    */
-  findByClientOperationId(clientOperationId: ClientOperationId): Promise<ActivityResult | null>;
+  findByClientOperationId(
+    clientOperationId: ClientOperationId,
+    userId: UserId,
+  ): Promise<ActivityResult | null>;
 
   /** Guarda un resultado nuevo. */
   save(result: ActivityResult): Promise<void>;

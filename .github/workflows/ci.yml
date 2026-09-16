@@ -14,8 +14,13 @@
 name: CI
 
 on:
+  # Cualquier Pull Request, sin filtrar por rama destino.
+  #
+  # Filtrarlo a las tres ramas fijas dejaba sin CI a los Pull Request apilados,
+  # los que salen de otra rama de trabajo porque dependen de ella. Y el sitio
+  # donde eso se nota es el peor: un Pull Request que aparece sin una sola
+  # comprobacion se lee como si no hubiera nada que comprobar.
   pull_request:
-    branches: [desarrollo, preproduccion, produccion]
   push:
     branches: [desarrollo, preproduccion, produccion]
 
@@ -143,3 +148,80 @@ jobs:
       - name: Compilar
         if: steps.proyecto.outputs.existe == 'si'
         run: npm run build
+
+  integracion:
+    name: Pruebas contra PostgreSQL
+    runs-on: ubuntu-24.04
+
+    # Misma version que en local y la misma que corre Supabase. Una base de
+    # otra version en el CI convierte cualquier fallo en una discusion sobre
+    # si el problema es del codigo o del entorno.
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: vsd
+          # Credenciales de un contenedor que vive doce minutos, no sale de la
+          # maquina del trabajo y no contiene informacion de nadie. Las de
+          # verdad viven en los secretos del repositorio y nunca en este
+          # archivo.
+          POSTGRES_PASSWORD: vsd_ci
+          POSTGRES_DB: vsd_health
+        ports:
+          - 5432:5432
+        # Sin esto, el trabajo sigue en cuanto el contenedor arranca, que es
+        # antes de que la base acepte conexiones, y la migracion falla sin
+        # motivo aparente.
+        options: >-
+          --health-cmd "pg_isready -U vsd -d vsd_health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Comprobar si el repositorio ya tiene proyecto de Node
+        id: proyecto
+        run: |
+          if [ -f package.json ]; then
+            echo "existe=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=no" >> "$GITHUB_OUTPUT"
+            echo "Sin package.json todavia: no hay nada que comprobar."
+          fi
+
+      - name: Preparar Node
+        if: steps.proyecto.outputs.existe == 'si'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        if: steps.proyecto.outputs.existe == 'si'
+        run: npm ci
+
+      - name: Aplicar las migraciones desde cero
+        if: steps.proyecto.outputs.existe == 'si'
+        # La base parte vacia en cada ejecucion, asi que esto ejercita tambien
+        # que las migraciones se apliquen limpias: tablas, restricciones,
+        # roles y politicas de aislamiento.
+        env:
+          DIRECT_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Ejecutar las pruebas de integracion
+        if: steps.proyecto.outputs.existe == 'si'
+        # Solo las que necesitan la base. El resto de la suite ya corrio en
+        # "Calidad del codigo", y repetirla aqui alargaria cada Pull Request
+        # sin comprobar nada nuevo.
+        #
+        # Si este trabajo se quedara sin base, las pruebas se saltarian solas y
+        # nadie se enteraria. PRUEBAS_DE_INTEGRACION se lo prohibe: aqui, y solo
+        # aqui, saltarselas es un error en vez de un salto silencioso.
+        env:
+          DATABASE_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
+          PRUEBAS_DE_INTEGRACION: obligatorias
+        run: npm run test:integracion

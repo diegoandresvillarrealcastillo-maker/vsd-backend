@@ -51,16 +51,21 @@ Toda la documentacion tecnica del proyecto vive en [docs/](docs/):
 
 ## Estado actual
 
-La API ya funciona. Registra resultados de actividades y esta documentada,
-pero **todavia guarda en memoria**: al reiniciar el servicio se pierde lo
-registrado. La persistencia real entra en el Ciclo 4.
+La API ya funciona y **guarda en PostgreSQL**. Si no hay `DATABASE_URL` cae al
+adaptador en memoria, que sigue existiendo para desarrollo y pruebas; en
+preproduccion y produccion la base de datos es obligatoria y sin ella el
+servicio no arranca.
+
+Lo que todavia no existe es la autenticacion. La identidad viaja en la
+peticion, asi que el aislamiento entre personas protege contra errores del
+propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
 
 | Ciclo | Que se incorporo                                      | Estado    |
 | ----- | ----------------------------------------------------- | --------- |
 | 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
 | 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
-| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | En curso  |
-| 4     | Prisma + PostgreSQL + Supabase                        | Pendiente |
+| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
+| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | En curso  |
 | 5     | Usuarios y autenticacion                              | Pendiente |
 
 ## Como ejecutarlo en local
@@ -79,8 +84,9 @@ Crea tu archivo de entorno a partir del ejemplo:
 cp .env.example .env
 ```
 
-Para desarrollo local los valores por defecto sirven tal cual. Las variables
-de base de datos todavia no se usan: llegan en el Ciclo 4.
+Para desarrollo local los valores por defecto sirven tal cual. Si dejas
+`DATABASE_URL` vacia, la API arranca guardando en memoria; para usar PostgreSQL,
+levanta la base con uno de los comandos de mas abajo y apunta ahi las dos URL.
 
 Arranca la API:
 
@@ -92,6 +98,16 @@ Ya puedes abrir:
 
 - **http://localhost:3000/health** — comprueba que responde
 - **http://localhost:3000/api/docs** — documentacion navegable de la API
+
+### VSD IA
+
+El asistente responde en `POST /api/asistente`. Es la primera version: **reglas,
+sin modelo de lenguaje**, sin costo y sin llamadas a ninguna API.
+
+Si el texto trae una expresion de riesgo, la respuesta incluye siempre las
+lineas de atencion, y esa decision se toma antes de mirar nada mas. No se delega
+a un modelo, ni ahora ni cuando exista el adaptador de Fase 2: ver
+[ADR 0011](docs/adr/0011-la-deteccion-de-riesgo-es-por-reglas.md).
 
 ### Probar la API sin salir del editor
 
@@ -107,16 +123,17 @@ interrupcion funcionan sobre los archivos `.ts`.
 
 ### Comandos disponibles
 
-| Comando                 | Que hace                                       |
-| ----------------------- | ---------------------------------------------- |
-| `npm run start:dev`     | Arranca la API y recarga al guardar            |
-| `npm test`              | Ejecuta las pruebas                            |
-| `npm run test:watch`    | Pruebas en modo continuo                       |
-| `npm run test:coverage` | Pruebas con informe de cobertura               |
-| `npm run lint`          | Estilo y fronteras de la arquitectura          |
-| `npm run typecheck`     | Revisa los tipos sin compilar                  |
-| `npm run build`         | Compila a `dist/`                              |
-| `npm run openapi`       | Genera `openapi.json` sin levantar el servidor |
+| Comando                    | Que hace                                       |
+| -------------------------- | ---------------------------------------------- |
+| `npm run start:dev`        | Arranca la API y recarga al guardar            |
+| `npm test`                 | Ejecuta las pruebas                            |
+| `npm run test:watch`       | Pruebas en modo continuo                       |
+| `npm run test:coverage`    | Pruebas con informe de cobertura               |
+| `npm run test:integracion` | Solo las pruebas contra PostgreSQL real        |
+| `npm run lint`             | Estilo y fronteras de la arquitectura          |
+| `npm run typecheck`        | Revisa los tipos sin compilar                  |
+| `npm run build`            | Compila a `dist/`                              |
+| `npm run openapi`          | Genera `openapi.json` sin levantar el servidor |
 
 ### Base de datos en local
 
@@ -139,6 +156,21 @@ pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
 `npm run db:local` es la alternativa para maquinas sin permisos de
 administrador: descarga los binarios oficiales de PostgreSQL y los ejecuta como
 un proceso normal. Es PostgreSQL de verdad, no una simulacion.
+
+### Las pruebas que necesitan la base
+
+Los archivos `*.integracion.spec.ts` hablan con PostgreSQL de verdad. **Si no
+hay `DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar a
+levantar una base para cambiar una linea de dominio termina con alguien
+comentando las pruebas.
+
+Con la base levantada corren solas, y el CI las ejecuta siempre contra un
+contenedor propio. Ahi no pueden saltarse: si faltara la base, fallan diciendolo
+en vez de pasar sin comprobar nada.
+
+Estas pruebas se conectan con el rol `vsd_app`, no con el dueno de las tablas,
+porque el dueno esta exento de las politicas de aislamiento. La primera vez le
+dan una contrasena local por su cuenta; no hay nada que preparar a mano.
 
 ### Si algo no arranca
 

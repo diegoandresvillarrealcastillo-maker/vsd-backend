@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'node:fs';
+
 import EmbeddedPostgres from 'embedded-postgres';
 
 /**
@@ -42,19 +44,38 @@ import EmbeddedPostgres from 'embedded-postgres';
 
 const PUERTO = 5432;
 const BASE = 'vsd_health';
+const DIRECTORIO = './.postgres-local';
 
 const postgres = new EmbeddedPostgres({
-  databaseDir: './.postgres-local',
+  databaseDir: DIRECTORIO,
   user: 'vsd',
   password: 'vsd_local',
   port: PUERTO,
   persistent: true,
 });
 
-console.log('Preparando PostgreSQL local...');
-console.log('La primera vez descarga los binarios y tarda un poco.');
+/**
+ * Si ya hay un cluster en el directorio, inicializarlo otra vez falla.
+ *
+ * El directorio es persistente a proposito, asi que a partir del segundo
+ * arranque esto es lo normal, no un caso raro. Sin esta comprobacion el
+ * script solo funcionaba una vez y el error que daba (`initdb: directory
+ * exists but is not empty`) no sugeria en ningun momento que bastaba con
+ * saltarse ese paso.
+ */
+function yaEstaInicializado() {
+  return existsSync(DIRECTORIO) && readdirSync(DIRECTORIO).length > 0;
+}
 
-await postgres.initialise();
+console.log('Preparando PostgreSQL local...');
+
+if (yaEstaInicializado()) {
+  console.log('Reutilizando el cluster que ya existe.');
+} else {
+  console.log('La primera vez descarga los binarios y tarda un poco.');
+  await postgres.initialise();
+}
+
 await postgres.start();
 
 try {

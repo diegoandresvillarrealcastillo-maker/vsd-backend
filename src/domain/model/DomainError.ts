@@ -59,21 +59,6 @@ export class FutureCompletionDateError extends DomainError {
 }
 
 /**
- * El identificador de operacion recibido ya pertenece a otro usuario.
- *
- * No es un problema de integridad sino de seguridad: impide que alguien use
- * un identificador ajeno para escribir sobre datos de otra persona o para
- * deducir que ese registro existe.
- */
-export class OperationBelongsToAnotherUserError extends DomainError {
-  readonly code = 'OPERACION_DE_OTRO_USUARIO';
-
-  constructor() {
-    super('La operacion solicitada no esta disponible.');
-  }
-}
-
-/**
  * `metadata` trae una clave que ya existe como columna.
  *
  * Dos verdades sobre el mismo dato terminan divergiendo: si el puntaje vive
@@ -169,5 +154,21 @@ export class FutureConsentDateError extends DomainError {
 
   constructor() {
     super('La fecha de aceptacion de la politica no puede estar en el futuro.');
+  }
+}
+
+/**
+ * Un recurso de apoyo esta mal formado y no se puede mostrar.
+ *
+ * Importa mas de lo que parece: los recursos son lo que el asistente responde
+ * cuando detecta una senal de riesgo. Un recurso a medias ahi seria una
+ * pantalla vacia en el peor momento posible, asi que se rechaza al construirlo
+ * y no al pintarlo.
+ */
+export class InvalidResourceError extends DomainError {
+  readonly code = 'RECURSO_INVALIDO';
+
+  constructor(motivo: string) {
+    super(`Recurso de apoyo invalido: ${motivo}.`);
   }
 }

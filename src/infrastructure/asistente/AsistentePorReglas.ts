@@ -29,6 +29,10 @@ const REGLAS: readonly {
   readonly palabras: readonly string[];
 }[] = [
   {
+    // Este tema no tiene lecturas propias, y es deliberado: a quien pregunta
+    // donde buscar ayuda se le responde con telefonos, no con un articulo.
+    // Al no encontrar nada, cae a las lineas de atencion, que es justo lo que
+    // corresponde.
     intencion: Intencion.DONDE_BUSCO_AYUDA,
     tema: 'ayuda',
     palabras: ['ayuda', 'psicolog', 'profesional', 'terapia', 'con quien hablo', 'donde acudo'],

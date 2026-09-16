@@ -64,12 +64,20 @@ describe.skipIf(URL_BASE === undefined)('Recursos de apoyo en PostgreSQL', () =>
     expect(lineas.every((linea) => linea.esLineaDeAtencion())).toBe(true);
   });
 
-  it('hay contenido para cada tema que el asistente reconoce', async () => {
-    for (const tema of ['resultado', 'sueno', 'animo', 'ayuda']) {
+  it('hay contenido para los temas que lo tienen', async () => {
+    for (const tema of ['resultado', 'sueno', 'animo']) {
       const recursos = await repositorio.porTema(tema);
 
       expect(recursos.length).toBeGreaterThan(0);
     }
+  });
+
+  it('un tema sin contenido devuelve vacio y no falla', async () => {
+    // "Donde busco ayuda" no tiene lecturas propias: lo que corresponde
+    // responder ahi son los telefonos, y de eso se encarga el asistente
+    // cayendo a las lineas de atencion. Este adaptador solo tiene que decir
+    // la verdad, que es que no hay nada con ese tema.
+    expect(await repositorio.porTema('ayuda')).toEqual([]);
   });
 
   it('el catalogo en memoria dice lo mismo que la base', async () => {
@@ -97,7 +105,6 @@ describe.skipIf(URL_BASE === undefined)('Recursos de apoyo en PostgreSQL', () =>
       ...(await repositorio.porTema('resultado')),
       ...(await repositorio.porTema('sueno')),
       ...(await repositorio.porTema('animo')),
-      ...(await repositorio.porTema('ayuda')),
     ];
 
     for (const recurso of todos) {

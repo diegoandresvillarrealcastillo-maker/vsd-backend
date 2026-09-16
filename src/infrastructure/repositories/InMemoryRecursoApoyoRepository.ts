@@ -70,15 +70,6 @@ const RECURSOS: readonly RecursoApoyo[] = [
     tema: 'animo',
     cobertura: 'nacional',
   }),
-  RecursoApoyo.create({
-    id: '0a000000-0000-4000-8000-000000000004',
-    titulo: 'Bienestar universitario',
-    descripcion:
-      'La Universidad de Cundinamarca tiene acompanamiento psicologico gratuito para estudiantes. Se pide por Bienestar Universitario en tu sede.',
-    tipo: 'contacto',
-    tema: 'ayuda',
-    cobertura: 'universidad',
-  }),
 ];
 
 export class InMemoryRecursoApoyoRepository implements RecursoApoyoRepositoryPort {

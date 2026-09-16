@@ -113,14 +113,5 @@ VALUES
     'animo',
     'nacional',
     NULL
-  ),
-  (
-    '0a000000-0000-4000-8000-000000000004',
-    'Bienestar universitario',
-    'La Universidad de Cundinamarca tiene acompanamiento psicologico gratuito para estudiantes. Se pide por Bienestar Universitario en tu sede.',
-    'contacto',
-    'ayuda',
-    'universidad',
-    NULL
   )
 ON CONFLICT ("id_recurso") DO NOTHING;

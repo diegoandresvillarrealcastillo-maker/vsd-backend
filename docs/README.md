@@ -5,14 +5,15 @@ proyecto, y cubre tanto `vsd-backend` como `vsd-frontend`.
 
 ## Indice
 
-| Documento                          | Para que sirve                                        |
-| ---------------------------------- | ----------------------------------------------------- |
-| [arquitectura.md](arquitectura.md) | Como se organiza el codigo y por que                  |
-| [ambientes.md](ambientes.md)       | Los tres ambientes DEV, PRE y PROD y su configuracion |
-| [dominio.md](dominio.md)           | Que reglas viven en el dominio y por que              |
-| [convenciones.md](convenciones.md) | Nombres, carpetas y estilo                            |
-| [seguridad.md](seguridad.md)       | Reglas de seguridad y privacidad que no se negocian   |
-| [adr/](adr/)                       | Decisiones de arquitectura y su justificacion         |
+| Documento                                | Para que sirve                                        |
+| ---------------------------------------- | ----------------------------------------------------- |
+| [arquitectura.md](arquitectura.md)       | Como se organiza el codigo y por que                  |
+| [ambientes.md](ambientes.md)             | Los tres ambientes DEV, PRE y PROD y su configuracion |
+| [dominio.md](dominio.md)                 | Que reglas viven en el dominio y por que              |
+| [modelo-de-datos.md](modelo-de-datos.md) | Las seis tablas, sus campos y quien puede verlas      |
+| [convenciones.md](convenciones.md)       | Nombres, carpetas y estilo                            |
+| [seguridad.md](seguridad.md)             | Reglas de seguridad y privacidad que no se negocian   |
+| [adr/](adr/)                             | Decisiones de arquitectura y su justificacion         |
 
 ## Como se mantiene
 

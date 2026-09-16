@@ -23,11 +23,22 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   RANGO_DE_PUNTAJE_INVALIDO: HttpStatus.BAD_REQUEST,
   FECHA_EN_EL_FUTURO: HttpStatus.BAD_REQUEST,
 
-  // 404 y no 403, a proposito. Un 403 confirmaria que ese identificador de
-  // operacion existe. El 404 no distingue entre "no existe" y "no es tuyo",
-  // que es justo lo que queremos: conocer un identificador ajeno no puede
-  // servir ni para escribir ni para deducir que hay algo detras.
-  OPERACION_DE_OTRO_USUARIO: HttpStatus.NOT_FOUND,
+  // Aqui vivia OPERACION_DE_OTRO_USUARIO. Se quito con el ADR 0010: la clave
+  // de operacion es unica por persona, asi que usar una ajena ya no produce
+  // una respuesta distinta a usar una inexistente. No hacia falta un estado
+  // que no delatara nada porque dejo de haber algo que delatar.
+
+  // La actividad no esta en el catalogo. 404 porque el recurso que se nombra
+  // no existe, y quien llama no puede hacer nada distinto con su peticion.
+  ACTIVIDAD_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+
+  CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
+  LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
+
+  // Esto no es culpa de quien llama: significa que el catalogo del servidor
+  // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
+  // en su mano.
+  CONFIGURACION_DE_ACTIVIDAD_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
 interface CuerpoDeError {

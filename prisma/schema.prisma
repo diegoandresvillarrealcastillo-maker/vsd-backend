@@ -1,0 +1,226 @@
+// Esquema de datos de VSD Health.
+//
+// La fuente de verdad es docs/modelo-de-datos.md. Si este archivo y aquel
+// documento discrepan, se corrige este archivo.
+//
+// Los nombres de las tablas y columnas van en espanol y en snake_case, como
+// el diccionario de datos; los del cliente de Prisma en camelCase, como el
+// resto del codigo. `@map` y `@@map` hacen de puente entre los dos mundos.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Desde Prisma 7 las URL de conexion no viven aqui. Las de migracion estan en
+// prisma.config.ts y la de la aplicacion la recibe el cliente a traves de un
+// adaptador. Ver ADR 0010.
+
+/// Rol de la cuenta. El administrador gestiona contenidos, no personas.
+enum Rol {
+  usuario
+  administrador
+
+  @@map("rol")
+}
+
+/// Como se interpreta el puntaje de una actividad.
+///
+/// Sin esto, un puntaje alto en un cuestionario de carga se leeria como
+/// favorable, y el sistema le diria que va bien a quien peor esta.
+enum DireccionEscala {
+  mayor_es_mejor
+  mayor_requiere_atencion
+  sin_puntaje
+
+  @@map("direccion_escala")
+}
+
+/// Nivel orientativo. Descriptivo, nunca clinico: VSD Health no diagnostica.
+enum NivelOrientativo {
+  favorable
+  en_seguimiento
+  requiere_atencion
+
+  @@map("nivel_orientativo")
+}
+
+/// Formato del contenido de una entrada de diario.
+///
+/// Sin conexion solo hay texto plano: es lo que permite escribir en cualquier
+/// momento y lo que hace viable reconciliar la sincronizacion despues.
+enum FormatoEntrada {
+  texto_plano
+  enriquecido
+
+  @@map("formato_entrada")
+}
+
+model Usuario {
+  id                      String   @id @default(uuid()) @map("id_usuario") @db.Uuid
+  nombre                  String?  @db.VarChar(100)
+  correo                  String   @unique @db.VarChar(120)
+  idProveedorAuth         String   @unique @map("id_proveedor_auth") @db.VarChar(255)
+  rol                     Rol      @default(usuario)
+  /// Version de la politica que acepto. Las politicas cambian, y hay que poder
+  /// demostrar a que dio permiso cada quien. Ley 1581 de 2012.
+  versionPoliticaAceptada String   @map("version_politica_aceptada") @db.VarChar(20)
+  fechaAceptacionPolitica DateTime @map("fecha_aceptacion_politica") @db.Timestamptz(3)
+  fechaRegistro           DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(3)
+
+  resultados       Resultado[]
+  entradasDeDiario EntradaDiario[]
+
+  @@map("usuario")
+}
+
+model Categoria {
+  id          String  @id @default(uuid()) @map("id_categoria") @db.Uuid
+  nombre      String  @unique @db.VarChar(50)
+  descripcion String?
+
+  actividades      Actividad[]
+  recursosDeApoyo  RecursoApoyo[]
+
+  @@map("categoria")
+}
+
+model Actividad {
+  id          String  @id @default(uuid()) @map("id_actividad") @db.Uuid
+  idCategoria String  @map("id_categoria") @db.Uuid
+  nombre      String  @db.VarChar(100)
+  tipo        String  @db.VarChar(30)
+  descripcion String?
+  estado      Boolean @default(true)
+
+  /// Hacia donde va la escala de esta actividad.
+  direccionEscala DireccionEscala @map("direccion_escala")
+  /// Maximo posible. Vacio cuando la actividad no puntua.
+  puntajeMaximo   Decimal?        @map("puntaje_maximo") @db.Decimal(5, 2)
+  /// Cortes de nivel propios de esta actividad. Partir en tercios es
+  /// arbitrario: una bitacora de sueno no quiebra donde un juego de atencion.
+  umbrales        Json?
+  /// Textos que ve la persona, en el lenguaje de esta actividad.
+  textosNivel     Json?           @map("textos_nivel")
+
+  categoria  Categoria   @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
+  resultados Resultado[]
+
+  @@index([idCategoria])
+  @@map("actividad")
+}
+
+model Resultado {
+  id          String @id @default(uuid()) @map("id_resultado") @db.Uuid
+  idUsuario   String @map("id_usuario") @db.Uuid
+  idActividad String @map("id_actividad") @db.Uuid
+
+  /// Normalizado de 0 a 100 para poder comparar actividades de escalas
+  /// distintas, que es lo que pide el RF7. El valor crudo queda en `metadata`.
+  ///
+  /// **No sale por la API.** Vive aqui para calcular tendencias; lo que ve la
+  /// persona es el nivel.
+  puntaje          Decimal?          @db.Decimal(5, 2)
+  nivelOrientativo NivelOrientativo? @map("nivel_orientativo")
+
+  /// Informacion propia del tipo de actividad. Ver ADR 0008.
+  metadata Json?
+
+  /// Lo genera el dispositivo al terminar la actividad, incluso sin conexion.
+  ///
+  /// La restriccion UNIQUE es lo que convierte la idempotencia de una regla de
+  /// la aplicacion en una garantia de la base: aunque el codigo falle, el
+  /// duplicado no entra.
+  ///
+  /// Es unico **por persona**, no en toda la tabla. Ver ADR 0010: con un
+  /// unico global, mandar el identificador de otra persona daba una respuesta
+  /// distinta a mandar uno inexistente, y esa diferencia sola ya permite
+  /// averiguar que operaciones ajenas existen.
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
+
+  fecha DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Al eliminar la cuenta se borran sus resultados. Es el RF12: la persona
+  /// puede pedir que se elimine todo lo suyo.
+  usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  actividad Actividad @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+
+  @@unique([idUsuario, idOperacionCliente])
+  /// El historial se consulta por persona y por fecha; de ahi el indice.
+  @@index([idUsuario, fecha])
+  @@index([idActividad])
+  @@map("resultado")
+}
+
+model RecursoApoyo {
+  id          String  @id @default(uuid()) @map("id_recurso") @db.Uuid
+  /// Vacio cuando el recurso aplica siempre, como las lineas de atencion.
+  idCategoria String? @map("id_categoria") @db.Uuid
+  titulo      String  @db.VarChar(120)
+  descripcion String?
+  /// Que clase de recurso es: contacto, lectura, ejercicio.
+  tipo        String  @db.VarChar(30)
+  enlace      String? @db.VarChar(255)
+
+  /// De que trata. Es lo que permite al asistente responder a una intencion
+  /// con recursos de la base en lugar de con texto escrito en el codigo.
+  ///
+  /// Vacio en los recursos que valen para cualquier tema, como las lineas de
+  /// atencion.
+  tema String? @db.VarChar(30)
+
+  /// Donde sirve este recurso: `nacional`, `bogota`, `universidad`.
+  ///
+  /// No es un adorno. La Linea 106 es un servicio distrital y se marca desde
+  /// Bogota; la sede principal de la universidad esta en Fusagasuga. Dar solo
+  /// ese numero a quien esta fuera de Bogota es darle un telefono que no
+  /// contesta, y en una situacion de riesgo eso no es un detalle.
+  cobertura String? @db.VarChar(30)
+
+  categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
+
+  @@index([idCategoria])
+  @@index([tipo, tema])
+  @@map("recurso_apoyo")
+}
+
+/// Mi Diario (RF14).
+///
+/// La tabla se crea ahora aunque el modulo sea del Ciclo 8: adelantarla evita
+/// una migracion sobre una base ya en uso. Ver SCRUM-52.
+///
+/// Su contenido **no se evalua**. Ninguna entrada produce puntaje ni nivel, y
+/// por eso no se relaciona con actividad ni con categoria.
+model EntradaDiario {
+  id        String  @id @default(uuid()) @map("id_entrada") @db.Uuid
+  idUsuario String  @map("id_usuario") @db.Uuid
+  titulo    String? @db.VarChar(120)
+  contenido String
+
+  formato FormatoEntrada @default(texto_plano)
+
+  /// Etiquetas de animo y adjuntos: solo con conexion. Subir un archivo
+  /// requiere red por definicion.
+  etiquetas Json?
+  adjuntos  Json?
+
+  /// Unico por persona, igual que en RESULTADO y por el mismo motivo.
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
+
+  /// Aumenta con cada edicion. Permite detectar que dos dispositivos editaron
+  /// la misma entrada. La sincronizacion nunca sobrescribe: ante un conflicto
+  /// la copia local se guarda aparte. Ver ADR 0009.
+  version Int @default(1)
+
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@unique([idUsuario, idOperacionCliente])
+  @@index([idUsuario, fechaCreacion])
+  @@map("entrada_diario")
+}

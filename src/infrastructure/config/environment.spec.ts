@@ -34,6 +34,7 @@ describe('validarConfiguracion', () => {
       ...VALIDA,
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://vsd.example',
+      DATABASE_URL: 'postgresql://x:y@z:5432/db',
     });
 
     expect(configuracion.esProduccion).toBe(true);
@@ -83,5 +84,65 @@ describe('validarConfiguracion', () => {
 
     expect(configuracion.puerto).toBe(3000);
     expect(configuracion.ambiente).toBe(Ambiente.DESARROLLO);
+  });
+});
+
+describe('La base de datos es obligatoria fuera de desarrollo', () => {
+  // Sin DATABASE_URL el servicio guarda en memoria y al reiniciarse no queda
+  // nada. En desarrollo eso es comodo. En preproduccion o produccion seria
+  // perder resultados de personas reales sin que nadie se entere hasta que
+  // alguien pregunte por su historial.
+
+  it.each(['preproduction', 'production'])('no arranca en %s sin DATABASE_URL', (ambiente) => {
+    expect(() =>
+      validarConfiguracion({ ...VALIDA, NODE_ENV: ambiente, CORS_ORIGIN: 'https://vsd.example' }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
+  it.each(['preproduction', 'production'])('arranca en %s con DATABASE_URL', (ambiente) => {
+    const configuracion = validarConfiguracion({
+      ...VALIDA,
+      NODE_ENV: ambiente,
+      CORS_ORIGIN: 'https://vsd.example',
+      DATABASE_URL: 'postgresql://x:y@z:5432/db',
+    });
+
+    expect(configuracion.urlBaseDeDatos).toBe('postgresql://x:y@z:5432/db');
+  });
+
+  it('en desarrollo si arranca sin base de datos', () => {
+    const configuracion = validarConfiguracion({ ...VALIDA });
+
+    expect(configuracion.urlBaseDeDatos).toBeUndefined();
+  });
+
+  it('una cadena vacia cuenta como ausente, no como valida', () => {
+    // Un .env con la linea presente pero sin valor es un despiste comun, y
+    // tratarlo como una URL valida haria fallar la conexion mucho mas tarde.
+    expect(() =>
+      validarConfiguracion({
+        ...VALIDA,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://vsd.example',
+        DATABASE_URL: '   ',
+      }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
+  it('el mensaje de error no incluye la cadena de conexion recibida', () => {
+    // Una URL de conexion lleva usuario y contrasena dentro. Si apareciera en
+    // el error, acabaria impresa en el registro del despliegue.
+    try {
+      validarConfiguracion({
+        ...VALIDA,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://vsd.example',
+        DATABASE_URL: '',
+        PORT: 'no-es-un-numero',
+      });
+      expect.unreachable('deberia haber lanzado');
+    } catch (error) {
+      expect((error as Error).message).not.toContain('no-es-un-numero');
+    }
   });
 });

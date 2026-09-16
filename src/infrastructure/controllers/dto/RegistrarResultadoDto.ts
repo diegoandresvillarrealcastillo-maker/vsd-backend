@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Min } from 'class-validator';
 
 /**
  * Cuerpo de la peticion para registrar el resultado de una actividad.
@@ -39,24 +39,25 @@ export class RegistrarResultadoDto {
   @IsUUID()
   clientOperationId!: string;
 
-  @ApiProperty({
-    description: 'Puntaje obtenido. Debe ser un entero entre 0 y maxScore.',
+  @ApiPropertyOptional({
+    description:
+      'Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion. El maximo lo declara la actividad, no esta peticion.',
     example: 8,
     minimum: 0,
   })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  score!: number;
+  score?: number;
 
-  @ApiProperty({
-    description: 'Puntaje maximo posible de la actividad.',
-    example: 10,
-    minimum: 1,
+  @ApiPropertyOptional({
+    description:
+      'Informacion propia del tipo de actividad: las horas de una bitacora de sueno, las respuestas de un registro emocional. No puede traer claves que ya sean campos propios.',
+    example: { horasDormidas: 6.5, despertares: 2 },
   })
-  @IsInt()
-  @Min(1)
-  @Max(1000)
-  maxScore!: number;
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 
   @ApiProperty({
     description: 'Momento en que se completo la actividad. No puede estar en el futuro.',

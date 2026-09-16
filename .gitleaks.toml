@@ -1,0 +1,36 @@
+# Configuracion del escaneo de secretos.
+#
+# Parte de las reglas por defecto de gitleaks y solo anade excepciones muy
+# concretas. La tentacion al ver un falso positivo es relajar la regla; aqui se
+# hace lo contrario, se nombra el valor exacto que se perdona y por que.
+#
+# Un escaner de secretos que grita demasiado acaba ignorandose, y un escaner
+# que se ignora es peor que no tenerlo: da tranquilidad sin darla.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores inventados para pruebas, no credenciales."
+
+regexes = [
+  # Identificador ficticio del proveedor de autenticacion, en la prueba de
+  # User. La regla generic-api-key salta porque el campo se llama
+  # idProveedorAuth y la cadena tiene entropia suficiente.
+  #
+  # No se puede corregir cambiando el valor: el commit db552d2 ya esta en el
+  # historial, gitleaks escanea todos los commits, y reescribir el historial
+  # esta prohibido en este proyecto.
+  '''proveedor-abc-123''',
+
+  # Cadenas de conexion de ejemplo en la documentacion y en .env.example.
+  # Son marcadores de posicion: usuario, clave, host y x:y@z no existen.
+  '''postgresql://USUARIO:CONTRASENA@HOST''',
+  '''postgresql://vsd:vsd_local@localhost''',
+
+  # Base del trabajo de integracion continua. El contenedor vive lo que dura
+  # el trabajo, no sale de la maquina de GitHub y no guarda datos de nadie.
+  '''postgresql://vsd:vsd_ci@localhost''',
+  '''postgresql://x:y@z''',
+  '''postgres://usuario:clave@host''',
+]

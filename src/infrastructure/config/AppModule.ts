@@ -5,8 +5,8 @@ import { HealthController } from '../controllers/HealthController.js';
 import { DomainExceptionFilter } from '../filters/DomainExceptionFilter.js';
 import { RequestLoggingInterceptor } from '../logging/RequestLoggingInterceptor.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
-import { type Configuracion, validarConfiguracion } from './environment.js';
-import { CONFIGURACION } from './tokens.js';
+import { AsistenteModule } from './AsistenteModule.js';
+import { ConfiguracionModule } from './ConfiguracionModule.js';
 
 /**
  * Modulo raiz de la API.
@@ -20,18 +20,12 @@ import { CONFIGURACION } from './tokens.js';
     // Carga el archivo .env a las variables de entorno del proceso. La
     // validacion la hace el proveedor de abajo.
     ConfigModule.forRoot({ isGlobal: true, cache: true }),
+    ConfiguracionModule,
     ActivityResultModule,
+    AsistenteModule,
   ],
   controllers: [HealthController],
   providers: [
-    {
-      // Unico punto del proyecto que lee process.env. Si la configuracion no
-      // es valida, esto lanza durante el arranque y el servicio no llega a
-      // aceptar peticiones. Es lo que queremos: es mejor no arrancar que
-      // arrancar a medias y fallar mas tarde con un error confuso.
-      provide: CONFIGURACION,
-      useFactory: (): Configuracion => validarConfiguracion(process.env),
-    },
     {
       provide: APP_FILTER,
       useClass: DomainExceptionFilter,

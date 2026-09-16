@@ -36,6 +36,20 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const URL_DUENO = process.env['DATABASE_URL'];
 const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
+// Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
+// seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
+// sin haber comprobado nada, y nadie mira el detalle de una suite que paso.
+//
+// La marca es una variable propia y no `CI`, porque en el CI hay otro trabajo
+// que corre la suite entera sin base de datos a proposito. Ahi saltarselas es
+// justo lo correcto.
+if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
+  throw new Error(
+    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+      'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
+  );
+}
+
 const USUARIO_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USUARIO_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CATEGORIA = 'ccccccce-cccc-4ccc-8ccc-cccccccccccc';

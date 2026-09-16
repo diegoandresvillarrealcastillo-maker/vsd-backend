@@ -27,6 +27,10 @@ regexes = [
   # Son marcadores de posicion: usuario, clave, host y x:y@z no existen.
   '''postgresql://USUARIO:CONTRASENA@HOST''',
   '''postgresql://vsd:vsd_local@localhost''',
+
+  # Base del trabajo de integracion continua. El contenedor vive lo que dura
+  # el trabajo, no sale de la maquina de GitHub y no guarda datos de nadie.
+  '''postgresql://vsd:vsd_ci@localhost''',
   '''postgresql://x:y@z''',
   '''postgres://usuario:clave@host''',
 ]

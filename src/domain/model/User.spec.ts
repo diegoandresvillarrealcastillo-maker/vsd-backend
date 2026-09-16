@@ -12,7 +12,9 @@ function datos(sobrescribir: Partial<DatosDeUsuario> = {}): DatosDeUsuario {
   return {
     id: new UserId(USUARIO_A),
     correo: 'persona@ejemplo.test',
-    idProveedorAuth: 'proveedor-abc-123',
+    // Deliberadamente sin pinta de credencial: el escaneo de secretos
+    // marca cualquier cadena con entropia en un campo que se llame Auth.
+    idProveedorAuth: 'proveedor-de-prueba',
     rol: Rol.USUARIO,
     consentimiento: {
       versionPolitica: '1.0',

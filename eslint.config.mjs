@@ -24,7 +24,16 @@ export default tseslint.config(
   {
     // Los archivos de configuracion en .mjs quedan fuera del analisis con
     // tipos: no forman parte del codigo del proyecto y no estan en tsconfig.
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', '*.config.mjs'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'node_modules/**',
+      '*.config.mjs',
+      // Guiones de herramientas, no codigo de la aplicacion. No los cubre
+      // ningun tsconfig y las reglas con tipos no pueden analizarlos.
+      // Prettier si los formatea.
+      'scripts/**/*.mjs',
+    ],
   },
 
   js.configs.recommended,

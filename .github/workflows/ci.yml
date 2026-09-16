@@ -57,7 +57,10 @@ jobs:
       - name: Buscar secretos en todo el historial
         # --redact evita que el secreto encontrado quede impreso en el
         # registro del trabajo, que seria una segunda filtracion.
-        run: gitleaks git . --redact --no-banner --verbose
+        # --config explicito en vez de confiar en la deteccion automatica:
+        # si el archivo se moviera o se renombrara, se prefiere que el trabajo
+        # falle a que escanee con las reglas por defecto sin avisar.
+        run: gitleaks git . --config .gitleaks.toml --redact --no-banner --verbose
 
   commits:
     name: Convencion de commits

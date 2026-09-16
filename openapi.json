@@ -101,15 +101,17 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje obtenido. Debe ser un entero entre 0 y maxScore.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
           },
-          "maxScore": {
-            "type": "number",
-            "description": "Puntaje maximo posible de la actividad.",
-            "example": 10,
-            "minimum": 1
+          "metadata": {
+            "type": "object",
+            "description": "Informacion propia del tipo de actividad: las horas de una bitacora de sueno, las respuestas de un registro emocional. No puede traer claves que ya sean campos propios.",
+            "example": {
+              "horasDormidas": 6.5,
+              "despertares": 2
+            }
           },
           "completedAt": {
             "type": "string",
@@ -122,8 +124,6 @@
           "userId",
           "activityId",
           "clientOperationId",
-          "score",
-          "maxScore",
           "completedAt"
         ]
       },
@@ -138,17 +138,9 @@
             "type": "string",
             "format": "uuid"
           },
-          "score": {
-            "type": "number",
-            "example": 8
-          },
-          "maxScore": {
-            "type": "number",
-            "example": 10
-          },
           "nivelOrientativo": {
             "type": "string",
-            "description": "Nivel orientativo derivado del puntaje. Es una orientacion sobre como fue la actividad, nunca un diagnostico.",
+            "description": "Nivel orientativo del resultado. Es una orientacion sobre como fue la actividad, nunca un diagnostico. Ausente en las actividades de registro, que no producen puntaje.",
             "enum": [
               "favorable",
               "en_seguimiento",
@@ -159,6 +151,10 @@
             "type": "boolean",
             "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado."
           },
+          "metadata": {
+            "type": "object",
+            "description": "Informacion propia del tipo de actividad, tal como la envio el dispositivo. En una actividad de registro es todo su contenido."
+          },
           "completedAt": {
             "type": "string",
             "format": "date-time"
@@ -167,9 +163,6 @@
         "required": [
           "id",
           "activityId",
-          "score",
-          "maxScore",
-          "nivelOrientativo",
           "sugiereAcompanamiento",
           "completedAt"
         ]

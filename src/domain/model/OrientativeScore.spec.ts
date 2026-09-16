@@ -1,46 +1,68 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError.js';
+import { Activity, DireccionEscala } from './Activity.js';
+import { ScoreOutOfRangeError } from './DomainError.js';
+import { ActivityId } from './Identifier.js';
 import { NivelOrientativo, OrientativeScore } from './OrientativeScore.js';
 
+const ID = new ActivityId('33333333-3333-4333-a333-333333333333');
+
+/** Actividad de referencia: de 0 a 10, donde mas puntaje es mejor. */
+function sobreDiez(): Activity {
+  return Activity.create({
+    id: ID,
+    nombre: 'Secuencias',
+    direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
+    puntajeMaximo: 10,
+  });
+}
+
 describe('OrientativeScore', () => {
-  it('guarda el puntaje y su maximo', () => {
-    const puntaje = OrientativeScore.create(7, 10);
+  it('guarda el puntaje ya normalizado a la escala comun', () => {
+    // El crudo va de 0 a 10; lo que se guarda va de 0 a 100, para poder
+    // comparar actividades de escalas distintas. Ver RF7.
+    const puntaje = OrientativeScore.create(7, sobreDiez());
 
-    expect(puntaje.value).toBe(7);
-    expect(puntaje.maxValue).toBe(10);
+    expect(puntaje.value).toBe(70);
   });
 
   it.each([
-    [0, 10, NivelOrientativo.REQUIERE_ATENCION],
-    [3, 10, NivelOrientativo.REQUIERE_ATENCION],
-    [4, 10, NivelOrientativo.EN_SEGUIMIENTO],
-    [6, 10, NivelOrientativo.EN_SEGUIMIENTO],
-    [7, 10, NivelOrientativo.FAVORABLE],
-    [10, 10, NivelOrientativo.FAVORABLE],
-  ])('deriva el nivel de %i sobre %i como %s', (valor, maximo, esperado) => {
-    expect(OrientativeScore.create(valor, maximo).level).toBe(esperado);
+    [0, NivelOrientativo.REQUIERE_ATENCION],
+    [3, NivelOrientativo.REQUIERE_ATENCION],
+    [4, NivelOrientativo.EN_SEGUIMIENTO],
+    [6, NivelOrientativo.EN_SEGUIMIENTO],
+    [7, NivelOrientativo.FAVORABLE],
+    [10, NivelOrientativo.FAVORABLE],
+  ])('deriva el nivel de %i sobre 10 como %s', (valor, esperado) => {
+    expect(OrientativeScore.create(valor, sobreDiez()).level).toBe(esperado);
   });
 
   it.each([
-    ['por encima del maximo', 11, 10],
-    ['negativo', -1, 10],
-    ['decimal', 5.5, 10],
-  ])('rechaza un puntaje %s', (_caso, valor, maximo) => {
-    expect(() => OrientativeScore.create(valor, maximo)).toThrow(ScoreOutOfRangeError);
-  });
-
-  it.each([
-    ['cero', 0],
-    ['negativo', -5],
-    ['decimal', 10.5],
-  ])('rechaza un maximo %s', (_caso, maximo) => {
-    expect(() => OrientativeScore.create(1, maximo)).toThrow(InvalidScoreRangeError);
+    ['por encima del maximo', 11],
+    ['negativo', -1],
+  ])('rechaza un puntaje %s', (_caso, valor) => {
+    expect(() => OrientativeScore.create(valor, sobreDiez())).toThrow(ScoreOutOfRangeError);
   });
 
   it('sugiere acompanamiento solo cuando el nivel requiere atencion', () => {
-    expect(OrientativeScore.create(1, 10).sugiereAcompanamiento()).toBe(true);
-    expect(OrientativeScore.create(5, 10).sugiereAcompanamiento()).toBe(false);
-    expect(OrientativeScore.create(9, 10).sugiereAcompanamiento()).toBe(false);
+    expect(OrientativeScore.create(1, sobreDiez()).sugiereAcompanamiento()).toBe(true);
+    expect(OrientativeScore.create(5, sobreDiez()).sugiereAcompanamiento()).toBe(false);
+    expect(OrientativeScore.create(9, sobreDiez()).sugiereAcompanamiento()).toBe(false);
+  });
+
+  it('trae el texto en el lenguaje de la actividad', () => {
+    const conTextos = Activity.create({
+      id: ID,
+      nombre: 'Secuencias',
+      direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
+      puntajeMaximo: 10,
+      textosNivel: {
+        favorable: 'Muy afinado',
+        en_seguimiento: 'Con altibajos',
+        requiere_atencion: 'Cuesta sostenerlo',
+      },
+    });
+
+    expect(OrientativeScore.create(9, conTextos).texto).toBe('Muy afinado');
   });
 
   it('no usa terminologia clinica en los niveles', () => {

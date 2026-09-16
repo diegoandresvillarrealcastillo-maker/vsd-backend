@@ -173,3 +173,41 @@ Ver [ambientes.md](ambientes.md).
   <https://github.com/DanielEspanadero/arquitectura-hexagonal-java>
 - Wiggins, A. (2017). _The Twelve-Factor App_.
   <https://12factor.net/es/>
+
+## La prueba de la arquitectura (Ciclo 4)
+
+El Ciclo 3 metio NestJS sin tocar `domain/` ni `application/`. El Ciclo 4
+repitio el ejercicio con la base de datos, que es el acoplamiento que mas suele
+doler.
+
+Al anadir los adaptadores de Prisma, `git diff` sobre `src/domain/` y
+`src/application/` no devolvio **ni una linea**. Todo lo que cambio vive en
+`infrastructure/`: dos adaptadores nuevos, el cliente de Prisma y el cableado.
+
+Eso no es una casualidad afortunada. Es la consecuencia de que el puerto de
+salida se escribiera en el Ciclo 2 pensando en lo que el dominio **necesita**
+—buscar por identificador de operacion y guardar— y no en lo que una base de
+datos **ofrece**.
+
+### Que adaptador se usa
+
+Lo decide la configuracion. Con `DATABASE_URL` se usa PostgreSQL; sin ella, el
+adaptador en memoria. La eleccion se anota en el registro al arrancar.
+
+El adaptador en memoria no se borro: las pruebas de dominio y de aplicacion lo
+siguen usando porque es instantaneo, y una suite que tarda deja de ejecutarse.
+
+**En preproduccion y produccion la base de datos es obligatoria.** Sin ella el
+servicio guardaria en memoria y perderia los resultados al reiniciarse, sin que
+nadie se entere hasta que alguien pregunte por su historial. La configuracion
+no deja arrancar.
+
+### El nivel se recalcula, no se lee
+
+Al recuperar un resultado, el nivel orientativo se vuelve a derivar desde la
+actividad en lugar de leer la columna `nivel_orientativo`.
+
+La columna esta ahi para poder consultar y agrupar, pero la verdad la tiene la
+actividad. Si manana se ajustan los umbrales de una actividad, los resultados
+viejos se interpretan con los umbrales vigentes en vez de quedarse diciendo
+algo que ya no se corresponde con su puntaje.

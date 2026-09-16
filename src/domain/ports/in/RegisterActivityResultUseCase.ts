@@ -1,4 +1,4 @@
-import type { ActivityResult } from '../../model/ActivityResult.js';
+import type { ActivityResult, Metadata } from '../../model/ActivityResult.js';
 
 /**
  * Orden de registrar el resultado de una actividad.
@@ -12,9 +12,17 @@ export interface RegistrarResultadoCommand {
   readonly userId: string;
   readonly activityId: string;
   readonly clientOperationId: string;
-  readonly score: number;
-  readonly maxScore: number;
+  /**
+   * Puntaje crudo, en la escala de la actividad. Ausente en las actividades
+   * de registro, que producen datos y no una calificacion.
+   *
+   * El maximo **no** viaja en el comando: lo declara la actividad. Que lo
+   * enviara el cliente permitia elegir el maximo y con el, el nivel.
+   */
+  readonly score?: number | undefined;
   readonly completedAt: Date;
+  /** Informacion propia del tipo de actividad. Ver ADR 0008. */
+  readonly metadata?: Metadata | undefined;
 }
 
 /**

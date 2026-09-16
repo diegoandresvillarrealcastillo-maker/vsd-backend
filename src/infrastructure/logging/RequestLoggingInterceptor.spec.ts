@@ -56,15 +56,15 @@ class RegistroDePrueba implements LoggerService {
 }
 
 const USUARIO = '55555555-5555-4555-8555-555555555555';
-const ACTIVIDAD = '66666666-6666-4666-9666-666666666666';
+const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
 const OPERACION = '77777777-7777-4777-a777-777777777777';
 
 /**
  * Valores escogidos para que sean faciles de localizar en un texto y no
  * puedan confundirse con la duracion ni con el codigo de estado.
  */
-const PUNTAJE = 83;
-const PUNTAJE_MAXIMO = 97;
+// Dentro del maximo que declara la actividad del catalogo.
+const PUNTAJE = 8;
 const CORREO = 'persona.identificable@ejemplo-vsd-health.test';
 
 let registro: RegistroDePrueba;
@@ -73,6 +73,12 @@ let app: NestExpressApplication;
 async function levantarAplicacion(): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
+  // Estas pruebas son del comportamiento HTTP, no de la persistencia, asi que
+  // se fija el adaptador en memoria. Sin esto, tener un .env con DATABASE_URL
+  // las haria hablar con PostgreSQL sin avisar, y pasarian o fallarian segun
+  // lo que hubiera en la base de cada quien. Las pruebas contra la base real
+  // son las de SCRUM-61 y viven aparte.
+  delete process.env.DATABASE_URL;
 
   registro = new RegistroDePrueba();
 
@@ -108,7 +114,6 @@ describe('El registro de peticiones no filtra datos personales ni de salud', () 
         activityId: ACTIVIDAD,
         clientOperationId: OPERACION,
         score: PUNTAJE,
-        maxScore: PUNTAJE_MAXIMO,
         completedAt: '2026-09-14T11:00:00.000Z',
       })
       .expect(201);
@@ -119,11 +124,14 @@ describe('El registro de peticiones no filtra datos personales ni de salud', () 
     expect(anotadas[0]).toMatch(/^POST \/api\/resultados 201 \d+ms$/);
   });
 
-  it('no deja el puntaje ni el nivel orientativo en el registro', () => {
+  it('no deja el nivel orientativo en el registro', () => {
     const texto = registro.lineas.join('\n');
 
-    expect(texto).not.toContain(String(PUNTAJE));
-    expect(texto).not.toContain(String(PUNTAJE_MAXIMO));
+    // No se comprueba el puntaje por su valor: un numero pequeno puede
+    // coincidir por casualidad con una duracion en milisegundos, y una prueba
+    // que falla a ratos acaba ignorandose. De que el puntaje no aparezca se
+    // encarga la prueba de la forma cerrada, que es una garantia mas fuerte:
+    // si se colara cualquier campo de mas, la linea deja de encajar.
     expect(texto).not.toContain('favorable');
     expect(texto).not.toContain('en_seguimiento');
     expect(texto).not.toContain('requiere_atencion');
@@ -137,7 +145,6 @@ describe('El registro de peticiones no filtra datos personales ni de salud', () 
         activityId: ACTIVIDAD,
         clientOperationId: OPERACION,
         score: PUNTAJE,
-        maxScore: PUNTAJE_MAXIMO,
         completedAt: '2026-09-14T11:00:00.000Z',
         correo: CORREO,
       })

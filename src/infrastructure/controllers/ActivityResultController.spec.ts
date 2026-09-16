@@ -176,6 +176,18 @@ describe('Aislamiento entre usuarios y manejo de errores', () => {
     expect(JSON.stringify(respuesta.body)).toContain('esAdministrador');
   });
 
+  it('responde 404 si la actividad no esta en el catalogo', async () => {
+    // Sin la actividad no se puede interpretar el puntaje: no se sabe sobre
+    // que maximo se obtuvo ni hacia donde va la escala. Es preferible
+    // rechazarlo a guardarlo con un nivel derivado de suposiciones.
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/resultados')
+      .send(cuerpo({ activityId: '99999999-9999-4999-a999-999999999999' }));
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body).toMatchObject({ codigo: 'ACTIVIDAD_NO_ENCONTRADA' });
+  });
+
   it('rechaza una fecha futura con el codigo del dominio', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/resultados')

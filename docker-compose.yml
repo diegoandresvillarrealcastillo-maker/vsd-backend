@@ -1,0 +1,55 @@
+# PostgreSQL local para desarrollo y pruebas.
+#
+# Es el ambiente DEV de la base de datos. No usamos Supabase para desarrollar
+# por dos razones: el plan gratuito da dos proyectos y tenemos tres ambientes,
+# y las pruebas de integracion borran y recrean el esquema en cada ejecucion,
+# lo cual contra un servicio remoto seria lentisimo.
+#
+#   docker compose up -d      levantar
+#   docker compose down       parar
+#   docker compose down -v    parar y borrar los datos
+#
+# Las credenciales de aqui son locales y deliberadamente triviales: esta base
+# no sale de tu maquina y no contiene informacion de ninguna persona real.
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    container_name: vsd-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vsd
+      POSTGRES_PASSWORD: vsd_local
+      POSTGRES_DB: vsd_health
+    ports:
+      - '5432:5432'
+    volumes:
+      - vsd-datos:/var/lib/postgresql/data
+    healthcheck:
+      # Sin esto, un `docker compose up` devuelve el control antes de que la
+      # base acepte conexiones, y la primera migracion falla sin motivo claro.
+      test: ['CMD-SHELL', 'pg_isready -U vsd -d vsd_health']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Base separada para las pruebas de integracion, sin volumen: cada
+  # ejecucion parte de cero y ninguna prueba depende de lo que dejo la
+  # anterior.
+  postgres-pruebas:
+    image: postgres:17.6-alpine
+    container_name: vsd-postgres-pruebas
+    environment:
+      POSTGRES_USER: vsd
+      POSTGRES_PASSWORD: vsd_local
+      POSTGRES_DB: vsd_health_pruebas
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vsd -d vsd_health_pruebas']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vsd-datos:

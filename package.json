@@ -12,6 +12,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "prettier": "^3.9.6",
+    "prisma": "7.10.0",
     "supertest": "^7.2.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
@@ -35,7 +36,15 @@
     "start": "node dist/infrastructure/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/infrastructure/main.js",
-    "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js"
+    "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js",
+    "db:arriba": "docker compose up -d",
+    "db:abajo": "docker compose down",
+    "db:reiniciar": "docker compose down -v && docker compose up -d",
+    "db:migrar": "prisma migrate dev",
+    "db:aplicar": "prisma migrate deploy",
+    "db:estado": "prisma migrate status",
+    "db:generar": "prisma generate",
+    "db:ver": "prisma studio"
   },
   "engines": {
     "node": ">=24"
@@ -55,6 +64,7 @@
     "@nestjs/core": "^12.0.3",
     "@nestjs/platform-express": "^12.0.3",
     "@nestjs/swagger": "^12.0.1",
+    "@prisma/client": "7.10.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "express-rate-limit": "^8.7.0",

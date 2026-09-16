@@ -156,3 +156,19 @@ export class FutureConsentDateError extends DomainError {
     super('La fecha de aceptacion de la politica no puede estar en el futuro.');
   }
 }
+
+/**
+ * Un recurso de apoyo esta mal formado y no se puede mostrar.
+ *
+ * Importa mas de lo que parece: los recursos son lo que el asistente responde
+ * cuando detecta una senal de riesgo. Un recurso a medias ahi seria una
+ * pantalla vacia en el peor momento posible, asi que se rechaza al construirlo
+ * y no al pintarlo.
+ */
+export class InvalidResourceError extends DomainError {
+  readonly code = 'RECURSO_INVALIDO';
+
+  constructor(motivo: string) {
+    super(`Recurso de apoyo invalido: ${motivo}.`);
+  }
+}

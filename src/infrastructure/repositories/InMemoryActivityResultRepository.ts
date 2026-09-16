@@ -45,6 +45,14 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve();
   }
 
+  ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
+    const suyos = [...this.porOperacion.values()]
+      .filter((resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde)
+      .sort((uno, otro) => otro.completedAt.getTime() - uno.completedAt.getTime());
+
+    return Promise.resolve(suyos);
+  }
+
   private clave(clientOperationId: ClientOperationId, userId: UserId): string {
     return `${userId.value}/${clientOperationId.value}`;
   }

@@ -84,6 +84,26 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     );
   }
 
+  async ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findMany({
+        where: { idUsuario: userId.value, fecha: { gte: desde } },
+        orderBy: { fecha: 'desc' },
+      }),
+    );
+
+    // El catalogo se consulta una vez por actividad distinta y no una vez por
+    // fila: un historial de treinta resultados de la misma actividad no puede
+    // costar treinta consultas.
+    const catalogo = new Map<string, Activity | null>();
+
+    for (const idActividad of new Set(filas.map((fila) => fila.idActividad))) {
+      catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+    }
+
+    return filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
+  }
+
   /**
    * Reconstruye la entidad a partir de la fila.
    *

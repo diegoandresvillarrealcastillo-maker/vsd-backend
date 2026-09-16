@@ -5,6 +5,7 @@ import { HealthController } from '../controllers/HealthController.js';
 import { DomainExceptionFilter } from '../filters/DomainExceptionFilter.js';
 import { RequestLoggingInterceptor } from '../logging/RequestLoggingInterceptor.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
+import { AsistenteModule } from './AsistenteModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
 
 /**
@@ -21,6 +22,7 @@ import { ConfiguracionModule } from './ConfiguracionModule.js';
     ConfigModule.forRoot({ isGlobal: true, cache: true }),
     ConfiguracionModule,
     ActivityResultModule,
+    AsistenteModule,
   ],
   controllers: [HealthController],
   providers: [

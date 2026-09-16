@@ -305,6 +305,30 @@ descargarlo y eliminarlo junto con el resto de la cuenta.
 **Política de acceso:** cada persona lee y escribe únicamente sus propias
 entradas. El administrador **no** tiene acceso a ninguna.
 
+### RECURSO_APOYO dejó de ser un catálogo
+
+Desde SCRUM-60 es la **base de conocimiento del asistente**: lo que VSD IA
+responde sale de estas filas, no del código. Cambiar un texto es cambiar una
+fila, sin desplegar y sin que tenga que hacerlo alguien que programa.
+
+Dos columnas lo sostienen:
+
+`tema` es lo que permite responder a una intención con contenido de la base. Sin
+él, las respuestas acabarían escritas dentro del adaptador, que es justo lo que
+se quiere evitar.
+
+`cobertura` dice dónde sirve cada recurso, y **no es un adorno**. La Línea 106 es
+un servicio del Distrito y se marca desde Bogotá; la sede principal de la
+Universidad de Cundinamarca está en Fusagasugá, y hay sedes en Girardot, Ubaté,
+Chía, Facatativá, Soacha, Zipaquirá y Chocontá. Dar solo ese número a quien está
+fuera de Bogotá es dar un teléfono que no contesta, y en una situación de riesgo
+eso no es un detalle. Por eso el asistente ordena por cobertura y lo nacional va
+primero.
+
+Las líneas de atención se siembran con la migración, no se cargan a mano: si
+faltaran, el asistente devolvería una lista vacía en el único momento en el que
+no puede fallar. Hay una prueba de integración que comprueba que están.
+
 ## Resumen de políticas de acceso
 
 | Tabla            | Persona dueña           | Otra persona | Administrador |

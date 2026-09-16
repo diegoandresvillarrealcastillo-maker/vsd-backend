@@ -93,5 +93,6 @@ import {
       inject: [RegisterActivityResultUseCaseImpl],
     },
   ],
+  exports: [ACTIVITY_RESULT_REPOSITORY, PRISMA],
 })
 export class ActivityResultModule {}

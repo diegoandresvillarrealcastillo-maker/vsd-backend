@@ -31,6 +31,10 @@ const esquema = z
 
     // Origenes autorizados para CORS, separados por coma.
     CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN es obligatoria'),
+
+    // Conexion a PostgreSQL. Opcional en desarrollo y pruebas, donde el
+    // adaptador en memoria alcanza y es mucho mas rapido.
+    DATABASE_URL: z.string().optional(),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -43,6 +47,21 @@ const esquema = z
         message: `El comodin solo se permite con NODE_ENV=${Ambiente.DESARROLLO}. Indica los dominios exactos separados por coma.`,
       });
     }
+
+    // Sin base de datos el servicio guarda en memoria, y al reiniciarse no
+    // queda nada. En desarrollo eso es comodo; en preproduccion o produccion
+    // seria perder los resultados de personas reales sin que nadie se entere
+    // hasta que alguien pregunte por su historial. Mejor no arrancar.
+    const necesitaBase =
+      valores.NODE_ENV === Ambiente.PREPRODUCCION || valores.NODE_ENV === Ambiente.PRODUCCION;
+
+    if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: `Es obligatoria con NODE_ENV=${valores.NODE_ENV}. Sin ella el servicio guardaria en memoria y perderia los datos al reiniciarse.`,
+      });
+    }
   });
 
 export interface Configuracion {
@@ -50,6 +69,11 @@ export interface Configuracion {
   readonly puerto: number;
   readonly origenesAutorizados: readonly string[];
   readonly esProduccion: boolean;
+  /**
+   * Conexion a PostgreSQL. Ausente solo en desarrollo y pruebas, donde el
+   * servicio usa el adaptador en memoria.
+   */
+  readonly urlBaseDeDatos: string | undefined;
 }
 
 /**
@@ -73,7 +97,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     );
   }
 
-  const { NODE_ENV, PORT, CORS_ORIGIN } = resultado.data;
+  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL } = resultado.data;
 
   return {
     ambiente: NODE_ENV,
@@ -82,5 +106,6 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
       .map((origen) => origen.trim())
       .filter((origen) => origen.length > 0),
     esProduccion: NODE_ENV === Ambiente.PRODUCCION,
+    urlBaseDeDatos: (DATABASE_URL ?? '').trim() === '' ? undefined : DATABASE_URL,
   };
 }

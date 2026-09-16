@@ -1,4 +1,5 @@
-import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError.js';
+import type { Activity } from './Activity.js';
+import { ScoreOutOfRangeError } from './DomainError.js';
 
 /**
  * Nivel orientativo de un resultado.
@@ -11,6 +12,11 @@ import { InvalidScoreRangeError, ScoreOutOfRangeError } from './DomainError.js';
  * Cambiar estas etiquetas por terminologia clinica convertiria la aplicacion
  * en algo que no esta autorizada a ser, asi que la restriccion vive en el
  * dominio y no en la capa de presentacion.
+ *
+ * Estos tres valores son los que se guardan y se consultan. El texto que ve la
+ * persona lo define cada actividad, en su propio lenguaje: una misma
+ * `requiere_atencion` se lee como "Cuesta sostenerlo" en un juego de memoria y
+ * como "Semana pesada" en un cuestionario de carga.
  */
 export const NivelOrientativo = {
   FAVORABLE: 'favorable',
@@ -21,51 +27,42 @@ export const NivelOrientativo = {
 export type NivelOrientativo = (typeof NivelOrientativo)[keyof typeof NivelOrientativo];
 
 /**
- * Puntaje obtenido en una actividad, junto con su nivel orientativo.
+ * Puntaje obtenido en una actividad, ya normalizado, junto con su nivel.
  *
- * El nivel se deriva del puntaje por bandas y no se puede fijar a mano: asi
- * dos resultados con el mismo puntaje siempre significan lo mismo, sin que
- * dependa de quien construya el objeto.
+ * El nivel no se puede fijar a mano: lo deriva la actividad. Asi dos
+ * resultados de la misma actividad con el mismo puntaje significan siempre lo
+ * mismo, sin que dependa de quien construya el objeto.
+ *
+ * **El valor no sale por la API.** Vive aqui para calcular tendencias; lo que
+ * ve la persona es el nivel. Ver docs/modelo-de-datos.md.
  */
 export class OrientativeScore {
   private constructor(
+    /** Puntaje normalizado de 0 a 100. */
     readonly value: number,
-    readonly maxValue: number,
     readonly level: NivelOrientativo,
+    /** Texto en el lenguaje de la actividad. */
+    readonly texto: string,
   ) {}
 
-  static create(value: number, maxValue: number): OrientativeScore {
-    if (!Number.isInteger(maxValue) || maxValue <= 0) {
-      throw new InvalidScoreRangeError(maxValue);
-    }
-
-    if (!Number.isInteger(value) || value < 0 || value > maxValue) {
-      throw new ScoreOutOfRangeError(value, maxValue);
-    }
-
-    return new OrientativeScore(value, maxValue, OrientativeScore.derivarNivel(value, maxValue));
-  }
-
   /**
-   * Bandas: hasta un tercio del maximo requiere atencion, hasta dos tercios
-   * queda en seguimiento, y por encima es favorable.
+   * Construye el puntaje a partir del valor **crudo** y de la actividad que
+   * lo produjo.
    *
-   * Son bandas de producto, no un instrumento clinico validado. Los
-   * instrumentos con licencia restringida quedan fuera del alcance del
-   * proyecto, y por eso el dominio define su propia escala orientativa.
+   * Recibir la actividad es lo que resuelve la inversion de escala: sin ella,
+   * un puntaje alto en un cuestionario de tension se leeria como favorable.
    */
-  private static derivarNivel(value: number, maxValue: number): NivelOrientativo {
-    const proporcion = value / maxValue;
+  static create(puntajeCrudo: number, actividad: Activity): OrientativeScore {
+    const maximo = actividad.puntajeMaximo ?? 0;
 
-    if (proporcion <= 1 / 3) {
-      return NivelOrientativo.REQUIERE_ATENCION;
+    if (!Number.isFinite(puntajeCrudo) || puntajeCrudo < 0 || puntajeCrudo > maximo) {
+      throw new ScoreOutOfRangeError(puntajeCrudo, maximo);
     }
 
-    if (proporcion <= 2 / 3) {
-      return NivelOrientativo.EN_SEGUIMIENTO;
-    }
+    const normalizado = actividad.normalizar(puntajeCrudo);
+    const nivel = actividad.nivelPara(normalizado);
 
-    return NivelOrientativo.FAVORABLE;
+    return new OrientativeScore(normalizado, nivel, actividad.textoPara(nivel));
   }
 
   /**

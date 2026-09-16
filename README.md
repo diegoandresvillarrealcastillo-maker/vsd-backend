@@ -118,11 +118,56 @@ interrupcion funcionan sobre los archivos `.ts`.
 | `npm run build`         | Compila a `dist/`                              |
 | `npm run openapi`       | Genera `openapi.json` sin levantar el servidor |
 
+### Base de datos en local
+
+Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo
+puerto; usa la que te funcione.
+
+| Comando                | Que hace                                   |
+| ---------------------- | ------------------------------------------ |
+| `npm run db:arriba`    | Levanta las bases con Docker               |
+| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin** |
+| `npm run db:aplicar`   | Aplica las migraciones                     |
+| `npm run db:estado`    | Dice si falta alguna migracion             |
+| `npm run db:ver`       | Abre Prisma Studio para mirar los datos    |
+| `npm run db:abajo`     | Para los contenedores                      |
+| `npm run db:reiniciar` | Los para y **borra los datos**             |
+
+Con Docker se levantan dos bases: la de desarrollo en el **5432** y otra para
+pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
+
+`npm run db:local` es la alternativa para maquinas sin permisos de
+administrador: descarga los binarios oficiales de PostgreSQL y los ejecuta como
+un proceso normal. Es PostgreSQL de verdad, no una simulacion.
+
 ### Si algo no arranca
 
 El servicio **no arranca** si falta una variable de entorno o tiene un valor
 invalido. Es a proposito: el mensaje te dice cual es y que se esperaba. Es
 preferible eso a arrancar a medias y fallar mas tarde con un error confuso.
+
+**`docker` no se reconoce como comando.** Si instalaste Docker Desktop sin
+permisos de administrador queda en tu perfil y no en el PATH. Para dejarlo
+disponible de forma permanente, en PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ";$env:LOCALAPPDATA\Programs\DockerDesktop
+esourcesin", 'User')
+```
+
+Hay que cerrar y abrir la terminal despues. Los comandos `npm run db:*` no lo
+necesitan: npm resuelve la ruta por su cuenta.
+
+**Docker Desktop se queda en "starting".** Pasa en la primera ejecucion. Se
+comprueba con `docker desktop status` y se resuelve cerrando sus procesos y
+volviendo a abrirlo:
+
+```powershell
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$env:LOCALAPPDATA\Programs\DockerDesktop*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+Start-Process "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
+```
+
+No se pierde nada: los contenedores y sus datos viven en volumenes aparte.
 
 ## Stack previsto
 

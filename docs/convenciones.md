@@ -49,6 +49,48 @@ referencia. Ver [arquitectura.md](arquitectura.md).
 Ramas, commits y Pull Requests: ver `CONTRIBUTING.md` en la raiz del
 repositorio.
 
+### Proteccion de ramas
+
+Desde el 16/09/2026 las tres ramas de ambiente estan protegidas en GitHub, en
+los dos repositorios. La prohibicion de tocar produccion dejo de depender de la
+disciplina del equipo y la impone el servidor.
+
+| Regla                         | `produccion` y `preproduccion` | `desarrollo`       |
+| ----------------------------- | ------------------------------ | ------------------ |
+| Push directo                  | prohibido                      | permitido          |
+| Pull Request obligatorio      | si                             | no                 |
+| Aprobaciones minimas          | 1                              | ninguna            |
+| Checks de CI en verde         | los 3                          | calidad y secretos |
+| Force push                    | prohibido                      | prohibido          |
+| Borrar la rama                | prohibido                      | prohibido          |
+| Alcanza a los administradores | si                             | no                 |
+
+**Las reglas alcanzan tambien al dueno del repositorio.** Sin eso, la
+proteccion seria una sugerencia: quien tiene permisos de administracion podria
+saltarsela y la garantia dejaria de existir justo para quien mas facil lo tiene.
+
+Como consecuencia, **Diego no puede fusionar sus propios Pull Requests**:
+GitHub no admite que el autor apruebe su propia propuesta. La aprobacion la da
+Samuel, que es lo que el equipo venia haciendo y ahora es obligatorio.
+
+`desarrollo` no exige Pull Request a proposito. Es la rama de integracion y la
+friccion ahi cuesta mas de lo que aporta; lo que si impide es reescribir el
+historial. El flujo de trabajo sigue siendo por Pull Request, pero como
+convencion y no como candado.
+
+Los checks requeridos no exigen que la rama este al dia antes de fusionar. Con
+tres ramas de ambiente y promociones en cadena, esa opcion obliga a
+sincronizaciones constantes entre ramas que por diseno van desfasadas.
+
+Verificado el 16/09/2026 con un intento deliberado de push directo a
+`produccion`, que el servidor rechazo:
+
+```
+remote: error: GH006: Protected branch update failed for refs/heads/produccion.
+remote: - Changes must be made through a pull request.
+remote: - 3 of 3 required status checks are expected.
+```
+
 ## Pruebas
 
 - Las pruebas viven junto al archivo que prueban.

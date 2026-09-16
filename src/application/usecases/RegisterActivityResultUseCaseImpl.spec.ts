@@ -4,9 +4,11 @@ import {
   OperationBelongsToAnotherUserError,
   ScoreOutOfRangeError,
 } from '../../domain/model/DomainError.js';
+import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
-import { ClientOperationId, ResultId } from '../../domain/model/Identifier.js';
+import { ActivityId, ClientOperationId, ResultId } from '../../domain/model/Identifier.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
+import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl.js';
 
@@ -45,13 +47,38 @@ const RESULTADO = '55555555-5555-4555-8555-555555555555';
 
 const AHORA = new Date('2026-09-14T12:00:00.000Z');
 
+/**
+ * La actividad que interpreta el puntaje. Antes el maximo viajaba en el
+ * comando, lo cual permitia que quien reportara eligiera su propia escala.
+ */
+/**
+ * Doble del catalogo. No se usa el adaptador real de `infrastructure/`
+ * porque la capa de aplicacion no puede depender de esa capa, ni siquiera
+ * en pruebas: la regla de fronteras lo impide, y con razon.
+ */
+class CatalogoFalso implements ActivityRepositoryPort {
+  constructor(private readonly actividades: readonly Activity[]) {}
+
+  findById(id: ActivityId): Promise<Activity | null> {
+    return Promise.resolve(this.actividades.find((a) => a.id.value === id.value) ?? null);
+  }
+}
+
+function actividad(): Activity {
+  return Activity.create({
+    id: new ActivityId(ACTIVIDAD),
+    nombre: 'Secuencias',
+    direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
+    puntajeMaximo: 10,
+  });
+}
+
 function comando(sobrescribir: Partial<RegistrarResultadoCommand> = {}): RegistrarResultadoCommand {
   return {
     userId: USUARIO_A,
     activityId: ACTIVIDAD,
     clientOperationId: OPERACION,
     score: 8,
-    maxScore: 10,
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
     ...sobrescribir,
   };
@@ -65,6 +92,7 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     repositorio = new RepositorioFalso();
     casoDeUso = new RegisterActivityResultUseCaseImpl(
       repositorio,
+      new CatalogoFalso([actividad()]),
       () => new ResultId(RESULTADO),
       () => AHORA,
     );
@@ -96,7 +124,7 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
     // La operacion ya ocurrio: manda lo que se registro, no lo que llega
     // despues con el mismo identificador.
-    expect(reintento.score.value).toBe(8);
+    expect(reintento.score?.value).toBe(80);
     expect(repositorio.cantidad).toBe(1);
   });
 

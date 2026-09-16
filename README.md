@@ -38,15 +38,16 @@ del bienestar emocional y cognitivo.
 
 Toda la documentacion tecnica del proyecto vive en [docs/](docs/):
 
-| Documento                                            | Contenido                                                         |
-| ---------------------------------------------------- | ----------------------------------------------------------------- |
-| [Arquitectura](docs/arquitectura.md)                 | Arquitectura hexagonal en tres capas y como se organiza el codigo |
-| [Ambientes](docs/ambientes.md)                       | Los tres ambientes DEV, PRE y PROD y su configuracion             |
-| [Dominio](docs/dominio.md)                           | Las reglas de negocio que ya estan construidas                    |
-| [Convenciones](docs/convenciones.md)                 | Nombres, estructura de carpetas y estilo                          |
-| [Seguridad](docs/seguridad.md)                       | Secretos, aislamiento entre usuarios y datos sensibles            |
-| [Textos del asistente](docs/textos-del-asistente.md) | Todo lo que VSD IA le puede decir a una persona, para revisarlo   |
-| [Decisiones de arquitectura](docs/adr/)              | Por que el proyecto es como es                                    |
+| Documento                                              | Contenido                                                         |
+| ------------------------------------------------------ | ----------------------------------------------------------------- |
+| [Arquitectura](docs/arquitectura.md)                   | Arquitectura hexagonal en tres capas y como se organiza el codigo |
+| [Ambientes](docs/ambientes.md)                         | Los tres ambientes DEV, PRE y PROD y su configuracion             |
+| [Dominio](docs/dominio.md)                             | Las reglas de negocio que ya estan construidas                    |
+| [Convenciones](docs/convenciones.md)                   | Nombres, estructura de carpetas y estilo                          |
+| [Seguridad](docs/seguridad.md)                         | Secretos, aislamiento entre usuarios y datos sensibles            |
+| [Divergencias](docs/divergencias-con-el-entregable.md) | Donde el sistema se aparta del entregable academico, y por que    |
+| [Textos del asistente](docs/textos-del-asistente.md)   | Todo lo que VSD IA le puede decir a una persona, para revisarlo   |
+| [Decisiones de arquitectura](docs/adr/)                | Por que el proyecto es como es                                    |
 
 ---
 

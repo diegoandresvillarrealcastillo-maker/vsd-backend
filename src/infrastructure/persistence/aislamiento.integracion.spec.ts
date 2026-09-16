@@ -36,6 +36,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const URL_DUENO = process.env['DATABASE_URL'];
 const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
+// En CI no se permite saltarlas. Una prueba de seguridad que se ignora sola es
+// peor que no tenerla: el trabajo sale en verde sin haber comprobado nada, y
+// nadie mira el detalle de una suite que paso.
+if (process.env['CI'] === 'true' && URL_DUENO === undefined) {
+  throw new Error(
+    'Sin DATABASE_URL en CI: estas pruebas se habrian saltado en silencio. ' +
+      'Revisa el servicio de PostgreSQL del trabajo de integracion.',
+  );
+}
+
 const USUARIO_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USUARIO_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CATEGORIA = 'ccccccce-cccc-4ccc-8ccc-cccccccccccc';

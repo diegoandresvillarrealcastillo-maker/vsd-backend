@@ -107,16 +107,17 @@ interrupcion funcionan sobre los archivos `.ts`.
 
 ### Comandos disponibles
 
-| Comando                 | Que hace                                       |
-| ----------------------- | ---------------------------------------------- |
-| `npm run start:dev`     | Arranca la API y recarga al guardar            |
-| `npm test`              | Ejecuta las pruebas                            |
-| `npm run test:watch`    | Pruebas en modo continuo                       |
-| `npm run test:coverage` | Pruebas con informe de cobertura               |
-| `npm run lint`          | Estilo y fronteras de la arquitectura          |
-| `npm run typecheck`     | Revisa los tipos sin compilar                  |
-| `npm run build`         | Compila a `dist/`                              |
-| `npm run openapi`       | Genera `openapi.json` sin levantar el servidor |
+| Comando                    | Que hace                                       |
+| -------------------------- | ---------------------------------------------- |
+| `npm run start:dev`        | Arranca la API y recarga al guardar            |
+| `npm test`                 | Ejecuta las pruebas                            |
+| `npm run test:watch`       | Pruebas en modo continuo                       |
+| `npm run test:coverage`    | Pruebas con informe de cobertura               |
+| `npm run test:integracion` | Solo las pruebas contra PostgreSQL real        |
+| `npm run lint`             | Estilo y fronteras de la arquitectura          |
+| `npm run typecheck`        | Revisa los tipos sin compilar                  |
+| `npm run build`            | Compila a `dist/`                              |
+| `npm run openapi`          | Genera `openapi.json` sin levantar el servidor |
 
 ### Base de datos en local
 
@@ -139,6 +140,21 @@ pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
 `npm run db:local` es la alternativa para maquinas sin permisos de
 administrador: descarga los binarios oficiales de PostgreSQL y los ejecuta como
 un proceso normal. Es PostgreSQL de verdad, no una simulacion.
+
+### Las pruebas que necesitan la base
+
+Los archivos `*.integracion.spec.ts` hablan con PostgreSQL de verdad. **Si no
+hay `DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar a
+levantar una base para cambiar una linea de dominio termina con alguien
+comentando las pruebas.
+
+Con la base levantada corren solas, y el CI las ejecuta siempre contra un
+contenedor propio. Ahi no pueden saltarse: si faltara la base, fallan diciendolo
+en vez de pasar sin comprobar nada.
+
+Estas pruebas se conectan con el rol `vsd_app`, no con el dueno de las tablas,
+porque el dueno esta exento de las politicas de aislamiento. La primera vez le
+dan una contrasena local por su cuenta; no hay nada que preparar a mano.
 
 ### Si algo no arranca
 

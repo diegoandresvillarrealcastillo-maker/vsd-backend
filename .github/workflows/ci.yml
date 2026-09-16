@@ -14,8 +14,13 @@
 name: CI
 
 on:
+  # Cualquier Pull Request, sin filtrar por rama destino.
+  #
+  # Filtrarlo a las tres ramas fijas dejaba sin CI a los Pull Request apilados,
+  # los que salen de otra rama de trabajo porque dependen de ella. Y el sitio
+  # donde eso se nota es el peor: un Pull Request que aparece sin una sola
+  # comprobacion se lee como si no hubiera nada que comprobar.
   pull_request:
-    branches: [desarrollo, preproduccion, produccion]
   push:
     branches: [desarrollo, preproduccion, produccion]
 

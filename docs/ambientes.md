@@ -97,6 +97,42 @@ campo llegue a produccion. Se anota la plantilla de la ruta
 —`/api/resultados/:id`— y no la URL concreta, para que los
 identificadores no acaben en el registro solo por viajar en la direccion.
 
+## La base de datos de cada ambiente
+
+| Ambiente | Donde vive                                | Estado            |
+| -------- | ----------------------------------------- | ----------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | **Sin crear**     |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado y vacio    |
+
+El plan gratuito de Supabase permite **dos proyectos activos por
+organizacion**, y la organizacion `VSD-COMPANY` ya tiene dos. Crear el de
+preproduccion exige liberar un espacio o pagar; es una decision pendiente y
+no bloquea nada hasta el ciclo de despliegue.
+
+### El rol con el que se conecta la aplicacion
+
+En cada ambiente con base de datos hay **dos** credenciales distintas, y no es
+burocracia:
+
+- `DIRECT_URL` usa el dueno de las tablas. Solo la usan las migraciones.
+- `DATABASE_URL` usa el rol `vsd_app`, que no es dueno de nada. Es la que usa
+  el servicio.
+
+El dueno de una tabla esta exento de sus propias politicas de aislamiento. Si
+la aplicacion se conectara con el, el Row Level Security dejaria de aplicarse
+**sin dar ningun error**. Por eso el servicio comprueba al arrancar con que rol
+se conecto y, fuera de desarrollo, se niega a arrancar si no esta sujeto a las
+politicas.
+
+La migracion crea `vsd_app` sin contrasena a proposito. Darsela es un paso
+manual por ambiente, y la contrasena no pasa por Git:
+
+```sql
+ALTER ROLE vsd_app WITH LOGIN PASSWORD 'la que quede en el gestor';
+```
+
 ## Estado actual
 
 Las variables de los tres ambientes estan documentadas en

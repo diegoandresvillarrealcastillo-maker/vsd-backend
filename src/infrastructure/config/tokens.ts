@@ -14,3 +14,12 @@ export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 /** Cliente de Prisma, o null cuando el servicio corre sin base de datos. */
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');
+
+/** Base de conocimiento del asistente: la tabla RECURSO_APOYO. */
+export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
+
+/**
+ * El asistente. Hoy siempre es el de reglas; en la Fase 2 este token es el
+ * unico sitio donde se elige entre ese y el que use un modelo de lenguaje.
+ */
+export const ASISTENTE = Symbol('AsistentePort');

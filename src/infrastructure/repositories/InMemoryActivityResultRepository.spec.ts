@@ -106,7 +106,7 @@ describe('Cableado completo', () => {
     });
 
     expect(resultado.userId.value).toBe(USUARIO);
-    expect(resultado.score.level).toBe('favorable');
+    expect(resultado.score?.level).toBe('favorable');
   });
 
   it('el mismo caso de uso sigue siendo idempotente contra el adaptador real', async () => {

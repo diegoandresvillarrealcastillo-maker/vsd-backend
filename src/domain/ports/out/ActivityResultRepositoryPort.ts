@@ -36,4 +36,15 @@ export interface ActivityResultRepositoryPort {
 
   /** Guarda un resultado nuevo. */
   save(result: ActivityResult): Promise<void>;
+
+  /**
+   * Los resultados de esa persona desde una fecha, del mas reciente al mas
+   * antiguo.
+   *
+   * Es lo que permite al asistente decir algo cierto en lugar de algo bonito.
+   * "Llevas tres semanas registrando tu descanso" sale de contar filas; si
+   * saliera de otro sitio seria una frase amable e inventada, y a la tercera
+   * vez que no cuadre con lo que la persona recuerda, deja de creerse el resto.
+   */
+  ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]>;
 }

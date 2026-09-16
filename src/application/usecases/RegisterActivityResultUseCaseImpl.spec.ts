@@ -38,6 +38,14 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     return Promise.resolve();
   }
 
+  ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
+    return Promise.resolve(
+      [...this.porOperacion.values()].filter(
+        (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
+      ),
+    );
+  }
+
   get cantidad(): number {
     return this.porOperacion.size;
   }

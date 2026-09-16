@@ -161,12 +161,29 @@ model RecursoApoyo {
   idCategoria String? @map("id_categoria") @db.Uuid
   titulo      String  @db.VarChar(120)
   descripcion String?
+  /// Que clase de recurso es: contacto, lectura, ejercicio.
   tipo        String  @db.VarChar(30)
   enlace      String? @db.VarChar(255)
+
+  /// De que trata. Es lo que permite al asistente responder a una intencion
+  /// con recursos de la base en lugar de con texto escrito en el codigo.
+  ///
+  /// Vacio en los recursos que valen para cualquier tema, como las lineas de
+  /// atencion.
+  tema String? @db.VarChar(30)
+
+  /// Donde sirve este recurso: `nacional`, `bogota`, `universidad`.
+  ///
+  /// No es un adorno. La Linea 106 es un servicio distrital y se marca desde
+  /// Bogota; la sede principal de la universidad esta en Fusagasuga. Dar solo
+  /// ese numero a quien esta fuera de Bogota es darle un telefono que no
+  /// contesta, y en una situacion de riesgo eso no es un detalle.
+  cobertura String? @db.VarChar(30)
 
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])
+  @@index([tipo, tema])
   @@map("recurso_apoyo")
 }
 

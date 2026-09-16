@@ -99,6 +99,16 @@ Ya puedes abrir:
 - **http://localhost:3000/health** — comprueba que responde
 - **http://localhost:3000/api/docs** — documentacion navegable de la API
 
+### VSD IA
+
+El asistente responde en `POST /api/asistente`. Es la primera version: **reglas,
+sin modelo de lenguaje**, sin costo y sin llamadas a ninguna API.
+
+Si el texto trae una expresion de riesgo, la respuesta incluye siempre las
+lineas de atencion, y esa decision se toma antes de mirar nada mas. No se delega
+a un modelo, ni ahora ni cuando exista el adaptador de Fase 2: ver
+[ADR 0011](docs/adr/0011-la-deteccion-de-riesgo-es-por-reglas.md).
+
 ### Probar la API sin salir del editor
 
 El archivo [`peticiones.http`](peticiones.http) trae ocho ejemplos listos:

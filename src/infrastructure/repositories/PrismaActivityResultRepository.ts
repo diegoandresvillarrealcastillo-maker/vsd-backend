@@ -34,10 +34,18 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
 
   async findByClientOperationId(
     clientOperationId: ClientOperationId,
+    userId: UserId,
   ): Promise<ActivityResult | null> {
-    const fila = await this.prisma.resultado.findUnique({
-      where: { idOperacionCliente: clientOperationId.value },
-    });
+    const fila = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findUnique({
+        where: {
+          idUsuario_idOperacionCliente: {
+            idUsuario: userId.value,
+            idOperacionCliente: clientOperationId.value,
+          },
+        },
+      }),
+    );
 
     if (fila === null) {
       return null;
@@ -51,23 +59,29 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   async save(result: ActivityResult): Promise<void> {
     const tieneMetadata = Object.keys(result.metadata).length > 0;
 
-    await this.prisma.resultado.create({
-      data: {
-        id: result.id.value,
-        idUsuario: result.userId.value,
-        idActividad: result.activityId.value,
-        idOperacionCliente: result.clientOperationId.value,
-        // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
-        // hace falta, vive en `metadata`.
-        puntaje: result.score?.value ?? null,
-        nivelOrientativo: result.score?.level ?? null,
-        // La clave se omite cuando no hay nada, en lugar de mandarla en
-        // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
-        // omitirla deja la columna en NULL, que es lo que queremos.
-        ...(tieneMetadata ? { metadata: result.metadata } : {}),
-        fecha: result.completedAt,
-      },
-    });
+    // La sesion es lo que permite que la base aplique sus politicas: dentro
+    // de ella solo existen las filas de esta persona. El WHERE de arriba y el
+    // id_usuario de aqui dejan de ser la unica defensa y pasan a ser la
+    // primera de dos.
+    await this.prisma.comoUsuario(result.userId.value, (cliente) =>
+      cliente.resultado.create({
+        data: {
+          id: result.id.value,
+          idUsuario: result.userId.value,
+          idActividad: result.activityId.value,
+          idOperacionCliente: result.clientOperationId.value,
+          // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
+          // hace falta, vive en `metadata`.
+          puntaje: result.score?.value ?? null,
+          nivelOrientativo: result.score?.level ?? null,
+          // La clave se omite cuando no hay nada, en lugar de mandarla en
+          // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
+          // omitirla deja la columna en NULL, que es lo que queremos.
+          ...(tieneMetadata ? { metadata: result.metadata } : {}),
+          fecha: result.completedAt,
+        },
+      }),
+    );
   }
 
   /**

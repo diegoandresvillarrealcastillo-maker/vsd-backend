@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  InvalidIdentifierError,
-  OperationBelongsToAnotherUserError,
-  ScoreOutOfRangeError,
-} from '../../domain/model/DomainError.js';
+import { InvalidIdentifierError, ScoreOutOfRangeError } from '../../domain/model/DomainError.js';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
-import { ActivityId, ClientOperationId, ResultId } from '../../domain/model/Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -22,14 +18,22 @@ import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCa
  * El adaptador real se prueba aparte, en su propia capa.
  */
 class RepositorioFalso implements ActivityResultRepositoryPort {
+  // La clave lleva a la persona delante, igual que el indice UNIQUE de la
+  // base y que el adaptador en memoria. Un doble que se comportara distinto
+  // haria pasar pruebas sobre un sistema que no existe.
   private readonly porOperacion = new Map<string, ActivityResult>();
 
-  findByClientOperationId(clientOperationId: ClientOperationId): Promise<ActivityResult | null> {
-    return Promise.resolve(this.porOperacion.get(clientOperationId.value) ?? null);
+  findByClientOperationId(
+    clientOperationId: ClientOperationId,
+    userId: UserId,
+  ): Promise<ActivityResult | null> {
+    return Promise.resolve(
+      this.porOperacion.get(`${userId.value}/${clientOperationId.value}`) ?? null,
+    );
   }
 
   save(result: ActivityResult): Promise<void> {
-    this.porOperacion.set(result.clientOperationId.value, result);
+    this.porOperacion.set(`${result.userId.value}/${result.clientOperationId.value}`, result);
 
     return Promise.resolve();
   }
@@ -43,6 +47,7 @@ const USUARIO_A = '11111111-1111-4111-8111-111111111111';
 const USUARIO_B = '22222222-2222-4222-9222-222222222222';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
 const OPERACION = '44444444-4444-4444-b444-444444444444';
+const OTRA_OPERACION = '55555555-5555-4555-b555-555555555555';
 const RESULTADO = '55555555-5555-4555-8555-555555555555';
 
 const AHORA = new Date('2026-09-14T12:00:00.000Z');
@@ -128,29 +133,50 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     expect(repositorio.cantidad).toBe(1);
   });
 
-  it('rechaza una operacion que pertenece a otro usuario', async () => {
-    // Control de seguridad, no solo de integridad: conocer un identificador
-    // de operacion ajeno no puede servir para escribir sobre datos de otra
-    // persona.
-    await casoDeUso.execute(comando({ userId: USUARIO_A }));
+  it('no toca el resultado de otra persona aunque se use su identificador de operacion', async () => {
+    await casoDeUso.execute(comando({ userId: USUARIO_A, score: 8 }));
 
-    await expect(casoDeUso.execute(comando({ userId: USUARIO_B }))).rejects.toThrow(
-      OperationBelongsToAnotherUserError,
+    const ajeno = await casoDeUso.execute(comando({ userId: USUARIO_B, score: 2 }));
+
+    // Son dos resultados distintos, cada uno de su dueno. Lo de A sigue
+    // exactamente como estaba: ni se sobrescribio ni se devolvio a B.
+    // No se compara el identificador: el generador esta fijado a proposito
+    // para que otras pruebas puedan afirmar sobre el. Lo que demuestra que son
+    // dos resultados distintos es que hay dos guardados y que el de A conserva
+    // su puntaje.
+    expect(ajeno.userId.value).toBe(USUARIO_B);
+    expect(ajeno.score?.value).toBe(20);
+    expect(repositorio.cantidad).toBe(2);
+
+    const deA = await repositorio.findByClientOperationId(
+      new ClientOperationId(OPERACION),
+      new UserId(USUARIO_A),
     );
+
+    expect(deA?.score?.value).toBe(80);
   });
 
-  it('no revela en el mensaje de error que la operacion existe', async () => {
+  it('no responde distinto ante una operacion ajena que ante una inexistente', async () => {
+    // Es el motivo entero del ADR 0010. Si usar el identificador de otra
+    // persona diera un error y usar uno inventado diera un resultado, esa sola
+    // diferencia permitiria ir probando identificadores hasta averiguar
+    // cuales existen, sin llegar a ver ni un dato.
     await casoDeUso.execute(comando({ userId: USUARIO_A }));
 
-    await expect(casoDeUso.execute(comando({ userId: USUARIO_B }))).rejects.toThrow(
-      /no esta disponible/,
+    const conOperacionAjena = await casoDeUso.execute(comando({ userId: USUARIO_B }));
+    const conOperacionNueva = await casoDeUso.execute(
+      comando({ userId: USUARIO_B, clientOperationId: OTRA_OPERACION }),
     );
+
+    expect(conOperacionAjena.userId.value).toBe(conOperacionNueva.userId.value);
+    expect(conOperacionAjena.score?.value).toBe(conOperacionNueva.score?.value);
   });
 
-  it('no guarda nada cuando la operacion es de otro usuario', async () => {
-    await casoDeUso.execute(comando({ userId: USUARIO_A }));
+  it('la idempotencia sigue valiendo dentro de la misma persona', async () => {
+    const primero = await casoDeUso.execute(comando({ userId: USUARIO_B }));
+    const reintento = await casoDeUso.execute(comando({ userId: USUARIO_B }));
 
-    await expect(casoDeUso.execute(comando({ userId: USUARIO_B }))).rejects.toThrow();
+    expect(reintento.id.value).toBe(primero.id.value);
     expect(repositorio.cantidad).toBe(1);
   });
 

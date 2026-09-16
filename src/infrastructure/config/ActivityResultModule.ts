@@ -9,7 +9,7 @@ import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepo
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
 import { PrismaActivityRepository } from '../repositories/PrismaActivityRepository.js';
 import { PrismaActivityResultRepository } from '../repositories/PrismaActivityResultRepository.js';
-import type { Configuracion } from './environment.js';
+import { Ambiente, type Configuracion } from './environment.js';
 import {
   ACTIVITY_REPOSITORY,
   ACTIVITY_RESULT_REPOSITORY,
@@ -46,7 +46,13 @@ import {
       useFactory: (configuracion: Configuracion): PrismaService | null =>
         configuracion.urlBaseDeDatos === undefined
           ? null
-          : new PrismaService(configuracion.urlBaseDeDatos),
+          : new PrismaService(
+              configuracion.urlBaseDeDatos,
+              // Fuera de desarrollo, una conexion que se salte las politicas
+              // de aislamiento impide arrancar. Es preferible un servicio
+              // caido y evidente a uno en pie que ya no protege nada.
+              configuracion.ambiente !== Ambiente.DESARROLLO,
+            ),
       inject: [CONFIGURACION],
     },
     {

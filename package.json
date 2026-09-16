@@ -47,7 +47,8 @@
     "db:estado": "prisma migrate status",
     "db:generar": "prisma generate",
     "db:ver": "prisma studio",
-    "db:local": "node scripts/postgres-local.mjs"
+    "db:local": "node scripts/postgres-local.mjs",
+    "postinstall": "prisma generate"
   },
   "engines": {
     "node": ">=24"

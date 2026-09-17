@@ -99,17 +99,42 @@ identificadores no acaben en el registro solo por viajar en la direccion.
 
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado            |
-| -------- | ----------------------------------------- | ----------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | **Sin crear**     |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado y vacio    |
+| Ambiente | Donde vive                                | Estado                 |
+| -------- | ----------------------------------------- | ---------------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento      |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento      |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | Creado, con el esquema |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado, con el esquema |
 
-El plan gratuito de Supabase permite **dos proyectos activos por
-organizacion**, y la organizacion `VSD-COMPANY` ya tiene dos. Crear el de
-preproduccion exige liberar un espacio o pagar; es una decision pendiente y
-no bloquea nada hasta el ciclo de despliegue.
+Las cuatro migraciones corrieron en los dos proyectos el 16/09/2026. PRE y PROD
+tienen ya las seis tablas, el aislamiento por Row Level Security y los recursos
+de apoyo sembrados. No contienen datos de ninguna persona.
+
+Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
+plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
+miembros con rol Owner o Admin cuentan para ese limite. Por eso Diego entra
+como **Developer**: con cualquier rol superior, sus propios proyectos contarian
+alli y la organizacion se quedaria sin cupo.
+
+> **Se pausan solos.** Un proyecto gratuito que pasa siete dias sin actividad
+> queda en pausa y hay que reactivarlo a mano desde el panel. No se pierde
+> nada, pero el primer intento de conexion falla y el error no lo dice.
+
+### Como se llega a esas bases
+
+La direccion directa —`db.<ref>.supabase.co`— **solo resuelve por IPv6**. En
+una maquina sin IPv6 no hay manera de alcanzarla, y el sintoma es un `P1001`
+que parece un problema de credenciales sin serlo. Para eso estan los pooler:
+
+| Via                                      | Puerto | Para que sirve                            |
+| ---------------------------------------- | ------ | ----------------------------------------- |
+| Conexion directa                         | 5432   | Solo IPv6.                                |
+| Session pooler, usuario `postgres.<ref>` | 5432   | IPv4. **Es la que usan las migraciones.** |
+| Transaction pooler                       | 6543   | IPv4. La usa la aplicacion.               |
+
+El transaction pooler no sirve para migrar: no conserva la sesion entre
+sentencias. Por eso, contra Supabase, `DIRECT_URL` apunta al session pooler y
+no a la direccion directa.
 
 ### El rol con el que se conecta la aplicacion
 
@@ -138,6 +163,11 @@ ALTER ROLE vsd_app WITH LOGIN PASSWORD 'la que quede en el gestor';
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Los despliegues de PRE y PROD todavia no existen: se configuran en el
-ciclo de despliegue. Hasta entonces, el unico ambiente en funcionamiento
-es DEV. Esta seccion se actualiza cuando eso cambie.
+Las bases de PRE y PROD ya tienen el esquema, pero **todavia no hay ningun
+despliegue** conectado a ellas: la API solo corre en local y en el contenedor
+del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
+seccion se actualiza cuando eso cambie.
+
+Antes del primer despliegue quedan dos pasos manuales en cada ambiente: darle
+contrasena al rol `vsd_app` y anotar las dos URL en el gestor de secretos del
+proveedor. Ninguno de los dos pasa por Git.

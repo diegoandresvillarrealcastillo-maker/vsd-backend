@@ -67,8 +67,8 @@ propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
 | 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
 | 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
 | 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
-| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | En curso  |
-| 5     | Usuarios y autenticacion                              | Pendiente |
+| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
+| 5     | Usuarios y autenticacion                              | Siguiente |
 
 ## Como ejecutarlo en local
 
@@ -232,9 +232,10 @@ Ninguno de esos valores puede pasar al frontend. En particular,
 aqui. Ver [docs/seguridad.md](docs/seguridad.md).
 
 Hay dos cadenas de conexion distintas y no son intercambiables:
-`DATABASE_URL` pasa por el pooler (puerto 6543) y la usa la aplicacion;
-`DIRECT_URL` es la conexion directa (puerto 5432) y solo la usan las
-migraciones de Prisma.
+`DATABASE_URL` la usa la aplicacion; `DIRECT_URL` solo la usan las
+migraciones de Prisma. Contra Supabase, ademas, ninguna de las dos apunta a
+la direccion directa del proyecto, que solo resuelve por IPv6:
+[docs/ambientes.md](docs/ambientes.md) explica cual va a cada puerto y por que.
 
 ---
 

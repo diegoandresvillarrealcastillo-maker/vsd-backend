@@ -122,16 +122,33 @@ console.log('vsd_app no es superusuario, no salta RLS y no puede crear nada.');
 // filas de otra. Si esto pasara, el ambiente no esta bien preparado por muy
 // bien que se vea todo lo anterior.
 const urlDeLaApp = new URL(urlDelDueno);
-urlDeLaApp.username = 'vsd_app';
+
+// El pooler de Supabase no sabe a que proyecto va una conexion mirando el
+// host: todos los proyectos de una region comparten el mismo. Lo deduce del
+// usuario, que por eso viene como `postgres.<referencia-del-proyecto>`.
+//
+// Cambiar el usuario a `vsd_app` a secas tira esa referencia y el pooler
+// responde "no tenant identifier provided", que no tiene nada que ver con la
+// contrasena aunque lo parezca. Hay que conservar el sufijo.
+//
+// Contra PostgreSQL directo —local, Docker, el contenedor del CI— el usuario
+// no lleva sufijo y no hay nada que conservar.
+const [, referenciaDelProyecto] = decodeURIComponent(urlDeLaApp.username).split('.');
+
+urlDeLaApp.username =
+  referenciaDelProyecto === undefined ? 'vsd_app' : `vsd_app.${referenciaDelProyecto}`;
 urlDeLaApp.password = contrasena;
+
+console.log(`Comprobando el aislamiento como "${urlDeLaApp.username}"...`);
 
 const app = new Client({ connectionString: urlDeLaApp.toString() });
 
 try {
   await app.connect();
 } catch (error) {
-  console.error('\nvsd_app no pudo conectarse:', error.message);
-  console.error('Si el ambiente usa el pooler de Supabase, el usuario puede necesitar prefijo.');
+  console.error(`\nvsd_app no pudo conectarse: ${error.message}`);
+  console.error(`Se intento con el usuario "${urlDeLaApp.username}".`);
+  console.error('La contrasena SI quedo puesta: lo que fallo es esta comprobacion.');
   await dueno.end();
   process.exit(1);
 }

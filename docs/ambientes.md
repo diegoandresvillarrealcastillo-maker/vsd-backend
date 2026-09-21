@@ -106,9 +106,16 @@ identificadores no acaben en el registro solo por viajar en la direccion.
 | PRE      | Supabase, proyecto `vsd-health-pre`       | Creado, con el esquema |
 | PROD     | Supabase, proyecto `vsd-health-prod`      | Creado, con el esquema |
 
-Las cuatro migraciones corrieron en los dos proyectos el 16/09/2026. PRE y PROD
-tienen ya las seis tablas, el aislamiento por Row Level Security y los recursos
-de apoyo sembrados. No contienen datos de ninguna persona.
+Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
+ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
+lineas de atencion y **el catalogo de tres categorias y nueve actividades**.
+
+El catalogo se siembra con una migracion y no desde el panel justamente por
+eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de
+significar algo, y el fallo no daria ningun error: la aplicacion se veria bien
+y mostraria cosas distintas en cada sitio.
+
+Ninguno de los dos contiene datos de ninguna persona.
 
 Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
 plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
@@ -151,12 +158,25 @@ la aplicacion se conectara con el, el Row Level Security dejaria de aplicarse
 se conecto y, fuera de desarrollo, se niega a arrancar si no esta sujeto a las
 politicas.
 
-La migracion crea `vsd_app` sin contrasena a proposito. Darsela es un paso
-manual por ambiente, y la contrasena no pasa por Git:
+La migracion crea `vsd_app` sin contrasena a proposito. Si se la pusiera, esa
+contrasena estaria en Git, en el historial y en la copia que tiene cada persona
+del repositorio. Darsela es por eso un paso manual por ambiente:
 
-```sql
-ALTER ROLE vsd_app WITH LOGIN PASSWORD 'la que quede en el gestor';
+```bash
+VSD_APP_PASSWORD='la-que-genere-el-gestor' npm run db:rol -- "cadena-del-dueno"
 ```
+
+La contrasena entra por variable de entorno y no como argumento, porque los
+argumentos quedan en el historial de la terminal y se ven en la lista de
+procesos. El script no la imprime ni la guarda en ningun sitio: anotala en el
+gestor de contrasenas **antes** de ejecutarlo, porque despues no hay forma de
+recuperarla.
+
+Ademas de ponerla, comprueba tres cosas y falla si alguna no se cumple: que
+`vsd_app` no sea superusuario ni salte RLS, que conectandose con el no se vea
+ninguna fila ajena, y que si se pueda leer el catalogo. Cuando la base esta
+vacia lo advierte, porque entonces "no ve nada" tambien seria cierto con las
+politicas apagadas.
 
 ## Estado actual
 

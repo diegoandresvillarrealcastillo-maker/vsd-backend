@@ -112,7 +112,33 @@ if (roles.length === 0) {
   );
 }
 
-// ---------- 4. Contenido del catalogo ----------
+// ---------- 4. El catalogo ----------
+// Es lo que la aplicacion tiene que ofrecer. Un ambiente con las tablas
+// perfectas y el catalogo vacio abre y no tiene nada que mostrar, asi que
+// mirarlo no es un adorno del informe: es la mitad de la comprobacion.
+const { rows: catalogo } = await cliente.query(`
+  SELECT c."nombre" AS categoria,
+         count(a."id_actividad") FILTER (WHERE a."estado")::int      AS activas,
+         count(a."id_actividad") FILTER (WHERE NOT a."estado")::int  AS retiradas
+    FROM "categoria" c
+    LEFT JOIN "actividad" a ON a."id_categoria" = c."id_categoria"
+   GROUP BY c."nombre"
+   ORDER BY c."nombre"
+`);
+
+const totalActivas = catalogo.reduce((suma, fila) => suma + fila.activas, 0);
+
+console.log(`\nCATALOGO: ${catalogo.length} categorias, ${totalActivas} actividades activas`);
+for (const fila of catalogo) {
+  const retiradas = fila.retiradas > 0 ? `, ${fila.retiradas} retiradas` : '';
+  console.log(` - ${fila.categoria}: ${fila.activas} actividades${retiradas}`);
+}
+
+if (totalActivas === 0) {
+  console.log('   AVISO: sin actividades, la aplicacion no tiene nada que ofrecer.');
+}
+
+// ---------- 5. Recursos de apoyo ----------
 const { rows: recursos } = await cliente.query(
   `SELECT titulo, cobertura FROM recurso_apoyo ORDER BY titulo`,
 );
@@ -121,7 +147,7 @@ for (const r of recursos) {
   console.log(` - ${r.titulo}${r.cobertura ? ` (${r.cobertura})` : ''}`);
 }
 
-// ---------- 5. Datos de personas ----------
+// ---------- 6. Datos de personas ----------
 for (const tabla of ['usuario', 'resultado', 'entrada_diario']) {
   const { rows } = await cliente.query(`SELECT count(*)::int AS n FROM "${tabla}"`);
   console.log(`Filas en ${tabla}: ${rows[0].n}`);

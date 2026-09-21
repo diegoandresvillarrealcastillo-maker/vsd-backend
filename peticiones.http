@@ -126,3 +126,13 @@ Content-Type: application/json
   "maxScore": 10,
   "completedAt": "2030-01-01T00:00:00.000Z"
 }
+
+### Consultar el catalogo
+# Las categorias con sus actividades. No lleva identidad: el catalogo es el
+# mismo para todo el mundo y no contiene datos de nadie.
+#
+# Fijate en lo que NO devuelve: ni puntaje maximo, ni umbrales, ni textos de
+# nivel. Eso sirve para interpretar un resultado, y esa interpretacion ocurre
+# en el servidor.
+GET http://localhost:3000/api/catalogo
+Accept: application/json

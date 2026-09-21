@@ -23,3 +23,6 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  * unico sitio donde se elige entre ese y el que use un modelo de lenguaje.
  */
 export const ASISTENTE = Symbol('AsistentePort');
+
+/** Lectura del catalogo: categorias con sus actividades. */
+export const CONSULTAR_CATALOGO = Symbol('ConsultarCatalogoUseCase');

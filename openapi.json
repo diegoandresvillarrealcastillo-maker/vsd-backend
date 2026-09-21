@@ -57,6 +57,71 @@
           "Resultados"
         ]
       }
+    },
+    "/api/catalogo": {
+      "get": {
+        "description": "Las categorias con sus actividades disponibles. No incluye el puntaje maximo ni los cortes de nivel: eso sirve para interpretar un resultado, y esa interpretacion ocurre en el servidor.",
+        "operationId": "CatalogoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Categorias con sus actividades.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoriaDelCatalogoDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Consultar el catalogo de actividades",
+        "tags": [
+          "Catalogo"
+        ]
+      }
+    },
+    "/api/asistente": {
+      "post": {
+        "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
+        "operationId": "AsistenteController_preguntar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultarAsistenteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta del asistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsistenteRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo de la peticion no es valido."
+          },
+          "429": {
+            "description": "Demasiadas peticiones."
+          }
+        },
+        "summary": "Preguntar al asistente",
+        "tags": [
+          "Asistente"
+        ]
+      }
     }
   },
   "info": {
@@ -165,6 +230,161 @@
           "activityId",
           "sugiereAcompanamiento",
           "completedAt"
+        ]
+      },
+      "ActividadDelCatalogoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Parejas de cartas"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "juego",
+            "description": "Como se realiza: juego, preguntas o bitacora."
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Encuentra las parejas iguales en el menor numero de intentos."
+          },
+          "produceNivel": {
+            "type": "boolean",
+            "example": true,
+            "description": "Si al terminar hay un nivel orientativo que mostrar. Las bitacoras no lo tienen: registran, no califican."
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "produceNivel"
+        ]
+      },
+      "CategoriaDelCatalogoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cognicion"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "actividades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActividadDelCatalogoDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "actividades"
+        ]
+      },
+      "ConsultarAsistenteDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Identificador de la persona que pregunta.",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111"
+          },
+          "texto": {
+            "type": "string",
+            "description": "Lo que escribio la persona, tal cual. No se guarda: se usa para responder y se descarta.",
+            "example": "como puedo dormir mejor",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "userId",
+          "texto"
+        ]
+      },
+      "RecursoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Linea 192, opcion 4"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "contacto",
+            "enum": [
+              "contacto",
+              "lectura",
+              "ejercicio"
+            ]
+          },
+          "cobertura": {
+            "type": "string",
+            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
+            "example": "nacional"
+          },
+          "enlace": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "tipo"
+        ]
+      },
+      "AsistenteRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "intencion": {
+            "type": "string",
+            "description": "Que se entendio de la pregunta.",
+            "example": "como_duermo_mejor"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "Descansar mejor casi siempre empieza por la rutina."
+          },
+          "recursos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          },
+          "senalDeRiesgo": {
+            "type": "boolean",
+            "description": "Cierto cuando el texto contenia una expresion de riesgo. La interfaz deberia destacar esta respuesta."
+          },
+          "incluyeLineasDeAtencion": {
+            "type": "boolean",
+            "description": "Cierto cuando la respuesta trae al menos un contacto. Si senalDeRiesgo es cierto, este tambien lo es, siempre."
+          }
+        },
+        "required": [
+          "intencion",
+          "mensaje",
+          "recursos",
+          "senalDeRiesgo",
+          "incluyeLineasDeAtencion"
         ]
       }
     }

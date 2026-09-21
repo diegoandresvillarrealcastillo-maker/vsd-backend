@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { InvalidIdentifierError, ScoreOutOfRangeError } from '../../domain/model/DomainError.js';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
+import type { Categoria } from '../../domain/model/Categoria.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
@@ -74,6 +75,16 @@ class CatalogoFalso implements ActivityRepositoryPort {
 
   findById(id: ActivityId): Promise<Activity | null> {
     return Promise.resolve(this.actividades.find((a) => a.id.value === id.value) ?? null);
+  }
+
+  /**
+   * Este caso de uso no lista nada, pero el doble tiene que implementar el
+   * puerto entero. Devolver una lista vacia lo deja explicito: si algun dia
+   * empezara a usarlo, la prueba fallaria en vez de pasar con datos
+   * inventados.
+   */
+  listarCatalogo(): Promise<readonly Categoria[]> {
+    return Promise.resolve([]);
   }
 }
 

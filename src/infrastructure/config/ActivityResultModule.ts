@@ -1,9 +1,11 @@
 import { Logger, Module } from '@nestjs/common';
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
+import { ConsultarCatalogoUseCaseImpl } from '../../application/usecases/ConsultarCatalogoUseCaseImpl.js';
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { ActivityResultController } from '../controllers/ActivityResultController.js';
+import { CatalogoController } from '../controllers/CatalogoController.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
@@ -14,6 +16,7 @@ import {
   ACTIVITY_REPOSITORY,
   ACTIVITY_RESULT_REPOSITORY,
   CONFIGURACION,
+  CONSULTAR_CATALOGO,
   PRISMA,
 } from './tokens.js';
 
@@ -39,7 +42,7 @@ import {
  * horas de buscar por que los datos no aparecen.
  */
 @Module({
-  controllers: [ActivityResultController],
+  controllers: [ActivityResultController, CatalogoController],
   providers: [
     {
       provide: PRISMA,
@@ -91,6 +94,12 @@ import {
       useFactory: (casoDeUso: RegisterActivityResultUseCaseImpl) =>
         new ActivityResultService(casoDeUso),
       inject: [RegisterActivityResultUseCaseImpl],
+    },
+    {
+      provide: CONSULTAR_CATALOGO,
+      useFactory: (actividades: ActivityRepositoryPort) =>
+        new ConsultarCatalogoUseCaseImpl(actividades),
+      inject: [ACTIVITY_REPOSITORY],
     },
   ],
   exports: [ACTIVITY_RESULT_REPOSITORY, PRISMA],

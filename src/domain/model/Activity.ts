@@ -49,6 +49,10 @@ const UMBRALES_POR_DEFECTO: Umbrales = { primero: 1 / 3, segundo: 2 / 3 };
 export interface DatosDeActividad {
   readonly id: ActivityId;
   readonly nombre: string;
+  /** Como se realiza: juego, preguntas o bitacora. */
+  readonly tipo?: string | undefined;
+  /** Que es y cuanto dura, en una frase. Se muestra en el catalogo. */
+  readonly descripcion?: string | undefined;
   readonly direccionEscala: DireccionEscala;
   readonly puntajeMaximo?: number | undefined;
   readonly umbrales?: Umbrales | undefined;
@@ -65,6 +69,8 @@ export interface DatosDeActividad {
 export class Activity {
   readonly id: ActivityId;
   readonly nombre: string;
+  readonly tipo: string | undefined;
+  readonly descripcion: string | undefined;
   readonly direccionEscala: DireccionEscala;
   readonly puntajeMaximo: number | undefined;
   readonly umbrales: Umbrales;
@@ -73,6 +79,8 @@ export class Activity {
   private constructor(datos: DatosDeActividad, umbrales: Umbrales) {
     this.id = datos.id;
     this.nombre = datos.nombre;
+    this.tipo = datos.tipo;
+    this.descripcion = datos.descripcion;
     this.direccionEscala = datos.direccionEscala;
     this.puntajeMaximo = datos.puntajeMaximo;
     this.umbrales = umbrales;

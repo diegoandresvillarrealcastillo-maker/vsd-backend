@@ -1,4 +1,5 @@
 import type { Activity } from '../../model/Activity.js';
+import type { Categoria } from '../../model/Categoria.js';
 import type { ActivityId } from '../../model/Identifier.js';
 
 /**
@@ -15,4 +16,17 @@ import type { ActivityId } from '../../model/Identifier.js';
 export interface ActivityRepositoryPort {
   /** Devuelve la actividad, o `null` si no existe en el catalogo. */
   findById(id: ActivityId): Promise<Activity | null>;
+
+  /**
+   * Devuelve el catalogo completo: las categorias con sus actividades activas.
+   *
+   * Es una sola operacion y no dos —categorias por un lado, actividades por
+   * otro— porque asi es como se pide y como se muestra. Separarlas obligaria a
+   * cruzarlas despues y, contra la base, a una consulta por categoria.
+   *
+   * **Las actividades desactivadas no salen.** El administrador las retira por
+   * algun motivo, y ofrecer una que luego no deja registrar el resultado es
+   * peor que no ofrecerla.
+   */
+  listarCatalogo(): Promise<readonly Categoria[]>;
 }

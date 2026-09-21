@@ -51,7 +51,8 @@
     "db:ver": "prisma studio",
     "db:local": "node scripts/postgres-local.mjs",
     "postinstall": "prisma generate",
-    "db:revisar": "node scripts/revisar-base.mjs"
+    "db:revisar": "node scripts/revisar-base.mjs",
+    "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs"
   },
   "engines": {
     "node": ">=24"

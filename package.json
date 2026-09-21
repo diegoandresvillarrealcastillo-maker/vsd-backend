@@ -52,7 +52,8 @@
     "db:local": "node scripts/postgres-local.mjs",
     "postinstall": "prisma generate",
     "db:revisar": "node scripts/revisar-base.mjs",
-    "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs"
+    "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs",
+    "db:preparar": "node scripts/preparar-ambiente.mjs"
   },
   "engines": {
     "node": ">=24"

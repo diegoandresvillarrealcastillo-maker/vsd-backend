@@ -142,17 +142,18 @@ interrupcion funcionan sobre los archivos `.ts`.
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo
 puerto; usa la que te funcione.
 
-| Comando                | Que hace                                    |
-| ---------------------- | ------------------------------------------- |
-| `npm run db:arriba`    | Levanta las bases con Docker                |
-| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**  |
-| `npm run db:aplicar`   | Aplica las migraciones                      |
-| `npm run db:estado`    | Dice si falta alguna migracion              |
-| `npm run db:ver`       | Abre Prisma Studio para mirar los datos     |
-| `npm run db:revisar`   | Dice que hay **de verdad** en una base      |
-| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente |
-| `npm run db:abajo`     | Para los contenedores                       |
-| `npm run db:reiniciar` | Los para y **borra los datos**              |
+| Comando                | Que hace                                       |
+| ---------------------- | ---------------------------------------------- |
+| `npm run db:arriba`    | Levanta las bases con Docker                   |
+| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**     |
+| `npm run db:aplicar`   | Aplica las migraciones                         |
+| `npm run db:estado`    | Dice si falta alguna migracion                 |
+| `npm run db:ver`       | Abre Prisma Studio para mirar los datos        |
+| `npm run db:revisar`   | Dice que hay **de verdad** en una base         |
+| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente    |
+| `npm run db:preparar`  | Deja un ambiente listo: migra, rol y comprueba |
+| `npm run db:abajo`     | Para los contenedores                          |
+| `npm run db:reiniciar` | Los para y **borra los datos**                 |
 
 Con Docker se levantan dos bases: la de desarrollo en el **5432** y otra para
 pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.

@@ -26,6 +26,16 @@ if (!url) {
 }
 
 // Nunca se imprime la contrasena, ni siquiera por accidente en un error.
+// La salida de estos scripts enmascara la contrasena como ***, y es facil
+// copiar esa version en vez de la real. El sintoma seria un fallo de
+// autenticacion que parece un problema de credenciales sin serlo.
+if (url.includes(`:***@`)) {
+  console.error(`La cadena trae *** donde va la contrasena.`);
+  console.error(`Eso es lo que imprimen estos scripts para ocultarla, no un valor real.`);
+  console.error(`Copiala del panel de Supabase y sustituye [YOUR-PASSWORD] por la tuya.`);
+  process.exit(1);
+}
+
 const sinSecreto = url.replace(/:\/\/([^:]+):[^@]+@/, '://$1:***@');
 console.log(`Base: ${sinSecreto}\n`);
 

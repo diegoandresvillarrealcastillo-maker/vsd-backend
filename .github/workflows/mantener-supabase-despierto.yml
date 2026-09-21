@@ -1,0 +1,126 @@
+# ============================================================
+#  VSD Health - evitar que los proyectos de Supabase se pausen
+# ============================================================
+#  Un proyecto del plan gratuito que pasa siete dias sin recibir
+#  una sola peticion queda en pausa. No se pierde nada, pero hay
+#  que reactivarlo a mano desde el panel y, mientras tanto, la
+#  aplicacion no conecta. Enterarse de eso el dia de una entrega
+#  cuesta mas tiempo del que parece, porque el error no dice que
+#  el proyecto esta pausado: dice que no pudo conectar.
+#
+#  Esto manda una peticion cada tres dias. Es la mitad de la
+#  ventana, asi que un fallo suelto no deja el proyecto sin tocar.
+#
+#  El coste es despreciable: dos peticiones cada tres dias, unas
+#  veinte al mes por proyecto. No hay forma de que eso sature
+#  nada; el limite del plan gratuito se cuenta en cientos de
+#  miles de peticiones al mes.
+# ============================================================
+
+name: Mantener Supabase despierto
+
+on:
+  schedule:
+    # A las 13:00 UTC, que son las 08:00 en Bogota.
+    - cron: '0 13 */3 * *'
+
+  # Para poder lanzarlo a mano desde la pestana Actions, que es lo
+  # que hace falta cuando una entrega esta cerca y no se quiere
+  # esperar al siguiente turno.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  despertar:
+    name: Tocar ${{ matrix.ambiente }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      # Que falle uno no debe impedir que se toque el otro: son
+      # proyectos independientes y los dos tienen que seguir vivos.
+      fail-fast: false
+      matrix:
+        include:
+          - ambiente: preproduccion
+            url: SUPABASE_URL_PRE
+            clave: SUPABASE_ANON_KEY_PRE
+          - ambiente: produccion
+            url: SUPABASE_URL_PROD
+            clave: SUPABASE_ANON_KEY_PROD
+
+    steps:
+      - name: Comprobar que los secretos existen
+        env:
+          URL: ${{ secrets[matrix.url] }}
+          CLAVE: ${{ secrets[matrix.clave] }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL}" ] || [ -z "${CLAVE}" ]; then
+            echo "Faltan los secretos ${{ matrix.url }} y ${{ matrix.clave }}."
+            echo "Se anaden en Settings > Secrets and variables > Actions."
+            echo "La clave es la anonima (anon / publishable), NUNCA la de servicio."
+            exit 1
+          fi
+
+      - name: Hacer una consulta a la base
+        env:
+          URL: ${{ secrets[matrix.url] }}
+          CLAVE: ${{ secrets[matrix.clave] }}
+        # Esta es la peticion que cuenta. PostgREST abre una conexion
+        # a PostgreSQL y ejecuta la consulta con el rol anon, de modo
+        # que la actividad llega a la base y no solo al borde.
+        #
+        # La respuesta da igual. Con las politicas de aislamiento
+        # puestas, el rol anon no tiene permiso sobre el catalogo y lo
+        # normal es un 401 o un 403: la consulta se ejecuto igual, que
+        # es lo unico que se necesita. Lo que distingue a un proyecto
+        # pausado es que no responde nada.
+        #
+        # --max-time evita que un proyecto colgado deje el trabajo
+        # esperando los seis horas que GitHub permite.
+        run: |
+          set -euo pipefail
+
+          estado=$(curl --silent --show-error --location \
+            --max-time 30 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --header "apikey: ${CLAVE}" \
+            --header "Authorization: Bearer ${CLAVE}" \
+            "${URL}/rest/v1/categoria?select=id&limit=1" || echo "000")
+
+          echo "Respuesta de la base: HTTP ${estado}"
+
+          if [ "${estado}" = "000" ]; then
+            echo "El proyecto no respondio. Puede estar pausado o caido."
+            exit 1
+          fi
+
+          if [ "${estado}" -ge 500 ]; then
+            echo "El proyecto devolvio ${estado}. Algo va mal en el servidor."
+            exit 1
+          fi
+
+          echo "El proyecto esta despierto."
+
+      - name: Tocar tambien el servicio de autenticacion
+        env:
+          URL: ${{ secrets[matrix.url] }}
+        # La pausa es del proyecto entero, no de un servicio suelto,
+        # asi que con la consulta anterior deberia bastar. Esta segunda
+        # peticion es un seguro barato: si un dia cambia como se cuenta
+        # la actividad, hay dos servicios distintos recibiendo trafico.
+        #
+        # No lleva clave: /auth/v1/health es publico.
+        run: |
+          set -euo pipefail
+
+          estado=$(curl --silent --location \
+            --max-time 30 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "${URL}/auth/v1/health" || echo "000")
+
+          echo "Respuesta de autenticacion: HTTP ${estado}"

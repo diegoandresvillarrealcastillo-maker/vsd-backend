@@ -67,8 +67,8 @@ propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
 | 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
 | 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
 | 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
-| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | En curso  |
-| 5     | Usuarios y autenticacion                              | Pendiente |
+| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
+| 5     | Usuarios y autenticacion                              | Siguiente |
 
 ## Como ejecutarlo en local
 
@@ -142,15 +142,17 @@ interrupcion funcionan sobre los archivos `.ts`.
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo
 puerto; usa la que te funcione.
 
-| Comando                | Que hace                                   |
-| ---------------------- | ------------------------------------------ |
-| `npm run db:arriba`    | Levanta las bases con Docker               |
-| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin** |
-| `npm run db:aplicar`   | Aplica las migraciones                     |
-| `npm run db:estado`    | Dice si falta alguna migracion             |
-| `npm run db:ver`       | Abre Prisma Studio para mirar los datos    |
-| `npm run db:abajo`     | Para los contenedores                      |
-| `npm run db:reiniciar` | Los para y **borra los datos**             |
+| Comando                | Que hace                                    |
+| ---------------------- | ------------------------------------------- |
+| `npm run db:arriba`    | Levanta las bases con Docker                |
+| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**  |
+| `npm run db:aplicar`   | Aplica las migraciones                      |
+| `npm run db:estado`    | Dice si falta alguna migracion              |
+| `npm run db:ver`       | Abre Prisma Studio para mirar los datos     |
+| `npm run db:revisar`   | Dice que hay **de verdad** en una base      |
+| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente |
+| `npm run db:abajo`     | Para los contenedores                       |
+| `npm run db:reiniciar` | Los para y **borra los datos**              |
 
 Con Docker se levantan dos bases: la de desarrollo en el **5432** y otra para
 pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
@@ -232,9 +234,10 @@ Ninguno de esos valores puede pasar al frontend. En particular,
 aqui. Ver [docs/seguridad.md](docs/seguridad.md).
 
 Hay dos cadenas de conexion distintas y no son intercambiables:
-`DATABASE_URL` pasa por el pooler (puerto 6543) y la usa la aplicacion;
-`DIRECT_URL` es la conexion directa (puerto 5432) y solo la usan las
-migraciones de Prisma.
+`DATABASE_URL` la usa la aplicacion; `DIRECT_URL` solo la usan las
+migraciones de Prisma. Contra Supabase, ademas, ninguna de las dos apunta a
+la direccion directa del proyecto, que solo resuelve por IPv6:
+[docs/ambientes.md](docs/ambientes.md) explica cual va a cada puerto y por que.
 
 ---
 

@@ -99,17 +99,49 @@ identificadores no acaben en el registro solo por viajar en la direccion.
 
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado            |
-| -------- | ----------------------------------------- | ----------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | **Sin crear**     |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado y vacio    |
+| Ambiente | Donde vive                                | Estado                 |
+| -------- | ----------------------------------------- | ---------------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento      |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento      |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | Creado, con el esquema |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado, con el esquema |
 
-El plan gratuito de Supabase permite **dos proyectos activos por
-organizacion**, y la organizacion `VSD-COMPANY` ya tiene dos. Crear el de
-preproduccion exige liberar un espacio o pagar; es una decision pendiente y
-no bloquea nada hasta el ciclo de despliegue.
+Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
+ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
+lineas de atencion y **el catalogo de tres categorias y nueve actividades**.
+
+El catalogo se siembra con una migracion y no desde el panel justamente por
+eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de
+significar algo, y el fallo no daria ningun error: la aplicacion se veria bien
+y mostraria cosas distintas en cada sitio.
+
+Ninguno de los dos contiene datos de ninguna persona.
+
+Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
+plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
+miembros con rol Owner o Admin cuentan para ese limite. Por eso Diego entra
+como **Developer**: con cualquier rol superior, sus propios proyectos contarian
+alli y la organizacion se quedaria sin cupo.
+
+> **Se pausan solos.** Un proyecto gratuito que pasa siete dias sin actividad
+> queda en pausa y hay que reactivarlo a mano desde el panel. No se pierde
+> nada, pero el primer intento de conexion falla y el error no lo dice.
+
+### Como se llega a esas bases
+
+La direccion directa —`db.<ref>.supabase.co`— **solo resuelve por IPv6**. En
+una maquina sin IPv6 no hay manera de alcanzarla, y el sintoma es un `P1001`
+que parece un problema de credenciales sin serlo. Para eso estan los pooler:
+
+| Via                                      | Puerto | Para que sirve                            |
+| ---------------------------------------- | ------ | ----------------------------------------- |
+| Conexion directa                         | 5432   | Solo IPv6.                                |
+| Session pooler, usuario `postgres.<ref>` | 5432   | IPv4. **Es la que usan las migraciones.** |
+| Transaction pooler                       | 6543   | IPv4. La usa la aplicacion.               |
+
+El transaction pooler no sirve para migrar: no conserva la sesion entre
+sentencias. Por eso, contra Supabase, `DIRECT_URL` apunta al session pooler y
+no a la direccion directa.
 
 ### El rol con el que se conecta la aplicacion
 
@@ -126,18 +158,36 @@ la aplicacion se conectara con el, el Row Level Security dejaria de aplicarse
 se conecto y, fuera de desarrollo, se niega a arrancar si no esta sujeto a las
 politicas.
 
-La migracion crea `vsd_app` sin contrasena a proposito. Darsela es un paso
-manual por ambiente, y la contrasena no pasa por Git:
+La migracion crea `vsd_app` sin contrasena a proposito. Si se la pusiera, esa
+contrasena estaria en Git, en el historial y en la copia que tiene cada persona
+del repositorio. Darsela es por eso un paso manual por ambiente:
 
-```sql
-ALTER ROLE vsd_app WITH LOGIN PASSWORD 'la que quede en el gestor';
+```bash
+VSD_APP_PASSWORD='la-que-genere-el-gestor' npm run db:rol -- "cadena-del-dueno"
 ```
+
+La contrasena entra por variable de entorno y no como argumento, porque los
+argumentos quedan en el historial de la terminal y se ven en la lista de
+procesos. El script no la imprime ni la guarda en ningun sitio: anotala en el
+gestor de contrasenas **antes** de ejecutarlo, porque despues no hay forma de
+recuperarla.
+
+Ademas de ponerla, comprueba tres cosas y falla si alguna no se cumple: que
+`vsd_app` no sea superusuario ni salte RLS, que conectandose con el no se vea
+ninguna fila ajena, y que si se pueda leer el catalogo. Cuando la base esta
+vacia lo advierte, porque entonces "no ve nada" tambien seria cierto con las
+politicas apagadas.
 
 ## Estado actual
 
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Los despliegues de PRE y PROD todavia no existen: se configuran en el
-ciclo de despliegue. Hasta entonces, el unico ambiente en funcionamiento
-es DEV. Esta seccion se actualiza cuando eso cambie.
+Las bases de PRE y PROD ya tienen el esquema, pero **todavia no hay ningun
+despliegue** conectado a ellas: la API solo corre en local y en el contenedor
+del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
+seccion se actualiza cuando eso cambie.
+
+Antes del primer despliegue quedan dos pasos manuales en cada ambiente: darle
+contrasena al rol `vsd_app` y anotar las dos URL en el gestor de secretos del
+proveedor. Ninguno de los dos pasa por Git.

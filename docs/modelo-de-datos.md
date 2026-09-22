@@ -71,9 +71,10 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 
 ## USUARIO
 
-Identidad de la persona y su consentimiento. No guarda contraseñas: la
-autenticación la resuelve el proveedor externo y aquí solo queda su
-identificador. Ver [ADR 0004](adr/0004-autenticacion-sin-contrasenas.md).
+Identidad de la persona y su consentimiento. **No guarda contraseñas**, aunque
+el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí solo
+queda su identificador. Ver
+[ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
 | Campo                       | Tipo         | Nulo | Descripción                                                           |
 | --------------------------- | ------------ | ---- | --------------------------------------------------------------------- |

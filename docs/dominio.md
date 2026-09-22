@@ -105,9 +105,10 @@ instrumentos con licencia restringida quedan fuera del alcance del proyecto.
 
 ## `User`
 
-La cuenta de una persona. No guarda contrasenas: la autenticacion la resuelve
-el proveedor externo y aqui solo queda su identificador. Ver
-[ADR 0004](adr/0004-autenticacion-sin-contrasenas.md).
+La cuenta de una persona. **No guarda contrasenas**, aunque el sistema si las
+use: quien las almacena y las verifica es Supabase, y aqui solo queda su
+identificador. Ver
+[ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
 ### El consentimiento es parte del modelo, no un tramite
 

@@ -47,8 +47,16 @@ export interface DatosDeUsuario {
 /**
  * Una cuenta de VSD Health.
  *
- * No guarda contrasenas: la autenticacion la resuelve el proveedor externo y
- * aqui solo queda su identificador. Ver ADR 0004.
+ * **No guarda contrasenas**, aunque el sistema si las use. Son dos cosas
+ * distintas y conviene no confundirlas: se entra con correo y contrasena —o
+ * con Google—, pero quien la recibe, la valida y la almacena es Supabase.
+ * Nuestra API nunca la ve, y aqui solo queda el identificador que el proveedor
+ * asigna a la persona.
+ *
+ * Por eso esta clase no tiene ni tendra un campo de contrasena: anadirlo
+ * significaria haber traido de vuelta el problema que delegar evita.
+ *
+ * Ver ADR 0012, que reemplaza al ADR 0004.
  */
 export class User {
   readonly id: UserId;

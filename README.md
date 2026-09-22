@@ -211,7 +211,8 @@ No se pierde nada: los contenedores y sus datos viven en volumenes aparte.
 - **NestJS** + **TypeScript**
 - **Prisma** como ORM
 - **PostgreSQL** alojado en **Supabase**
-- **Supabase Auth** para la identidad, sin contrasenas
+- **Supabase Auth** para la identidad: correo y contrasena, y Google como
+  opcion. VSD Health **no almacena contrasenas**; las guarda Supabase
 - Contrato de API publicado como OpenAPI y consumido por el frontend
 - Despliegue en **Render**
 

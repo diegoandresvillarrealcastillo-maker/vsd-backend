@@ -58,9 +58,12 @@ adaptador en memoria, que sigue existiendo para desarrollo y pruebas; en
 preproduccion y produccion la base de datos es obligatoria y sin ella el
 servicio no arranca.
 
-Lo que todavia no existe es la autenticacion. La identidad viaja en la
-peticion, asi que el aislamiento entre personas protege contra errores del
-propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
+La API ya sabe **quien llama**. Cada peticion trae el token que Supabase
+entrega al iniciar sesion, y la API lo verifica contra las claves publicas del
+proyecto antes de atender nada. De ahi sale la identidad que reciben tanto el
+caso de uso como las politicas de la base; el cuerpo de la peticion ya no puede
+decir de quien es un dato.
+Ver [ADR 0013](docs/adr/0013-la-api-verifica-el-token-contra-el-jwks.md).
 
 | Ciclo | Que se incorporo                                      | Estado    |
 | ----- | ----------------------------------------------------- | --------- |
@@ -68,7 +71,7 @@ propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
 | 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
 | 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
 | 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
-| 5     | Usuarios y autenticacion                              | Siguiente |
+| 5     | Usuarios y autenticacion                              | En curso  |
 
 ## Como ejecutarlo en local
 

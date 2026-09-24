@@ -20,6 +20,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0010](0010-aislamiento-en-la-base-de-datos.md)                | El aislamiento entre personas lo impone la base      | Aceptada                                                                       |
 | [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)           | La deteccion de riesgo es por reglas, no por modelo  | Aceptada                                                                       |
 | [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) | Contrasena y Google en lugar del enlace magico       | Aceptada                                                                       |
+| [0013](0013-la-api-verifica-el-token-contra-el-jwks.md)        | La API verifica el token contra el JWKS de Supabase  | Aceptada                                                                       |
 
 ## Reglas
 

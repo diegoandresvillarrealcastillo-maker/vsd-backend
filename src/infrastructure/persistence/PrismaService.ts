@@ -114,6 +114,36 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
+   * Ejecuta un trabajo en nombre de quien trae un token, antes de saber quien
+   * es aqui dentro.
+   *
+   * Existe por un huevo y la gallina. La politica normal compara
+   * `id_usuario`, y un token de Supabase no trae ese dato: trae el
+   * identificador del proveedor, que en nuestra tabla es otra columna. Para
+   * leer tu fila habria que saber ya quien eres, y para saber quien eres hay
+   * que leer tu fila.
+   *
+   * Dentro de esto solo se alcanza **una** fila de `usuario`, la que coincide
+   * con el identificador del token, y **solo para leerla**. Ver la migracion
+   * 20260924120000_leer_la_cuenta_propia_por_proveedor, que explica por que la
+   * politica no da escritura por esta via.
+   *
+   * El identificador que se pase aqui tiene que venir de un token ya
+   * verificado. Pasar algo que llego en el cuerpo de una peticion convertiria
+   * esto en la puerta trasera que el resto del sistema evita.
+   */
+  async comoProveedor<T>(
+    idProveedorAuth: string,
+    tarea: (cliente: ClienteConSesion) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
    * Comprueba que el rol de la conexion esta realmente sujeto a las politicas.
    *
    * Row Level Security tiene una propiedad incomoda: cuando no se aplica, no

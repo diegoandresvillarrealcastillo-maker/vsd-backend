@@ -8,6 +8,7 @@ import { ActivityResultModule } from './ActivityResultModule.js';
 import { AsistenteModule } from './AsistenteModule.js';
 import { AutenticacionModule } from './AutenticacionModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
+import { UsuariosModule } from './UsuariosModule.js';
 
 /**
  * Modulo raiz de la API.
@@ -26,6 +27,7 @@ import { ConfiguracionModule } from './ConfiguracionModule.js';
     // todas ellas.
     AutenticacionModule,
     ActivityResultModule,
+    UsuariosModule,
     AsistenteModule,
   ],
   controllers: [HealthController],

@@ -35,6 +35,24 @@ const esquema = z
     // Conexion a PostgreSQL. Opcional en desarrollo y pruebas, donde el
     // adaptador en memoria alcanza y es mucho mas rapido.
     DATABASE_URL: z.string().optional(),
+
+    // URL del proyecto de Supabase. De ella sale la direccion donde estan
+    // publicadas las claves con las que se comprueba la firma de cada token.
+    //
+    // Es obligatoria en los cuatro ambientes, a diferencia de DATABASE_URL.
+    // Permitir que faltara en desarrollo significaria tener un ambiente donde
+    // la API no comprueba quien llama, y es justo el ambiente en el que se
+    // trabaja todos los dias: el hueco pasaria de ser una excepcion a ser la
+    // costumbre.
+    //
+    // No es un secreto. Es la direccion publica del proyecto, la misma que ya
+    // conoce el navegador de cualquiera que use la aplicacion.
+    SUPABASE_URL: z
+      .string()
+      .min(1, 'SUPABASE_URL es obligatoria')
+      .refine((valor) => URL.canParse(valor), {
+        message: 'Debe ser una URL completa, como https://abcdefgh.supabase.co',
+      }),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -74,6 +92,13 @@ export interface Configuracion {
    * servicio usa el adaptador en memoria.
    */
   readonly urlBaseDeDatos: string | undefined;
+  /**
+   * URL base del proyecto de Supabase, sin barra final.
+   *
+   * De aqui salen el emisor que se exige en cada token y la direccion del
+   * JWKS. Ver `VerificadorDeIdentidad`.
+   */
+  readonly urlDeSupabase: string;
 }
 
 /**
@@ -97,7 +122,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     );
   }
 
-  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL } = resultado.data;
+  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL, SUPABASE_URL } = resultado.data;
 
   return {
     ambiente: NODE_ENV,
@@ -107,5 +132,8 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
       .filter((origen) => origen.length > 0),
     esProduccion: NODE_ENV === Ambiente.PRODUCCION,
     urlBaseDeDatos: (DATABASE_URL ?? '').trim() === '' ? undefined : DATABASE_URL,
+    // La barra final se quita aqui y no en cada sitio que use el valor: si un
+    // .env la trae, la URL del JWKS acabaria con una barra doble.
+    urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),
   };
 }

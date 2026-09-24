@@ -5,6 +5,7 @@ const VALIDA = {
   NODE_ENV: 'development',
   PORT: '3000',
   CORS_ORIGIN: 'http://localhost:5173',
+  SUPABASE_URL: 'https://abcdefgh.supabase.co',
 };
 
 describe('validarConfiguracion', () => {
@@ -80,7 +81,10 @@ describe('validarConfiguracion', () => {
   });
 
   it('usa valores por defecto razonables para lo que no es sensible', () => {
-    const configuracion = validarConfiguracion({ CORS_ORIGIN: 'http://localhost:5173' });
+    const configuracion = validarConfiguracion({
+      CORS_ORIGIN: 'http://localhost:5173',
+      SUPABASE_URL: 'https://abcdefgh.supabase.co',
+    });
 
     expect(configuracion.puerto).toBe(3000);
     expect(configuracion.ambiente).toBe(Ambiente.DESARROLLO);
@@ -144,5 +148,45 @@ describe('La base de datos es obligatoria fuera de desarrollo', () => {
     } catch (error) {
       expect((error as Error).message).not.toContain('no-es-un-numero');
     }
+  });
+});
+
+describe('Supabase es obligatorio en todos los ambientes', () => {
+  // A diferencia de DATABASE_URL, esta no tiene excepcion en desarrollo. Sin
+  // ella la API no puede comprobar la firma de ningun token, y un ambiente
+  // donde no se comprueba quien llama no es un ambiente comodo: es el
+  // ambiente en el que se trabaja a diario.
+
+  it.each(['development', 'test', 'preproduction', 'production'])(
+    'no arranca en %s sin SUPABASE_URL',
+    (ambiente) => {
+      const { SUPABASE_URL: _omitida, ...sinSupabase } = VALIDA;
+
+      expect(() =>
+        validarConfiguracion({
+          ...sinSupabase,
+          NODE_ENV: ambiente,
+          CORS_ORIGIN: 'https://vsd.example',
+          DATABASE_URL: 'postgresql://x:y@z:5432/db',
+        }),
+      ).toThrow(/SUPABASE_URL/);
+    },
+  );
+
+  it('rechaza algo que no es una URL', () => {
+    // Confundir la referencia del proyecto con su URL es un despiste comun, y
+    // aceptarlo daria un 401 en cada peticion sin decir por que.
+    expect(() => validarConfiguracion({ ...VALIDA, SUPABASE_URL: 'abcdefgh' })).toThrow(
+      /SUPABASE_URL/,
+    );
+  });
+
+  it('quita la barra final para que la URL del JWKS no lleve dos', () => {
+    const configuracion = validarConfiguracion({
+      ...VALIDA,
+      SUPABASE_URL: 'https://abcdefgh.supabase.co/',
+    });
+
+    expect(configuracion.urlDeSupabase).toBe('https://abcdefgh.supabase.co');
   });
 });

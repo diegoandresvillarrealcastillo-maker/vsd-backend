@@ -27,5 +27,9 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  // `src/pruebas` queda fuera del build igual que los `.spec.ts`: son
+  // ayudantes de prueba, como el verificador de identidad falso, y un doble
+  // que permite entrar con un token inventado no tiene por que existir en lo
+  // que se despliega. Sus tipos los sigue revisando tsconfig.pruebas.json.
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/pruebas"]
 }

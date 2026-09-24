@@ -12,16 +12,24 @@ import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Min } from 'class-validato
  * detalle util, mientras que el dominio garantiza sus invariantes venga la
  * llamada de donde venga. Si manana el caso de uso se invoca desde la cola de
  * sincronizacion sin pasar por HTTP, las reglas siguen aplicandose igual.
+ *
+ * ## Donde esta el identificador de la persona
+ *
+ * No esta aqui, y es el cambio del ticket SCRUM-66. Antes se recibia en este
+ * cuerpo, lo que significaba que quien llamaba elegia de quien era el
+ * resultado: bastaba con escribir el identificador de otra persona.
+ *
+ * Ahora sale del token que verifica `GuardiaDeSesion`. Un dato que el cliente
+ * no puede elegir no necesita validacion de formato, y por eso el campo
+ * desaparece del DTO en lugar de quedarse como opcional.
+ *
+ * Consecuencia practica: la aplicacion valida con `forbidNonWhitelisted`, asi
+ * que quien siga enviando `userId` recibe un 400 que lo dice. Es a proposito.
+ * Ignorarlo en silencio dejaria a un cliente viejo creyendo que elige el
+ * usuario mientras el servidor usa otro, que es la clase de desacuerdo que se
+ * descubre tarde y mirando datos raros.
  */
 export class RegistrarResultadoDto {
-  @ApiProperty({
-    description: 'Identificador de la persona que realizo la actividad.',
-    format: 'uuid',
-    example: '11111111-1111-4111-8111-111111111111',
-  })
-  @IsUUID()
-  userId!: string;
-
   @ApiProperty({
     description: 'Identificador de la actividad realizada.',
     format: 'uuid',

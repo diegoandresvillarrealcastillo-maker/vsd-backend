@@ -2,6 +2,7 @@ import { Controller, Get, Inject } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import type { ConsultarCatalogoUseCase } from '../../domain/ports/in/ConsultarCatalogoUseCase.js';
+import { Publico } from '../auth/Publico.js';
 import { CONSULTAR_CATALOGO } from '../config/tokens.js';
 import { CategoriaDelCatalogoDto } from './dto/CatalogoRespuestaDto.js';
 
@@ -12,8 +13,15 @@ import { CategoriaDelCatalogoDto } from './dto/CatalogoRespuestaDto.js';
  * categorias y las actividades son las mismas para todo el mundo y no
  * contienen nada de nadie. Por eso no lleva identidad en la peticion ni la
  * llevara cuando exista la autenticacion.
+ *
+ * Eso se cumplio: con el guardia ya en pie, esta es una de las dos rutas que
+ * se declaran abiertas. Lo que devuelve es el mismo texto para todo el mundo
+ * y no sale de la cuenta de nadie, asi que exigir sesion para leerlo no
+ * protegeria nada e impediria que la portada mostrara lo que ofrece la
+ * aplicacion antes de registrarse.
  */
 @ApiTags('Catalogo')
+@Publico()
 @Controller('api/catalogo')
 export class CatalogoController {
   constructor(

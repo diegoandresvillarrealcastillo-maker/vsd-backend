@@ -1,7 +1,9 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Metadata } from '../../domain/model/ActivityResult.js';
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
+import { UsuarioActual } from '../auth/UsuarioActual.js';
+import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
 import { RegistrarResultadoDto } from './dto/RegistrarResultadoDto.js';
 import { ResultadoRespuestaDto } from './dto/ResultadoRespuestaDto.js';
 
@@ -16,6 +18,7 @@ import { ResultadoRespuestaDto } from './dto/ResultadoRespuestaDto.js';
  * APIs REST del curso: la accion la indica el verbo HTTP.
  */
 @ApiTags('Resultados')
+@ApiBearerAuth('sesion')
 @Controller('api/resultados')
 export class ActivityResultController {
   constructor(
@@ -41,10 +44,16 @@ export class ActivityResultController {
     description:
       'La operacion solicitada no esta disponible. Se responde asi tanto si no existe como si pertenece a otra persona, para no revelar cual de las dos cosas ocurre.',
   })
+  @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
   @ApiResponse({ status: 429, description: 'Demasiadas peticiones.' })
-  async registrar(@Body() dto: RegistrarResultadoDto): Promise<ResultadoRespuestaDto> {
+  async registrar(
+    @Body() dto: RegistrarResultadoDto,
+    @UsuarioActual() usuario: Identidad,
+  ): Promise<ResultadoRespuestaDto> {
     const resultado = await this.resultados.registrar({
-      userId: dto.userId,
+      // Del token, no del cuerpo. Es la diferencia entre "de quien dice el
+      // cliente que es este resultado" y "de quien es".
+      userId: usuario.id,
       activityId: dto.activityId,
       clientOperationId: dto.clientOperationId,
       score: dto.score,

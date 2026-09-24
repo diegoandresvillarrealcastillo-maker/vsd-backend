@@ -6,6 +6,7 @@ import { DomainExceptionFilter } from '../filters/DomainExceptionFilter.js';
 import { RequestLoggingInterceptor } from '../logging/RequestLoggingInterceptor.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
 import { AsistenteModule } from './AsistenteModule.js';
+import { AutenticacionModule } from './AutenticacionModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
 
 /**
@@ -21,6 +22,9 @@ import { ConfiguracionModule } from './ConfiguracionModule.js';
     // validacion la hace el proveedor de abajo.
     ConfigModule.forRoot({ isGlobal: true, cache: true }),
     ConfiguracionModule,
+    // Antes que los modulos con rutas: el guardia que registra se aplica a
+    // todas ellas.
+    AutenticacionModule,
     ActivityResultModule,
     AsistenteModule,
   ],

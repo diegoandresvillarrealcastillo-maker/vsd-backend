@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Publico } from '../auth/Publico.js';
 
 /**
  * Comprobacion de vida del servicio.
@@ -10,6 +11,10 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
  * busque debilidades sin necesidad alguna.
  */
 @ApiTags('Estado')
+// Sin sesion: la consulta el proveedor de despliegue, que no tiene cuenta.
+// Si exigiera token, Render daria el servicio por caido y lo reiniciaria sin
+// parar.
+@Publico()
 @Controller('health')
 export class HealthController {
   @Get()

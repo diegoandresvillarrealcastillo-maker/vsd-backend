@@ -2,21 +2,29 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SESIONES, VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
 
-const USUARIO = '11111111-1111-4111-8111-111111111111';
-
 async function levantarAplicacion(): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
+  // No se llega a consultar: el verificador de verdad esta sustituido. Hace
+  // falta igual porque la configuracion la exige para arrancar.
+  process.env.SUPABASE_URL = 'https://pruebas.supabase.co';
   // Estas pruebas son del comportamiento HTTP. Sin esto, tener un .env con
   // DATABASE_URL las haria hablar con PostgreSQL sin avisar.
   delete process.env.DATABASE_URL;
 
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+    // Se sustituye la criptografia, no el guardia. Ver src/pruebas.
+    .overrideProvider(VerificadorDeIdentidad)
+    .useClass(VerificadorFalso)
+    .compile();
+
   const app = modulo.createNestApplication<NestExpressApplication>({ logger: false });
 
   configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
@@ -55,7 +63,8 @@ describe('POST /api/asistente', () => {
   it('responde a una pregunta reconocida con recursos', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
-      .send({ userId: USUARIO, texto: 'como puedo dormir mejor' });
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'como puedo dormir mejor' });
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toMatchObject({ intencion: 'como_duermo_mejor', senalDeRiesgo: false });
@@ -65,7 +74,8 @@ describe('POST /api/asistente', () => {
   it('ante una senal de riesgo devuelve lineas de atencion', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
-      .send({ userId: USUARIO, texto: 'ya no aguanto mas' });
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'ya no aguanto mas' });
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toMatchObject({
@@ -89,7 +99,8 @@ describe('POST /api/asistente', () => {
 
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
-      .send({ userId: USUARIO, texto: confesion });
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: confesion });
 
     expect(JSON.stringify(respuesta.body)).not.toContain('mama');
     expect(JSON.stringify(respuesta.body)).not.toContain('discuti');
@@ -98,7 +109,8 @@ describe('POST /api/asistente', () => {
   it('responde algo util cuando no entiende', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
-      .send({ userId: USUARIO, texto: 'a que hora abre la biblioteca' });
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'a que hora abre la biblioteca' });
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toMatchObject({ intencion: 'no_reconocida' });
@@ -106,12 +118,14 @@ describe('POST /api/asistente', () => {
   });
 
   it.each([
-    ['sin texto', { userId: USUARIO }],
-    ['texto vacio', { userId: USUARIO, texto: '' }],
-    ['identificador mal formado', { userId: 'no-es-un-uuid', texto: 'hola' }],
-    ['texto larguisimo', { userId: USUARIO, texto: 'a'.repeat(1001) }],
+    ['sin texto', {}],
+    ['texto vacio', { texto: '' }],
+    ['texto larguisimo', { texto: 'a'.repeat(1001) }],
   ])('rechaza con 400 una peticion %s', async (_caso, cuerpo) => {
-    const respuesta = await request(app.getHttpServer()).post('/api/asistente').send(cuerpo);
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send(cuerpo);
 
     expect(respuesta.status).toBe(400);
   });
@@ -119,7 +133,55 @@ describe('POST /api/asistente', () => {
   it('rechaza un campo que no existe en el contrato', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
-      .send({ userId: USUARIO, texto: 'hola', modelo: 'gpt' });
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'hola', modelo: 'gpt' });
+
+    expect(respuesta.status).toBe(400);
+  });
+});
+
+describe('El asistente exige sesion', () => {
+  // Importa mas aqui que en otras rutas: el asistente personaliza su
+  // respuesta con el historial reciente de quien pregunta. Antes de SCRUM-66
+  // ese identificador venia en el cuerpo, asi que cualquiera podia preguntar
+  // en nombre de otra persona y leer en la respuesta cuanto habia usado la
+  // aplicacion.
+
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('sin cabecera responde 401', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .send({ texto: 'hola' });
+
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('con un token que no reconoce responde 401', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-inventado'))
+      .send({ texto: 'hola' });
+
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('ya no acepta que el cuerpo diga quien pregunta', async () => {
+    // El campo desaparecio del contrato, y la validacion rechaza lo que no
+    // esta declarado. Un 400 explicito, y no un silencio, para que un cliente
+    // viejo se entere en lugar de creer que elige el usuario.
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ userId: SESIONES['token-de-B']?.id, texto: 'hola' });
 
     expect(respuesta.status).toBe(400);
   });

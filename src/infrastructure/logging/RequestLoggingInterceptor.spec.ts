@@ -3,6 +3,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
@@ -55,7 +57,7 @@ class RegistroDePrueba implements LoggerService {
   }
 }
 
-const USUARIO = '55555555-5555-4555-8555-555555555555';
+const SESION = 'token-de-A';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
 const OPERACION = '77777777-7777-4777-a777-777777777777';
 
@@ -73,6 +75,9 @@ let app: NestExpressApplication;
 async function levantarAplicacion(): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
+  // No se llega a consultar: el verificador de verdad esta sustituido. Hace
+  // falta igual porque la configuracion la exige para arrancar.
+  process.env.SUPABASE_URL = 'https://pruebas.supabase.co';
   // Estas pruebas son del comportamiento HTTP, no de la persistencia, asi que
   // se fija el adaptador en memoria. Sin esto, tener un .env con DATABASE_URL
   // las haria hablar con PostgreSQL sin avisar, y pasarian o fallarian segun
@@ -82,7 +87,11 @@ async function levantarAplicacion(): Promise<NestExpressApplication> {
 
   registro = new RegistroDePrueba();
 
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(VerificadorDeIdentidad)
+    .useClass(VerificadorFalso)
+    .compile();
+
   const app = modulo.createNestApplication<NestExpressApplication>({ logger: registro });
 
   configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
@@ -109,8 +118,8 @@ describe('El registro de peticiones no filtra datos personales ni de salud', () 
   it('anota metodo, ruta, estado y duracion de una peticion correcta', async () => {
     await request(app.getHttpServer())
       .post('/api/resultados')
+      .set(...comoUsuario(SESION))
       .send({
-        userId: USUARIO,
         activityId: ACTIVIDAD,
         clientOperationId: OPERACION,
         score: PUNTAJE,
@@ -140,8 +149,8 @@ describe('El registro de peticiones no filtra datos personales ni de salud', () 
   it('no deja rastro de un correo aunque llegue en el cuerpo y se rechace', async () => {
     await request(app.getHttpServer())
       .post('/api/resultados')
+      .set(...comoUsuario(SESION))
       .send({
-        userId: USUARIO,
         activityId: ACTIVIDAD,
         clientOperationId: OPERACION,
         score: PUNTAJE,

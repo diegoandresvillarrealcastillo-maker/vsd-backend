@@ -39,9 +39,14 @@ async function token(
     sujeto?: string | null;
     caducaEn?: string;
     correo?: string;
+    /** Campos extra en el contenido, para probar que no se leen. */
+    extras?: Record<string, unknown>;
   } = {},
 ): Promise<string> {
-  const firma = new SignJWT({ email: opciones.correo ?? 'persona@ejemplo.test' })
+  const firma = new SignJWT({
+    email: opciones.correo ?? 'persona@ejemplo.test',
+    ...(opciones.extras ?? {}),
+  })
     .setProtectedHeader({ alg: 'ES256', kid: IDENTIFICADOR_DE_CLAVE })
     .setIssuer(opciones.emisor ?? `${base}/auth/v1`)
     .setAudience(opciones.audiencia ?? 'authenticated')
@@ -174,6 +179,39 @@ describe('VerificadorDeIdentidad', () => {
     await expect(new VerificadorDeIdentidad(base).verificar(falsificado)).rejects.toThrow(
       TokenInvalidoError,
     );
+  });
+
+  it('un token que dice ser administrador no trae ningun permiso', async () => {
+    // La prueba que define SCRUM-68. El token esta perfectamente firmado por
+    // la clave buena, no ha caducado y viene de nuestro emisor: es valido, y
+    // debe aceptarse. Lo que no puede es conceder nada.
+    //
+    // Importa porque `user_metadata` viaja en el token y **la escribe la
+    // propia persona** desde el navegador llamando a `updateUser`. Cualquiera
+    // puede ponerse ahi lo que quiera y la firma seguira cuadrando. El campo
+    // `role` tampoco sirve: vale "authenticated" para todo el mundo porque
+    // nombra el rol de PostgreSQL de la sesion, no el de VSD Health.
+    //
+    // Confiar en cualquiera de los dos para autorizar es un fallo de libro.
+    const identidad = await new VerificadorDeIdentidad(base).verificar(
+      await token({
+        extras: {
+          role: 'service_role',
+          rol: 'administrador',
+          user_metadata: { rol: 'administrador', esAdministrador: true },
+          app_metadata: { roles: ['admin'], claims_admin: true },
+        },
+      }),
+    );
+
+    // Se acepta, porque el token es autentico.
+    expect(identidad.id).toBe(PERSONA);
+
+    // Y de el no sale absolutamente nada mas que quien eres. La comprobacion
+    // es sobre las claves y no sobre valores concretos: si manana alguien
+    // anadiera un campo de permisos a `Identidad`, esto falla y hay que
+    // pararse a pensarlo.
+    expect(Object.keys(identidad).sort()).toEqual(['correo', 'id']);
   });
 
   it('rechaza texto que ni siquiera es un token', async () => {

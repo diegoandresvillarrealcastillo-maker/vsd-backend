@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { DomainError } from '../../domain/model/DomainError.js';
+import { identificadorDeLaRespuesta } from '../logging/identificadorDePeticion.js';
 
 /**
  * Traduce los errores a respuestas HTTP.
@@ -88,8 +89,13 @@ export class DomainExceptionFilter implements ExceptionFilter {
     // servidor, donde sirve para diagnosticar; al cliente solo le llega un
     // mensaje generico. Devolver la traza seria entregar un mapa del interior
     // del sistema a quien lo esta probando.
+    // El identificador va en el mensaje, no solo en la traza. Es el puente
+    // entre lo que la persona ve en pantalla y esta entrada del registro: sin
+    // el, saber que hubo un error interno no ayuda a encontrar cual.
+    const identificador = identificadorDeLaRespuesta(respuesta) ?? 'sin identificador';
+
     this.registro.error(
-      'Error no controlado',
+      `Error no controlado [${identificador}]`,
       excepcion instanceof Error ? excepcion.stack : excepcion,
     );
 

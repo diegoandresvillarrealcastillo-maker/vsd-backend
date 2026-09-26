@@ -6,7 +6,7 @@ momento.
 
 | Archivo                               | Que es                                     |
 | ------------------------------------- | ------------------------------------------ |
-| `vsd-health.postman_collection.json`  | Las 13 peticiones, con sus comprobaciones. |
+| `vsd-health.postman_collection.json`  | Las 16 peticiones, con sus comprobaciones. |
 | `vsd-health.postman_environment.json` | Las variables. Se versiona con marcadores. |
 
 ## Que hace distinto
@@ -66,8 +66,9 @@ configuracion, sean secretos o no.
 
 ## Usar
 
-Boton **Run** sobre la coleccion. El orden importa: la peticion 0 deja el
-token, la 3 deja el identificador del resultado que usa la 4.
+Boton **Run** sobre la coleccion. El orden importa: la peticion 0 deja el token,
+la 1 crea la cuenta que las demas necesitan, y la 6 deja el identificador del
+resultado que comprueba la 7.
 
 Tambien se puede ejecutar sin abrir Postman:
 
@@ -82,21 +83,35 @@ sesion que valga.
 
 ## Que demuestra cada peticion
 
-| #    | Que demuestra                                                       |
-| ---- | ------------------------------------------------------------------- |
-| 0    | Se inicia sesion. La contrasena va a Supabase, nunca a nuestra API. |
-| 1, 2 | Las rutas publicas responden sin sesion y no filtran de mas.        |
-| 3    | Se registra un resultado. Devuelve el **nivel**, nunca el puntaje.  |
-| 4    | Reenviar la misma operacion devuelve **el mismo** resultado.        |
-| 5    | Sin token no se registra nada: 401.                                 |
-| 6    | El cuerpo no puede decir de quien es el resultado: 400.             |
-| 7-10 | Las reglas del dominio, cada una con su codigo.                     |
-| 11   | El asistente responde y no devuelve lo que la persona escribio.     |
-| 12   | Ante una senal de riesgo, **siempre** lineas de atencion.           |
+| #     | Que demuestra                                                       |
+| ----- | ------------------------------------------------------------------- |
+| 0     | Se inicia sesion. La contrasena va a Supabase, nunca a nuestra API. |
+| 1     | El alta traduce la identidad del proveedor en una cuenta nuestra.   |
+| 2     | El alta no concede privilegios: pedir rol de administrador da 400.  |
+| 3     | Se consulta la cuenta propia, y solo la propia.                     |
+| 4, 5  | Las rutas publicas responden sin sesion y no filtran de mas.        |
+| 6     | Se registra un resultado. Devuelve el **nivel**, nunca el puntaje.  |
+| 7     | Reenviar la misma operacion devuelve **el mismo** resultado.        |
+| 8     | Sin token no se registra nada: 401.                                 |
+| 9     | El cuerpo no puede decir de quien es el resultado: 400.             |
+| 10-13 | Las reglas del dominio, cada una con su codigo.                     |
+| 14    | El asistente responde y no devuelve lo que la persona escribio.     |
+| 15    | Ante una senal de riesgo, **siempre** lineas de atencion.           |
 
 Cada peticion lleva su propia descripcion dentro de Postman explicando por que
 esta hecha asi. Si alguien pregunta en la sustentacion, el argumento ya esta
 escrito ahi.
+
+### Por que el alta va antes que todo
+
+Supabase autentica, pero no sabe nada del dominio: no conoce el rol ni el
+consentimiento. La cuenta de VSD Health es una entidad propia, con su propio
+identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como
+clave primaria ataria todo el modelo de datos al proveedor de autenticacion.
+
+Sin ese paso, `resultado.id_usuario` apuntaria a una fila que no existe y
+PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando
+esta misma coleccion.
 
 ## Lo que no se debe hacer
 

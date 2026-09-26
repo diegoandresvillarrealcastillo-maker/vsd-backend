@@ -1,16 +1,30 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InvalidIdentifierError } from '../../domain/model/DomainError.js';
+import { CABECERA_DE_PETICION } from '../logging/identificadorDePeticion.js';
 import { DomainExceptionFilter } from './DomainExceptionFilter.js';
 
-/** Doble minimo de la respuesta de Express. */
-function respuestaFalsa() {
+/**
+ * Doble minimo de la respuesta de Express.
+ *
+ * Lleva `getHeader` porque la respuesta de verdad lo lleva: el filtro lee de
+ * ahi el identificador de la peticion. Un doble al que le falta un metodo del
+ * original no prueba lo que parece.
+ */
+function respuestaFalsa(identificador?: string) {
   const json = vi.fn();
   const status = vi.fn().mockReturnValue({ json });
+  const getHeader = vi.fn((nombre: string) =>
+    nombre === CABECERA_DE_PETICION ? identificador : undefined,
+  );
 
-  return { status, json };
+  return { status, json, getHeader };
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function hostFalso(respuesta: unknown): ArgumentsHost {
   return {
@@ -67,5 +81,34 @@ describe('DomainExceptionFilter', () => {
     new DomainExceptionFilter().catch('algo raro', hostFalso(respuesta));
 
     expect(respuesta.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+  });
+
+  it('registra el identificador de la peticion junto al error interno', () => {
+    // Es el puente entre lo que la persona ve y esta entrada del registro. Sin
+    // el, saber que hubo un error interno no ayuda a encontrar cual de todos.
+    const registrar = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const respuesta = respuestaFalsa('11111111-1111-4111-8111-111111111111');
+
+    new DomainExceptionFilter().catch(new Error('lo que sea'), hostFalso(respuesta));
+
+    expect(registrar).toHaveBeenCalledWith(
+      expect.stringContaining('11111111-1111-4111-8111-111111111111'),
+      expect.anything(),
+    );
+  });
+
+  it('sin identificador tambien registra, en lugar de fallar al fallar', () => {
+    // Un filtro de errores que se rompe mientras informa de un error deja el
+    // fallo original sin rastro. Aqui la respuesta no trae la cabecera.
+    const registrar = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const respuesta = respuestaFalsa();
+
+    new DomainExceptionFilter().catch(new Error('lo que sea'), hostFalso(respuesta));
+
+    expect(respuesta.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(registrar).toHaveBeenCalledWith(
+      expect.stringContaining('sin identificador'),
+      expect.anything(),
+    );
   });
 });

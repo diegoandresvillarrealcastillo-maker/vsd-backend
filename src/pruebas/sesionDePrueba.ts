@@ -1,3 +1,4 @@
+import request from 'supertest';
 import { TokenInvalidoError } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 import type { Identidad } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 
@@ -25,14 +26,46 @@ import type { Identidad } from '../infrastructure/auth/VerificadorDeIdentidad.js
  */
 
 /** Personas con las que se prueba. El token es el nombre, y basta. */
+/**
+ * Los correos llevan un dominio propio y no `ejemplo.test` a proposito: las
+ * pruebas de integracion comparten la misma base y corren en paralelo, y
+ * `aislamiento.integracion.spec.ts` siembra sus personas con `@ejemplo.test`.
+ * Con los mismos correos, cada suite borraba las filas de la otra a mitad de
+ * ejecucion y los fallos salian de forma intermitente, que es la peor clase.
+ */
 export const SESIONES: Record<string, Identidad> = {
-  'token-de-A': { id: '11111111-1111-4111-8111-111111111111', correo: 'a@ejemplo.test' },
-  'token-de-B': { id: '22222222-2222-4222-9222-222222222222', correo: 'b@ejemplo.test' },
+  'token-de-A': { id: '11111111-1111-4111-8111-111111111111', correo: 'a@sesion-de-prueba.test' },
+  'token-de-B': { id: '22222222-2222-4222-9222-222222222222', correo: 'b@sesion-de-prueba.test' },
 };
 
 /** Cabecera lista para pasar a supertest. */
 export function comoUsuario(token: string): [string, string] {
   return ['Authorization', `Bearer ${token}`];
+}
+
+/**
+ * Da de alta las cuentas que van a usar las pruebas.
+ *
+ * Hace falta desde SCRUM-63: tener un token valido ya no basta para operar,
+ * porque `resultado.id_usuario` es clave foranea contra **nuestro**
+ * identificador, no contra el del proveedor. Entre autenticarse y poder
+ * guardar algo hay un paso, y este es ese paso.
+ *
+ * Se hace llamando a la API y no sembrando el repositorio a mano, a proposito:
+ * asi las pruebas recorren el mismo camino que recorrera una persona, y si el
+ * alta se rompiera, se romperian con ella.
+ */
+export async function darDeAlta(
+  servidor: Parameters<typeof request>[0],
+  tokens: readonly string[] = Object.keys(SESIONES),
+): Promise<void> {
+  for (const token of tokens) {
+    await request(servidor)
+      .post('/api/cuenta')
+      .set(...comoUsuario(token))
+      .send({ versionPolitica: '1.0' })
+      .expect(200);
+  }
 }
 
 /**

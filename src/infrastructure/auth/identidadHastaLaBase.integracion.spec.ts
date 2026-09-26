@@ -19,26 +19,30 @@ import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
  *
  * ## Que prueba esto que no prueben las otras
  *
- * Hay tres piezas y cada una ya tiene su prueba: el verificador acepta o
- * rechaza tokens, el controlador usa la identidad en lugar del cuerpo, y la
- * base aisla por `vsd.usuario_actual`. Las tres pueden estar bien y el
- * conjunto estar roto, porque **nada demuestra que lo que llega a la base sea
- * lo que salio del token**.
+ * Hay cuatro piezas y cada una tiene su prueba: el verificador acepta o
+ * rechaza tokens, el alta traduce la identidad del proveedor en una cuenta
+ * nuestra, el controlador usa esa cuenta, y la base aisla por
+ * `vsd.usuario_actual`. Las cuatro pueden estar bien y el conjunto estar roto,
+ * porque nada demuestra que **lo que llega a la base sea lo que salio del
+ * token**.
  *
- * Es el fallo mas facil de cometer al hacer esta tarea: dejar el guardia
- * puesto, quitar el campo del cuerpo y seguir pasando a la base un
- * identificador que vino por otro camino. Todo en verde, y el aislamiento
- * decidido por el cliente.
+ * No es hipotetico: antes de SCRUM-63 el controlador escribia en
+ * `resultado.id_usuario` el identificador del proveedor, y esa columna es
+ * clave foranea contra `usuario.id_usuario`. Ninguna prueba unitaria lo veia
+ * —los adaptadores en memoria no tienen claves foraneas— y aparecio con la
+ * primera persona real, como un 500.
  *
- * Asi que esto recorre el camino entero: se manda una peticion con el token de
- * una persona y se mira, conectando a PostgreSQL por fuera de la aplicacion,
- * de quien quedo la fila.
+ * ## Como se dan de alta las cuentas
+ *
+ * Llamando a la API, no sembrando filas a mano. Si se sembraran, se estaria
+ * eligiendo el identificador de la cuenta, que es exactamente el dato cuya
+ * procedencia se quiere comprobar.
  *
  * ## Por que la aplicacion se conecta como vsd_app
  *
  * Porque el dueno de las tablas esta exento de las politicas. Conectada como
- * dueno, la aplicacion escribiria y leeria igual aunque `set_config` no se
- * llamara nunca, y esta prueba pasaria sin comprobar nada.
+ * dueno, escribiria y leeria igual aunque `set_config` no se llamara nunca, y
+ * esta prueba pasaria sin comprobar nada.
  */
 
 const URL_DUENO = process.env['DATABASE_URL'];
@@ -46,8 +50,6 @@ const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
 const A = 'token-de-A';
 const B = 'token-de-B';
-const PERSONA_A = SESIONES[A]?.id ?? '';
-const PERSONA_B = SESIONES[B]?.id ?? '';
 
 const CATEGORIA = 'caaaaaaa-cccc-4ccc-8ccc-cccccccccccc';
 const ACTIVIDAD = 'daaaaaaa-dddd-4ddd-8ddd-dddddddddddd';
@@ -61,7 +63,6 @@ function urlDeLaAplicacion(url: string): string {
   return partes.toString();
 }
 
-/** Cada prueba usa su propia operacion para no chocar con las demas. */
 let contador = 0;
 function nuevaOperacion(): string {
   contador += 1;
@@ -83,6 +84,9 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
   let dueno: Client;
   let app: NestExpressApplication;
 
+  /** Los identificadores que genero **el alta**, no la prueba. */
+  const cuentas = new Map<string, string>();
+
   beforeAll(async () => {
     dueno = new Client({ connectionString: URL_DUENO });
     await dueno.connect();
@@ -90,7 +94,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
     await limpiar();
 
-    // Catalogo y personas, sembrados por el dueno.
+    // Catalogo sembrado por el dueno. Las cuentas no: esas las crea el alta.
     await dueno.query('BEGIN');
     await dueno.query("SELECT set_config('vsd.rol_actual', 'administrador', true)");
     await dueno.query(
@@ -104,29 +108,12 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     );
     await dueno.query('COMMIT');
 
-    for (const [persona, correo] of [
-      [PERSONA_A, 'a@ejemplo.test'],
-      [PERSONA_B, 'b@ejemplo.test'],
-    ]) {
-      await dueno.query('BEGIN');
-      await dueno.query("SELECT set_config('vsd.usuario_actual', $1, true)", [persona]);
-      await dueno.query(
-        `INSERT INTO usuario (id_usuario, correo, id_proveedor_auth, version_politica_aceptada, fecha_aceptacion_politica)
-         VALUES ($1, $2, $3, '1.0', now())`,
-        [persona, correo, `proveedor-de-prueba-${persona}`],
-      );
-      await dueno.query('COMMIT');
-    }
-
     process.env.NODE_ENV = 'test';
     process.env.CORS_ORIGIN = 'http://localhost:5173';
     process.env.SUPABASE_URL = 'https://pruebas.supabase.co';
-    // La aplicacion se conecta con el rol sujeto a las politicas. Ver arriba.
     process.env.DATABASE_URL = urlDeLaAplicacion(URL_DUENO ?? '');
 
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
-      // Se sustituye la criptografia y nada mas: el guardia, el decorador y
-      // todo el camino hasta la base son los de verdad.
       .overrideProvider(VerificadorDeIdentidad)
       .useClass(VerificadorFalso)
       .compile();
@@ -136,6 +123,16 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
 
     await app.init();
+
+    for (const token of [A, B]) {
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/cuenta')
+        .set(...comoUsuario(token))
+        .send({ versionPolitica: '1.0' })
+        .expect(200);
+
+      cuentas.set(token, (respuesta.body as { id: string }).id);
+    }
   });
 
   afterAll(async () => {
@@ -144,9 +141,15 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     await dueno?.end();
   });
 
+  /** Borra lo de esta prueba, con el dueno y sin politicas de por medio. */
   async function limpiar(): Promise<void> {
-    await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [[PERSONA_A, PERSONA_B]]);
-    await dueno.query('DELETE FROM usuario WHERE id_usuario = ANY($1)', [[PERSONA_A, PERSONA_B]]);
+    const correos = Object.values(SESIONES).map((s) => s.correo);
+
+    await dueno.query(
+      `DELETE FROM resultado WHERE id_usuario IN (SELECT id_usuario FROM usuario WHERE correo = ANY($1))`,
+      [correos],
+    );
+    await dueno.query('DELETE FROM usuario WHERE correo = ANY($1)', [correos]);
     await dueno.query('DELETE FROM actividad WHERE id_actividad = $1', [ACTIVIDAD]);
     await dueno.query('DELETE FROM categoria WHERE id_categoria = $1', [CATEGORIA]);
   }
@@ -167,28 +170,30 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
       .set(...comoUsuario(token));
   }
 
-  it('la fila queda a nombre de quien traia el token', async () => {
+  it('el alta crea un identificador propio, distinto del proveedor', () => {
+    expect(cuentas.get(A)).toBeDefined();
+    expect(cuentas.get(A)).not.toBe(SESIONES[A]?.id);
+  });
+
+  it('la fila queda a nombre de la cuenta de quien traia el token', async () => {
     const respuesta = await registrarComo(A).send(cuerpo()).expect(201);
 
     const id = (respuesta.body as { id: string }).id;
 
-    expect(await duenoDelResultado(id)).toBe(PERSONA_A);
+    expect(await duenoDelResultado(id)).toBe(cuentas.get(A));
   });
 
   it('dos personas distintas producen filas de cada cual', async () => {
-    // Si la identidad se perdiera por el camino y la aplicacion usara siempre
-    // la misma, esto seria lo que lo delata.
     const deA = await registrarComo(A).send(cuerpo()).expect(201);
     const deB = await registrarComo(B).send(cuerpo()).expect(201);
 
-    expect(await duenoDelResultado((deA.body as { id: string }).id)).toBe(PERSONA_A);
-    expect(await duenoDelResultado((deB.body as { id: string }).id)).toBe(PERSONA_B);
+    expect(await duenoDelResultado((deA.body as { id: string }).id)).toBe(cuentas.get(A));
+    expect(await duenoDelResultado((deB.body as { id: string }).id)).toBe(cuentas.get(B));
   });
 
   it('el mismo identificador de operacion en dos personas son dos filas', async () => {
-    // La unicidad es por persona, no global. Que dos personas coincidan en el
-    // identificador que genera su dispositivo no puede hacer que una vea el
-    // resultado de la otra ni que se pisen. Ver ADR 0010.
+    // La unicidad es por persona, no global. Que dos dispositivos coincidan no
+    // puede hacer que una vea el resultado de la otra. Ver ADR 0010.
     const operacion = nuevaOperacion();
 
     const deA = await registrarComo(A)
@@ -202,8 +207,8 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     const idB = (deB.body as { id: string }).id;
 
     expect(idA).not.toBe(idB);
-    expect(await duenoDelResultado(idA)).toBe(PERSONA_A);
-    expect(await duenoDelResultado(idB)).toBe(PERSONA_B);
+    expect(await duenoDelResultado(idA)).toBe(cuentas.get(A));
+    expect(await duenoDelResultado(idB)).toBe(cuentas.get(B));
   });
 
   it('reintentar con el mismo token devuelve la fila ya guardada', async () => {
@@ -223,10 +228,6 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
   });
 
   it('con el token de una persona no se alcanza el resultado de otra', async () => {
-    // El reintento de A con la operacion de B no devuelve lo de B: crea lo
-    // suyo. Es la misma garantia que ya comprueba la prueba de la API, pero
-    // aqui con la base de verdad detras y con dos identidades que vienen de
-    // dos tokens distintos.
     const operacion = nuevaOperacion();
 
     const deB = await registrarComo(B)
@@ -237,6 +238,23 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
       .expect(201);
 
     expect((deA.body as { id: string }).id).not.toBe((deB.body as { id: string }).id);
-    expect(await duenoDelResultado((deA.body as { id: string }).id)).toBe(PERSONA_A);
+    expect(await duenoDelResultado((deA.body as { id: string }).id)).toBe(cuentas.get(A));
+  });
+
+  it('el alta es idempotente tambien contra la base', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/cuenta')
+      .set(...comoUsuario(A))
+      .send({ versionPolitica: '1.0' })
+      .expect(200);
+
+    expect((respuesta.body as { id: string }).id).toBe(cuentas.get(A));
+
+    const { rows } = await dueno.query<{ cuantas: number }>(
+      'SELECT count(*)::int AS cuantas FROM usuario WHERE correo = $1',
+      [SESIONES[A]?.correo],
+    );
+
+    expect(rows[0]?.cuantas).toBe(1);
   });
 });

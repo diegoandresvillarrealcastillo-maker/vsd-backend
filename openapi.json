@@ -48,6 +48,9 @@
           "401": {
             "description": "Falta la sesion o el token no es valido."
           },
+          "403": {
+            "description": "Hay sesion, pero todavia no hay cuenta. Hay que pasar antes por POST /api/cuenta."
+          },
           "404": {
             "description": "La operacion solicitada no esta disponible. Se responde asi tanto si no existe como si pertenece a otra persona, para no revelar cual de las dos cosas ocurre."
           },
@@ -89,6 +92,85 @@
         "summary": "Consultar el catalogo de actividades",
         "tags": [
           "Catalogo"
+        ]
+      }
+    },
+    "/api/cuenta": {
+      "post": {
+        "description": "Se invoca despues de iniciar sesion. Si la persona ya tenia cuenta se devuelve tal cual, sin volver a pedir el consentimiento ni sobrescribir el que hay: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.",
+        "operationId": "CuentaController_registrar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrarCuentaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta, nueva o existente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es valido, o falta el consentimiento. Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012)."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "409": {
+            "description": "Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Dar de alta la cuenta, o recuperar la que ya existe",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve unicamente la cuenta de quien pregunta. No existe forma de consultar la de otra persona: el identificador sale del token y las politicas de la base filtran por el.",
+        "operationId": "CuentaController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta propia.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar la cuenta propia",
+        "tags": [
+          "Cuenta"
         ]
       }
     },
@@ -314,6 +396,93 @@
           "id",
           "nombre",
           "actividades"
+        ]
+      },
+      "RegistrarCuentaDto": {
+        "type": "object",
+        "properties": {
+          "versionPolitica": {
+            "type": "string",
+            "description": "Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando.",
+            "example": "1.0",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "nombre": {
+            "type": "string",
+            "description": "Nombre con el que la persona quiere que la llamen.",
+            "example": "Diego",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "versionPolitica"
+        ]
+      },
+      "ConsentimientoDto": {
+        "type": "object",
+        "properties": {
+          "versionPolitica": {
+            "type": "string",
+            "description": "Version del aviso aceptada.",
+            "example": "1.0"
+          },
+          "aceptadoEn": {
+            "type": "string",
+            "description": "Cuando se acepto.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "versionPolitica",
+          "aceptadoEn"
+        ]
+      },
+      "CuentaRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identificador de la cuenta en VSD Health.",
+            "format": "uuid"
+          },
+          "correo": {
+            "type": "string",
+            "description": "Correo de la cuenta.",
+            "format": "email"
+          },
+          "rol": {
+            "type": "string",
+            "description": "Rol de la cuenta.",
+            "enum": [
+              "usuario",
+              "administrador"
+            ]
+          },
+          "nombre": {
+            "type": "string",
+            "description": "Nombre con el que quiere que la llamen."
+          },
+          "consentimiento": {
+            "description": "Consentimiento registrado.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsentimientoDto"
+              }
+            ]
+          },
+          "registradoEn": {
+            "type": "string",
+            "description": "Cuando se creo la cuenta.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "correo",
+          "rol",
+          "consentimiento",
+          "registradoEn"
         ]
       },
       "ConsultarAsistenteDto": {

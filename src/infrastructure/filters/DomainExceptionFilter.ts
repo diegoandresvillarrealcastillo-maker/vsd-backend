@@ -35,6 +35,20 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
   LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
 
+  // 403 y no 401: el token es autentico y la sesion vale. Lo que falta es la
+  // cuenta. Decir "no estas autenticado" mandaria a la persona a iniciar
+  // sesion otra vez, que es justo lo que no arregla el problema.
+  CUENTA_NO_REGISTRADA: HttpStatus.FORBIDDEN,
+
+  // 409 porque es un conflicto con un recurso que ya existe, no un error de
+  // formato. La peticion esta bien escrita; lo que pasa es que ese correo ya
+  // esta tomado por una cuenta creada con otro metodo de acceso.
+  CORREO_YA_REGISTRADO: HttpStatus.CONFLICT,
+
+  // Sin consentimiento no hay base legal para tratar informacion de salud.
+  // Ley 1581 de 2012.
+  CONSENTIMIENTO_NO_REGISTRADO: HttpStatus.BAD_REQUEST,
+
   // Esto no es culpa de quien llama: significa que el catalogo del servidor
   // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
   // en su mano.

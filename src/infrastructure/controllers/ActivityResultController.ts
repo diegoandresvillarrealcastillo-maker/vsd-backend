@@ -2,8 +2,8 @@ import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/co
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Metadata } from '../../domain/model/ActivityResult.js';
 import { ActivityResultService } from '../../application/services/ActivityResultService.js';
-import { UsuarioActual } from '../auth/UsuarioActual.js';
-import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
+import type { User } from '../../domain/model/User.js';
+import { CuentaActual } from '../auth/CuentaActual.js';
 import { RegistrarResultadoDto } from './dto/RegistrarResultadoDto.js';
 import { ResultadoRespuestaDto } from './dto/ResultadoRespuestaDto.js';
 
@@ -45,15 +45,26 @@ export class ActivityResultController {
       'La operacion solicitada no esta disponible. Se responde asi tanto si no existe como si pertenece a otra persona, para no revelar cual de las dos cosas ocurre.',
   })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Hay sesion, pero todavia no hay cuenta. Hay que pasar antes por POST /api/cuenta.',
+  })
   @ApiResponse({ status: 429, description: 'Demasiadas peticiones.' })
   async registrar(
     @Body() dto: RegistrarResultadoDto,
-    @UsuarioActual() usuario: Identidad,
+    @CuentaActual() cuenta: User,
   ): Promise<ResultadoRespuestaDto> {
     const resultado = await this.resultados.registrar({
-      // Del token, no del cuerpo. Es la diferencia entre "de quien dice el
+      // Del token, no del cuerpo: es la diferencia entre "de quien dice el
       // cliente que es este resultado" y "de quien es".
-      userId: usuario.id,
+      //
+      // Y de la **cuenta**, no de la identidad del proveedor. Son dos
+      // identificadores distintos, y `resultado.id_usuario` es clave foranea
+      // contra el nuestro. Usar el de Supabase aqui hace que PostgreSQL
+      // rechace la fila en cuanto existe una persona real, que es un fallo que
+      // ninguna prueba unitaria puede ver.
+      userId: cuenta.id.value,
       activityId: dto.activityId,
       clientOperationId: dto.clientOperationId,
       score: dto.score,

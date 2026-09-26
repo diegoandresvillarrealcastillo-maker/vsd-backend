@@ -2,12 +2,18 @@
   "info": {
     "_postman_id": "3f8b1c74-52ad-4e91-b6d0-7a4c9e2f18d3",
     "name": "VSD Health - Demostracion",
-    "description": "Recorrido completo de la API de VSD Health, pensado para una sustentacion.\n\nCada peticion trae sus propias comprobaciones, asi que se puede ejecutar la coleccion entera con Run y mostrar el resultado en verde.\n\nEl orden importa: la primera peticion inicia sesion contra Supabase y guarda el token en el entorno. A partir de ahi las demas lo usan solas.\n\nQue demuestra, en orden:\n\n1. Las rutas publicas responden sin sesion.\n2. Una peticion valida registra un resultado y devuelve el nivel orientativo, nunca el puntaje numerico.\n3. Reenviar la misma operacion no duplica: devuelve el resultado ya registrado.\n4. Sin token no se registra nada.\n5. El cuerpo no puede decir de quien es el resultado.\n6. Las reglas del dominio rechazan lo que no tiene sentido, cada una con su codigo.\n7. El asistente responde, y ante una senal de riesgo incluye siempre lineas de atencion.",
+    "description": "Recorrido completo de la API de VSD Health, pensado para una sustentacion.\n\nCada peticion trae sus propias comprobaciones, asi que se puede ejecutar la coleccion entera con Run y mostrar el resultado en verde.\n\nEl orden importa. La peticion 0 inicia sesion contra Supabase y guarda el token. La 1 da de alta la cuenta: Supabase autentica, pero la cuenta de VSD Health es una entidad propia, con su propio identificador, y sin ella no hay a nombre de quien guardar nada.\n\nQue demuestra, en orden:\n\n1. Se obtiene el token sin copiarlo a mano, y el alta traduce la identidad del proveedor en una cuenta nuestra.\n2. El alta no concede privilegios: pedir rol de administrador se rechaza.\n3. Las rutas publicas responden sin sesion.\n4. Una peticion valida registra un resultado y devuelve el nivel orientativo, nunca el puntaje numerico.\n5. Reenviar la misma operacion no duplica: devuelve el resultado ya registrado.\n6. Sin token no se registra nada.\n7. El cuerpo no puede decir de quien es el resultado.\n8. Las reglas del dominio rechazan lo que no tiene sentido, cada una con su codigo.\n9. El asistente responde, y ante una senal de riesgo incluye siempre lineas de atencion.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
     "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
   },
   "item": [
     {
@@ -39,28 +45,179 @@
         }
       ],
       "request": {
-        "auth": { "type": "noauth" },
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
         "header": [
-          { "key": "apikey", "value": "{{anonKey}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "apikey",
+            "value": "{{anonKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{correo}}\",\n  \"password\": \"{{contrasena}}\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{supabaseUrl}}/auth/v1/token?grant_type=password",
           "host": ["{{supabaseUrl}}"],
           "path": ["auth", "v1", "token"],
-          "query": [{ "key": "grant_type", "value": "password" }]
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "password"
+            }
+          ]
         },
         "description": "Pide el token a Supabase con correo y contrasena, igual que hace el navegador al entrar.\n\nLa contrasena viaja a Supabase y no a nuestra API: VSD Health nunca la ve ni la almacena.\n\nEl script de la pestana Tests guarda el access_token en la variable de entorno, de modo que las demas peticiones no necesitan que se copie nada a mano."
       }
     },
     {
-      "name": "1. Estado del servicio (ruta publica)",
+      "name": "1. Dar de alta la cuenta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "const cuenta = pm.response.json();",
+              "",
+              "if (cuenta.id) {",
+              "  pm.environment.set('cuentaId', cuenta.id);",
+              "}",
+              "",
+              "pm.test('La cuenta sale con rol usuario', function () {",
+              "  pm.expect(cuenta.rol).to.equal('usuario');",
+              "});",
+              "",
+              "pm.test('Queda registrado el consentimiento, con su version y su fecha', function () {",
+              "  pm.expect(cuenta.consentimiento.versionPolitica).to.equal('1.0');",
+              "  pm.expect(cuenta.consentimiento.aceptadoEn).to.be.a('string');",
+              "});",
+              "",
+              "pm.test('El identificador es el nuestro, no el del proveedor', function () {",
+              "  // El del proveedor no sale por la API: es un detalle de como se",
+              "  // autentica la persona y no aporta nada a quien consume la API.",
+              "  pm.expect(pm.response.text()).to.not.include('idProveedorAuth');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"versionPolitica\": \"1.0\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia."
+      }
+    },
+    {
+      "name": "2. Pedir rol de administrador en el alta: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('El mensaje nombra el campo rechazado', function () {",
+              "  pm.expect(pm.response.text()).to.include('rol');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"versionPolitica\": \"1.0\",\n  \"rol\": \"administrador\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "Una escalada de privilegios por confiar en el cuerpo de la peticion es el error clasico.\n\nAqui es imposible por construccion: el rol lo fija el caso de uso y el campo no existe en el contrato. No es una comprobacion que alguien pueda olvidar, porque el dato no llega a existir."
+      }
+    },
+    {
+      "name": "3. Consultar la cuenta propia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Es la misma cuenta que creo el alta', function () {",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('cuentaId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "Devuelve unicamente la cuenta de quien pregunta. No hay forma de consultar la de otra persona: el identificador sale del token y las politicas de la base filtran por el."
+      }
+    },
+    {
+      "name": "4. Estado del servicio (ruta publica)",
       "event": [
         {
           "listen": "test",
@@ -83,15 +240,21 @@
         }
       ],
       "request": {
-        "auth": { "type": "noauth" },
+        "auth": {
+          "type": "noauth"
+        },
         "method": "GET",
         "header": [],
-        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
         "description": "Ruta publica. La consulta el proveedor de despliegue, que no tiene cuenta.\n\nDevuelve lo minimo a proposito: si dijera la version o las dependencias, estaria dando informacion util a quien busque vulnerabilidades conocidas."
       }
     },
     {
-      "name": "2. Catalogo de actividades (ruta publica)",
+      "name": "5. Catalogo de actividades (ruta publica)",
       "event": [
         {
           "listen": "test",
@@ -122,9 +285,16 @@
         }
       ],
       "request": {
-        "auth": { "type": "noauth" },
+        "auth": {
+          "type": "noauth"
+        },
         "method": "GET",
-        "header": [{ "key": "Accept", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
         "url": {
           "raw": "{{baseUrl}}/api/catalogo",
           "host": ["{{baseUrl}}"],
@@ -134,7 +304,7 @@
       }
     },
     {
-      "name": "3. Registrar un resultado",
+      "name": "6. Registrar un resultado",
       "event": [
         {
           "listen": "prerequest",
@@ -176,11 +346,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{operacion}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -191,7 +370,7 @@
       }
     },
     {
-      "name": "4. Reenviar la misma operacion (idempotencia)",
+      "name": "7. Reenviar la misma operacion (idempotencia)",
       "event": [
         {
           "listen": "test",
@@ -211,11 +390,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{operacion}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -226,7 +414,7 @@
       }
     },
     {
-      "name": "5. Sin token: 401",
+      "name": "8. Sin token: 401",
       "event": [
         {
           "listen": "test",
@@ -243,13 +431,24 @@
         }
       ],
       "request": {
-        "auth": { "type": "noauth" },
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -260,7 +459,7 @@
       }
     },
     {
-      "name": "6. El cuerpo no puede elegir la persona: 400",
+      "name": "9. El cuerpo no puede elegir la persona: 400",
       "event": [
         {
           "listen": "test",
@@ -278,11 +477,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"userId\": \"22222222-2222-4222-9222-222222222222\",\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -293,7 +501,7 @@
       }
     },
     {
-      "name": "7. Puntaje fuera de rango: 400",
+      "name": "10. Puntaje fuera de rango: 400",
       "event": [
         {
           "listen": "test",
@@ -315,11 +523,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 999,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -330,7 +547,7 @@
       }
     },
     {
-      "name": "8. Fecha en el futuro: 400",
+      "name": "11. Fecha en el futuro: 400",
       "event": [
         {
           "listen": "test",
@@ -348,11 +565,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2030-01-01T00:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -363,7 +589,7 @@
       }
     },
     {
-      "name": "9. Actividad que no existe: 404",
+      "name": "12. Actividad que no existe: 404",
       "event": [
         {
           "listen": "test",
@@ -381,11 +607,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadInexistente}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -396,7 +631,7 @@
       }
     },
     {
-      "name": "10. Puntaje en una actividad que no puntua: 400",
+      "name": "13. Puntaje en una actividad que no puntua: 400",
       "event": [
         {
           "listen": "test",
@@ -414,11 +649,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"activityId\": \"{{actividadSinPuntaje}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 8,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/resultados",
@@ -429,7 +673,7 @@
       }
     },
     {
-      "name": "11. Preguntar al asistente",
+      "name": "14. Preguntar al asistente",
       "event": [
         {
           "listen": "test",
@@ -459,11 +703,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"texto\": \"como puedo dormir mejor\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/asistente",
@@ -474,7 +727,7 @@
       }
     },
     {
-      "name": "12. Senal de riesgo: siempre lineas de atencion",
+      "name": "15. Senal de riesgo: siempre lineas de atencion",
       "event": [
         {
           "listen": "test",
@@ -503,11 +756,20 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"texto\": \"ya no aguanto mas\"\n}",
-          "options": { "raw": { "language": "json" } }
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
           "raw": "{{baseUrl}}/api/asistente",

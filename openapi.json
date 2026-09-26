@@ -206,6 +206,9 @@
           "401": {
             "description": "Falta la sesion o el token no es valido."
           },
+          "403": {
+            "description": "Hay sesion, pero todavia no hay cuenta. Hay que pasar antes por POST /api/cuenta."
+          },
           "429": {
             "description": "Demasiadas peticiones."
           }
@@ -357,7 +360,7 @@
           },
           "descripcion": {
             "type": "string",
-            "example": "Encuentra las parejas iguales en el menor numero de intentos."
+            "example": "Encuentra las parejas iguales en el menor número de intentos."
           },
           "produceNivel": {
             "type": "boolean",
@@ -380,7 +383,7 @@
           },
           "nombre": {
             "type": "string",
-            "example": "Cognicion"
+            "example": "Cognición"
           },
           "descripcion": {
             "type": "string"
@@ -509,7 +512,7 @@
           },
           "titulo": {
             "type": "string",
-            "example": "Linea 192, opcion 4"
+            "example": "Línea 192, opción 4"
           },
           "descripcion": {
             "type": "string"

@@ -95,7 +95,7 @@ export class Activity {
     if (puntua && datos.puntajeMaximo === undefined) {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
-        'declara una escala con puntaje pero no indica el maximo',
+        'declara una escala con puntaje pero no indica el máximo',
       );
     }
 
@@ -107,7 +107,7 @@ export class Activity {
     if (!puntua && datos.puntajeMaximo !== undefined) {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
-        'declara que no puntua pero indica un maximo',
+        'declara que no puntúa pero indica un máximo',
       );
     }
 

@@ -95,7 +95,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     const cuerpo: CuerpoDeError = {
       codigo: 'ERROR_INTERNO',
-      mensaje: 'Ocurrio un error inesperado. Intentalo de nuevo mas tarde.',
+      mensaje: 'Ocurrió un error inesperado. Inténtalo de nuevo más tarde.',
     };
 
     respuesta.status(HttpStatus.INTERNAL_SERVER_ERROR).json(cuerpo);

@@ -42,19 +42,19 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
     const catalogo = await repositorio.listarCatalogo();
     const nombres = catalogo.map((categoria) => categoria.nombre);
 
-    expect(nombres).toContain('Cognicion');
+    expect(nombres).toContain('Cognición');
     expect(nombres).toContain('Bienestar');
     expect(nombres).toContain('Emociones');
   });
 
   it('cada categoria llega con sus actividades dentro', async () => {
     const catalogo = await repositorio.listarCatalogo();
-    const cognicion = catalogo.find((categoria) => categoria.nombre === 'Cognicion');
+    const cognicion = catalogo.find((categoria) => categoria.nombre === 'Cognición');
 
     expect(cognicion?.actividades.map((a) => a.nombre)).toEqual([
       'Encuentra la diferencia',
       'Parejas de cartas',
-      'Secuencia de numeros',
+      'Secuencia de números',
     ]);
   });
 
@@ -73,7 +73,7 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
     const todas = catalogo.flatMap((categoria) => categoria.actividades);
 
     const parejas = todas.find((actividad) => actividad.nombre === 'Parejas de cartas');
-    const bitacora = todas.find((actividad) => actividad.nombre === 'Movimiento del dia');
+    const bitacora = todas.find((actividad) => actividad.nombre === 'Movimiento del día');
 
     expect(parejas?.tipo).toBe('juego');
     expect(parejas?.descripcion).toBeTruthy();

@@ -5,6 +5,10 @@
  * la infraestructura la que decide como traducirlos a una respuesta. Por eso
  * cada error lleva un `code` estable, que sirve de contrato entre las capas
  * sin acoplar el dominio al transporte.
+ *
+ * Los mensajes van con tildes y enes, al contrario que los comentarios. No son
+ * texto de programador: `DomainExceptionFilter` los envia tal cual en el campo
+ * `mensaje` de la respuesta, asi que terminan en la pantalla de alguien.
  */
 export abstract class DomainError extends Error {
   abstract readonly code: string;
@@ -20,7 +24,7 @@ export class InvalidIdentifierError extends DomainError {
   readonly code = 'IDENTIFICADOR_INVALIDO';
 
   constructor(tipo: string, valor: string) {
-    super(`El identificador de ${tipo} no tiene un formato valido: "${valor}".`);
+    super(`El identificador de ${tipo} no tiene un formato válido: "${valor}".`);
   }
 }
 
@@ -29,7 +33,7 @@ export class ScoreOutOfRangeError extends DomainError {
   readonly code = 'PUNTAJE_FUERA_DE_RANGO';
 
   constructor(valor: number, maximo: number) {
-    super(`El puntaje ${valor} esta fuera del rango permitido (0 a ${maximo}).`);
+    super(`El puntaje ${valor} está fuera del rango permitido (0 a ${maximo}).`);
   }
 }
 
@@ -39,7 +43,7 @@ export class InvalidScoreRangeError extends DomainError {
 
   constructor(maximo: number) {
     super(
-      `El puntaje maximo de la actividad debe ser un entero mayor que cero, y se recibio ${maximo}.`,
+      `El puntaje máximo de la actividad debe ser un entero mayor que cero, y se recibió ${maximo}.`,
     );
   }
 }
@@ -54,7 +58,7 @@ export class FutureCompletionDateError extends DomainError {
   readonly code = 'FECHA_EN_EL_FUTURO';
 
   constructor(fecha: Date) {
-    super(`La fecha de realizacion no puede estar en el futuro: ${fecha.toISOString()}.`);
+    super(`La fecha de realización no puede estar en el futuro: ${fecha.toISOString()}.`);
   }
 }
 
@@ -100,7 +104,7 @@ export class ActivityNotFoundError extends DomainError {
   readonly code = 'ACTIVIDAD_NO_ENCONTRADA';
 
   constructor() {
-    super('La actividad indicada no esta disponible.');
+    super('La actividad indicada no está disponible.');
   }
 }
 
@@ -115,7 +119,7 @@ export class ScoreNotApplicableError extends DomainError {
   readonly code = 'LA_ACTIVIDAD_NO_PUNTUA';
 
   constructor(nombre: string) {
-    super(`La actividad "${nombre}" no produce puntaje, y se recibio uno.`);
+    super(`La actividad "${nombre}" no produce puntaje, y se recibió uno.`);
   }
 }
 
@@ -148,7 +152,7 @@ export class AccountNotProvisionedError extends DomainError {
   readonly code = 'CUENTA_NO_REGISTRADA';
 
   constructor() {
-    super('Todavia no tienes una cuenta de VSD Health. Completa el registro para continuar.');
+    super('Todavía no tienes una cuenta de VSD Health. Completa el registro para continuar.');
   }
 }
 
@@ -169,7 +173,7 @@ export class EmailAlreadyRegisteredError extends DomainError {
 
   constructor() {
     super(
-      'Ese correo ya esta asociado a una cuenta. Entra con el metodo que usaste la primera vez.',
+      'Ese correo ya está asociado a una cuenta. Entra con el método que usaste la primera vez.',
     );
   }
 }
@@ -193,7 +197,7 @@ export class FutureConsentDateError extends DomainError {
   readonly code = 'FECHA_DE_CONSENTIMIENTO_EN_EL_FUTURO';
 
   constructor() {
-    super('La fecha de aceptacion de la politica no puede estar en el futuro.');
+    super('La fecha de aceptación de la política no puede estar en el futuro.');
   }
 }
 
@@ -209,6 +213,6 @@ export class InvalidResourceError extends DomainError {
   readonly code = 'RECURSO_INVALIDO';
 
   constructor(motivo: string) {
-    super(`Recurso de apoyo invalido: ${motivo}.`);
+    super(`Recurso de apoyo inválido: ${motivo}.`);
   }
 }

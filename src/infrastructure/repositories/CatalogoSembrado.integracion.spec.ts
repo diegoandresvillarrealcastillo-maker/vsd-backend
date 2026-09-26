@@ -27,23 +27,45 @@ if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_BASE === und
   );
 }
 
-/** Lo que el catalogo tiene que traer, venga de donde venga la base. */
-const CATEGORIAS = ['Cognicion', 'Bienestar', 'Emociones'];
+/**
+ * Lo que el catalogo tiene que traer, venga de donde venga la base.
+ *
+ * Estos nombres van con tildes porque son texto de pantalla, no codigo. La
+ * migracion `20260926120000_tildes_en_los_textos_visibles` los corrigio, y la
+ * comprobacion del final de este archivo impide que vuelvan atras.
+ */
+const CATEGORIAS = ['Cognición', 'Bienestar', 'Emociones'];
 
 const ACTIVIDADES = [
   'Parejas de cartas',
-  'Secuencia de numeros',
+  'Secuencia de números',
   'Encuentra la diferencia',
-  'Como dormiste anoche',
+  'Cómo dormiste anoche',
   'La carga de tu semana',
-  'Movimiento del dia',
-  'Como te sientes hoy',
-  'Que te esta pesando',
-  'Un momento bueno del dia',
+  'Movimiento del día',
+  'Cómo te sientes hoy',
+  'Qué te está pesando',
+  'Un momento bueno del día',
 ];
+
+/**
+ * Palabras que en castellano solo existen con tilde.
+ *
+ * La lista es corta a proposito: solo entra lo que no tiene ninguna forma valida
+ * sin acento, para que la comprobacion no de falsos positivos. "como" y "que",
+ * por ejemplo, se quedan fuera aunque aqui casi siempre vayan acentuadas,
+ * porque tambien son palabras correctas sin tilde.
+ *
+ * "ano" merece mencion aparte: sin la ene no es una falta de ortografia, es otra
+ * palabra, y en una aplicacion de bienestar aparecer en pantalla seria bastante
+ * mas que un descuido.
+ */
+const SIN_TILDE =
+  /\b(numero|numeros|dia|dias|pais|tambien|atencion|orientacion|explicacion|solucion|descripcion|concentracion|habito|habitos|psicologico|psicologica|facil|faciles|ultimo|ultima|proximo|segun|ano|pequena|manana)\b/iu;
 
 interface FilaDeActividad {
   nombre: string;
+  descripcion: string | null;
   categoria: string;
   direccion_escala: string;
   puntaje_maximo: string | null;
@@ -65,6 +87,7 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     // fallaria por datos que no son el catalogo.
     filas = await prisma.$queryRaw<FilaDeActividad[]>`
       SELECT a."nombre",
+             a."descripcion",
              c."nombre" AS categoria,
              a."direccion_escala"::text AS direccion_escala,
              a."puntaje_maximo"::text   AS puntaje_maximo,
@@ -162,6 +185,30 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
       for (const texto of Object.values(fila.textos_nivel ?? {})) {
         expect(texto, `"${texto}" en ${fila.nombre}`).not.toMatch(prohibidas);
       }
+    }
+  });
+
+  it('todo el texto visible del catalogo esta bien escrito', async () => {
+    // Se sembro sin tildes por arrastrar al contenido la costumbre del codigo,
+    // donde no llevarlas evita problemas de codificacion entre editores. Pero
+    // esto no es codigo: es lo que la persona lee. La comprobacion esta aqui
+    // para que la correccion no dependa de que nadie se despiste otra vez.
+    const categorias = await prisma.$queryRaw<{ nombre: string; descripcion: string | null }[]>`
+      SELECT "nombre", "descripcion" FROM "categoria"
+       WHERE "nombre" = ANY(${CATEGORIAS})
+    `;
+
+    const visibles = [
+      ...categorias.flatMap((fila) => [fila.nombre, fila.descripcion ?? '']),
+      ...filas.flatMap((fila) => [
+        fila.nombre,
+        fila.descripcion ?? '',
+        ...Object.values(fila.textos_nivel ?? {}),
+      ]),
+    ];
+
+    for (const texto of visibles) {
+      expect(texto, `"${texto}" lleva una palabra sin tilde`).not.toMatch(SIN_TILDE);
     }
   });
 

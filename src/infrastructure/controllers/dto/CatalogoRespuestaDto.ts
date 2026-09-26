@@ -38,7 +38,7 @@ export class ActividadDelCatalogoDto {
 
   @ApiProperty({
     required: false,
-    example: 'Encuentra las parejas iguales en el menor numero de intentos.',
+    example: 'Encuentra las parejas iguales en el menor número de intentos.',
   })
   descripcion?: string;
 
@@ -73,7 +73,7 @@ export class CategoriaDelCatalogoDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Cognicion' })
+  @ApiProperty({ example: 'Cognición' })
   nombre!: string;
 
   @ApiProperty({ required: false })

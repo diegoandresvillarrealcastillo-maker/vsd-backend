@@ -58,7 +58,7 @@ export class GuardiaDeSesion implements CanActivate {
     if (token === null) {
       throw new UnauthorizedException({
         codigo: 'SESION_REQUERIDA',
-        mensaje: 'Inicia sesion para continuar.',
+        mensaje: 'Inicia sesión para continuar.',
       });
     }
 
@@ -80,7 +80,7 @@ export class GuardiaDeSesion implements CanActivate {
 
       throw new UnauthorizedException({
         codigo: 'SESION_INVALIDA',
-        mensaje: 'Tu sesion no es valida o ha caducado. Vuelve a iniciar sesion.',
+        mensaje: 'Tu sesión no es válida o ha caducado. Vuelve a iniciar sesión.',
       });
     }
 

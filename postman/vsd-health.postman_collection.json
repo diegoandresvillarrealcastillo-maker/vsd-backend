@@ -669,7 +669,7 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "resultados"]
         },
-        "description": "Movimiento del dia es una bitacora: produce datos, no una calificacion.\n\nEnviar un puntaje ahi se avisa en vez de descartarlo en silencio, porque ese dato podria ser justo lo que la persona respondio."
+        "description": "Movimiento del día es una bitacora: produce datos, no una calificacion.\n\nEnviar un puntaje ahi se avisa en vez de descartarlo en silencio, porque ese dato podria ser justo lo que la persona respondio."
       }
     },
     {
@@ -776,7 +776,7 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "asistente"]
         },
-        "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Linea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
+        "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Línea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
       }
     }
   ]

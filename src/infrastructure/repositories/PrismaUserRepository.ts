@@ -1,8 +1,35 @@
 import type { Usuario } from '@prisma/client';
+import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { User } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
+
+/**
+ * Reconoce el fallo de unicidad sobre la columna `correo`.
+ *
+ * Se mira el codigo `P2002` y el campo afectado en lugar de fiarse del texto
+ * del mensaje, que cambia entre versiones de Prisma. No se importa el tipo de
+ * error del cliente generado: esos tipos cambian sin avisar y este archivo es
+ * justo el que no debe dejarlos salir hacia el dominio.
+ */
+function esCorreoDuplicado(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const posible = error as { code?: unknown; meta?: { target?: unknown } };
+
+  if (posible.code !== 'P2002') {
+    return false;
+  }
+
+  const campos = posible.meta?.target;
+
+  return Array.isArray(campos)
+    ? campos.includes('correo')
+    : typeof campos === 'string' && campos.includes('correo');
+}
 
 /**
  * Adaptador de cuentas contra PostgreSQL.
@@ -75,13 +102,30 @@ export class PrismaUserRepository implements UserRepositoryPort {
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
     // es lo que promete el puerto. `fechaRegistro` no se toca al actualizar:
     // es cuando aparecio la cuenta, y eso ocurrio una sola vez.
-    await this.prisma.comoUsuario(user.id.value, (cliente) =>
-      cliente.usuario.upsert({
-        where: { id: user.id.value },
-        create: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
-        update: datos,
-      }),
-    );
+    try {
+      await this.prisma.comoUsuario(user.id.value, (cliente) =>
+        cliente.usuario.upsert({
+          where: { id: user.id.value },
+          create: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
+          update: datos,
+        }),
+      );
+    } catch (error) {
+      if (esCorreoDuplicado(error)) {
+        // Alguien se registro con correo y ahora entra con Google, o al reves,
+        // y el proveedor entrega un identificador distinto para la misma
+        // persona.
+        //
+        // No se comprueba antes de intentarlo, y no por descuido: con el
+        // aislamiento activo no se puede preguntar si **otra** persona tiene
+        // ese correo sin poder leer filas ajenas, que es justo lo que las
+        // politicas impiden. La unicidad la hace cumplir la base; aqui solo se
+        // traduce a algo que se entienda.
+        throw new EmailAlreadyRegisteredError();
+      }
+
+      throw error;
+    }
   }
 
   /**

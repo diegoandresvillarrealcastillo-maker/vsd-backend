@@ -3,7 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import { VerificadorFalso, comoUsuario, darDeAlta } from '../../pruebas/sesionDePrueba.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
@@ -97,6 +97,14 @@ async function levantarAplicacion(): Promise<NestExpressApplication> {
   configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
 
   await app.init();
+
+  // Desde SCRUM-63 tener token no basta para operar: hace falta cuenta.
+  await darDeAlta(app.getHttpServer());
+
+  // El alta tambien deja sus lineas en el registro, y estas pruebas cuentan
+  // exactamente las que produce cada caso. Se limpia lo del arranque para que
+  // lo que quede sea solo lo que anota la prueba.
+  registro.lineas.length = 0;
 
   return app;
 }

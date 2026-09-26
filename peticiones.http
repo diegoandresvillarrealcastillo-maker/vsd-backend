@@ -59,7 +59,48 @@ GET {{host}}/api/catalogo
 Accept: application/json
 
 
-### 3. Registrar un resultado
+### 3. Dar de alta la cuenta
+# Hay que pasar por aqui **antes** de registrar nada. Supabase autentica, pero
+# no sabe nada del dominio: no conoce el rol ni el consentimiento.
+#
+# La cuenta de VSD Health es una entidad propia, con su propio identificador,
+# y se crea la primera vez que aparece un identificador del proveedor que no
+# habiamos visto antes. Sin ese paso, `resultado.id_usuario` apuntaria a una
+# fila que no existe y PostgreSQL rechazaria el insert.
+#
+# Es idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver
+# a pedir el consentimiento ni sobrescribir el guardado.
+POST {{host}}/api/cuenta
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "versionPolitica": "1.0"
+}
+
+
+### 4. Consultar la cuenta propia
+# Devuelve unicamente la de quien pregunta. No hay forma de consultar la de
+# otra persona: el identificador sale del token.
+GET {{host}}/api/cuenta
+Authorization: Bearer {{token}}
+
+
+### 5. Intentar dar de alta con rol de administrador: 400
+# El campo no existe en el contrato y la validacion lo rechaza. Una escalada
+# de privilegios por confiar en el cuerpo de la peticion es el error clasico,
+# y aqui es imposible por construccion: el rol lo fija el caso de uso.
+POST {{host}}/api/cuenta
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "versionPolitica": "1.0",
+  "rol": "administrador"
+}
+
+
+### 6. Registrar un resultado
 # Responde 201 con el resultado y su nivel orientativo.
 #
 # El cuerpo no dice de quien es: sale del token. Y no lleva maxScore, porque
@@ -77,8 +118,8 @@ Authorization: Bearer {{token}}
 }
 
 
-### 4. Reintento identico: la idempotencia en accion
-# Manda exactamente lo mismo que el bloque 3. Devuelve el MISMO id, no crea
+### 7. Reintento identico: la idempotencia en accion
+# Manda exactamente lo mismo que el bloque 6. Devuelve el MISMO id, no crea
 # un segundo resultado. Es lo que hace seguro reintentar tras una caida de red.
 POST {{host}}/api/resultados
 Content-Type: application/json
@@ -92,7 +133,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 5. Sin cabecera Authorization: 401
+### 8. Sin cabecera Authorization: 401
 # Antes de SCRUM-64 esta peticion se registraba tan tranquila, a nombre de
 # quien dijera el cuerpo.
 POST {{host}}/api/resultados
@@ -106,8 +147,8 @@ Content-Type: application/json
 }
 
 
-### 6. Token que no se puede verificar: 401
-# La respuesta es identica a la del bloque 5 y a la de un token caducado.
+### 9. Token que no se puede verificar: 401
+# La respuesta es identica a la del bloque 8 y a la de un token caducado.
 # Es deliberado: distinguir "caducado" de "firma invalida" de "es de otro
 # proyecto" le ahorra trabajo a quien esta probando combinaciones.
 POST {{host}}/api/resultados
@@ -122,7 +163,7 @@ Authorization: Bearer esto.no.es-un-token
 }
 
 
-### 7. Decir en el cuerpo de quien es el resultado: 400
+### 10. Decir en el cuerpo de quien es el resultado: 400
 # El campo desaparecio del contrato en SCRUM-66, y la validacion rechaza lo
 # que no esta declarado.
 #
@@ -142,7 +183,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 8. Puntaje bajo: sugiere acompanamiento
+### 11. Puntaje bajo: sugiere acompanamiento
 # El nivel es "requiere_atencion" y sugiereAcompanamiento viene en true, que
 # es la senal para mostrar recursos de apoyo. Nunca es un diagnostico.
 POST {{host}}/api/resultados
@@ -157,7 +198,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 9. Campo que no existe en el contrato: 400
+### 12. Campo que no existe en el contrato: 400
 # Proteccion contra asignacion masiva. Mandar un campo de mas no se ignora en
 # silencio: se rechaza.
 POST {{host}}/api/resultados
@@ -173,7 +214,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 10. Fecha en el futuro: 400 con el codigo del dominio
+### 13. Fecha en el futuro: 400 con el codigo del dominio
 POST {{host}}/api/resultados
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -186,7 +227,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 11. Preguntar al asistente
+### 14. Preguntar al asistente
 # Tambien exige sesion, y ahi importaba especialmente: el asistente
 # personaliza su respuesta con el historial reciente de quien pregunta, asi
 # que recibir el identificador en el cuerpo permitia preguntar en nombre de
@@ -200,7 +241,7 @@ Authorization: Bearer {{token}}
 }
 
 
-### 12. El asistente ante una senal de riesgo
+### 15. El asistente ante una senal de riesgo
 # La respuesta incluye siempre lineas de atencion, y esa decision no depende
 # de que se reconozca la pregunta. Ver ADR 0011.
 POST {{host}}/api/asistente

@@ -2,7 +2,12 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SESIONES, VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import {
+  SESIONES,
+  VerificadorFalso,
+  comoUsuario,
+  darDeAlta,
+} from '../../pruebas/sesionDePrueba.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
@@ -30,6 +35,9 @@ async function levantarAplicacion(): Promise<NestExpressApplication> {
   configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
 
   await app.init();
+
+  // Desde SCRUM-63 tener token no basta para operar: hace falta cuenta.
+  await darDeAlta(app.getHttpServer());
 
   return app;
 }

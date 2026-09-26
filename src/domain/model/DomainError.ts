@@ -134,6 +134,46 @@ export class MissingConsentError extends DomainError {
   }
 }
 
+/**
+ * Quien llama tiene un token valido pero todavia no tiene cuenta aqui.
+ *
+ * Supabase y VSD Health guardan identidades distintas a proposito: el token
+ * dice quien eres para el proveedor, y la cuenta es nuestra. Entre las dos hay
+ * un paso, el alta, y hasta que ocurre no hay a nombre de quien guardar nada.
+ *
+ * No es un fallo de autenticacion —el token es autentico— sino una cuenta que
+ * falta, y por eso se distingue de un 401.
+ */
+export class AccountNotProvisionedError extends DomainError {
+  readonly code = 'CUENTA_NO_REGISTRADA';
+
+  constructor() {
+    super('Todavia no tienes una cuenta de VSD Health. Completa el registro para continuar.');
+  }
+}
+
+/**
+ * Ese correo ya pertenece a otra cuenta.
+ *
+ * Ocurre cuando alguien se registro con correo y despues entra con Google, o
+ * al reves, y el proveedor entrega un identificador distinto para la misma
+ * persona.
+ *
+ * No se comprueba antes de intentarlo, y no por descuido: con el aislamiento
+ * activo no se puede preguntar si **otra** persona tiene un correo sin poder
+ * leer filas ajenas, que es justo lo que las politicas impiden. La unicidad la
+ * hace cumplir la base, y aqui solo se traduce a algo que se entienda.
+ */
+export class EmailAlreadyRegisteredError extends DomainError {
+  readonly code = 'CORREO_YA_REGISTRADO';
+
+  constructor() {
+    super(
+      'Ese correo ya esta asociado a una cuenta. Entra con el metodo que usaste la primera vez.',
+    );
+  }
+}
+
 /** El rol recibido no es uno de los definidos por el sistema. */
 export class InvalidRoleError extends DomainError {
   readonly code = 'ROL_INVALIDO';

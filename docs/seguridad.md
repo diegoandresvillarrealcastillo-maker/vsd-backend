@@ -103,6 +103,41 @@ proteccion de la que hay:
   real de este diseno, y conviene decirla en voz alta en lugar de
   sugerir que no existe.
 
+### Entre autenticar y operar hay un paso
+
+Un token de Supabase dice quien es la persona **para Supabase**. Nuestra base
+usa su propio identificador, y son distintos a proposito: usar el del proveedor
+como clave primaria ataria todo el modelo de datos al proveedor de
+autenticacion, y sustituirlo obligaria a reescribir todas las claves foraneas.
+
+Por eso hay una traduccion, y ocurre en un segundo guardia que se aplica a toda
+la API. Busca la cuenta por el identificador del proveedor y la deja disponible
+para el resto de la peticion; si no existe, responde **403 con
+`CUENTA_NO_REGISTRADA`**.
+
+Es 403 y no 401 a proposito: el token es autentico y la sesion vale, asi que
+decir "no estas autenticado" mandaria a la persona a iniciar sesion otra vez,
+que es exactamente lo que no arregla el problema. Lo que falta es completar el
+alta en `POST /api/cuenta`.
+
+Ese orden importa tambien para lo que se guarda. `resultado.id_usuario` y
+`entrada_diario.id_usuario` son claves foraneas contra **nuestro**
+identificador. Escribir el del proveedor ahi hace que PostgreSQL rechace la
+fila, y es un fallo que ninguna prueba con adaptadores en memoria puede ver,
+porque un `Map` no tiene claves foraneas. Se detecto con la primera persona
+real y se cubre desde entonces con una prueba de integracion que recorre el
+camino completo, de la cabecera HTTP a la fila guardada.
+
+### El alta no concede privilegios
+
+El rol lo fija el caso de uso y **no se recibe**. No es una comprobacion que
+alguien pueda olvidar: el dato no existe en la orden de alta. Si alguien lo
+anadiera al cuerpo de la peticion, la validacion lo rechaza por campo no
+declarado.
+
+Una escalada de privilegios por confiar en el cuerpo de la peticion es el error
+clasico, y aqui es imposible por construccion.
+
 ### Autenticar no es autorizar
 
 El guardia sabe quien eres; no decide que puedes. Esa distincion se
@@ -126,6 +161,11 @@ una con `@Publico()`. Hoy son dos:
 | ------------------- | ----------------------------------------------------------------- |
 | `GET /health`       | La consulta el proveedor de despliegue, que no tiene cuenta       |
 | `GET /api/catalogo` | Mismo contenido para todo el mundo, no sale de la cuenta de nadie |
+
+Hay ademas una ruta que **si exige token pero no exige cuenta**, marcada con
+`@SinCuenta()`: `POST /api/cuenta`. Tiene que ser asi por definicion, porque es
+la que crea la cuenta que todas las demas exigen; sin esa marca, darse de alta
+requeriria estar ya dado de alta.
 
 Es al reves de proteger ruta por ruta, y es deliberado: olvidar el
 decorador deja una ruta publica cerrada, que se nota en cuanto alguien la

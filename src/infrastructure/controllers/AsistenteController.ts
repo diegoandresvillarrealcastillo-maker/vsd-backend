@@ -1,8 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { AsistentePort } from '../../domain/ports/in/AsistentePort.js';
-import { UsuarioActual } from '../auth/UsuarioActual.js';
-import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
+import type { User } from '../../domain/model/User.js';
+import { CuentaActual } from '../auth/CuentaActual.js';
 import { ASISTENTE } from '../config/tokens.js';
 import { AsistenteRespuestaDto } from './dto/AsistenteRespuestaDto.js';
 import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
@@ -41,15 +41,23 @@ export class AsistenteController {
   })
   @ApiResponse({ status: 400, description: 'El cuerpo de la peticion no es valido.' })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Hay sesion, pero todavia no hay cuenta. Hay que pasar antes por POST /api/cuenta.',
+  })
   @ApiResponse({ status: 429, description: 'Demasiadas peticiones.' })
   async preguntar(
     @Body() dto: ConsultarAsistenteDto,
-    @UsuarioActual() usuario: Identidad,
+    @CuentaActual() cuenta: User,
   ): Promise<AsistenteRespuestaDto> {
     // Quien pregunta sale del token. El asistente mira el historial reciente
     // de esta persona para personalizar el mensaje, asi que dejar que el
     // cuerpo eligiera el identificador era una forma de leer el de otra.
-    const respuesta = await this.asistente.responder({ userId: usuario.id, texto: dto.texto });
+    //
+    // Se usa el identificador de la cuenta y no el del proveedor, porque es el
+    // que relaciona la tabla de resultados.
+    const respuesta = await this.asistente.responder({ userId: cuenta.id.value, texto: dto.texto });
 
     return AsistenteRespuestaDto.desde(respuesta);
   }

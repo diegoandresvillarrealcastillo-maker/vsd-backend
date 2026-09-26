@@ -1,10 +1,14 @@
 import { Logger, Module } from '@nestjs/common';
+import { APP_GUARD, Reflector } from '@nestjs/core';
+import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
+import { CuentaController } from '../controllers/CuentaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
-import { PRISMA, USER_REPOSITORY } from './tokens.js';
+import { PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
 
 /**
  * Cableado de las cuentas.
@@ -18,13 +22,16 @@ import { PRISMA, USER_REPOSITORY } from './tokens.js';
  * Prisma, que es el que decide si hay base de datos. Cuando eso se mueva a un
  * modulo de persistencia propio, esta importacion desaparece.
  *
- * Que adaptador se usa lo decide la configuracion, igual que en el resto del
- * sistema: con `DATABASE_URL` se usa PostgreSQL, y sin ella el de memoria. La
- * configuracion ya impide arrancar sin base de datos fuera de desarrollo, asi
- * que aqui no hay que volver a comprobarlo.
+ * ## El segundo guardia
+ *
+ * Aqui se registra `GuardiaDeCuenta`, que traduce la identidad del proveedor
+ * en la cuenta de VSD Health. Se registra **despues** de `GuardiaDeSesion`
+ * —que vive en `AutenticacionModule`, importado antes en `AppModule`— porque
+ * necesita la identidad que aquel deja en la peticion.
  */
 @Module({
   imports: [ActivityResultModule],
+  controllers: [CuentaController],
   providers: [
     {
       provide: USER_REPOSITORY,
@@ -43,7 +50,18 @@ import { PRISMA, USER_REPOSITORY } from './tokens.js';
       },
       inject: [PRISMA],
     },
+    {
+      provide: REGISTRAR_CUENTA,
+      useFactory: (cuentas: UserRepositoryPort) => new RegistrarCuentaUseCaseImpl(cuentas),
+      inject: [USER_REPOSITORY],
+    },
+    {
+      provide: APP_GUARD,
+      useFactory: (cuentas: RegistrarCuentaUseCaseImpl, reflector: Reflector) =>
+        new GuardiaDeCuenta(cuentas, reflector),
+      inject: [REGISTRAR_CUENTA, Reflector],
+    },
   ],
-  exports: [USER_REPOSITORY],
+  exports: [USER_REPOSITORY, REGISTRAR_CUENTA],
 })
 export class UsuariosModule {}

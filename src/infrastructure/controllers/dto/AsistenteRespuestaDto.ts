@@ -7,7 +7,7 @@ export class RecursoDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Linea 192, opcion 4' })
+  @ApiProperty({ example: 'Línea 192, opción 4' })
   titulo!: string;
 
   @ApiPropertyOptional()

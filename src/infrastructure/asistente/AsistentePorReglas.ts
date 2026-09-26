@@ -65,15 +65,15 @@ const REGLAS: readonly {
  */
 const MENSAJES: Record<Intencion, string> = {
   [Intencion.QUE_SIGNIFICA_MI_RESULTADO]:
-    'Tu nivel resume como te fue en esa actividad, ese dia. No dice nada sobre ti como persona.',
+    'Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.',
   [Intencion.COMO_DUERMO_MEJOR]:
     'Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.',
   [Intencion.ME_SIENTO_MAL]:
-    'Gracias por escribirlo. Sentirte asi no necesita justificacion, y no tienes que resolverlo hoy.',
+    'Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.',
   [Intencion.DONDE_BUSCO_AYUDA]:
-    'Pedir ayuda es una buena decision. Estos son lugares donde te van a escuchar.',
+    'Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.',
   [Intencion.NO_RECONOCIDA]:
-    'No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escribelo de otra forma.',
+    'No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma.',
 };
 
 /**
@@ -83,8 +83,8 @@ const MENSAJES: Record<Intencion, string> = {
  * falta decir y pone los telefonos delante.
  */
 const MENSAJE_DE_RIESGO =
-  'Lo que escribiste es importante y no deberias cargarlo en solitario. ' +
-  'Estas lineas atienden ahora mismo y son gratuitas.';
+  'Lo que escribiste es importante y no deberías cargarlo en solitario. ' +
+  'Estas líneas atienden ahora mismo y son gratuitas.';
 
 /**
  * VSD IA en su primera version: un asistente por reglas.
@@ -174,6 +174,6 @@ export class AsistentePorReglas implements AsistentePort {
 
     const veces = recientes.length === 1 ? 'una actividad' : `${recientes.length} actividades`;
 
-    return `${mensaje} En el ultimo mes registraste ${veces}.`;
+    return `${mensaje} En el último mes registraste ${veces}.`;
   }
 }

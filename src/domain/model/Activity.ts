@@ -19,7 +19,18 @@ export const DireccionEscala = {
   MAYOR_ES_MEJOR: 'mayor_es_mejor',
   /** Mas puntaje indica mas carga: cuestionarios de tension o animo. */
   MAYOR_REQUIERE_ATENCION: 'mayor_requiere_atencion',
-  /** No produce puntaje: bitacoras y registros. */
+  /**
+   * No produce puntaje: la actividad registra y no valora.
+   *
+   * Es **esta columna**, y no el `tipo` de la actividad, la que decide si hay
+   * nivel que mostrar. Las dos son independientes: `tipo` dice como se hace la
+   * actividad y esto dice si se valora.
+   *
+   * El catalogo lo demuestra. "Movimiento del dia" y "Como dormiste anoche"
+   * son las dos bitacoras, y la primera no puntua mientras la segunda si:
+   * anotar cuanto dormiste es un registro, y aun asi tiene sentido decirte que
+   * anoche descansaste bien o poco.
+   */
   SIN_PUNTAJE: 'sin_puntaje',
 } as const;
 

@@ -45,8 +45,11 @@ export interface DatosDeResultado {
   readonly activityId: ActivityId;
   readonly clientOperationId: ClientOperationId;
   /**
-   * Ausente en las actividades de registro, que producen datos y no puntaje:
-   * una bitacora de sueno o un registro de animo no se califican.
+   * Ausente en las actividades que no se valoran, como "Movimiento del dia" o
+   * "Un momento bueno del dia": producen datos y no puntaje.
+   *
+   * Lo decide la escala de la actividad, no su tipo. Hay bitacoras que si
+   * puntuan, como la del sueno.
    */
   readonly score?: OrientativeScore | undefined;
   readonly completedAt: Date;
@@ -119,9 +122,10 @@ export class ActivityResult {
    * Indica si conviene acompanar el resultado con recursos de apoyo
    * profesional. Delega en el puntaje: la regla vive donde vive el nivel.
    *
-   * Un resultado sin puntaje no sugiere nada por si mismo. Una bitacora de
-   * sueno cobra sentido en la tendencia, no en una anotacion suelta, y hacer
-   * que una sola noche mala dispare una sugerencia seria leer de mas.
+   * Un resultado sin puntaje no sugiere nada por si mismo. Anotar que hoy te
+   * moviste, o que hubo un momento bueno, cobra sentido en la tendencia y no
+   * en una anotacion suelta, y hacer que un registro aislado dispare una
+   * sugerencia seria leer de mas.
    */
   sugiereAcompanamiento(): boolean {
     return this.score?.sugiereAcompanamiento() ?? false;

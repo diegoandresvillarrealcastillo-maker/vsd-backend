@@ -277,7 +277,7 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades de registro, como una bitacora de sueno, que producen datos y no una calificacion. El maximo lo declara la actividad, no esta peticion.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
           },
@@ -365,7 +365,7 @@
           "produceNivel": {
             "type": "boolean",
             "example": true,
-            "description": "Si al terminar hay un nivel orientativo que mostrar. Las bitacoras no lo tienen: registran, no califican."
+            "description": "Si al terminar hay un nivel orientativo que mostrar. Lo decide la escala de la actividad, no su tipo: hay bitacoras que registran sin valorar y otras, como la del sueno, que si se valoran."
           }
         },
         "required": [

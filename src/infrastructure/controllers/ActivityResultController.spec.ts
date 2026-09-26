@@ -357,8 +357,14 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     await app.close();
   });
 
-  /** Una bitacora de sueno: produce datos, no una calificacion. */
-  function bitacora(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  /**
+   * Una actividad que registra sin valorar: produce datos, no calificacion.
+   *
+   * No se llama "bitacora" a proposito. El tipo de la actividad no decide si se
+   * valora —hay bitacoras que si puntuan, como la del sueno—; lo decide su
+   * escala, y lo que hace falta aqui es una que no puntue.
+   */
+  function sinValorar(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       activityId: BITACORA,
       clientOperationId: nuevaOperacion(),
@@ -369,7 +375,7 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
   }
 
   it('registra un resultado sin puntaje y devuelve 201', async () => {
-    const respuesta = await registrarComo(app, A).send(bitacora()).expect(201);
+    const respuesta = await registrarComo(app, A).send(sinValorar()).expect(201);
 
     expect(respuesta.body).toMatchObject({
       activityId: BITACORA,
@@ -379,13 +385,13 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
   });
 
   it('no incluye nivel orientativo cuando no hubo puntaje', async () => {
-    const respuesta = await registrarComo(app, A).send(bitacora());
+    const respuesta = await registrarComo(app, A).send(sinValorar());
 
     expect(respuesta.body).not.toHaveProperty('nivelOrientativo');
   });
 
   it('reintentar la misma operacion no crea un segundo resultado', async () => {
-    const cuerpoFijo = bitacora();
+    const cuerpoFijo = sinValorar();
 
     const primera = await registrarComo(app, A).send(cuerpoFijo);
     const segunda = await registrarComo(app, A).send(cuerpoFijo);
@@ -398,7 +404,7 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     // Se avisa en vez de descartarlo en silencio: ese dato podria ser justo
     // lo que la persona respondio.
     const respuesta = await registrarComo(app, A)
-      .send(bitacora({ score: 8 }))
+      .send(sinValorar({ score: 8 }))
       .expect(400);
 
     expect(respuesta.body).toMatchObject({ codigo: 'LA_ACTIVIDAD_NO_PUNTUA' });
@@ -424,7 +430,7 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
 
   it('rechaza metadata con una clave que ya es un campo propio', async () => {
     await registrarComo(app, A)
-      .send(bitacora({ metadata: { puntaje: 99 } }))
+      .send(sinValorar({ metadata: { puntaje: 99 } }))
       .expect(400);
   });
 });

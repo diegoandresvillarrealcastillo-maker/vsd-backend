@@ -104,6 +104,12 @@ Ya puedes abrir:
 - **http://localhost:3000/health** — comprueba que responde
 - **http://localhost:3000/api/docs** — documentacion navegable de la API
 
+Para probarla hay tres caminos, y los tres llaman a lo mismo: la pagina de
+Swagger de arriba, el archivo `peticiones.http` con la extension REST Client de
+VS Code, y la coleccion de Postman de `postman/`. Esta ultima es la unica que se
+ejecuta entera de una sola vez, con sus comprobaciones dentro, y la que obtiene
+el token sin que haya que copiarlo a mano. Ver [postman/README.md](postman/README.md).
+
 ### VSD IA
 
 El asistente responde en `POST /api/asistente`. Es la primera version: **reglas,

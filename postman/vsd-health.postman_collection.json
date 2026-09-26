@@ -1,0 +1,521 @@
+{
+  "info": {
+    "_postman_id": "3f8b1c74-52ad-4e91-b6d0-7a4c9e2f18d3",
+    "name": "VSD Health - Demostracion",
+    "description": "Recorrido completo de la API de VSD Health, pensado para una sustentacion.\n\nCada peticion trae sus propias comprobaciones, asi que se puede ejecutar la coleccion entera con Run y mostrar el resultado en verde.\n\nEl orden importa: la primera peticion inicia sesion contra Supabase y guarda el token en el entorno. A partir de ahi las demas lo usan solas.\n\nQue demuestra, en orden:\n\n1. Las rutas publicas responden sin sesion.\n2. Una peticion valida registra un resultado y devuelve el nivel orientativo, nunca el puntaje numerico.\n3. Reenviar la misma operacion no duplica: devuelve el resultado ya registrado.\n4. Sin token no se registra nada.\n5. El cuerpo no puede decir de quien es el resultado.\n6. Las reglas del dominio rechazan lo que no tiene sentido, cada una con su codigo.\n7. El asistente responde, y ante una senal de riesgo incluye siempre lineas de atencion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "0. Iniciar sesion y guardar el token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Supabase devuelve una sesion', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const cuerpo = pm.response.json();",
+              "",
+              "if (cuerpo.access_token) {",
+              "  pm.environment.set('token', cuerpo.access_token);",
+              "  console.log('Token guardado. Caduca en', cuerpo.expires_in, 'segundos.');",
+              "} else {",
+              "  console.log('No llego token. Revisa correo y contrasena en el entorno.');",
+              "}",
+              "",
+              "pm.test('El token queda guardado en el entorno', function () {",
+              "  pm.expect(pm.environment.get('token')).to.be.a('string').and.to.have.length.above(20);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "apikey", "value": "{{anonKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{correo}}\",\n  \"password\": \"{{contrasena}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{supabaseUrl}}/auth/v1/token?grant_type=password",
+          "host": ["{{supabaseUrl}}"],
+          "path": ["auth", "v1", "token"],
+          "query": [{ "key": "grant_type", "value": "password" }]
+        },
+        "description": "Pide el token a Supabase con correo y contrasena, igual que hace el navegador al entrar.\n\nLa contrasena viaja a Supabase y no a nuestra API: VSD Health nunca la ve ni la almacena.\n\nEl script de la pestana Tests guarda el access_token en la variable de entorno, de modo que las demas peticiones no necesitan que se copie nada a mano."
+      }
+    },
+    {
+      "name": "1. Estado del servicio (ruta publica)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Devuelve solo el estado, sin detalles internos', function () {",
+              "  const cuerpo = pm.response.json();",
+              "  pm.expect(cuerpo).to.eql({ estado: 'ok' });",
+              "  pm.expect(Object.keys(cuerpo)).to.have.lengthOf(1);",
+              "});",
+              "",
+              "pm.test('No anuncia la tecnologia del servidor', function () {",
+              "  pm.expect(pm.response.headers.has('x-powered-by')).to.be.false;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+        "description": "Ruta publica. La consulta el proveedor de despliegue, que no tiene cuenta.\n\nDevuelve lo minimo a proposito: si dijera la version o las dependencias, estaria dando informacion util a quien busque vulnerabilidades conocidas."
+      }
+    },
+    {
+      "name": "2. Catalogo de actividades (ruta publica)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "const categorias = pm.response.json();",
+              "",
+              "pm.test('Trae las tres areas', function () {",
+              "  pm.expect(categorias).to.have.lengthOf(3);",
+              "});",
+              "",
+              "pm.test('Cada area trae sus tres actividades', function () {",
+              "  categorias.forEach(function (c) {",
+              "    pm.expect(c.actividades, c.nombre).to.have.lengthOf(3);",
+              "  });",
+              "});",
+              "",
+              "pm.test('No expone el puntaje maximo ni los umbrales', function () {",
+              "  const texto = JSON.stringify(categorias);",
+              "  pm.expect(texto).to.not.include('puntajeMaximo');",
+              "  pm.expect(texto).to.not.include('umbrales');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/catalogo",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "catalogo"]
+        },
+        "description": "La otra ruta publica. Es el mismo contenido para todo el mundo y no sale de la cuenta de nadie.\n\nFijate en lo que NO devuelve: ni el puntaje maximo, ni los umbrales, ni los textos de nivel. Eso sirve para interpretar un resultado, y esa interpretacion ocurre en el servidor."
+      }
+    },
+    {
+      "name": "3. Registrar un resultado",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Cada ejecucion usa su propia operacion, para no chocar con la anterior.",
+              "// La peticion 4 reutiliza esta misma para demostrar la idempotencia.",
+              "pm.environment.set('operacion', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201', function () { pm.response.to.have.status(201); });",
+              "",
+              "const r = pm.response.json();",
+              "pm.environment.set('resultadoId', r.id);",
+              "",
+              "pm.test('Devuelve el nivel orientativo', function () {",
+              "  pm.expect(r.nivelOrientativo).to.equal('favorable');",
+              "});",
+              "",
+              "pm.test('NUNCA devuelve el puntaje numerico', function () {",
+              "  pm.expect(r).to.not.have.property('score');",
+              "  pm.expect(r).to.not.have.property('puntaje');",
+              "  pm.expect(r).to.not.have.property('maxScore');",
+              "});",
+              "",
+              "pm.test('No devuelve el identificador de la persona', function () {",
+              "  pm.expect(r).to.not.have.property('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{operacion}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "El caso principal.\n\nFijate en que el cuerpo NO lleva ningun campo userId: de quien es el resultado lo decide el token, no quien llama.\n\n16 sobre un maximo de 20 es el ochenta por ciento, por encima del corte de 0,70 que declara esta actividad, asi que el nivel sale favorable.\n\nLa respuesta trae el nivel y nunca el numero. Un 16 sobre 20 en algo relacionado con el animo no informa: se lee como una calificacion sobre uno mismo."
+      }
+    },
+    {
+      "name": "4. Reenviar la misma operacion (idempotencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201, igual que la primera vez', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Devuelve EL MISMO resultado, no crea otro', function () {",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('resultadoId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{operacion}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "Exactamente el mismo cuerpo que la peticion anterior, con el mismo clientOperationId.\n\nDevuelve el MISMO identificador de resultado en lugar de crear uno nuevo. Es lo que hace seguro reintentar cuando la red se cae a mitad de una sincronizacion.\n\nLa garantia no depende solo del codigo: en la base hay una restriccion UNIQUE sobre (id_usuario, id_operacion_cliente). Aunque el codigo fallara, el duplicado no entra."
+      }
+    },
+    {
+      "name": "5. Sin token: 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 401', function () { pm.response.to.have.status(401); });",
+              "",
+              "pm.test('Dice que falta la sesion', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('SESION_REQUERIDA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "La misma peticion valida, pero sin cabecera de autorizacion.\n\nAntes de este ciclo, esta peticion se registraba tan tranquila a nombre de quien dijera el cuerpo.\n\nEl codigo SESION_REQUERIDA distingue este caso del de un token que llega pero no se puede verificar, que responde SESION_INVALIDA. Esa distincion es interna: los dos son 401 y ninguno explica mas."
+      }
+    },
+    {
+      "name": "6. El cuerpo no puede elegir la persona: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('El mensaje nombra el campo rechazado', function () {",
+              "  pm.expect(pm.response.text()).to.include('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"22222222-2222-4222-9222-222222222222\",\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "Se intenta registrar el resultado a nombre de otra persona escribiendo su identificador en el cuerpo.\n\nEl campo ya no existe en el contrato y la validacion lo rechaza. Se rechaza en vez de ignorarse en silencio: ignorarlo dejaria a un cliente viejo creyendo que elige el usuario mientras el servidor usa otro.\n\nEs la misma proteccion que frena la asignacion masiva: enviar un campo inventado como esAdministrador tambien da 400."
+      }
+    },
+    {
+      "name": "7. Puntaje fuera de rango: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Trae el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('PUNTAJE_FUERA_DE_RANGO');",
+              "});",
+              "",
+              "pm.test('No revela la traza ni clases internas', function () {",
+              "  pm.expect(pm.response.text()).to.not.match(/at \\w+|\\.ts:|node_modules|UseCaseImpl|Repository/);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 999,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "El maximo lo declara la actividad, no quien reporta. Esta acepta hasta 20.\n\nAntes el maximo viajaba en la peticion, de modo que quien reportara podia elegir su propia escala y con ella el nivel que salia."
+      }
+    },
+    {
+      "name": "8. Fecha en el futuro: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Trae el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('FECHA_EN_EL_FUTURO');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadQuePuntua}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2030-01-01T00:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "Una regla del dominio, no de la capa HTTP. La impone la propia entidad al construirse, venga la llamada de donde venga."
+      }
+    },
+    {
+      "name": "9. Actividad que no existe: 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 404', function () { pm.response.to.have.status(404); });",
+              "",
+              "pm.test('Trae el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('ACTIVIDAD_NO_ENCONTRADA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadInexistente}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 16,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "Sin la actividad no se puede interpretar el puntaje: no se sabe sobre que maximo se obtuvo ni hacia donde va la escala. Es preferible rechazarlo a guardarlo con un nivel derivado de suposiciones."
+      }
+    },
+    {
+      "name": "10. Puntaje en una actividad que no puntua: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Trae el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('LA_ACTIVIDAD_NO_PUNTUA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activityId\": \"{{actividadSinPuntaje}}\",\n  \"clientOperationId\": \"{{$guid}}\",\n  \"score\": 8,\n  \"completedAt\": \"2026-09-14T11:00:00.000Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/resultados",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "resultados"]
+        },
+        "description": "Movimiento del dia es una bitacora: produce datos, no una calificacion.\n\nEnviar un puntaje ahi se avisa en vez de descartarlo en silencio, porque ese dato podria ser justo lo que la persona respondio."
+      }
+    },
+    {
+      "name": "11. Preguntar al asistente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200, no 201: no crea nada', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const r = pm.response.json();",
+              "",
+              "pm.test('Reconoce la intencion', function () {",
+              "  pm.expect(r.intencion).to.equal('como_duermo_mejor');",
+              "});",
+              "",
+              "pm.test('Acompana con recursos de la base', function () {",
+              "  pm.expect(r.recursos).to.be.an('array').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('No devuelve el texto que escribio la persona', function () {",
+              "  pm.expect(pm.response.text()).to.not.include('como puedo dormir mejor');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"texto\": \"como puedo dormir mejor\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/asistente",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "asistente"]
+        },
+        "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje.\n\nQuien pregunta sale del token. Importaba especialmente aqui: el asistente personaliza su respuesta con el historial reciente de quien pregunta, asi que recibir el identificador en el cuerpo permitia preguntar en nombre de otra persona y leer cuanto habia usado la aplicacion.\n\nLo que se escribe no se guarda: se usa para responder y se descarta."
+      }
+    },
+    {
+      "name": "12. Senal de riesgo: siempre lineas de atencion",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "const r = pm.response.json();",
+              "",
+              "pm.test('Detecta la senal de riesgo', function () {",
+              "  pm.expect(r.senalDeRiesgo).to.be.true;",
+              "});",
+              "",
+              "pm.test('La garantia dura: si hay riesgo, hay lineas de atencion', function () {",
+              "  pm.expect(r.incluyeLineasDeAtencion).to.be.true;",
+              "  pm.expect(r.recursos).to.be.an('array').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('Lo primero que se ve sirve en todo el pais', function () {",
+              "  pm.expect(r.recursos[0].cobertura).to.equal('nacional');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"texto\": \"ya no aguanto mas\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/asistente",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "asistente"]
+        },
+        "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Linea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
+      }
+    }
+  ]
+}

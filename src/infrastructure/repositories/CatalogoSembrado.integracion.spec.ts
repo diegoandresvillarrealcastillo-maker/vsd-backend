@@ -66,6 +66,7 @@ const SIN_TILDE =
 interface FilaDeActividad {
   nombre: string;
   descripcion: string | null;
+  tipo: string;
   categoria: string;
   direccion_escala: string;
   puntaje_maximo: string | null;
@@ -88,6 +89,7 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     filas = await prisma.$queryRaw<FilaDeActividad[]>`
       SELECT a."nombre",
              a."descripcion",
+             a."tipo",
              c."nombre" AS categoria,
              a."direccion_escala"::text AS direccion_escala,
              a."puntaje_maximo"::text   AS puntaje_maximo,
@@ -164,14 +166,39 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
   });
 
   it('la actividad que no puntua no trae maximo ni textos de nivel', () => {
-    const bitacoras = filas.filter((fila) => fila.direccion_escala === DireccionEscala.SIN_PUNTAJE);
+    // Se filtra por la escala y no por el tipo, que no son lo mismo: hay
+    // bitacoras que si puntuan. Llamar "bitacoras" a este grupo seria darle un
+    // nombre que no le corresponde.
+    const sinValorar = filas.filter(
+      (fila) => fila.direccion_escala === DireccionEscala.SIN_PUNTAJE,
+    );
 
-    expect(bitacoras.length).toBeGreaterThan(0);
+    expect(sinValorar.length).toBeGreaterThan(0);
 
-    for (const fila of bitacoras) {
+    for (const fila of sinValorar) {
       expect(fila.puntaje_maximo).toBeNull();
       expect(fila.textos_nivel).toBeNull();
     }
+  });
+
+  it('que una actividad puntue no depende de su tipo', () => {
+    // Es la comprobacion que impide volver a atar las dos columnas. Durante un
+    // tiempo la documentacion afirmo que las bitacoras no producen nivel, y el
+    // contraejemplo estaba sembrado desde el principio: la del sueno si.
+    //
+    // Importa para el motor de actividades. Decidir si se muestra resultado
+    // mirando el tipo dejaria sin su nivel a quien registre el sueno, y no
+    // daria ningun error.
+    const bitacoras = filas.filter((fila) => fila.tipo === 'bitacora');
+
+    expect(bitacoras.length).toBeGreaterThan(1);
+
+    const puntuan = bitacoras.filter(
+      (fila) => fila.direccion_escala !== DireccionEscala.SIN_PUNTAJE,
+    );
+
+    expect(puntuan.length).toBeGreaterThan(0);
+    expect(puntuan.length).toBeLessThan(bitacoras.length);
   });
 
   it('ningun texto del catalogo usa lenguaje clinico', () => {

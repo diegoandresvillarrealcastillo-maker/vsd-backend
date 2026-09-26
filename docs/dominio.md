@@ -158,14 +158,24 @@ Es la entidad central. Hace cumplir tres reglas:
 
 ### El puntaje es opcional
 
-No todas las actividades califican. Una bitacora de sueno o una anotacion de
-animo producen **datos**, no una nota: el diccionario del entregable lo dice
-desde el principio, «cuando aplique». Un resultado sin puntaje es valido y
+No todas las actividades califican. Anotar que hoy te moviste, o que hubo un
+momento bueno, produce **datos** y no una nota: el diccionario del entregable lo
+dice desde el principio, «cuando aplique». Un resultado sin puntaje es valido y
 conserva usuario, actividad, fecha e identificador de operacion.
+
+**Que una actividad califique lo decide su escala, no su tipo.** Son dos cosas
+independientes: el tipo dice como se hace la actividad y la escala dice si se
+valora. En el catalogo hay dos bitacoras y no coinciden: «Movimiento del dia»
+no puntua y «Como dormiste anoche» si, porque anotar cuanto dormiste es un
+registro y aun asi tiene sentido decirte que descansaste bien o poco.
+
+Conviene tenerlo presente al construir el motor de actividades: decidir si se
+muestra resultado mirando el tipo dejaria sin su nivel a quien registre el
+sueno, y no daria ningun error.
 
 Un resultado sin puntaje tampoco sugiere acompanamiento por si solo. Un
 registro cobra sentido en la tendencia, no en una anotacion suelta, y hacer que
-una sola noche mala dispare una sugerencia seria leer de mas.
+un dato aislado dispare una sugerencia seria leer de mas.
 
 ### `metadata`
 

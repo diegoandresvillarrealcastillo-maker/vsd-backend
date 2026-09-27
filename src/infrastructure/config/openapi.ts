@@ -22,7 +22,22 @@ export function construirDocumento(app: INestApplication): Record<string, unknow
     )
     .setVersion('0.1.0')
     .addTag('Resultados', 'Registro de resultados de actividades')
+    .addTag('Catalogo', 'Categorias y actividades disponibles')
+    .addTag('Asistente', 'VSD IA')
     .addTag('Estado', 'Comprobacion de vida del servicio')
+    // El token que devuelve Supabase al iniciar sesion. Todas las rutas lo
+    // exigen salvo las marcadas con @Publico(), que hoy son el estado del
+    // servicio y el catalogo.
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Token de acceso de Supabase. El navegador lo obtiene al iniciar sesion y lo envia en la cabecera Authorization.',
+      },
+      'sesion',
+    )
     .build();
 
   return SwaggerModule.createDocument(app, configuracion) as unknown as Record<string, unknown>;

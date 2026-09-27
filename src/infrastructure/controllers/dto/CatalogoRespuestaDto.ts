@@ -20,7 +20,12 @@ import type { Categoria } from '../../../domain/model/Categoria.js';
  * interpretaciones del mismo dato que pueden no coincidir.
  *
  * `produceNivel` es lo unico que se necesita saber de antemano, porque cambia
- * la pantalla: una bitacora no muestra resultado al terminar y un juego si.
+ * la pantalla: si no hay nivel, al terminar no se muestra resultado.
+ *
+ * Ojo con deducirlo del `tipo`, porque no se puede. Son dos cosas distintas:
+ * `tipo` dice **como se hace** la actividad y `produceNivel` dice **si se
+ * valora**. De las dos bitacoras del catalogo, "Movimiento del dia" no puntua
+ * y "Como dormiste anoche" si.
  */
 export class ActividadDelCatalogoDto {
   @ApiProperty({ format: 'uuid' })
@@ -38,14 +43,14 @@ export class ActividadDelCatalogoDto {
 
   @ApiProperty({
     required: false,
-    example: 'Encuentra las parejas iguales en el menor numero de intentos.',
+    example: 'Encuentra las parejas iguales en el menor número de intentos.',
   })
   descripcion?: string;
 
   @ApiProperty({
     example: true,
     description:
-      'Si al terminar hay un nivel orientativo que mostrar. Las bitacoras no lo tienen: registran, no califican.',
+      'Si al terminar hay un nivel orientativo que mostrar. Lo decide la escala de la actividad, no su tipo: hay bitacoras que registran sin valorar y otras, como la del sueno, que si se valoran.',
   })
   produceNivel!: boolean;
 
@@ -73,7 +78,7 @@ export class CategoriaDelCatalogoDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Cognicion' })
+  @ApiProperty({ example: 'Cognición' })
   nombre!: string;
 
   @ApiProperty({ required: false })

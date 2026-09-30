@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { Observable } from 'rxjs';
+import { identificadorDeLaRespuesta } from './identificadorDePeticion.js';
 
 /**
  * Registro de peticiones.
@@ -80,16 +81,34 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     // La ruta tambien se resuelve aqui: para entonces Express ya sabe con
     // que controlador coincidio la peticion.
     respuesta.once('finish', () => {
-      this.anotar(metodo, obtenerRuta(peticion), respuesta.statusCode, inicio);
+      this.anotar(
+        metodo,
+        obtenerRuta(peticion),
+        respuesta.statusCode,
+        inicio,
+        identificadorDeLaRespuesta(respuesta),
+      );
     });
 
     return siguiente.handle();
   }
 
-  private anotar(metodo: string, ruta: string, estado: number, inicio: number): void {
+  private anotar(
+    metodo: string,
+    ruta: string,
+    estado: number,
+    inicio: number,
+    identificador: string | undefined,
+  ): void {
     // Se registra la plantilla de la ruta y no la URL concreta. Asi
     // "/api/resultados/:id" no acaba dejando identificadores sueltos en el
     // registro solo por aparecer en la direccion.
-    this.registro.log(`${metodo} ${ruta} ${estado} ${Date.now() - inicio}ms`);
+    const linea = `${metodo} ${ruta} ${estado} ${Date.now() - inicio}ms`;
+
+    // El identificador de la peticion es el mismo que viaja en la cabecera
+    // `x-request-id` y el que anota el filtro de errores. Es lo que permite
+    // cruzar esta linea con el error que la acompano, y lo que se puede
+    // ensenar a quien reporta un fallo: es un UUID y no dice nada de nadie.
+    this.registro.log(identificador === undefined ? linea : `${linea} [${identificador}]`);
   }
 }

@@ -99,12 +99,18 @@ identificadores no acaben en el registro solo por viajar en la direccion.
 
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado                 |
-| -------- | ----------------------------------------- | ---------------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento      |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento      |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | Creado, con el esquema |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | Creado, con el esquema |
+| Ambiente | Donde vive                                | Estado            |
+| -------- | ----------------------------------------- | ----------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | **Preparado**     |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**     |
+
+Preparado quiere decir las cinco migraciones aplicadas, el catalogo sembrado y
+el rol `vsd_app` con contrasena y sujeto a las politicas de aislamiento. Los
+dos quedaron asi el **21/09/2026**, comprobados con `npm run db:revisar`.
+
+Lo que todavia no existe es un despliegue que se conecte a ellas.
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
 ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
@@ -183,11 +189,19 @@ politicas apagadas.
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Las bases de PRE y PROD ya tienen el esquema, pero **todavia no hay ningun
-despliegue** conectado a ellas: la API solo corre en local y en el contenedor
-del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
+Las bases de PRE y PROD estan preparadas y listas para recibir conexiones,
+pero **todavia no hay ningun despliegue** que las use: la API solo corre en
+local y en el contenedor del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
 seccion se actualiza cuando eso cambie.
 
-Antes del primer despliegue quedan dos pasos manuales en cada ambiente: darle
-contrasena al rol `vsd_app` y anotar las dos URL en el gestor de secretos del
-proveedor. Ninguno de los dos pasa por Git.
+Los dos pasos manuales de cada ambiente —aplicar las migraciones y darle
+contrasena a `vsd_app`— ya estan hechos. Se hicieron con `npm run db:preparar`,
+que los encadena en el orden correcto: el rol lo crea una migracion, asi que
+darle contrasena antes no funciona.
+
+Las contrasenas viven en el gestor del equipo y **son distintas por ambiente**.
+Si una se compromete, la otra no se va con ella. No pasan por Git ni por
+ningun chat.
+
+Queda anotar las dos URL en el gestor de secretos del proveedor de despliegue,
+cuando ese despliegue exista.

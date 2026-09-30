@@ -1,8 +1,24 @@
 # ADR 0004 — Autenticacion sin contrasenas con Supabase Auth
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada
 - **Fecha:** 2026-09-14
 - **Ciclo:** 0
+- **Reemplazada por:**
+  [ADR 0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) (2026-09-22)
+
+> **Esta decision ya no esta vigente.** El sistema entra con correo y
+> contrasena, y de forma opcional con Google. El motivo del cambio no
+> es que el razonamiento de aqui abajo fuera falso —sigue siendo
+> cierto que sin contrasenas almacenadas no hay contrasenas que
+> filtrar— sino que este ADR nunca midio lo que cuesta depender del
+> correo **en cada inicio de sesion**. Ese coste aparecio entero en el
+> Ciclo 5.
+>
+> Lo que si se conserva: VSD Health sigue **sin almacenar contrasenas**.
+> Las guarda Supabase. La tabla `usuario` sigue sin `password_hash`.
+>
+> El texto original se deja intacto a proposito. Un ADR reemplazado
+> sigue explicando por que se penso lo que se penso.
 
 ## Contexto
 

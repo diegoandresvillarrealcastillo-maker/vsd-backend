@@ -58,9 +58,12 @@ adaptador en memoria, que sigue existiendo para desarrollo y pruebas; en
 preproduccion y produccion la base de datos es obligatoria y sin ella el
 servicio no arranca.
 
-Lo que todavia no existe es la autenticacion. La identidad viaja en la
-peticion, asi que el aislamiento entre personas protege contra errores del
-propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
+La API ya sabe **quien llama**. Cada peticion trae el token que Supabase
+entrega al iniciar sesion, y la API lo verifica contra las claves publicas del
+proyecto antes de atender nada. De ahi sale la identidad que reciben tanto el
+caso de uso como las politicas de la base; el cuerpo de la peticion ya no puede
+decir de quien es un dato.
+Ver [ADR 0013](docs/adr/0013-la-api-verifica-el-token-contra-el-jwks.md).
 
 | Ciclo | Que se incorporo                                      | Estado    |
 | ----- | ----------------------------------------------------- | --------- |
@@ -68,7 +71,7 @@ propio sistema, no contra quien mienta sobre quien es. Eso llega en el Ciclo 5.
 | 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
 | 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
 | 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
-| 5     | Usuarios y autenticacion                              | Siguiente |
+| 5     | Usuarios y autenticacion                              | En curso  |
 
 ## Como ejecutarlo en local
 
@@ -100,6 +103,12 @@ Ya puedes abrir:
 
 - **http://localhost:3000/health** — comprueba que responde
 - **http://localhost:3000/api/docs** — documentacion navegable de la API
+
+Para probarla hay tres caminos, y los tres llaman a lo mismo: la pagina de
+Swagger de arriba, el archivo `peticiones.http` con la extension REST Client de
+VS Code, y la coleccion de Postman de `postman/`. Esta ultima es la unica que se
+ejecuta entera de una sola vez, con sus comprobaciones dentro, y la que obtiene
+el token sin que haya que copiarlo a mano. Ver [postman/README.md](postman/README.md).
 
 ### VSD IA
 
@@ -142,17 +151,18 @@ interrupcion funcionan sobre los archivos `.ts`.
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo
 puerto; usa la que te funcione.
 
-| Comando                | Que hace                                    |
-| ---------------------- | ------------------------------------------- |
-| `npm run db:arriba`    | Levanta las bases con Docker                |
-| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**  |
-| `npm run db:aplicar`   | Aplica las migraciones                      |
-| `npm run db:estado`    | Dice si falta alguna migracion              |
-| `npm run db:ver`       | Abre Prisma Studio para mirar los datos     |
-| `npm run db:revisar`   | Dice que hay **de verdad** en una base      |
-| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente |
-| `npm run db:abajo`     | Para los contenedores                       |
-| `npm run db:reiniciar` | Los para y **borra los datos**              |
+| Comando                | Que hace                                       |
+| ---------------------- | ---------------------------------------------- |
+| `npm run db:arriba`    | Levanta las bases con Docker                   |
+| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**     |
+| `npm run db:aplicar`   | Aplica las migraciones                         |
+| `npm run db:estado`    | Dice si falta alguna migracion                 |
+| `npm run db:ver`       | Abre Prisma Studio para mirar los datos        |
+| `npm run db:revisar`   | Dice que hay **de verdad** en una base         |
+| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente    |
+| `npm run db:preparar`  | Deja un ambiente listo: migra, rol y comprueba |
+| `npm run db:abajo`     | Para los contenedores                          |
+| `npm run db:reiniciar` | Los para y **borra los datos**                 |
 
 Con Docker se levantan dos bases: la de desarrollo en el **5432** y otra para
 pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
@@ -210,7 +220,8 @@ No se pierde nada: los contenedores y sus datos viven en volumenes aparte.
 - **NestJS** + **TypeScript**
 - **Prisma** como ORM
 - **PostgreSQL** alojado en **Supabase**
-- **Supabase Auth** para la identidad, sin contrasenas
+- **Supabase Auth** para la identidad: correo y contrasena, y Google como
+  opcion. VSD Health **no almacena contrasenas**; las guarda Supabase
 - Contrato de API publicado como OpenAPI y consumido por el frontend
 - Despliegue en **Render**
 

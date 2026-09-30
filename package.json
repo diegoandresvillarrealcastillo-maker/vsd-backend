@@ -52,7 +52,8 @@
     "db:local": "node scripts/postgres-local.mjs",
     "postinstall": "prisma generate",
     "db:revisar": "node scripts/revisar-base.mjs",
-    "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs"
+    "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs",
+    "db:preparar": "node scripts/preparar-ambiente.mjs"
   },
   "engines": {
     "node": ">=24"
@@ -78,6 +79,7 @@
     "class-validator": "^0.15.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
+    "jose": "^6.2.12",
     "pg": "8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

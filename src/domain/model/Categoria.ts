@@ -33,7 +33,7 @@ export class Categoria {
 
   static create(datos: DatosDeCategoria): Categoria {
     if (datos.nombre.trim() === '') {
-      throw new InvalidActivityConfigurationError('(categoria sin nombre)', 'no tiene nombre');
+      throw new InvalidActivityConfigurationError('(categoría sin nombre)', 'no tiene nombre');
     }
 
     return new Categoria({ ...datos, actividades: [...datos.actividades] });

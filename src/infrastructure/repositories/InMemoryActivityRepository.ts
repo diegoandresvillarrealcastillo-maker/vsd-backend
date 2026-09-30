@@ -38,14 +38,14 @@ const CATALOGO: readonly Activity[] = [
     umbrales: { primero: 0.25, segundo: 0.5 },
     textosNivel: {
       favorable: 'Semana tranquila',
-      en_seguimiento: 'Semana con tension',
+      en_seguimiento: 'Semana con tensión',
       requiere_atencion: 'Semana pesada',
     },
   }),
 
   Activity.create({
     id: new ActivityId('88888888-8888-4888-a888-888888888888'),
-    nombre: 'Bitacora de sueno',
+    nombre: 'Bitácora de sueño',
     // Un registro produce datos, no una calificacion.
     direccionEscala: DireccionEscala.SIN_PUNTAJE,
   }),
@@ -77,7 +77,7 @@ export class InMemoryActivityRepository implements ActivityRepositoryPort {
       Categoria.create({
         id: new CategoryId('99999999-9999-4999-a999-999999999999'),
         nombre: 'Actividades',
-        descripcion: 'Catalogo de ejemplo para trabajar sin base de datos.',
+        descripcion: 'Catálogo de ejemplo para trabajar sin base de datos.',
         actividades: this.actividades,
       }),
     ]);

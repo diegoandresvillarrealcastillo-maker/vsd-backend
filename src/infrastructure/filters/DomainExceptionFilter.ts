@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { DomainError } from '../../domain/model/DomainError.js';
+import { identificadorDeLaRespuesta } from '../logging/identificadorDePeticion.js';
 
 /**
  * Traduce los errores a respuestas HTTP.
@@ -34,6 +35,20 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
 
   CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
   LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
+
+  // 403 y no 401: el token es autentico y la sesion vale. Lo que falta es la
+  // cuenta. Decir "no estas autenticado" mandaria a la persona a iniciar
+  // sesion otra vez, que es justo lo que no arregla el problema.
+  CUENTA_NO_REGISTRADA: HttpStatus.FORBIDDEN,
+
+  // 409 porque es un conflicto con un recurso que ya existe, no un error de
+  // formato. La peticion esta bien escrita; lo que pasa es que ese correo ya
+  // esta tomado por una cuenta creada con otro metodo de acceso.
+  CORREO_YA_REGISTRADO: HttpStatus.CONFLICT,
+
+  // Sin consentimiento no hay base legal para tratar informacion de salud.
+  // Ley 1581 de 2012.
+  CONSENTIMIENTO_NO_REGISTRADO: HttpStatus.BAD_REQUEST,
 
   // Esto no es culpa de quien llama: significa que el catalogo del servidor
   // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
@@ -74,14 +89,19 @@ export class DomainExceptionFilter implements ExceptionFilter {
     // servidor, donde sirve para diagnosticar; al cliente solo le llega un
     // mensaje generico. Devolver la traza seria entregar un mapa del interior
     // del sistema a quien lo esta probando.
+    // El identificador va en el mensaje, no solo en la traza. Es el puente
+    // entre lo que la persona ve en pantalla y esta entrada del registro: sin
+    // el, saber que hubo un error interno no ayuda a encontrar cual.
+    const identificador = identificadorDeLaRespuesta(respuesta) ?? 'sin identificador';
+
     this.registro.error(
-      'Error no controlado',
+      `Error no controlado [${identificador}]`,
       excepcion instanceof Error ? excepcion.stack : excepcion,
     );
 
     const cuerpo: CuerpoDeError = {
       codigo: 'ERROR_INTERNO',
-      mensaje: 'Ocurrio un error inesperado. Intentalo de nuevo mas tarde.',
+      mensaje: 'Ocurrió un error inesperado. Inténtalo de nuevo más tarde.',
     };
 
     respuesta.status(HttpStatus.INTERNAL_SERVER_ERROR).json(cuerpo);

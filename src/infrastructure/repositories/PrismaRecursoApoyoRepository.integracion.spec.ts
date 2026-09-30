@@ -43,9 +43,9 @@ describe.skipIf(URL_BASE === undefined)('Recursos de apoyo en PostgreSQL', () =>
     const lineas = await repositorio.lineasDeAtencion();
     const titulos = lineas.map((linea) => linea.titulo);
 
-    expect(titulos).toContain('Linea 192, opcion 4');
-    expect(titulos).toContain('Linea 123');
-    expect(titulos).toContain('Linea 106, el poder de ser escuchado');
+    expect(titulos).toContain('Línea 192, opción 4');
+    expect(titulos).toContain('Línea 123');
+    expect(titulos).toContain('Línea 106, el poder de ser escuchado');
   });
 
   it('la primera que se ve sirve en todo el pais', async () => {

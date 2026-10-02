@@ -222,6 +222,37 @@ export class FutureConsentDateError extends DomainError {
   }
 }
 
+/** Se pidio activar un modulo que no existe. */
+export class UnknownModuleError extends DomainError {
+  readonly code = 'MODULO_DESCONOCIDO';
+
+  constructor(valor: string) {
+    super(`El módulo "${valor}" no existe. Los módulos son cognicion, bienestar y emociones.`);
+  }
+}
+
+/**
+ * La eleccion dejaria la cuenta sin ningun modulo activo.
+ *
+ * Con cero modulos el dashboard quedaria vacio y la persona sin nada que hacer.
+ */
+export class NoActiveModulesError extends DomainError {
+  readonly code = 'SIN_MODULOS_ACTIVOS';
+
+  constructor() {
+    super('Tiene que quedar al menos un módulo activo.');
+  }
+}
+
+/** La mascota recibida no se puede guardar tal cual. */
+export class InvalidPetError extends DomainError {
+  readonly code = 'MASCOTA_INVALIDA';
+
+  constructor(motivo: string) {
+    super(`No se pudo guardar la mascota: ${motivo}.`);
+  }
+}
+
 /**
  * Un recurso de apoyo esta mal formado y no se puede mostrar.
  *

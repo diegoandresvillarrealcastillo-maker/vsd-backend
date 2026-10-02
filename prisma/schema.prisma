@@ -70,6 +70,11 @@ model Usuario {
   versionPoliticaAceptada String   @map("version_politica_aceptada") @db.VarChar(20)
   fechaAceptacionPolitica DateTime @map("fecha_aceptacion_politica") @db.Timestamptz(3)
   fechaRegistro           DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(3)
+  /// Claves estables: cognicion, bienestar, emociones. Vacia mientras la
+  /// persona no ha elegido con cuales empezar. SCRUM-88.
+  modulosActivos          String[] @default([]) @map("modulos_activos")
+  /// Forma, color, accesorio y nombre. Sin valor se usa la mascota de siempre.
+  mascota                 Json?    @db.JsonB
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]

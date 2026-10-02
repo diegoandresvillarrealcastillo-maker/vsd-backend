@@ -55,6 +55,12 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // la vigente y repitiendo, no corrigiendo el formato.
   VERSION_DEL_AVISO_NO_VIGENTE: HttpStatus.CONFLICT,
 
+  // Preferencias de la cuenta. Las tres son errores de quien llama: pidio algo
+  // que no existe o que dejaria la cuenta sin nada que hacer.
+  MODULO_DESCONOCIDO: HttpStatus.BAD_REQUEST,
+  SIN_MODULOS_ACTIVOS: HttpStatus.BAD_REQUEST,
+  MASCOTA_INVALIDA: HttpStatus.BAD_REQUEST,
+
   // Esto no es culpa de quien llama: significa que el catalogo del servidor
   // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
   // en su mano.

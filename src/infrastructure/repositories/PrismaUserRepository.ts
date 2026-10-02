@@ -1,6 +1,7 @@
-import type { Usuario } from '@prisma/client';
+import { Prisma, type Usuario } from '@prisma/client';
 import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
+import type { Mascota } from '../../domain/model/Preferencias.js';
 import { User } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
@@ -29,6 +30,32 @@ function esCorreoDuplicado(error: unknown): boolean {
   return Array.isArray(campos)
     ? campos.includes('correo')
     : typeof campos === 'string' && campos.includes('correo');
+}
+
+/**
+ * Lee la mascota guardada en JSONB.
+ *
+ * Solo copia los cuatro campos que el dominio conoce, como texto. Si a la
+ * columna llegara otra cosa, `User.create` la rechaza con un error que dice
+ * que esta mal, en lugar de que salga por la API algo a medias.
+ */
+function mascotaDesde(valor: Prisma.JsonValue): Mascota {
+  const objeto =
+    typeof valor === 'object' && valor !== null && !Array.isArray(valor)
+      ? (valor as Record<string, unknown>)
+      : {};
+  const texto = (clave: string): string => {
+    const campo = objeto[clave];
+
+    return typeof campo === 'string' ? campo : '';
+  };
+
+  return {
+    forma: texto('forma'),
+    color: texto('color'),
+    accesorio: texto('accesorio'),
+    nombre: texto('nombre'),
+  };
 }
 
 /**
@@ -97,6 +124,10 @@ export class PrismaUserRepository implements UserRepositoryPort {
       // Se omite en lugar de mandar undefined: el modo estricto del proyecto
       // no acepta lo segundo, y omitirla deja la columna en NULL.
       ...(user.nombre === undefined ? {} : { nombre: user.nombre }),
+      modulosActivos: [...user.modulosActivos],
+      // DbNull y no undefined: undefined le diria a Prisma "no toques la
+      // columna", y quien no tiene mascota guardada debe quedar en NULL.
+      mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota },
     };
 
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
@@ -154,6 +185,8 @@ export class PrismaUserRepository implements UserRepositoryPort {
         },
         registradoEn: fila.fechaRegistro,
         ...(fila.nombre === null ? {} : { nombre: fila.nombre }),
+        modulosActivos: fila.modulosActivos,
+        ...(fila.mascota === null ? {} : { mascota: mascotaDesde(fila.mascota) }),
       },
       fila.fechaAceptacionPolitica,
     );

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { FutureConsentDateError, InvalidRoleError, MissingConsentError } from './DomainError.js';
+import {
+  FutureConsentDateError,
+  InvalidPetError,
+  InvalidRoleError,
+  MissingConsentError,
+  NoActiveModulesError,
+  UnknownModuleError,
+} from './DomainError.js';
 import { UserId } from './Identifier.js';
 import { type DatosDeUsuario, EDAD_MINIMA, Rol, User } from './User.js';
 
@@ -121,5 +128,73 @@ describe('El administrador gestiona contenidos, no personas', () => {
     const admin = User.create(datos({ rol: Rol.ADMINISTRADOR }), AHORA);
 
     expect(admin.puedeLeerDatosDe(new UserId(USUARIO_A))).toBe(true);
+  });
+});
+
+describe('Las preferencias de la cuenta', () => {
+  const LUMA = { forma: 'brote', color: '#a2d9b6', accesorio: 'ninguno', nombre: 'Luma' };
+
+  it('una cuenta nueva no ha elegido modulos ni mascota', () => {
+    const usuario = User.create(datos(), AHORA);
+
+    expect(usuario.modulosActivos).toEqual([]);
+    expect(usuario.haElegidoModulos()).toBe(false);
+    expect(usuario.mascota).toBeUndefined();
+  });
+
+  it('cambiar los modulos devuelve otra cuenta y no toca la original', () => {
+    const original = User.create(datos(), AHORA);
+    const cambiada = original.conPreferencias({ modulosActivos: ['emociones'] });
+
+    expect(cambiada.modulosActivos).toEqual(['emociones']);
+    expect(cambiada.haElegidoModulos()).toBe(true);
+    expect(original.modulosActivos).toEqual([]);
+  });
+
+  it('lo que no se manda se queda como estaba', () => {
+    const conModulos = User.create(datos({ modulosActivos: ['cognicion'] }), AHORA);
+    const conMascota = conModulos.conPreferencias({ mascota: LUMA });
+
+    expect(conMascota.modulosActivos).toEqual(['cognicion']);
+    expect(conMascota.mascota).toEqual(LUMA);
+  });
+
+  it('no deja desactivar el ultimo modulo', () => {
+    const usuario = User.create(datos({ modulosActivos: ['bienestar'] }), AHORA);
+
+    expect(() => usuario.conPreferencias({ modulosActivos: [] })).toThrow(NoActiveModulesError);
+  });
+
+  it('no deja activar un modulo que no existe', () => {
+    const usuario = User.create(datos(), AHORA);
+
+    expect(() => usuario.conPreferencias({ modulosActivos: ['finanzas'] })).toThrow(
+      UnknownModuleError,
+    );
+  });
+
+  it('rechaza una mascota mal formada', () => {
+    const usuario = User.create(datos(), AHORA);
+
+    expect(() => usuario.conPreferencias({ mascota: { ...LUMA, color: 'verde' } })).toThrow(
+      InvalidPetError,
+    );
+  });
+
+  it('cambiar preferencias no toca el correo, el rol ni el consentimiento', () => {
+    const original = User.create(datos({ nombre: 'Diego' }), AHORA);
+    const cambiada = original.conPreferencias({ modulosActivos: ['cognicion'], mascota: LUMA });
+
+    expect(cambiada.id.equals(original.id)).toBe(true);
+    expect(cambiada.correo).toBe(original.correo);
+    expect(cambiada.rol).toBe(original.rol);
+    expect(cambiada.nombre).toBe('Diego');
+    expect(cambiada.consentimiento).toEqual(original.consentimiento);
+  });
+
+  it('lo que llega de la base pasa por la misma regla', () => {
+    expect(() => User.create(datos({ modulosActivos: ['finanzas'] }), AHORA)).toThrow(
+      UnknownModuleError,
+    );
   });
 });

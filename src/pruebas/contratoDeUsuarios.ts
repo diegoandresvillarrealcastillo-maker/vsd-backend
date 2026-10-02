@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
 import { UserId } from '../domain/model/Identifier.js';
+import type { Mascota } from '../domain/model/Preferencias.js';
 import { Rol, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
 
@@ -44,6 +45,8 @@ export function unaCuenta(
     rol?: Rol;
     nombre?: string;
     versionPolitica?: string;
+    modulosActivos?: readonly string[];
+    mascota?: Mascota;
   } = {},
 ): User {
   const aceptadoEn = new Date('2026-09-01T10:00:00.000Z');
@@ -59,6 +62,8 @@ export function unaCuenta(
     },
     registradoEn: new Date('2026-09-01T10:00:00.000Z'),
     ...(cambios.nombre === undefined ? {} : { nombre: cambios.nombre }),
+    ...(cambios.modulosActivos === undefined ? {} : { modulosActivos: cambios.modulosActivos }),
+    ...(cambios.mascota === undefined ? {} : { mascota: cambios.mascota }),
   });
 }
 
@@ -157,6 +162,33 @@ export function pruebasDelPuertoDeUsuarios(
       expect(una?.id.value).toBe(PERSONA);
       expect(otra?.id.value).toBe(OTRA_PERSONA);
       await expect(banco.contar()).resolves.toBe(2);
+    });
+
+    it('una cuenta nueva sale sin modulos elegidos y sin mascota', async () => {
+      // La lista vacia es lo que lleva a la bienvenida (SCRUM-90). Si el
+      // adaptador devolviera null o los tres modulos, nadie la veria.
+      await banco.repositorio.save(unaCuenta());
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.modulosActivos).toEqual([]);
+      expect(encontrada?.haElegidoModulos()).toBe(false);
+      expect(encontrada?.mascota).toBeUndefined();
+    });
+
+    it('conserva los modulos activos y la mascota', async () => {
+      const luma = { forma: 'brote', color: '#a2d9b6', accesorio: 'bufanda', nombre: 'Luma' };
+
+      await banco.repositorio.save(unaCuenta());
+      await banco.repositorio.save(
+        unaCuenta().conPreferencias({ modulosActivos: ['emociones', 'cognicion'], mascota: luma }),
+      );
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.modulosActivos).toEqual(['cognicion', 'emociones']);
+      expect(encontrada?.mascota).toEqual(luma);
+      await expect(banco.contar()).resolves.toBe(1);
     });
 
     it('una cuenta no puede leer los datos de otra', async () => {

@@ -150,6 +150,26 @@ ningun usuario.
 Ser administrador no es tener una llave maestra. Hay una prueba que lo
 comprueba.
 
+### Las preferencias: modulos activos y mascota
+
+Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
+
+- Los modulos se nombran con una **clave estable** —`cognicion`, `bienestar`,
+  `emociones`—, no con el nombre visible ni con el identificador de la
+  categoria. El nombre ya cambio una vez y el identificador puede variar entre
+  bases.
+- **Una lista vacia significa "todavia no eligio"**, y es lo que lleva a la
+  bienvenida. Elegir cero, en cambio, se rechaza (`SIN_MODULOS_ACTIVOS`): el
+  dashboard quedaria vacio. Las cuentas que ya existian tambien empiezan
+  vacias, para preguntarles en lugar de suponer.
+- La **mascota** valida el formato —claves cortas, color `#RRGGBB`, nombre de
+  1 a 30 caracteres— pero no una lista cerrada de formas: los modelos
+  definitivos llegan despues y no deberian exigir desplegar el backend.
+
+`User.conPreferencias` devuelve una cuenta nueva y solo toca esas dos cosas.
+El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:
+el cuerpo no tiene donde ponerlos, y mandarlos responde 400.
+
 ### Lo que falta por conectar
 
 La regla del consentimiento esta modelada y probada en el dominio, pero

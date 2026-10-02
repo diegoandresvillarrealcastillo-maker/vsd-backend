@@ -1,12 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { User } from '../../domain/model/User.js';
+import type { ActualizarPreferenciasUseCase } from '../../domain/ports/in/ActualizarPreferenciasUseCase.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
 import { UsuarioActual } from '../auth/UsuarioActual.js';
 import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
-import { REGISTRAR_CUENTA } from '../config/tokens.js';
+import { ACTUALIZAR_PREFERENCIAS, REGISTRAR_CUENTA } from '../config/tokens.js';
+import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
 import { RegistrarCuentaDto } from './dto/RegistrarCuentaDto.js';
 
@@ -24,6 +26,8 @@ export class CuentaController {
   constructor(
     @Inject(REGISTRAR_CUENTA)
     private readonly cuentas: RegistrarCuentaUseCase,
+    @Inject(ACTUALIZAR_PREFERENCIAS)
+    private readonly preferencias: ActualizarPreferenciasUseCase,
   ) {}
 
   /**
@@ -81,5 +85,32 @@ export class CuentaController {
   @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
   consultar(@CuentaActual() cuenta: User): CuentaRespuestaDto {
     return CuentaRespuestaDto.desde(cuenta);
+  }
+
+  @Patch('preferencias')
+  @ApiOperation({
+    summary: 'Cambiar los modulos activos y la mascota',
+    description:
+      'Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.',
+  })
+  @ApiBody({ type: ActualizarPreferenciasDto })
+  @ApiResponse({ status: 200, description: 'La cuenta como quedo.', type: CuentaRespuestaDto })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Un modulo que no existe (MODULO_DESCONOCIDO), una lista sin modulos (SIN_MODULOS_ACTIVOS), una mascota mal formada (MASCOTA_INVALIDA) o un campo que no se puede cambiar.',
+  })
+  @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
+  async actualizarPreferencias(
+    @Body() dto: ActualizarPreferenciasDto,
+    @CuentaActual() cuenta: User,
+  ): Promise<CuentaRespuestaDto> {
+    const actualizada = await this.preferencias.execute(cuenta.id, {
+      ...(dto.modulosActivos === undefined ? {} : { modulosActivos: dto.modulosActivos }),
+      ...(dto.mascota === undefined ? {} : { mascota: dto.mascota }),
+    });
+
+    return CuentaRespuestaDto.desde(actualizada);
   }
 }

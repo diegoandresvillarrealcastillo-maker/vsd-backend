@@ -8,6 +8,7 @@ import { UserId } from '../../domain/model/Identifier.js';
 import { pruebasDelPuertoDeUsuarios, unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaUserRepository } from './PrismaUserRepository.js';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 
 /**
  * El adaptador de PostgreSQL, contra **el mismo contrato** que el de memoria.
@@ -22,7 +23,6 @@ import { PrismaUserRepository } from './PrismaUserRepository.js';
  */
 
 const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 const OTRA_PERSONA = '22222222-2222-4222-9222-222222222222';
@@ -58,7 +58,7 @@ async function preparar(): Promise<NonNullable<typeof preparado>> {
   // La migracion crea `vsd_app` sin poder conectarse, a proposito: una
   // contrasena versionada en Git es una contrasena publicada. Aqui se le da
   // una que solo vale para esta base local.
-  await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+  await prepararRolDeLaAplicacion(dueno);
 
   const prisma = new PrismaService(urlDeLaAplicacion(URL_DUENO ?? ''));
   await prisma.onModuleInit();

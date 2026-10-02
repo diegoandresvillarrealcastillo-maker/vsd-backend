@@ -55,6 +55,15 @@ const esquema = z
         message: 'Debe ser una URL completa, como https://abcdefgh.supabase.co',
       }),
 
+    // Clave de servicio de Supabase. Se usa para una sola cosa: borrar la
+    // identidad de quien borra su cuenta (SCRUM-75). Salta todas las
+    // politicas, asi que nunca se usa para leer ni escribir datos.
+    //
+    // Obligatoria en preproduccion y produccion: sin ella, borrar una cuenta
+    // dejaria el correo de esa persona en Supabase, y el derecho de supresion
+    // quedaria a medias sin que nadie se enterara. En local es opcional.
+    SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional(),
+
     // Zona en la que se decide "que dia es" para las actividades, el sendero,
     // el diario y el semaforo. Por defecto Colombia. Se valida aqui para que
     // un nombre mal escrito impida arrancar en lugar de correr los dias.
@@ -85,6 +94,14 @@ const esquema = z
     const necesitaBase =
       valores.NODE_ENV === Ambiente.PREPRODUCCION || valores.NODE_ENV === Ambiente.PRODUCCION;
 
+    if (necesitaBase && (valores.SUPABASE_SERVICE_ROLE_KEY ?? '') === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SUPABASE_SERVICE_ROLE_KEY'],
+        message: `Es obligatoria con NODE_ENV=${valores.NODE_ENV}. Sin ella, borrar una cuenta dejaria la identidad de esa persona en Supabase.`,
+      });
+    }
+
     if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
       ctx.addIssue({
         code: 'custom',
@@ -111,6 +128,11 @@ export interface Configuracion {
    * JWKS. Ver `VerificadorDeIdentidad`.
    */
   readonly urlDeSupabase: string;
+  /**
+   * Clave de servicio de Supabase, solo para borrar identidades. Ausente en
+   * local, donde el borrado no toca Supabase.
+   */
+  readonly claveDeServicioDeSupabase: string | undefined;
   /** Zona IANA con la que se decide que dia es. Ver Calendario. */
   readonly zonaHoraria: string;
 }
@@ -136,7 +158,15 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     );
   }
 
-  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL, SUPABASE_URL, ZONA_HORARIA } = resultado.data;
+  const {
+    NODE_ENV,
+    PORT,
+    CORS_ORIGIN,
+    DATABASE_URL,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    ZONA_HORARIA,
+  } = resultado.data;
 
   return {
     ambiente: NODE_ENV,
@@ -149,6 +179,8 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     // La barra final se quita aqui y no en cada sitio que use el valor: si un
     // .env la trae, la URL del JWKS acabaria con una barra doble.
     urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),
+    claveDeServicioDeSupabase:
+      (SUPABASE_SERVICE_ROLE_KEY ?? '') === '' ? undefined : SUPABASE_SERVICE_ROLE_KEY,
     zonaHoraria: ZONA_HORARIA,
   };
 }

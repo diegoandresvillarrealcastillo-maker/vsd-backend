@@ -1,16 +1,39 @@
 import { Logger, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/ActualizarPreferenciasUseCaseImpl.js';
+import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuentaUseCaseImpl.js';
+import { ExportarDatosUseCaseImpl } from '../../application/usecases/ExportarDatosUseCaseImpl.js';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
+import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
+import {
+  IdentidadesDeSupabase,
+  IdentidadesSinAdministracion,
+} from '../auth/IdentidadesDeSupabase.js';
 import { AvisoController } from '../controllers/AvisoController.js';
 import { CuentaController } from '../controllers/CuentaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
+import { InMemoryDiarioRepository } from '../repositories/InMemoryDiarioRepository.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
+import { PrismaDiarioRepository } from '../repositories/PrismaDiarioRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
-import { ACTUALIZAR_PREFERENCIAS, PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
+import type { Configuracion } from './environment.js';
+import {
+  ACTIVITY_RESULT_REPOSITORY,
+  ACTUALIZAR_PREFERENCIAS,
+  BORRAR_CUENTA,
+  CONFIGURACION,
+  DIARIO_REPOSITORY,
+  EXPORTAR_DATOS,
+  PRISMA,
+  PROVEEDOR_DE_IDENTIDAD,
+  REGISTRAR_CUENTA,
+  USER_REPOSITORY,
+} from './tokens.js';
 
 /**
  * Cableado de las cuentas.
@@ -61,6 +84,38 @@ import { ACTUALIZAR_PREFERENCIAS, PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } fr
       provide: ACTUALIZAR_PREFERENCIAS,
       useFactory: (cuentas: UserRepositoryPort) => new ActualizarPreferenciasUseCaseImpl(cuentas),
       inject: [USER_REPOSITORY],
+    },
+    {
+      provide: DIARIO_REPOSITORY,
+      useFactory: (prisma: PrismaService | null): DiarioRepositoryPort =>
+        prisma === null ? new InMemoryDiarioRepository() : new PrismaDiarioRepository(prisma),
+      inject: [PRISMA],
+    },
+    {
+      provide: PROVEEDOR_DE_IDENTIDAD,
+      useFactory: (configuracion: Configuracion): ProveedorDeIdentidadPort =>
+        configuracion.claveDeServicioDeSupabase === undefined
+          ? new IdentidadesSinAdministracion()
+          : new IdentidadesDeSupabase(
+              configuracion.urlDeSupabase,
+              configuracion.claveDeServicioDeSupabase,
+            ),
+      inject: [CONFIGURACION],
+    },
+    {
+      provide: BORRAR_CUENTA,
+      useFactory: (cuentas: UserRepositoryPort, identidades: ProveedorDeIdentidadPort) =>
+        new BorrarCuentaUseCaseImpl(cuentas, identidades),
+      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD],
+    },
+    {
+      provide: EXPORTAR_DATOS,
+      useFactory: (
+        cuentas: UserRepositoryPort,
+        resultados: ActivityResultRepositoryPort,
+        diario: DiarioRepositoryPort,
+      ) => new ExportarDatosUseCaseImpl(cuentas, resultados, diario),
+      inject: [USER_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, DIARIO_REPOSITORY],
     },
     {
       provide: APP_GUARD,

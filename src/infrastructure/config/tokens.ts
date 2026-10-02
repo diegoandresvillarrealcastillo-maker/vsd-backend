@@ -27,6 +27,16 @@ export const REGISTRAR_CUENTA = Symbol('RegistrarCuentaUseCase');
 /** Modulos activos y mascota de la cuenta propia. */
 export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
 
+/** Derechos de supresion y de acceso: borrar la cuenta y exportar los datos. */
+export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');
+export const EXPORTAR_DATOS = Symbol('ExportarDatosUseCase');
+
+/** Lectura del diario. */
+export const DIARIO_REPOSITORY = Symbol('DiarioRepositoryPort');
+
+/** La identidad en el proveedor de autenticacion. */
+export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
+
 /** Base de conocimiento del asistente: la tabla RECURSO_APOYO. */
 export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
 

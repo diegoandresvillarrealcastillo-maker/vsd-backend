@@ -46,5 +46,8 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  */
 export const ASISTENTE = Symbol('AsistentePort');
 
+/** El sendero de cada modulo activo. */
+export const CONSULTAR_PROGRESO = Symbol('ConsultarProgresoUseCase');
+
 /** Lectura del catalogo: categorias con sus actividades. */
 export const CONSULTAR_CATALOGO = Symbol('ConsultarCatalogoUseCase');

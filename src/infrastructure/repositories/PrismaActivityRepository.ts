@@ -1,9 +1,31 @@
 import type { Actividad } from '@prisma/client';
-import { Activity, type TextosNivel, type Umbrales } from '../../domain/model/Activity.js';
+import {
+  Activity,
+  type Frecuencia,
+  type TextosNivel,
+  type Umbrales,
+} from '../../domain/model/Activity.js';
 import { Categoria } from '../../domain/model/Categoria.js';
 import { ActivityId, CategoryId } from '../../domain/model/Identifier.js';
+import { type Modulo, TODOS_LOS_MODULOS } from '../../domain/model/Preferencias.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
+
+function esModulo(valor: string | null): valor is Modulo {
+  return valor !== null && (TODOS_LOS_MODULOS as readonly string[]).includes(valor);
+}
+
+/** La frecuencia de la fila, en la forma del dominio. */
+function frecuenciaDesde(fila: Actividad): Frecuencia {
+  switch (fila.frecuencia) {
+    case 'semanal':
+      return { tipo: 'semanal', dias: fila.diasSemana };
+    case 'unica':
+      return { tipo: 'unica' };
+    case 'diaria':
+      return { tipo: 'diaria' };
+  }
+}
 
 /**
  * Catalogo de actividades leido de PostgreSQL.
@@ -57,6 +79,9 @@ export class PrismaActivityRepository implements ActivityRepositoryPort {
         nombre: fila.nombre,
         descripcion: fila.descripcion ?? undefined,
         actividades: fila.actividades.map((actividad) => this.aDominio(actividad)),
+        // La base solo admite las tres claves (CHECK), asi que aqui no puede
+        // llegar otra. Se comprueba igual para no confiar en un `as`.
+        modulo: esModulo(fila.modulo) ? fila.modulo : undefined,
       }),
     );
   }
@@ -71,6 +96,8 @@ export class PrismaActivityRepository implements ActivityRepositoryPort {
       puntajeMaximo: fila.puntajeMaximo === null ? undefined : Number(fila.puntajeMaximo),
       umbrales: (fila.umbrales as Umbrales | null) ?? undefined,
       textosNivel: (fila.textosNivel as TextosNivel | null) ?? undefined,
+      frecuencia: frecuenciaDesde(fila),
+      desdeSesion: fila.desdeSesion,
     });
   }
 }

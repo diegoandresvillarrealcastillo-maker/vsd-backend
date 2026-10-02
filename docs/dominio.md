@@ -309,6 +309,32 @@ arrancar. Hay un solo `Calendario` para todo el proceso, inyectado con el token
 `CALENDARIO`. Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue
 sin dependencias externas.
 
+## El sendero de cada modulo
+
+`Sendero.ts` decide en que etapa va cada persona en cada modulo y que le toca
+hoy (SCRUM-91). Se expone en `GET /api/progreso`.
+
+- **Una sesion es un dia** en el que la persona hizo algo del modulo, contado
+  con el `Calendario`. Dos actividades el mismo dia suman una sesion, y faltar
+  un dia no deja hueco: el sendero no castiga.
+- **Etapas** de 5, 10, 15 y 20 sesiones; despues, temporadas de 25 sin fin. Al
+  completar una se pasa a la siguiente con cero hechas.
+- **Lo que toca hoy** sale de cada actividad: su `frecuencia` (diaria, ciertos
+  dias de la semana o unica) y su `desdeSesion`, que abre el sendero poco a
+  poco. Hoy cuenta como la sesion siguiente a las anteriores, la haya empezado
+  o no: hacer la primera actividad del dia no abre otras a mitad del dia.
+- Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve hecha
+  hasta manana.
+
+**No se guarda nada aparte.** Todo sale de `resultado`. Un contador propio
+podria desincronizarse del historial, y entonces la pantalla diria una cosa y
+los datos otra.
+
+Cada categoria sabe a que modulo pertenece por su columna `modulo`, con la
+misma clave estable que las preferencias. Un resultado de una actividad que ya
+no esta en el catalogo no cuenta para ningun modulo: no hay forma de saber a
+cual pertenecia.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no

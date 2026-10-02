@@ -319,6 +319,43 @@
         ]
       }
     },
+    "/api/progreso": {
+      "get": {
+        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
+        "operationId": "ProgresoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProgresoRespuestaDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el progreso de cada modulo activo",
+        "tags": [
+          "Progreso"
+        ]
+      }
+    },
     "/api/asistente": {
       "post": {
         "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
@@ -827,6 +864,99 @@
         },
         "required": [
           "version"
+        ]
+      },
+      "EtapaDto": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "number",
+            "description": "Numero de etapa (1 a 4) o de temporada (desde 1).",
+            "example": 2
+          },
+          "esTemporada": {
+            "type": "boolean",
+            "description": "Si ya paso las cuatro etapas y va por temporadas."
+          },
+          "sesionesHechas": {
+            "type": "number",
+            "description": "Sesiones hechas dentro de esta etapa.",
+            "example": 3
+          },
+          "sesionesDeLaEtapa": {
+            "type": "number",
+            "description": "Sesiones que tiene la etapa.",
+            "example": 10
+          }
+        },
+        "required": [
+          "numero",
+          "esTemporada",
+          "sesionesHechas",
+          "sesionesDeLaEtapa"
+        ]
+      },
+      "ActividadDeHoyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cómo dormiste anoche"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "bitacora"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "hecha": {
+            "type": "boolean",
+            "description": "Si ya la hizo hoy."
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "hecha"
+        ]
+      },
+      "ProgresoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "modulo": {
+            "type": "string",
+            "enum": [
+              "cognicion",
+              "bienestar",
+              "emociones"
+            ]
+          },
+          "sesiones": {
+            "type": "number",
+            "description": "Dias distintos en los que hizo algo de este modulo.",
+            "example": 7
+          },
+          "etapa": {
+            "$ref": "#/components/schemas/EtapaDto"
+          },
+          "hoy": {
+            "description": "Lo que toca hoy, con lo hecho.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActividadDeHoyDto"
+            }
+          }
+        },
+        "required": [
+          "modulo",
+          "sesiones",
+          "etapa",
+          "hoy"
         ]
       },
       "ConsultarAsistenteDto": {

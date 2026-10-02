@@ -1,7 +1,10 @@
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import { Categoria } from '../../domain/model/Categoria.js';
 import { ActivityId, CategoryId } from '../../domain/model/Identifier.js';
+import { Modulo } from '../../domain/model/Preferencias.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
+
+const SECUENCIAS = '33333333-3333-4333-a333-333333333333';
 
 /**
  * Catalogo de actividades en memoria.
@@ -16,7 +19,7 @@ import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepo
  */
 const CATALOGO: readonly Activity[] = [
   Activity.create({
-    id: new ActivityId('33333333-3333-4333-a333-333333333333'),
+    id: new ActivityId(SECUENCIAS),
     nombre: 'Secuencias',
     direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
     puntajeMaximo: 10,
@@ -65,20 +68,40 @@ export class InMemoryActivityRepository implements ActivityRepositoryPort {
   }
 
   /**
-   * Todas las actividades bajo una sola categoria de ejemplo.
+   * Las actividades repartidas en los tres modulos.
    *
-   * En memoria no hay categorias de verdad. Este adaptador existe para poder
-   * trabajar sin base de datos, y repartir estas tres actividades en tres
-   * grupos inventados no haria mas cierta ninguna prueba: lo que se ejercita
-   * aqui es la forma de la respuesta, no el contenido del catalogo.
+   * Desde SCRUM-91 el reparto si importa: el progreso se calcula por modulo, y
+   * sin modulos el adaptador en memoria no podria responder `/api/progreso`.
+   * Secuencias es un juego, asi que va en Cognicion; la semana y el sueno son
+   * habitos, y van en Bienestar. Emociones queda vacia a proposito, para que
+   * las pruebas vean tambien un modulo sin nada que ofrecer.
+   *
+   * Una actividad que se pase al constructor y no sea de estas tres va a
+   * Bienestar: lo que se ejercita en memoria es la forma de la respuesta, no
+   * el contenido del catalogo.
    */
   listarCatalogo(): Promise<readonly Categoria[]> {
+    const deCognicion = this.actividades.filter((una) => una.id.value === SECUENCIAS);
+    const deBienestar = this.actividades.filter((una) => una.id.value !== SECUENCIAS);
+
     return Promise.resolve([
       Categoria.create({
-        id: new CategoryId('99999999-9999-4999-a999-999999999999'),
-        nombre: 'Actividades',
-        descripcion: 'Catálogo de ejemplo para trabajar sin base de datos.',
-        actividades: this.actividades,
+        id: new CategoryId('99999999-9999-4999-a999-999999999991'),
+        nombre: 'Bienestar',
+        modulo: Modulo.BIENESTAR,
+        actividades: deBienestar,
+      }),
+      Categoria.create({
+        id: new CategoryId('99999999-9999-4999-a999-999999999992'),
+        nombre: 'Cognición',
+        modulo: Modulo.COGNICION,
+        actividades: deCognicion,
+      }),
+      Categoria.create({
+        id: new CategoryId('99999999-9999-4999-a999-999999999993'),
+        nombre: 'Emociones',
+        modulo: Modulo.EMOCIONES,
+        actividades: [],
       }),
     ]);
   }

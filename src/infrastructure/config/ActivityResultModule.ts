@@ -102,6 +102,6 @@ import {
       inject: [ACTIVITY_REPOSITORY],
     },
   ],
-  exports: [ACTIVITY_RESULT_REPOSITORY, PRISMA],
+  exports: [ACTIVITY_RESULT_REPOSITORY, ACTIVITY_REPOSITORY, PRISMA],
 })
 export class ActivityResultModule {}

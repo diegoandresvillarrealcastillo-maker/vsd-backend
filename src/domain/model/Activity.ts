@@ -56,6 +56,20 @@ export type TextosNivel = Readonly<Record<NivelOrientativo, string>>;
 
 const UMBRALES_POR_DEFECTO: Umbrales = { primero: 1 / 3, segundo: 2 / 3 };
 
+/**
+ * Cada cuanto le toca a alguien una actividad (SCRUM-91).
+ *
+ * - `diaria`: todos los dias.
+ * - `semanal`: los dias de la semana indicados, de 1 (lunes) a 7 (domingo).
+ * - `unica`: una vez; hecha, no vuelve a aparecer.
+ */
+export type Frecuencia =
+  | { readonly tipo: 'diaria' }
+  | { readonly tipo: 'semanal'; readonly dias: readonly number[] }
+  | { readonly tipo: 'unica' };
+
+export const DIARIA: Frecuencia = { tipo: 'diaria' };
+
 /** Datos necesarios para describir una actividad. */
 export interface DatosDeActividad {
   readonly id: ActivityId;
@@ -68,6 +82,13 @@ export interface DatosDeActividad {
   readonly puntajeMaximo?: number | undefined;
   readonly umbrales?: Umbrales | undefined;
   readonly textosNivel?: TextosNivel | undefined;
+  /** Por defecto, diaria. */
+  readonly frecuencia?: Frecuencia | undefined;
+  /**
+   * Desde que sesion del modulo aparece, empezando en 1. Es lo que hace que el
+   * sendero se abra poco a poco en lugar de ensenarlo todo el primer dia.
+   */
+  readonly desdeSesion?: number | undefined;
 }
 
 /**
@@ -86,6 +107,8 @@ export class Activity {
   readonly puntajeMaximo: number | undefined;
   readonly umbrales: Umbrales;
   readonly textosNivel: TextosNivel | undefined;
+  readonly frecuencia: Frecuencia;
+  readonly desdeSesion: number;
 
   private constructor(datos: DatosDeActividad, umbrales: Umbrales) {
     this.id = datos.id;
@@ -96,6 +119,8 @@ export class Activity {
     this.puntajeMaximo = datos.puntajeMaximo;
     this.umbrales = umbrales;
     this.textosNivel = datos.textosNivel;
+    this.frecuencia = datos.frecuencia ?? DIARIA;
+    this.desdeSesion = datos.desdeSesion ?? 1;
   }
 
   static create(datos: DatosDeActividad): Activity {
@@ -134,6 +159,31 @@ export class Activity {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
         'tiene umbrales que no separan tres bandas dentro del rango',
+      );
+    }
+
+    const desdeSesion = datos.desdeSesion ?? 1;
+
+    if (!Number.isInteger(desdeSesion) || desdeSesion < 1) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        'debe aparecer desde la sesión 1 o una posterior',
+      );
+    }
+
+    const frecuencia = datos.frecuencia ?? DIARIA;
+
+    // Una actividad semanal sin dias no aparece nunca, y con un dia fuera de
+    // 1 a 7 tampoco. Las dos son descuidos que conviene ver al cargar el
+    // catalogo, no cuando alguien se pregunta por que no le sale.
+    if (
+      frecuencia.tipo === 'semanal' &&
+      (frecuencia.dias.length === 0 ||
+        frecuencia.dias.some((dia) => !Number.isInteger(dia) || dia < 1 || dia > 7))
+    ) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        'es semanal pero no indica días válidos (1 = lunes, 7 = domingo)',
       );
     }
 

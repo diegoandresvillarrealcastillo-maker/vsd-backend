@@ -39,6 +39,11 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
+    await antesDeConfirmar();
+    this.porId.delete(id.value);
+  }
+
   get cantidad(): number {
     return this.porId.size;
   }

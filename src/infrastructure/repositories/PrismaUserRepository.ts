@@ -160,6 +160,23 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   /**
+   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves
+   * foraneas con `ON DELETE CASCADE` se lleven el resto: resultados y entradas
+   * de diario. Toda tabla nueva que guarde algo de una persona tiene que
+   * declarar su clave igual; la prueba de integracion lo comprueba recorriendo
+   * cada tabla con columna `id_usuario`, no una lista escrita a mano.
+   *
+   * `antesDeConfirmar` corre dentro de la transaccion: si lanza, PostgreSQL
+   * deshace el borrado.
+   */
+  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
+    await this.prisma.comoUsuario(id.value, async (cliente) => {
+      await cliente.usuario.deleteMany({ where: { id: id.value } });
+      await antesDeConfirmar();
+    });
+  }
+
+  /**
    * Reconstruye la entidad a partir de la fila.
    *
    * La fecha de aceptacion se pasa como referencia de "ahora" igual que hace

@@ -41,6 +41,16 @@ export class MascotaDto {
  */
 export class ActualizarPreferenciasDto {
   @ApiPropertyOptional({
+    description: 'Cómo quiere que la llamen. Entre 1 y 100 caracteres.',
+    example: 'Diego',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  nombre?: string;
+
+  @ApiPropertyOptional({
     description:
       'Modulos activos. Al menos uno. Reemplaza la lista entera, no la mezcla con la anterior.',
     type: [String],

@@ -43,4 +43,17 @@ export interface UserRepositoryPort {
    * crea otra. Es lo que permite reintentar sin mirar antes si existia.
    */
   save(user: User): Promise<void>;
+
+  /**
+   * Borra la cuenta y todo lo que cuelga de ella: resultados, entradas de
+   * diario y cualquier tabla que guarde algo de esa persona.
+   *
+   * Es todo o nada. `antesDeConfirmar` se ejecuta con el borrado ya hecho pero
+   * sin confirmar; si lanza, el borrado se deshace y la cuenta queda como
+   * estaba. Asi se ata a este borrado lo que vive fuera de la base —la
+   * identidad en el proveedor— sin dejar nunca una mitad hecha.
+   *
+   * Borrar una cuenta que no existe no es un error.
+   */
+  borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void>;
 }

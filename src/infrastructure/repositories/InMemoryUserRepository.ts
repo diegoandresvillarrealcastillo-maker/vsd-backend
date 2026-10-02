@@ -43,6 +43,20 @@ export class InMemoryUserRepository implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  /**
+   * Aqui no hay transaccion que deshacer, asi que el orden se invierte: primero
+   * lo de fuera y, solo si sale bien, se borra. El efecto visible es el mismo
+   * que en la base: o se borra todo o no se borra nada.
+   *
+   * No borra los resultados del adaptador en memoria de resultados: un Map no
+   * tiene claves foraneas. Que el borrado alcance a todas las tablas lo
+   * garantiza la base, y lo prueba la suite de integracion.
+   */
+  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
+    await antesDeConfirmar();
+    this.porId.delete(id.value);
+  }
+
   /** Numero de cuentas guardadas. Solo para pruebas. */
   get cantidad(): number {
     return this.porId.size;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FutureConsentDateError,
+  InvalidNameError,
   InvalidPetError,
   InvalidRoleError,
   MissingConsentError,
@@ -190,6 +191,20 @@ describe('Las preferencias de la cuenta', () => {
     expect(cambiada.rol).toBe(original.rol);
     expect(cambiada.nombre).toBe('Diego');
     expect(cambiada.consentimiento).toEqual(original.consentimiento);
+  });
+
+  it('cambia el nombre sin espacios sobrantes', () => {
+    const usuario = User.create(datos(), AHORA).conPreferencias({ nombre: '  Diego  ' });
+
+    expect(usuario.nombre).toBe('Diego');
+  });
+
+  it.each([
+    ['vacio', '   '],
+    ['demasiado largo', 'x'.repeat(101)],
+    ['con salto de linea', 'Die\ngo'],
+  ])('rechaza un nombre %s', (_caso, nombre) => {
+    expect(() => User.create(datos(), AHORA).conPreferencias({ nombre })).toThrow(InvalidNameError);
   });
 
   it('lo que llega de la base pasa por la misma regla', () => {

@@ -117,6 +117,36 @@ Authorization: Bearer {{token}}
 }
 
 
+### 4c. Exportar mis datos
+# Derecho de acceso: la cuenta, los resultados y el diario de quien firma el
+# token, como archivo JSON.
+GET {{host}}/api/cuenta/exportacion
+Authorization: Bearer {{token}}
+
+
+### 4d. Borrar la cuenta sin la frase exacta: 400
+DELETE {{host}}/api/cuenta
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "confirmacion": "borrar mi cuenta"
+}
+
+
+### 4e. Borrar la cuenta (NO TIENE VUELTA ATRAS)
+# Borra la cuenta, sus resultados, su diario y su identidad en Supabase. Despues
+# hay que registrarse de nuevo. Se deja comentada para que no se lance por error
+# al recorrer el archivo: quita los # para usarla.
+# DELETE {{host}}/api/cuenta
+# Content-Type: application/json
+# Authorization: Bearer {{token}}
+#
+# {
+#   "confirmacion": "BORRAR MI CUENTA"
+# }
+
+
 ### 5. Intentar dar de alta con rol de administrador: 400
 # El campo no existe en el contrato y la validacion lo rechaza. Una escalada
 # de privilegios por confiar en el cuerpo de la peticion es el error clasico,

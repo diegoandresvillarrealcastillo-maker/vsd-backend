@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
 import { TokenInvalidoError } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 import type { Identidad } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 
@@ -63,7 +64,7 @@ export async function darDeAlta(
     await request(servidor)
       .post('/api/cuenta')
       .set(...comoUsuario(token))
-      .send({ versionPolitica: '1.0' })
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
       .expect(200);
   }
 }

@@ -139,6 +139,27 @@ export class MissingConsentError extends DomainError {
 }
 
 /**
+ * Se intento crear una cuenta aceptando un aviso que ya no es el vigente.
+ *
+ * No se acepta en silencio: quedaria registrado que la persona dio permiso a un
+ * texto distinto del que esta en vigor, y esa diferencia es exactamente lo que
+ * no se puede tener ante una reclamacion. Quien llama debe pedir la version
+ * vigente a `GET /api/aviso` y volver a intentarlo.
+ *
+ * Solo aplica al crear la cuenta. Las cuentas que ya existen conservan la
+ * version con la que se crearon.
+ */
+export class OutdatedPrivacyNoticeError extends DomainError {
+  readonly code = 'VERSION_DEL_AVISO_NO_VIGENTE';
+
+  constructor() {
+    super(
+      'La versión del aviso de privacidad que se envió ya no está vigente. Vuelve a cargar la página y acepta la versión actual.',
+    );
+  }
+}
+
+/**
  * Quien llama tiene un token valido pero todavia no tiene cuenta aqui.
  *
  * Supabase y VSD Health guardan identidades distintas a proposito: el token

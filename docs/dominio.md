@@ -123,6 +123,18 @@ en `exigirConsentimiento()`, que falla en vez de devolver un booleano que
 alguien pueda olvidarse de mirar. Aqui el olvido no seria un error de
 programacion, seria un incumplimiento legal.
 
+#### Una sola version del aviso
+
+La version vigente vive en un unico sitio: `AvisoDePrivacidad.ts`. El frontend
+y la coleccion de Postman la piden a `GET /api/aviso` en lugar de llevar su
+propia copia. Antes habia tres valores para lo mismo, y segun por donde entrara
+alguien quedaba registrado que habia aceptado cosas distintas (SCRUM-85).
+
+Al darse de alta solo se acepta la version vigente: cualquier otra responde
+409 `VERSION_DEL_AVISO_NO_VIGENTE` y no crea nada. Quien ya tenia cuenta
+conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
+lo que acepto aquel dia.
+
 **Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
 sensibles de menores exige garantias adicionales que quedan fuera del alcance
 de esta version.

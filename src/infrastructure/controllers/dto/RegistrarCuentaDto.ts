@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
+import { VERSION_VIGENTE_DEL_AVISO } from '../../../domain/model/AvisoDePrivacidad.js';
 
 /**
  * Cuerpo de la peticion de alta de cuenta.
@@ -15,8 +16,8 @@ import { IsOptional, IsString, Length } from 'class-validator';
 export class RegistrarCuentaDto {
   @ApiProperty({
     description:
-      'Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando.',
-    example: '1.0',
+      'Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.',
+    example: VERSION_VIGENTE_DEL_AVISO,
     minLength: 1,
     maxLength: 20,
   })

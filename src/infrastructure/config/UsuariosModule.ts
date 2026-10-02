@@ -3,6 +3,7 @@ import { APP_GUARD, Reflector } from '@nestjs/core';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
+import { AvisoController } from '../controllers/AvisoController.js';
 import { CuentaController } from '../controllers/CuentaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
@@ -31,7 +32,7 @@ import { PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
  */
 @Module({
   imports: [ActivityResultModule],
-  controllers: [CuentaController],
+  controllers: [CuentaController, AvisoController],
   providers: [
     {
       provide: USER_REPOSITORY,

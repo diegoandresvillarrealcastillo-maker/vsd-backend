@@ -15,6 +15,9 @@ export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');
 
+/** Que dia es, en la zona horaria configurada. Ver `Calendario`. */
+export const CALENDARIO = Symbol('Calendario');
+
 /** Las cuentas de VSD Health. */
 export const USER_REPOSITORY = Symbol('UserRepositoryPort');
 

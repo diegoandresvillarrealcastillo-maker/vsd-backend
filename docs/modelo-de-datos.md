@@ -71,9 +71,10 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 
 ## USUARIO
 
-Identidad de la persona y su consentimiento. No guarda contraseñas: la
-autenticación la resuelve el proveedor externo y aquí solo queda su
-identificador. Ver [ADR 0004](adr/0004-autenticacion-sin-contrasenas.md).
+Identidad de la persona y su consentimiento. **No guarda contraseñas**, aunque
+el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí solo
+queda su identificador. Ver
+[ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
 | Campo                       | Tipo         | Nulo | Descripción                                                           |
 | --------------------------- | ------------ | ---- | --------------------------------------------------------------------- |
@@ -181,9 +182,13 @@ Una ejecución de una actividad. Se crea una vez y no se edita nunca.
 ### Por qué el puntaje admite nulo
 
 El entregable ya lo dice —«cuando aplique»— pero conviene dejar claro el caso:
-una bitácora de sueño o un registro de ánimo no producen puntaje, producen
-datos. El resultado sigue siendo válido y sigue teniendo fecha, usuario,
-actividad e identificador de operación.
+hay actividades que no producen puntaje, sino datos. «Movimiento del día» y «Un
+momento bueno del día» son las dos que hay hoy. El resultado sigue siendo válido
+y sigue teniendo fecha, usuario, actividad e identificador de operación.
+
+Cuál de las dos cosas hace una actividad lo dice `direccion_escala`, **no**
+`tipo`. De las tres bitácoras del catálogo, dos no puntúan y «Cómo dormiste
+anoche» sí.
 
 ### Por qué se normaliza a 0 a 100
 

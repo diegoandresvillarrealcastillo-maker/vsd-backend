@@ -15,6 +15,12 @@ export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');
 
+/** Las cuentas de VSD Health. */
+export const USER_REPOSITORY = Symbol('UserRepositoryPort');
+
+/** Alta de cuenta: el puente entre la identidad del proveedor y la nuestra. */
+export const REGISTRAR_CUENTA = Symbol('RegistrarCuentaUseCase');
+
 /** Base de conocimiento del asistente: la tabla RECURSO_APOYO. */
 export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
 
@@ -23,3 +29,6 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  * unico sitio donde se elige entre ese y el que use un modelo de lenguaje.
  */
 export const ASISTENTE = Symbol('AsistentePort');
+
+/** Lectura del catalogo: categorias con sus actividades. */
+export const CONSULTAR_CATALOGO = Symbol('ConsultarCatalogoUseCase');

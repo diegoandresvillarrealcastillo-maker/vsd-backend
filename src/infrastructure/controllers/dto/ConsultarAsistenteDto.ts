@@ -1,16 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsUUID, Length } from 'class-validator';
+import { IsString, Length } from 'class-validator';
 
-/** Cuerpo de la peticion al asistente. */
+/**
+ * Cuerpo de la peticion al asistente.
+ *
+ * Quien pregunta **no viaja aqui**: sale del token verificado. Ver
+ * SCRUM-66 y el comentario de `RegistrarResultadoDto`.
+ *
+ * En esta ruta importaba especialmente. El asistente personaliza su respuesta
+ * con el historial reciente de quien pregunta, asi que recibir el
+ * identificador en el cuerpo permitia preguntarle por la constancia de otra
+ * persona y leerla en la respuesta.
+ */
 export class ConsultarAsistenteDto {
-  @ApiProperty({
-    description: 'Identificador de la persona que pregunta.',
-    format: 'uuid',
-    example: '11111111-1111-4111-8111-111111111111',
-  })
-  @IsUUID()
-  userId!: string;
-
   @ApiProperty({
     description:
       'Lo que escribio la persona, tal cual. No se guarda: se usa para responder y se descarta.',

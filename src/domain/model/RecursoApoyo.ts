@@ -65,7 +65,7 @@ export class RecursoApoyo {
 
   static create(datos: DatosDeRecurso): RecursoApoyo {
     if (datos.titulo.trim() === '') {
-      throw new InvalidResourceError('un recurso sin titulo no se puede mostrar');
+      throw new InvalidResourceError('un recurso sin título no se puede mostrar');
     }
 
     return new RecursoApoyo(

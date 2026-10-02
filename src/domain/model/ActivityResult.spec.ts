@@ -92,9 +92,12 @@ describe('ActivityResult', () => {
 });
 
 describe('ActivityResult sin puntaje', () => {
-  // Una bitacora de sueno o un registro de animo producen datos, no una
-  // calificacion. El diccionario de datos lo dice desde el entregable
-  // inicial: el puntaje aplica "cuando aplique".
+  // Hay actividades que producen datos y no una calificacion: anotar que hoy
+  // te moviste, o que hubo un momento bueno. El diccionario de datos lo dice
+  // desde el entregable inicial: el puntaje aplica "cuando aplique".
+  //
+  // Lo decide la escala de la actividad y no su tipo: hay bitacoras que si
+  // puntuan, como la del sueno.
 
   it('es valido un resultado que no produjo puntaje', () => {
     const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);

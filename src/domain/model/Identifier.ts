@@ -77,3 +77,10 @@ export class ClientOperationId extends Identifier {
     super(value, 'operacion del cliente');
   }
 }
+
+/** Identifica una categoria del catalogo. */
+export class CategoryId extends Identifier {
+  constructor(value: string) {
+    super(value, 'categoria');
+  }
+}

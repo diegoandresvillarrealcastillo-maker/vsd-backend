@@ -12,30 +12,50 @@ una nueva, primero se escribe el ADR y después se anota aquí.
 
 ---
 
-## 1. Autenticación: sin contraseñas
+## 1. Autenticación: hay contraseña, pero no la guardamos nosotros
 
-|                        |                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| **El entregable dice** | Autenticación propia con contraseña, campo `password_hash` en `USUARIO`, citando a INCIBE       |
-| **El sistema hace**    | Enlace mágico con Supabase Auth. `password_hash` no existe; en su lugar hay `id_proveedor_auth` |
-| **Decisión**           | [ADR 0004](adr/0004-autenticacion-sin-contrasenas.md)                                           |
+|                        |                                                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **El entregable dice** | Autenticación propia con contraseña, campo `password_hash` en `USUARIO`, citando a INCIBE                                                             |
+| **El sistema hace**    | Correo y contraseña —y Google como opción— a través de Supabase Auth. `password_hash` no existe en nuestra tabla; en su lugar hay `id_proveedor_auth` |
+| **Decisión**           | [ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md), que reemplaza al [ADR 0004](adr/0004-autenticacion-sin-contrasenas.md)        |
 
-**Por qué.** Gestionar contraseñas obliga a hacerse cargo del algoritmo de
-derivación, la recuperación por correo, la caducidad de los enlaces, el límite
-de intentos, el bloqueo por fuerza bruta y la rotación de sesiones. Son seis
-sitios donde equivocarse, en un equipo de dos personas con calendario
-académico.
+**Qué cambió, y cuándo.** Hasta el Ciclo 5 el sistema no tenía contraseñas en
+absoluto: se entraba con un enlace mágico enviado al correo. Esa decisión era
+el ADR 0004, y se reemplazó al construir las pantallas de acceso.
 
-Y aquí una filtración de credenciales no expone un carrito de compras: expone
-datos de salud. **Sin contraseñas almacenadas no hay contraseñas que filtrar.**
+El motivo no es que el razonamiento del ADR 0004 fuera falso. Sigue siendo
+cierto que sin contraseñas almacenadas no hay contraseñas que filtrar. El
+problema es lo que aquel ADR no midió: **con enlace mágico, el correo se paga
+en cada inicio de sesión**, y el correo resultó ser la pieza más frágil del
+sistema. El remitente gratuito permite dos envíos por hora; con servicio propio
+sube a treinta, pero los mensajes caen en spam mientras no haya dominio propio.
+Y un enlace de un solo uso va atado al navegador que lo pidió.
 
-**Lo que cuesta, y hay que decirlo.** Un enlace mágico necesita correo, y el
-correo necesita conexión. El RF9 exige que la aplicación funcione sin ella. Una
-sesión ya iniciada sobrevive sin red, pero si caduca estando sin conexión, la
-persona se queda fuera de su propio diario.
+Con contraseña, esos tres problemas se pagan solo al recuperar, que ocurre
+pocas veces.
 
-Eso hay que resolverlo en el Ciclo 5 decidiendo la duración de la sesión, no
-descubrirlo cuando pase.
+**Dónde sigue la divergencia.** El entregable pide que `USUARIO` tenga
+`password_hash`, es decir, que **nosotros** guardemos la contraseña. No lo
+hacemos: la guarda y la verifica Supabase, y nuestra tabla conserva únicamente
+`id_proveedor_auth`.
+
+Esa distinción es la decisión entera: se recupera la **usabilidad** de la
+contraseña sin recuperar la **responsabilidad** de almacenarla. Aquí una
+filtración de credenciales no expone un carrito de compras, expone datos de
+salud, y esa parte del ADR 0004 se conserva intacta.
+
+**Lo que cuesta, y hay que decirlo.** Vuelve a haber algo que se puede olvidar,
+reutilizar en otro sitio y elegir débil. Y aparece un flujo de recuperación que
+antes no existía. La política de contraseña es hoy el mínimo de ocho caracteres
+que impone Supabase; el rechazo de contraseñas ya filtradas solo está en su
+plan de pago, así que no se puede activar.
+
+**Sobre el RF9.** El enlace mágico exigía correo _y_ conexión para entrar. La
+contraseña solo exige conexión. La sesión ya iniciada sobrevive sin red en los
+dos casos, y su duración se decidió en el Ciclo 5: token de acceso de una hora
+y refresco de treinta días, con la opción de no recordar el dispositivo para
+las salas de cómputo.
 
 ## 2. Identificadores: UUID, no enteros
 

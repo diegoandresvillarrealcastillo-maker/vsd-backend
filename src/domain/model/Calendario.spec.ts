@@ -75,6 +75,20 @@ describe('Calendario', () => {
     });
   });
 
+  describe('diaDeLaSemana', () => {
+    it.each([
+      ['2026-09-28', 1],
+      ['2026-10-02', 5],
+      ['2026-10-04', 7],
+    ])('el %s es el dia %i (1 = lunes)', (dia, esperado) => {
+      expect(bogota.diaDeLaSemana(dia)).toBe(esperado);
+    });
+
+    it('no depende de la zona del calendario: un dia ya es local', () => {
+      expect(new Calendario('Asia/Tokyo').diaDeLaSemana('2026-10-02')).toBe(5);
+    });
+  });
+
   describe('esZonaValida', () => {
     it.each(['America/Bogota', 'UTC', 'Europe/Madrid'])('acepta %s', (zona) => {
       expect(Calendario.esZonaValida(zona)).toBe(true);

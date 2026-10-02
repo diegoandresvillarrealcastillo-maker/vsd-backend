@@ -342,6 +342,47 @@
       }
     },
     {
+      "name": "3c. Consultar el progreso por modulo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "// La peticion 3a dejo activos cognicion y emociones, en ese orden.",
+              "pm.test('Un sendero por cada modulo activo, y ninguno mas', function () {",
+              "  pm.expect(pm.response.json().map(function (uno) { return uno.modulo; })).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Cada uno con su etapa y lo que toca hoy', function () {",
+              "  pm.response.json().forEach(function (uno) {",
+              "    pm.expect(uno.etapa.numero).to.be.a('number');",
+              "    pm.expect(uno.hoy).to.be.an('array');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/progreso",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "progreso"]
+        },
+        "description": "Por cada modulo activo: la etapa, las sesiones hechas y lo que toca hoy. Se calcula con los resultados, en hora de Colombia."
+      }
+    },
+    {
       "name": "4. Estado del servicio (ruta publica)",
       "event": [
         {

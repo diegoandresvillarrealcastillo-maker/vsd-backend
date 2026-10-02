@@ -248,4 +248,33 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
       }
     }
   });
+
+  it('cada categoria sembrada sabe a que modulo pertenece', async () => {
+    // Sin esto, el progreso por modulo (SCRUM-91) no encontraria ninguna
+    // actividad y todos los senderos saldrian vacios.
+    const categorias = await prisma.$queryRaw<{ nombre: string; modulo: string | null }[]>`
+      SELECT c."nombre", c."modulo"
+        FROM "categoria" c
+       WHERE EXISTS (SELECT 1 FROM "actividad" a
+                      WHERE a."id_categoria" = c."id_categoria"
+                        AND a."id_actividad"::text LIKE '0acd0000-0000-4000-8000-%')
+       ORDER BY c."modulo"
+    `;
+
+    expect(categorias.map((categoria) => categoria.modulo)).toEqual([
+      'bienestar',
+      'cognicion',
+      'emociones',
+    ]);
+  });
+
+  it('las actividades sembradas son diarias y estan abiertas desde la primera sesion', async () => {
+    const frecuencias = await prisma.$queryRaw<{ frecuencia: string; desde_sesion: number }[]>`
+      SELECT DISTINCT a."frecuencia"::text AS frecuencia, a."desde_sesion"
+        FROM "actividad" a
+       WHERE a."id_actividad"::text LIKE '0acd0000-0000-4000-8000-%'
+    `;
+
+    expect(frecuencias).toEqual([{ frecuencia: 'diaria', desde_sesion: 1 }]);
+  });
 });

@@ -117,6 +117,13 @@ Authorization: Bearer {{token}}
 }
 
 
+### 4c. El progreso de cada modulo activo
+# Etapa, sesiones hechas y lo que toca hoy. Una sesion es un dia con algo
+# hecho del modulo, en hora de Colombia.
+GET {{host}}/api/progreso
+Authorization: Bearer {{token}}
+
+
 ### 5. Intentar dar de alta con rol de administrador: 400
 # El campo no existe en el contrato y la validacion lo rechaza. Una escalada
 # de privilegios por confiar en el cuerpo de la peticion es el error clasico,

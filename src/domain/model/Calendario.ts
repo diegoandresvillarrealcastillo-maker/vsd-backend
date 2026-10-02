@@ -65,6 +65,28 @@ export class Calendario {
   }
 
   /**
+   * El dia de la semana de un dia del calendario: 1 es lunes y 7 domingo.
+   *
+   * No depende de la zona: un dia ya es local. Se calcula sobre su fecha,
+   * como si fuera UTC, solo para que el resultado no cambie con la zona del
+   * servidor.
+   */
+  diaDeLaSemana(dia: Dia): number {
+    const coincidencia = FORMATO_DE_DIA.exec(dia);
+
+    if (!coincidencia) {
+      throw new RangeError(`"${dia}" no es un dia con formato AAAA-MM-DD.`);
+    }
+
+    const [, anio, mes, diaDelMes] = coincidencia;
+    const domingoEsCero = new Date(
+      Date.UTC(Number(anio), Number(mes) - 1, Number(diaDelMes)),
+    ).getUTCDay();
+
+    return domingoEsCero === 0 ? 7 : domingoEsCero;
+  }
+
+  /**
    * El primer instante de un dia local y el primero del siguiente.
    *
    * Sirve para preguntar a la base "lo de hoy" como un rango de instantes,

@@ -14,6 +14,7 @@ import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
 import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 
 /**
  * De la cabecera HTTP hasta la fila de PostgreSQL.
@@ -47,7 +48,6 @@ import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
  */
 
 const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
 const A = 'token-de-A';
 const B = 'token-de-B';
@@ -92,7 +92,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     dueno = new Client({ connectionString: URL_DUENO });
     await dueno.connect();
 
-    await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+    await prepararRolDeLaAplicacion(dueno);
     await limpiar();
 
     // Catalogo sembrado por el dueno. Las cuentas no: esas las crea el alta.

@@ -10,6 +10,7 @@ import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
 import { PrismaActivityResultRepository } from './PrismaActivityResultRepository.js';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 
 /**
  * El adaptador de Prisma contra PostgreSQL de verdad.
@@ -32,7 +33,6 @@ import { PrismaActivityResultRepository } from './PrismaActivityResultRepository
  * adaptador funciona **dentro** de esas politicas.
  */
 const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -73,7 +73,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   beforeAll(async () => {
     dueno = new Client({ connectionString: URL_DUENO });
     await dueno.connect();
-    await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+    await prepararRolDeLaAplicacion(dueno);
 
     await limpiarTodo();
     await sembrar();
@@ -94,8 +94,12 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   // Ninguna prueba depende de lo que dejo la anterior. Las que se apoyan en el
   // orden fallan de forma intermitente, y una prueba intermitente termina
   // ignorada por todo el mundo.
+  //
+  // Solo los resultados de esta suite: las suites de integracion comparten la
+  // base y corren en paralelo, y un DELETE sin filtro se llevaba los de las
+  // demas a mitad de sus pruebas.
   beforeEach(async () => {
-    await dueno.query('DELETE FROM resultado');
+    await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [[USUARIO_A, USUARIO_B]]);
   });
 
   async function limpiarTodo(): Promise<void> {

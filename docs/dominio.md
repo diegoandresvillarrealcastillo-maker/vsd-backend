@@ -242,6 +242,33 @@ Es un ejemplo concreto del principio de [seguridad.md](seguridad.md): la
 autorizacion vive en la capa de aplicacion, y se comprueba antes de devolver
 nada.
 
+## `Calendario`
+
+### El dia se cuenta en hora de Colombia
+
+Las actividades del dia, el sendero de cada modulo, el diario y el semaforo
+dependen de "que dia es". Ese dia es el de Colombia, no el de UTC, y lo decide
+siempre `Calendario`.
+
+Bogota va cinco horas por detras de UTC. Con la fecha UTC, algo hecho a las
+8 p. m. en Colombia contaria para el dia siguiente: la actividad sumaria en
+manana, el diario la pondria en otro dia y el progreso saldria corrido.
+
+| Metodo               | Que hace                                                                 |
+| -------------------- | ------------------------------------------------------------------------ |
+| `diaDe(instante)`    | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
+| `limitesDelDia(dia)` | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+
+**La regla:** ningun calculo de dia usa la fecha UTC directamente. Nada de
+`toISOString().slice(0, 10)` ni de `getUTCDate()` para decidir a que dia
+pertenece algo. Los instantes se siguen guardando en UTC, que es lo correcto;
+lo que cambia es como se agrupan por dia.
+
+La zona sale de `ZONA_HORARIA`, por defecto `America/Bogota`, y se valida al
+arrancar. Hay un solo `Calendario` para todo el proceso, inyectado con el token
+`CALENDARIO`. Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue
+sin dependencias externas.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no

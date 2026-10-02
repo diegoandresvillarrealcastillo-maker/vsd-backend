@@ -1,5 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
+import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/ActualizarPreferenciasUseCaseImpl.js';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
@@ -8,7 +9,7 @@ import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
-import { PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
+import { ACTUALIZAR_PREFERENCIAS, PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
 
 /**
  * Cableado de las cuentas.
@@ -53,6 +54,11 @@ import { PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } from './tokens.js';
     {
       provide: REGISTRAR_CUENTA,
       useFactory: (cuentas: UserRepositoryPort) => new RegistrarCuentaUseCaseImpl(cuentas),
+      inject: [USER_REPOSITORY],
+    },
+    {
+      provide: ACTUALIZAR_PREFERENCIAS,
+      useFactory: (cuentas: UserRepositoryPort) => new ActualizarPreferenciasUseCaseImpl(cuentas),
       inject: [USER_REPOSITORY],
     },
     {

@@ -21,6 +21,9 @@ export const USER_REPOSITORY = Symbol('UserRepositoryPort');
 /** Alta de cuenta: el puente entre la identidad del proveedor y la nuestra. */
 export const REGISTRAR_CUENTA = Symbol('RegistrarCuentaUseCase');
 
+/** Modulos activos y mascota de la cuenta propia. */
+export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
+
 /** Base de conocimiento del asistente: la tabla RECURSO_APOYO. */
 export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
 

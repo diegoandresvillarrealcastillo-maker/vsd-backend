@@ -86,6 +86,29 @@ GET {{host}}/api/cuenta
 Authorization: Bearer {{token}}
 
 
+### 4a. Elegir los modulos y la mascota
+# Lo que no se manda se queda como estaba. Los modulos se nombran con su
+# clave estable, no con el nombre visible de la categoria.
+PATCH {{host}}/api/cuenta/preferencias
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "modulosActivos": ["cognicion", "emociones"],
+  "mascota": { "forma": "brote", "color": "#a2d9b6", "accesorio": "ninguno", "nombre": "Luma" }
+}
+
+
+### 4b. Quedarse sin modulos: 400 SIN_MODULOS_ACTIVOS
+PATCH {{host}}/api/cuenta/preferencias
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "modulosActivos": []
+}
+
+
 ### 5. Intentar dar de alta con rol de administrador: 400
 # El campo no existe en el contrato y la validacion lo rechaza. Una escalada
 # de privilegios por confiar en el cuerpo de la peticion es el error clasico,

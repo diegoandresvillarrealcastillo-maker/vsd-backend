@@ -86,6 +86,8 @@ queda su identificador. Ver
 | `version_politica_aceptada` | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.            |
 | `fecha_aceptacion_politica` | TIMESTAMP    | no   | Cuándo la aceptó.                                                     |
 | `fecha_registro`            | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                             |
+| `modulos_activos`           | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.         |
+| `mascota`                   | JSONB        | sí   | Forma, color, accesorio y nombre. NULL usa la mascota de siempre.     |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una

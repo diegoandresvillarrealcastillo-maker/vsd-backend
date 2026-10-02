@@ -222,6 +222,92 @@
       }
     },
     {
+      "name": "3a. Elegir los modulos y la mascota",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Devuelve los modulos en orden canonico', function () {",
+              "  pm.expect(pm.response.json().modulosActivos).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Guarda la mascota con el color normalizado', function () {",
+              "  pm.expect(pm.response.json().mascota).to.include({ nombre: 'Luma', color: '#a2d9b6' });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": [\n    \"emociones\",\n    \"cognicion\"\n  ],\n  \"mascota\": {\n    \"forma\": \"brote\",\n    \"color\": \"#A2D9B6\",\n    \"accesorio\": \"ninguno\",\n    \"nombre\": \"Luma\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga se queda como estaba. El correo y el rol no se cambian por aqui."
+      }
+    },
+    {
+      "name": "3b. Quedarse sin modulos: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Con el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('SIN_MODULOS_ACTIVOS');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Tiene que quedar al menos un modulo activo: con cero, el dashboard quedaria vacio."
+      }
+    },
+    {
       "name": "4. Estado del servicio (ruta publica)",
       "event": [
         {

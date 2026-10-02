@@ -6,7 +6,7 @@ momento.
 
 | Archivo                               | Que es                                     |
 | ------------------------------------- | ------------------------------------------ |
-| `vsd-health.postman_collection.json`  | Las 16 peticiones, con sus comprobaciones. |
+| `vsd-health.postman_collection.json`  | Las 18 peticiones, con sus comprobaciones. |
 | `vsd-health.postman_environment.json` | Las variables. Se versiona con marcadores. |
 
 ## Que hace distinto
@@ -20,7 +20,7 @@ sintoma de que caduco es que todo empieza a responder 401 de golpe sin que
 nadie haya tocado nada. Con este esquema, se vuelve a lanzar la peticion 0 y
 listo.
 
-**Cada peticion comprueba su propio resultado.** Son 44 comprobaciones
+**Cada peticion comprueba su propio resultado.** Son 49 comprobaciones
 automaticas, asi que la coleccion se puede ejecutar entera y mostrar el
 resultado en lugar de ir pulsando botones uno por uno.
 

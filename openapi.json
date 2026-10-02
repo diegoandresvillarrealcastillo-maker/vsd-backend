@@ -174,6 +174,53 @@
         ]
       }
     },
+    "/api/cuenta/preferencias": {
+      "patch": {
+        "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.",
+        "operationId": "CuentaController_actualizarPreferencias",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarPreferenciasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un modulo que no existe (MODULO_DESCONOCIDO), una lista sin modulos (SIN_MODULOS_ACTIVOS), una mascota mal formada (MASCOTA_INVALIDA) o un campo que no se puede cambiar."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Cambiar los modulos activos y la mascota",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/asistente": {
       "post": {
         "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
@@ -441,6 +488,41 @@
           "aceptadoEn"
         ]
       },
+      "MascotaDto": {
+        "type": "object",
+        "properties": {
+          "forma": {
+            "type": "string",
+            "description": "Forma del modelo.",
+            "example": "brote",
+            "maxLength": 30
+          },
+          "color": {
+            "type": "string",
+            "description": "Color principal, #RRGGBB.",
+            "example": "#a2d9b6",
+            "maxLength": 7
+          },
+          "accesorio": {
+            "type": "string",
+            "description": "Accesorio, o \"ninguno\".",
+            "example": "bufanda",
+            "maxLength": 30
+          },
+          "nombre": {
+            "type": "string",
+            "description": "Nombre de la mascota.",
+            "example": "Luma",
+            "maxLength": 30
+          }
+        },
+        "required": [
+          "forma",
+          "color",
+          "accesorio",
+          "nombre"
+        ]
+      },
       "CuentaRespuestaDto": {
         "type": "object",
         "properties": {
@@ -478,6 +560,28 @@
             "type": "string",
             "description": "Cuando se creo la cuenta.",
             "format": "date-time"
+          },
+          "modulosActivos": {
+            "type": "array",
+            "description": "Modulos activos, en orden. Vacio mientras la persona no ha elegido: el frontend la lleva a la bienvenida.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          "mascota": {
+            "description": "La mascota guardada, o null para usar la de siempre.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -485,8 +589,39 @@
           "correo",
           "rol",
           "consentimiento",
-          "registradoEn"
+          "registradoEn",
+          "modulosActivos",
+          "mascota"
         ]
+      },
+      "ActualizarPreferenciasDto": {
+        "type": "object",
+        "properties": {
+          "modulosActivos": {
+            "type": "array",
+            "description": "Modulos activos. Al menos uno. Reemplaza la lista entera, no la mezcla con la anterior.",
+            "example": [
+              "cognicion",
+              "emociones"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          "mascota": {
+            "description": "La mascota completa.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaDto"
+              }
+            ]
+          }
+        }
       },
       "ConsultarAsistenteDto": {
         "type": "object",

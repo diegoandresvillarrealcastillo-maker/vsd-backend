@@ -86,6 +86,23 @@
       "name": "1. Dar de alta la cuenta",
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "});"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -131,7 +148,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\"\n}",
+          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -149,6 +166,23 @@
     {
       "name": "2. Pedir rol de administrador en el alta: 400",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "});"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
@@ -173,7 +207,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\",\n  \"rol\": \"administrador\"\n}",
+          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"rol\": \"administrador\"\n}",
           "options": {
             "raw": {
               "language": "json"

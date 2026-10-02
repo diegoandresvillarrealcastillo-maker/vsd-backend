@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Calendario, ZONA_HORARIA_POR_DEFECTO } from '../../domain/model/Calendario.js';
 
 /**
  * Esquema de la configuracion del servicio.
@@ -53,6 +54,17 @@ const esquema = z
       .refine((valor) => URL.canParse(valor), {
         message: 'Debe ser una URL completa, como https://abcdefgh.supabase.co',
       }),
+
+    // Zona en la que se decide "que dia es" para las actividades, el sendero,
+    // el diario y el semaforo. Por defecto Colombia. Se valida aqui para que
+    // un nombre mal escrito impida arrancar en lugar de correr los dias.
+    ZONA_HORARIA: z
+      .string()
+      .trim()
+      .default(ZONA_HORARIA_POR_DEFECTO)
+      .refine((valor) => Calendario.esZonaValida(valor), {
+        message: 'Debe ser una zona horaria IANA, como America/Bogota',
+      }),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -99,6 +111,8 @@ export interface Configuracion {
    * JWKS. Ver `VerificadorDeIdentidad`.
    */
   readonly urlDeSupabase: string;
+  /** Zona IANA con la que se decide que dia es. Ver Calendario. */
+  readonly zonaHoraria: string;
 }
 
 /**
@@ -122,7 +136,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     );
   }
 
-  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL, SUPABASE_URL } = resultado.data;
+  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL, SUPABASE_URL, ZONA_HORARIA } = resultado.data;
 
   return {
     ambiente: NODE_ENV,
@@ -135,5 +149,6 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     // La barra final se quita aqui y no en cada sitio que use el valor: si un
     // .env la trae, la URL del JWKS acabaria con una barra doble.
     urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),
+    zonaHoraria: ZONA_HORARIA,
   };
 }

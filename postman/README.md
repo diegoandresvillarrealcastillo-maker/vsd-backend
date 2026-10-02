@@ -20,6 +20,11 @@ sintoma de que caduco es que todo empieza a responder 401 de golpe sin que
 nadie haya tocado nada. Con este esquema, se vuelve a lanzar la peticion 0 y
 listo.
 
+**La version del aviso tampoco se escribe a mano.** Las dos peticiones de alta
+la piden antes a `GET /api/aviso` y la guardan en `versionAviso`. La API es la
+unica fuente de ese valor: el dia que el aviso cambie, la coleccion sigue
+valiendo sin tocarla.
+
 **Cada peticion comprueba su propio resultado.** Son 49 comprobaciones
 automaticas, asi que la coleccion se puede ejecutar entera y mostrar el
 resultado en lugar de ir pulsando botones uno por uno.

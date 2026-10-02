@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
 import { UserId } from '../domain/model/Identifier.js';
 import type { Mascota } from '../domain/model/Preferencias.js';
 import { Rol, User } from '../domain/model/User.js';
@@ -56,7 +57,7 @@ export function unaCuenta(
     idProveedorAuth: cambios.idProveedorAuth ?? 'supabase|aaaa-1111',
     rol: cambios.rol ?? Rol.USUARIO,
     consentimiento: {
-      versionPolitica: cambios.versionPolitica ?? '1.0',
+      versionPolitica: cambios.versionPolitica ?? VERSION_VIGENTE_DEL_AVISO,
       aceptadoEn,
     },
     registradoEn: new Date('2026-09-01T10:00:00.000Z'),

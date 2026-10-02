@@ -46,6 +46,11 @@ Solo la configuracion. Ninguna de estas diferencias vive en el codigo:
 `CORS_ORIGIN` nunca puede ser `*` en PRE ni en PROD: debe nombrar el
 dominio exacto.
 
+`ZONA_HORARIA` es la misma en los tres ambientes, `America/Bogota`, y no hace
+falta declararla: es el valor por defecto. Existe para que las pruebas puedan
+cambiarla. Decide que dia es para las actividades, el sendero, el diario y el
+semaforo; ver "El dia se cuenta en hora de Colombia" en `dominio.md`.
+
 ## Donde vive cada valor
 
 - **En el repositorio** solo esta `.env.example`, con los nombres de las

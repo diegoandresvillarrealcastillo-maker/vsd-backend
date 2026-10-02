@@ -1,4 +1,5 @@
-import { MissingConsentError } from '../../domain/model/DomainError.js';
+import { esLaVersionVigente } from '../../domain/model/AvisoDePrivacidad.js';
+import { MissingConsentError, OutdatedPrivacyNoticeError } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { Rol, User } from '../../domain/model/User.js';
 import type {
@@ -46,6 +47,13 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
       // sensibles, y la informacion relacionada con salud lo es. Sin ella no
       // hay base legal para guardar un solo resultado.
       throw new MissingConsentError();
+    }
+
+    if (!esLaVersionVigente(command.versionPolitica)) {
+      // Va despues de buscar la cuenta existente, a proposito: quien ya tiene
+      // cuenta conserva la version que acepto en su dia, aunque hoy haya otra.
+      // Solo se exige la vigente a quien se da de alta ahora.
+      throw new OutdatedPrivacyNoticeError();
     }
 
     const ahora = this.reloj();

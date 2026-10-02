@@ -221,6 +221,29 @@
         ]
       }
     },
+    "/api/aviso": {
+      "get": {
+        "description": "Devuelve la version que hay que aceptar al dar de alta una cuenta. Es la unica fuente de ese valor: ni el frontend ni las pruebas llevan una copia propia.",
+        "operationId": "AvisoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La version vigente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvisoRespuestaDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Consultar la version vigente del aviso de privacidad",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/asistente": {
       "post": {
         "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
@@ -453,8 +476,8 @@
         "properties": {
           "versionPolitica": {
             "type": "string",
-            "description": "Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando.",
-            "example": "1.0",
+            "description": "Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-09-1",
             "minLength": 1,
             "maxLength": 20
           },
@@ -622,6 +645,19 @@
             ]
           }
         }
+      },
+      "AvisoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Version vigente del aviso. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
+            "example": "2026-09-1"
+          }
+        },
+        "required": [
+          "version"
+        ]
       },
       "ConsultarAsistenteDto": {
         "type": "object",

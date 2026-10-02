@@ -59,6 +59,14 @@ GET {{host}}/api/catalogo
 Accept: application/json
 
 
+### 3a. Consultar la version vigente del aviso
+# La unica fuente de esa version. Las dos peticiones de alta la toman de aqui
+# en lugar de llevar una copia escrita a mano: si el aviso cambia, no hay que
+# tocar este archivo. Ejecuta esta antes que las de alta.
+# @name aviso
+GET {{host}}/api/aviso
+
+
 ### 3. Dar de alta la cuenta
 # Hay que pasar por aqui **antes** de registrar nada. Supabase autentica, pero
 # no sabe nada del dominio: no conoce el rol ni el consentimiento.
@@ -75,7 +83,7 @@ Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "versionPolitica": "1.0"
+  "versionPolitica": "{{aviso.response.body.version}}"
 }
 
 
@@ -118,7 +126,7 @@ Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "versionPolitica": "1.0",
+  "versionPolitica": "{{aviso.response.body.version}}",
   "rol": "administrador"
 }
 

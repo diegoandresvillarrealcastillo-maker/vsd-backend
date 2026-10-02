@@ -50,6 +50,11 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // Ley 1581 de 2012.
   CONSENTIMIENTO_NO_REGISTRADO: HttpStatus.BAD_REQUEST,
 
+  // 409 y no 400: la peticion esta bien formada. Lo que pasa es que choca con
+  // el estado del servidor, que tiene otra version vigente. Se arregla pidiendo
+  // la vigente y repitiendo, no corrigiendo el formato.
+  VERSION_DEL_AVISO_NO_VIGENTE: HttpStatus.CONFLICT,
+
   // Preferencias de la cuenta. Las tres son errores de quien llama: pidio algo
   // que no existe o que dejaria la cuenta sin nada que hacer.
   MODULO_DESCONOCIDO: HttpStatus.BAD_REQUEST,

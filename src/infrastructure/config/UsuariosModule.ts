@@ -4,6 +4,7 @@ import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/Ac
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
+import { AvisoController } from '../controllers/AvisoController.js';
 import { CuentaController } from '../controllers/CuentaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
@@ -32,7 +33,7 @@ import { ACTUALIZAR_PREFERENCIAS, PRISMA, REGISTRAR_CUENTA, USER_REPOSITORY } fr
  */
 @Module({
   imports: [ActivityResultModule],
-  controllers: [CuentaController],
+  controllers: [CuentaController, AvisoController],
   providers: [
     {
       provide: USER_REPOSITORY,

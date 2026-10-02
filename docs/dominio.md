@@ -123,6 +123,18 @@ en `exigirConsentimiento()`, que falla en vez de devolver un booleano que
 alguien pueda olvidarse de mirar. Aqui el olvido no seria un error de
 programacion, seria un incumplimiento legal.
 
+#### Una sola version del aviso
+
+La version vigente vive en un unico sitio: `AvisoDePrivacidad.ts`. El frontend
+y la coleccion de Postman la piden a `GET /api/aviso` en lugar de llevar su
+propia copia. Antes habia tres valores para lo mismo, y segun por donde entrara
+alguien quedaba registrado que habia aceptado cosas distintas (SCRUM-85).
+
+Al darse de alta solo se acepta la version vigente: cualquier otra responde
+409 `VERSION_DEL_AVISO_NO_VIGENTE` y no crea nada. Quien ya tenia cuenta
+conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
+lo que acepto aquel dia.
+
 **Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
 sensibles de menores exige garantias adicionales que quedan fuera del alcance
 de esta version.
@@ -249,6 +261,33 @@ verifica.
 Es un ejemplo concreto del principio de [seguridad.md](seguridad.md): la
 autorizacion vive en la capa de aplicacion, y se comprueba antes de devolver
 nada.
+
+## `Calendario`
+
+### El dia se cuenta en hora de Colombia
+
+Las actividades del dia, el sendero de cada modulo, el diario y el semaforo
+dependen de "que dia es". Ese dia es el de Colombia, no el de UTC, y lo decide
+siempre `Calendario`.
+
+Bogota va cinco horas por detras de UTC. Con la fecha UTC, algo hecho a las
+8 p. m. en Colombia contaria para el dia siguiente: la actividad sumaria en
+manana, el diario la pondria en otro dia y el progreso saldria corrido.
+
+| Metodo               | Que hace                                                                 |
+| -------------------- | ------------------------------------------------------------------------ |
+| `diaDe(instante)`    | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
+| `limitesDelDia(dia)` | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+
+**La regla:** ningun calculo de dia usa la fecha UTC directamente. Nada de
+`toISOString().slice(0, 10)` ni de `getUTCDate()` para decidir a que dia
+pertenece algo. Los instantes se siguen guardando en UTC, que es lo correcto;
+lo que cambia es como se agrupan por dia.
+
+La zona sale de `ZONA_HORARIA`, por defecto `America/Bogota`, y se valida al
+arrancar. Hay un solo `Calendario` para todo el proceso, inyectado con el token
+`CALENDARIO`. Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue
+sin dependencias externas.
 
 ## Errores
 

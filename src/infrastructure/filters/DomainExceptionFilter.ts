@@ -60,6 +60,12 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   MODULO_DESCONOCIDO: HttpStatus.BAD_REQUEST,
   SIN_MODULOS_ACTIVOS: HttpStatus.BAD_REQUEST,
   MASCOTA_INVALIDA: HttpStatus.BAD_REQUEST,
+  NOMBRE_INVALIDO: HttpStatus.BAD_REQUEST,
+
+  // 503: el borrado depende del proveedor de autenticacion, y si este no
+  // responde no se borra nada. No es culpa de quien llama, y reintentar en un
+  // momento es exactamente lo que tiene que hacer.
+  BORRADO_NO_COMPLETADO: HttpStatus.SERVICE_UNAVAILABLE,
 
   // Esto no es culpa de quien llama: significa que el catalogo del servidor
   // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
@@ -82,6 +88,19 @@ export class DomainExceptionFilter implements ExceptionFilter {
     if (excepcion instanceof DomainError) {
       const estado = ESTADO_POR_CODIGO[excepcion.code] ?? HttpStatus.BAD_REQUEST;
       const cuerpo: CuerpoDeError = { codigo: excepcion.code, mensaje: excepcion.message };
+
+      // Un error del dominio con estado 5xx significa que algo nuestro fallo.
+      // La persona recibe el mensaje claro; la causa tecnica va al registro,
+      // que es donde sirve para encontrarla.
+      if (estado >= HttpStatus.INTERNAL_SERVER_ERROR) {
+        const identificador = identificadorDeLaRespuesta(respuesta) ?? 'sin identificador';
+        const causa: unknown = excepcion.cause;
+
+        this.registro.error(
+          `${excepcion.code} [${identificador}]`,
+          causa instanceof Error ? causa.stack : excepcion.stack,
+        );
+      }
 
       respuesta.status(estado).json(cuerpo);
 

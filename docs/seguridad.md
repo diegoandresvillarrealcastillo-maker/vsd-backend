@@ -197,7 +197,19 @@ como el tema visual o el idioma.
 - Se recoge el minimo necesario para que la funcionalidad exista.
 - El consentimiento se solicita **una sola vez**, al crear la cuenta, y
   queda registrado con su fecha y la version del aviso aceptado.
-- El usuario puede exportar y eliminar su informacion.
+- El usuario puede exportar y eliminar su informacion:
+  - `GET /api/cuenta/exportacion` devuelve en JSON todo lo que se guarda
+    de quien firma el token: la cuenta, los resultados y el diario.
+  - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, borra la cuenta
+    con todo lo suyo y su identidad en Supabase Auth. Es todo o nada: si
+    Supabase no responde, la transaccion se deshace y no se borra nada.
+  - La identidad se borra con `SUPABASE_SERVICE_ROLE_KEY`, que el backend
+    usa **solo** para eso. Nunca para leer ni escribir datos, que siguen
+    pasando por `vsd_app` y sus politicas.
+  - Toda tabla nueva que guarde algo de una persona debe declarar su clave
+    hacia `usuario` con `ON DELETE CASCADE`. La prueba
+    `borradoDeCuenta.integracion.spec.ts` recorre cada tabla con columna
+    `id_usuario` y falla si alguna conserva filas despues del borrado.
 - Los datos de otros usuarios nunca aparecen en registros ni en
   mensajes de error.
 

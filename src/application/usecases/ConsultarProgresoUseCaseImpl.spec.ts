@@ -75,6 +75,7 @@ function armar(cuenta: User | null, resultados: ActivityResult[] = []) {
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
     save: () => Promise.resolve(),
+    borrarConTodo: () => Promise.resolve(),
   };
   const catalogo = {
     listarCatalogo: () => Promise.resolve(CATALOGO),

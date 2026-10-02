@@ -117,7 +117,37 @@ Authorization: Bearer {{token}}
 }
 
 
-### 4c. El progreso de cada modulo activo
+### 4c. Exportar mis datos
+# Derecho de acceso: la cuenta, los resultados y el diario de quien firma el
+# token, como archivo JSON.
+GET {{host}}/api/cuenta/exportacion
+Authorization: Bearer {{token}}
+
+
+### 4d. Borrar la cuenta sin la frase exacta: 400
+DELETE {{host}}/api/cuenta
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "confirmacion": "borrar mi cuenta"
+}
+
+
+### 4e. Borrar la cuenta (NO TIENE VUELTA ATRAS)
+# Borra la cuenta, sus resultados, su diario y su identidad en Supabase. Despues
+# hay que registrarse de nuevo. Se deja comentada para que no se lance por error
+# al recorrer el archivo: quita los # para usarla.
+# DELETE {{host}}/api/cuenta
+# Content-Type: application/json
+# Authorization: Bearer {{token}}
+#
+# {
+#   "confirmacion": "BORRAR MI CUENTA"
+# }
+
+
+### 4f. El progreso de cada modulo activo
 # Etapa, sesiones hechas y lo que toca hoy. Una sesion es un dia con algo
 # hecho del modulo, en hora de Colombia.
 GET {{host}}/api/progreso

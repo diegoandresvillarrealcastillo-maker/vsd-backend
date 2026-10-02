@@ -172,6 +172,47 @@
         "tags": [
           "Cuenta"
         ]
+      },
+      "delete": {
+        "description": "Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario y su identidad en Supabase Auth. Es todo o nada: si una parte falla, no se borra nada. No tiene vuelta atras, y por eso exige la frase de confirmacion.",
+        "operationId": "CuentaController_borrar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BorrarCuentaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "La cuenta ya no existe."
+          },
+          "400": {
+            "description": "Falta la frase de confirmacion o no es exacta."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero no hay cuenta que borrar."
+          },
+          "503": {
+            "description": "BORRADO_NO_COMPLETADO: el proveedor de autenticacion no respondio y no se borro nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Borrar la cuenta propia con todo lo suyo",
+        "tags": [
+          "Cuenta"
+        ]
       }
     },
     "/api/cuenta/preferencias": {
@@ -215,7 +256,41 @@
             "sesion": []
           }
         ],
-        "summary": "Cambiar los modulos activos y la mascota",
+        "summary": "Cambiar el nombre, los modulos activos y la mascota",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/exportacion": {
+      "get": {
+        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas.",
+        "operationId": "CuentaController_exportar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Los datos, en JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportacionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Exportar los datos propios",
         "tags": [
           "Cuenta"
         ]
@@ -657,6 +732,12 @@
       "ActualizarPreferenciasDto": {
         "type": "object",
         "properties": {
+          "nombre": {
+            "type": "string",
+            "description": "Cómo quiere que la llamen. Entre 1 y 100 caracteres.",
+            "example": "Diego",
+            "maxLength": 100
+          },
           "modulosActivos": {
             "type": "array",
             "description": "Modulos activos. Al menos uno. Reemplaza la lista entera, no la mezcla con la anterior.",
@@ -682,6 +763,95 @@
             ]
           }
         }
+      },
+      "EntradaExportadaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true
+          },
+          "contenido": {
+            "type": "string"
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "texto_plano",
+              "enriquecido"
+            ]
+          },
+          "etiquetas": {
+            "type": "object",
+            "nullable": true,
+            "description": "Etiquetas de ánimo, si las hay."
+          },
+          "creadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "contenido",
+          "formato",
+          "etiquetas",
+          "creadaEn",
+          "editadaEn"
+        ]
+      },
+      "ExportacionDto": {
+        "type": "object",
+        "properties": {
+          "generadoEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se generó."
+          },
+          "cuenta": {
+            "$ref": "#/components/schemas/CuentaRespuestaDto"
+          },
+          "resultados": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultadoRespuestaDto"
+            }
+          },
+          "entradasDeDiario": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntradaExportadaDto"
+            }
+          }
+        },
+        "required": [
+          "generadoEn",
+          "cuenta",
+          "resultados",
+          "entradasDeDiario"
+        ]
+      },
+      "BorrarCuentaDto": {
+        "type": "object",
+        "properties": {
+          "confirmacion": {
+            "type": "string",
+            "description": "Tiene que ser exactamente \"BORRAR MI CUENTA\".",
+            "example": "BORRAR MI CUENTA"
+          }
+        },
+        "required": [
+          "confirmacion"
+        ]
       },
       "AvisoRespuestaDto": {
         "type": "object",

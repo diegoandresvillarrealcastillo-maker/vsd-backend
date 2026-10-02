@@ -342,7 +342,88 @@
       }
     },
     {
-      "name": "3c. Consultar el progreso por modulo",
+      "name": "3c. Exportar mis datos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Se descarga como archivo', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+              "});",
+              "",
+              "pm.test('Es la cuenta propia, con sus resultados y su diario', function () {",
+              "  const datos = pm.response.json();",
+              "  pm.expect(datos.cuenta.id).to.equal(pm.environment.get('cuentaId'));",
+              "  pm.expect(datos.resultados).to.be.an('array');",
+              "  pm.expect(datos.entradasDeDiario).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/exportacion",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "exportacion"]
+        },
+        "description": "Derecho de acceso (Ley 1581 de 2012): todo lo que VSD Health guarda de quien firma el token, y nada de nadie mas."
+      }
+    },
+    {
+      "name": "3d. Borrar la cuenta sin confirmar: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El borrado de verdad no esta en la coleccion a proposito: borraria la",
+              "// cuenta de pruebas y su identidad en Supabase, y la siguiente corrida",
+              "// ya no podria iniciar sesion. Aqui solo se comprueba que sin la frase",
+              "// exacta no se borra nada.",
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"confirmacion\": \"borrar mi cuenta\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "Hace falta la frase exacta \"BORRAR MI CUENTA\". Sin ella, 400 y la cuenta sigue."
+      }
+    },
+    {
+      "name": "3e. Consultar el progreso por modulo",
       "event": [
         {
           "listen": "test",

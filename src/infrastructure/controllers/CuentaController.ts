@@ -1,15 +1,35 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { User } from '../../domain/model/User.js';
 import type { ActualizarPreferenciasUseCase } from '../../domain/ports/in/ActualizarPreferenciasUseCase.js';
+import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
+import type { ExportarDatosUseCase } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
 import { UsuarioActual } from '../auth/UsuarioActual.js';
 import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
-import { ACTUALIZAR_PREFERENCIAS, REGISTRAR_CUENTA } from '../config/tokens.js';
+import {
+  ACTUALIZAR_PREFERENCIAS,
+  BORRAR_CUENTA,
+  EXPORTAR_DATOS,
+  REGISTRAR_CUENTA,
+} from '../config/tokens.js';
 import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
+import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
+import { ExportacionDto } from './dto/ExportacionDto.js';
 import { RegistrarCuentaDto } from './dto/RegistrarCuentaDto.js';
 
 /**
@@ -28,6 +48,10 @@ export class CuentaController {
     private readonly cuentas: RegistrarCuentaUseCase,
     @Inject(ACTUALIZAR_PREFERENCIAS)
     private readonly preferencias: ActualizarPreferenciasUseCase,
+    @Inject(EXPORTAR_DATOS)
+    private readonly exportacion: ExportarDatosUseCase,
+    @Inject(BORRAR_CUENTA)
+    private readonly borrado: BorrarCuentaUseCase,
   ) {}
 
   /**
@@ -89,7 +113,7 @@ export class CuentaController {
 
   @Patch('preferencias')
   @ApiOperation({
-    summary: 'Cambiar los modulos activos y la mascota',
+    summary: 'Cambiar el nombre, los modulos activos y la mascota',
     description:
       'Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.',
   })
@@ -107,10 +131,51 @@ export class CuentaController {
     @CuentaActual() cuenta: User,
   ): Promise<CuentaRespuestaDto> {
     const actualizada = await this.preferencias.execute(cuenta.id, {
+      ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
       ...(dto.modulosActivos === undefined ? {} : { modulosActivos: dto.modulosActivos }),
       ...(dto.mascota === undefined ? {} : { mascota: dto.mascota }),
     });
 
     return CuentaRespuestaDto.desde(actualizada);
+  }
+
+  @Get('exportacion')
+  // Son datos personales: ni el navegador ni un proxy deben guardar copia.
+  @Header('Cache-Control', 'no-store')
+  @Header('Content-Disposition', 'attachment; filename="vsd-health-mis-datos.json"')
+  @ApiOperation({
+    summary: 'Exportar los datos propios',
+    description:
+      'Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas.',
+  })
+  @ApiResponse({ status: 200, description: 'Los datos, en JSON.', type: ExportacionDto })
+  @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
+  async exportar(@CuentaActual() cuenta: User): Promise<ExportacionDto> {
+    return ExportacionDto.desde(await this.exportacion.execute(cuenta.id));
+  }
+
+  @Delete()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Borrar la cuenta propia con todo lo suyo',
+    description:
+      'Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario y su identidad en Supabase Auth. Es todo o nada: si una parte falla, no se borra nada. No tiene vuelta atras, y por eso exige la frase de confirmacion.',
+  })
+  @ApiBody({ type: BorrarCuentaDto })
+  @ApiResponse({ status: 204, description: 'La cuenta ya no existe.' })
+  @ApiResponse({ status: 400, description: 'Falta la frase de confirmacion o no es exacta.' })
+  @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({ status: 403, description: 'Hay sesion pero no hay cuenta que borrar.' })
+  @ApiResponse({
+    status: 503,
+    description:
+      'BORRADO_NO_COMPLETADO: el proveedor de autenticacion no respondio y no se borro nada. Reintentar.',
+  })
+  async borrar(
+    @Body() _confirmacion: BorrarCuentaDto,
+    @CuentaActual() cuenta: User,
+  ): Promise<void> {
+    await this.borrado.execute(cuenta.id);
   }
 }

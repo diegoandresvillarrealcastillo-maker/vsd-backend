@@ -191,6 +191,42 @@ export function pruebasDelPuertoDeUsuarios(
       await expect(banco.contar()).resolves.toBe(1);
     });
 
+    it('borrar una cuenta la quita y deja las demas', async () => {
+      await banco.repositorio.save(unaCuenta());
+      await banco.repositorio.save(
+        unaCuenta({
+          id: OTRA_PERSONA,
+          correo: 'otra@ejemplo.test',
+          idProveedorAuth: 'supabase|bbbb',
+        }),
+      );
+
+      await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+
+      await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
+      await expect(banco.repositorio.findById(new UserId(OTRA_PERSONA))).resolves.not.toBeNull();
+    });
+
+    it('si lo de fuera falla, el borrado se deshace', async () => {
+      // Es la garantia de todo o nada. Si el proveedor no borra la identidad,
+      // la cuenta tiene que seguir aqui entera para poder reintentar.
+      await banco.repositorio.save(unaCuenta());
+
+      await expect(
+        banco.repositorio.borrarConTodo(new UserId(PERSONA), () =>
+          Promise.reject(new Error('el proveedor no respondio')),
+        ),
+      ).rejects.toThrow('el proveedor no respondio');
+
+      await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.not.toBeNull();
+    });
+
+    it('borrar una cuenta que no existe no es un error', async () => {
+      await expect(
+        banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve()),
+      ).resolves.toBeUndefined();
+    });
+
     it('una cuenta no puede leer los datos de otra', async () => {
       // La regla del dominio, comprobada contra lo que de verdad se guardo y
       // no contra un objeto construido en la prueba.

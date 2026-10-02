@@ -6,7 +6,7 @@ momento.
 
 | Archivo                               | Que es                                     |
 | ------------------------------------- | ------------------------------------------ |
-| `vsd-health.postman_collection.json`  | Las 19 peticiones, con sus comprobaciones. |
+| `vsd-health.postman_collection.json`  | Las 21 peticiones, con sus comprobaciones. |
 | `vsd-health.postman_environment.json` | Las variables. Se versiona con marcadores. |
 
 ## Que hace distinto
@@ -25,7 +25,7 @@ la piden antes a `GET /api/aviso` y la guardan en `versionAviso`. La API es la
 unica fuente de ese valor: el dia que el aviso cambie, la coleccion sigue
 valiendo sin tocarla.
 
-**Cada peticion comprueba su propio resultado.** Son 52 comprobaciones
+**Cada peticion comprueba su propio resultado.** Son 56 comprobaciones
 automaticas, asi que la coleccion se puede ejecutar entera y mostrar el
 resultado en lugar de ir pulsando botones uno por uno.
 

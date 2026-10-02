@@ -170,6 +170,26 @@ Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
 El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:
 el cuerpo no tiene donde ponerlos, y mandarlos responde 400.
 
+### Exportar y borrar: los derechos de acceso y de supresion
+
+La Ley 1581 de 2012 reconoce a cada persona el derecho a conocer lo que se
+guarda de ella y a pedir que se suprima (SCRUM-75).
+
+- **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados y
+  las entradas de diario. Cada repositorio filtra por la persona y la base lo
+  impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
+  resto de la API: con su nivel orientativo y sin el puntaje normalizado.
+- **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra
+  las filas dentro de una transaccion, borra la identidad en el proveedor y
+  solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
+  respuesta es `BORRADO_NO_COMPLETADO` (503): no se borro nada y se puede
+  reintentar.
+
+Queda un hueco que no se puede cerrar del todo: que la base falle al confirmar
+justo despues de que el proveedor ya borro. Es mucho menos probable que un
+fallo de red, que es lo que este orden cubre, y si ocurre queda en el registro
+del servidor.
+
 ### Lo que falta por conectar
 
 La regla del consentimiento esta modelada y probada en el dominio, pero

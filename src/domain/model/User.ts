@@ -1,4 +1,9 @@
-import { FutureConsentDateError, InvalidRoleError, MissingConsentError } from './DomainError.js';
+import {
+  FutureConsentDateError,
+  InvalidNameError,
+  InvalidRoleError,
+  MissingConsentError,
+} from './DomainError.js';
 import { UserId } from './Identifier.js';
 import { crearMascota, elegirModulos, type Mascota, type Modulo } from './Preferencias.js';
 
@@ -55,8 +60,27 @@ export interface DatosDeUsuario {
 
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
 export interface CambiosDePreferencias {
+  /** Como quiere que la llamen. */
+  readonly nombre?: string | undefined;
   readonly modulosActivos?: readonly string[] | undefined;
   readonly mascota?: Mascota | undefined;
+}
+
+const LARGO_MAXIMO_DEL_NOMBRE = 100;
+
+// Un nombre se pinta en el saludo; un salto de linea o un caracter invisible
+// ahi no es un nombre.
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+function validarNombre(nombre: string): string {
+  const limpio = nombre.trim();
+
+  if (limpio === '' || [...limpio].length > LARGO_MAXIMO_DEL_NOMBRE || CONTROL.test(limpio)) {
+    throw new InvalidNameError();
+  }
+
+  return limpio;
 }
 
 /**
@@ -139,9 +163,9 @@ export class User {
   /**
    * La misma cuenta con otras preferencias.
    *
-   * Devuelve una cuenta nueva en lugar de modificar esta. Solo toca modulos y
-   * mascota: el correo y el rol no se cambian por aqui, y no hay forma de
-   * pasarlos.
+   * Devuelve una cuenta nueva en lugar de modificar esta. Solo toca el nombre,
+   * los modulos y la mascota: el correo y el rol no se cambian por aqui, y no
+   * hay forma de pasarlos.
    */
   conPreferencias(cambios: CambiosDePreferencias): User {
     return new User({
@@ -151,7 +175,7 @@ export class User {
       rol: this.rol,
       consentimiento: this.consentimiento,
       registradoEn: this.registradoEn,
-      nombre: this.nombre,
+      nombre: cambios.nombre === undefined ? this.nombre : validarNombre(cambios.nombre),
       modulosActivos:
         cambios.modulosActivos === undefined
           ? this.modulosActivos

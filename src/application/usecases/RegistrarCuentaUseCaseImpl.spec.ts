@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MissingConsentError } from '../../domain/model/DomainError.js';
+import { VERSION_VIGENTE_DEL_AVISO } from '../../domain/model/AvisoDePrivacidad.js';
+import { MissingConsentError, OutdatedPrivacyNoticeError } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
-import { Rol, type User } from '../../domain/model/User.js';
+import { Rol, User } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { RegistrarCuentaUseCaseImpl } from './RegistrarCuentaUseCaseImpl.js';
 
@@ -58,7 +59,7 @@ function crearCasoDeUso(): { caso: RegistrarCuentaUseCaseImpl; cuentas: Reposito
 const ALTA = {
   idProveedorAuth: 'supabase|aaaa-1111',
   correo: 'persona@ejemplo.test',
-  versionPolitica: '1.0',
+  versionPolitica: VERSION_VIGENTE_DEL_AVISO,
 };
 
 describe('Alta de cuenta', () => {
@@ -89,9 +90,9 @@ describe('Alta de cuenta', () => {
   it('registra el consentimiento con su version y su fecha', async () => {
     // No basta con un si o un no. Ante una reclamacion hay que poder demostrar
     // a que dio permiso cada quien y cuando. Ley 1581 de 2012.
-    const cuenta = await caso.execute({ ...ALTA, versionPolitica: '2.1' });
+    const cuenta = await caso.execute(ALTA);
 
-    expect(cuenta.consentimiento?.versionPolitica).toBe('2.1');
+    expect(cuenta.consentimiento?.versionPolitica).toBe(VERSION_VIGENTE_DEL_AVISO);
     expect(cuenta.consentimiento?.aceptadoEn).toEqual(AHORA);
     expect(cuenta.puedeTratarDatosDeSalud()).toBe(true);
   });
@@ -116,11 +117,47 @@ describe('Alta de cuenta', () => {
     // La fecha y la version guardadas son la prueba de lo que acepto esa
     // persona ese dia. Actualizarlas en cada inicio de sesion borraria esa
     // prueba justo cuando hiciera falta demostrarla.
-    await caso.execute({ ...ALTA, versionPolitica: '1.0' });
+    await caso.execute(ALTA);
 
     const segunda = await caso.execute({ ...ALTA, versionPolitica: '9.9' });
 
-    expect(segunda.consentimiento?.versionPolitica).toBe('1.0');
+    expect(segunda.consentimiento?.versionPolitica).toBe(VERSION_VIGENTE_DEL_AVISO);
+  });
+
+  it('rechaza un aviso que no es el vigente, y no crea nada', async () => {
+    // La prueba que define SCRUM-85. Aceptarlo dejaria registrado que la
+    // persona dio permiso a un texto distinto del que esta en vigor.
+    await expect(caso.execute({ ...ALTA, versionPolitica: '1.0' })).rejects.toThrow(
+      OutdatedPrivacyNoticeError,
+    );
+
+    expect(cuentas.cantidad).toBe(0);
+  });
+
+  it('quien ya tenia cuenta con un aviso anterior conserva su version', async () => {
+    // La version vigente solo se exige al darse de alta. Una cuenta creada con
+    // un aviso anterior sigue entrando, y su consentimiento no se toca: es la
+    // prueba de lo que acepto aquel dia.
+    const fecha = new Date('2026-09-01T10:00:00.000Z');
+
+    await cuentas.save(
+      User.create(
+        {
+          id: new UserId('33333333-3333-4333-8333-333333333333'),
+          correo: ALTA.correo,
+          idProveedorAuth: ALTA.idProveedorAuth,
+          rol: Rol.USUARIO,
+          consentimiento: { versionPolitica: '1.0', aceptadoEn: fecha },
+          registradoEn: fecha,
+        },
+        AHORA,
+      ),
+    );
+
+    const cuenta = await caso.execute({ ...ALTA, versionPolitica: '1.0' });
+
+    expect(cuenta.consentimiento?.versionPolitica).toBe('1.0');
+    expect(cuentas.cantidad).toBe(1);
   });
 
   it('normaliza el correo a minusculas', async () => {

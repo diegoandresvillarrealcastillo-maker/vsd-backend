@@ -2,6 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { VERSION_VIGENTE_DEL_AVISO } from '../../domain/model/AvisoDePrivacidad.js';
 import { SESIONES, VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
@@ -56,17 +57,19 @@ describe('POST /api/cuenta', () => {
   });
 
   it('crea la cuenta la primera vez', async () => {
-    const respuesta = await alta(app, A).send({ versionPolitica: '1.0' }).expect(200);
+    const respuesta = await alta(app, A)
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
+      .expect(200);
 
     expect(respuesta.body).toMatchObject({
       correo: SESIONES[A]?.correo,
       rol: 'usuario',
-      consentimiento: { versionPolitica: '1.0' },
+      consentimiento: { versionPolitica: VERSION_VIGENTE_DEL_AVISO },
     });
   });
 
   it('el identificador que devuelve es el nuestro, no el del proveedor', async () => {
-    const respuesta = await alta(app, A).send({ versionPolitica: '1.0' });
+    const respuesta = await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO });
 
     expect((respuesta.body as { id: string }).id).not.toBe(SESIONES[A]?.id);
   });
@@ -74,15 +77,15 @@ describe('POST /api/cuenta', () => {
   it('no devuelve el identificador del proveedor', async () => {
     // Es un detalle de como se autentica la persona y no aporta nada a quien
     // consume la API.
-    const respuesta = await alta(app, A).send({ versionPolitica: '1.0' });
+    const respuesta = await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO });
 
     expect(respuesta.body).not.toHaveProperty('idProveedorAuth');
     expect(JSON.stringify(respuesta.body)).not.toContain(SESIONES[A]?.id);
   });
 
   it('llamarlo dos veces devuelve la misma cuenta', async () => {
-    const primera = await alta(app, A).send({ versionPolitica: '1.0' });
-    const segunda = await alta(app, A).send({ versionPolitica: '1.0' });
+    const primera = await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO });
+    const segunda = await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO });
 
     expect((segunda.body as { id: string }).id).toBe((primera.body as { id: string }).id);
   });
@@ -96,8 +99,50 @@ describe('POST /api/cuenta', () => {
   it('sin token responde 401', async () => {
     await request(app.getHttpServer())
       .post('/api/cuenta')
-      .send({ versionPolitica: '1.0' })
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
       .expect(401);
+  });
+
+  it('un aviso que no es el vigente responde 409 y no crea la cuenta', async () => {
+    const respuesta = await alta(app, B).send({ versionPolitica: '1.0' }).expect(409);
+
+    expect(respuesta.body).toMatchObject({ codigo: 'VERSION_DEL_AVISO_NO_VIGENTE' });
+
+    // Sigue sin cuenta: consultarla responde 403, no 200.
+    await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(B))
+      .expect(403);
+  });
+});
+
+describe('GET /api/aviso', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('devuelve la version vigente sin pedir sesion', async () => {
+    // Publica porque se necesita antes de que exista la cuenta, y porque no
+    // contiene nada de nadie.
+    const respuesta = await request(app.getHttpServer()).get('/api/aviso').expect(200);
+
+    expect(respuesta.body).toEqual({ version: VERSION_VIGENTE_DEL_AVISO });
+  });
+
+  it('lo que devuelve es exactamente lo que el alta acepta', async () => {
+    // La garantia de que hay una sola fuente: pedir la version y darse de alta
+    // con ella siempre funciona.
+    const aviso = await request(app.getHttpServer()).get('/api/aviso').expect(200);
+
+    await alta(app, A)
+      .send({ versionPolitica: (aviso.body as { version: string }).version })
+      .expect(200);
   });
 });
 
@@ -118,20 +163,24 @@ describe('El alta no concede privilegios', () => {
 
   it('mandar rol administrador en el alta se rechaza', async () => {
     const respuesta = await alta(app, A)
-      .send({ versionPolitica: '1.0', rol: 'administrador' })
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO, rol: 'administrador' })
       .expect(400);
 
     expect(JSON.stringify(respuesta.body)).toContain('rol');
   });
 
   it('y la cuenta que se crea sin ese campo sale con rol usuario', async () => {
-    const respuesta = await alta(app, A).send({ versionPolitica: '1.0' }).expect(200);
+    const respuesta = await alta(app, A)
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
+      .expect(200);
 
     expect((respuesta.body as { rol: string }).rol).toBe('usuario');
   });
 
   it('tampoco se cuela por otros campos inventados', async () => {
-    await alta(app, A).send({ versionPolitica: '1.0', esAdministrador: true }).expect(400);
+    await alta(app, A)
+      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO, esAdministrador: true })
+      .expect(400);
   });
 });
 
@@ -176,7 +225,7 @@ describe('Sin cuenta no se puede operar', () => {
   });
 
   it('y despues del alta ya se puede operar', async () => {
-    await alta(app, A).send({ versionPolitica: '1.0' }).expect(200);
+    await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO }).expect(200);
 
     await request(app.getHttpServer())
       .get('/api/cuenta')

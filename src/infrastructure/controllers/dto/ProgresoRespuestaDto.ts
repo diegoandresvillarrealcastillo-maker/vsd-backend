@@ -15,6 +15,23 @@ export class EtapaDto {
   sesionesDeLaEtapa!: number;
 }
 
+/**
+ * Cada cuanto toca una actividad. Va antes que `ActividadDeHoyDto` a proposito:
+ * los decoradores leen el tipo de la propiedad al definir la clase, y una clase
+ * declarada despues todavia no existiria en ese momento.
+ */
+export class FrecuenciaDto {
+  @ApiProperty({ enum: ['diaria', 'semanal', 'unica'] })
+  tipo!: 'diaria' | 'semanal' | 'unica';
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description: 'Solo en las semanales: 1 es lunes y 7 domingo.',
+    example: [1, 3, 5],
+  })
+  dias?: number[];
+}
+
 export class ActividadDeHoyDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -30,6 +47,12 @@ export class ActividadDeHoyDto {
 
   @ApiProperty({ description: 'Si ya la hizo hoy.' })
   hecha!: boolean;
+
+  @ApiProperty({
+    type: FrecuenciaDto,
+    description: 'Cada cuanto toca, para la etiqueta del sendero (Diaria, un dia, Una vez).',
+  })
+  frecuencia!: FrecuenciaDto;
 }
 
 /** El sendero de un modulo, tal como sale por la API. */
@@ -58,6 +81,10 @@ export class ProgresoRespuestaDto {
       ...(actividad.tipo === undefined ? {} : { tipo: actividad.tipo }),
       ...(actividad.descripcion === undefined ? {} : { descripcion: actividad.descripcion }),
       hecha,
+      frecuencia:
+        actividad.frecuencia.tipo === 'semanal'
+          ? { tipo: 'semanal', dias: [...actividad.frecuencia.dias] }
+          : { tipo: actividad.frecuencia.tipo },
     }));
 
     return dto;

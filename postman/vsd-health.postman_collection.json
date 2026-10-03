@@ -270,7 +270,7 @@
               "});",
               "",
               "pm.test('Guarda la mascota con el color normalizado', function () {",
-              "  pm.expect(pm.response.json().mascota).to.include({ nombre: 'Luma', color: '#a2d9b6' });",
+              "  pm.expect(pm.response.json().mascota).to.eql({ forma: 'fungito', nombre: 'Fungito' });",
               "});"
             ]
           }
@@ -290,7 +290,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"modulosActivos\": [\n    \"emociones\",\n    \"cognicion\"\n  ],\n  \"mascota\": {\n    \"forma\": \"brote\",\n    \"color\": \"#A2D9B6\",\n    \"accesorio\": \"ninguno\",\n    \"nombre\": \"Luma\"\n  }\n}"
+          "raw": "{\n  \"modulosActivos\": [\n    \"emociones\",\n    \"cognicion\"\n  ],\n  \"mascota\": {\n    \"forma\": \"fungito\",\n    \"nombre\": \"Fungito\"\n  }\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/cuenta/preferencias",

@@ -23,7 +23,7 @@ interface Cuenta {
   correo: string;
   rol: string;
   modulosActivos: string[];
-  mascota: typeof LUMA | null;
+  mascota: { forma: string; nombre: string; color?: string; accesorio?: string } | null;
 }
 
 /** `PATCH /api/cuenta/preferencias` por HTTP, con la tuberia de verdad. */
@@ -118,6 +118,18 @@ describe('PATCH /api/cuenta/preferencias', () => {
 
     expect(respuesta.body).toMatchObject({ codigo: 'SIN_MODULOS_ACTIVOS' });
     expect((await cuentaDe(A)).modulosActivos).toEqual(['bienestar']);
+  });
+
+  it('un personaje se guarda solo con forma y nombre, sin color ni accesorio (SCRUM-99)', async () => {
+    const respuesta = await preferencias(A)
+      .send({ mascota: { forma: 'sparky', nombre: 'Chispita' } })
+      .expect(200);
+
+    expect((respuesta.body as Cuenta).mascota).toStrictEqual({
+      forma: 'sparky',
+      nombre: 'Chispita',
+    });
+    expect((await cuentaDe(A)).mascota).toStrictEqual({ forma: 'sparky', nombre: 'Chispita' });
   });
 
   it('una mascota mal formada responde 400', async () => {

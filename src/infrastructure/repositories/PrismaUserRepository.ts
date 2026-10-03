@@ -35,9 +35,10 @@ function esCorreoDuplicado(error: unknown): boolean {
 /**
  * Lee la mascota guardada en JSONB.
  *
- * Solo copia los cuatro campos que el dominio conoce, como texto. Si a la
- * columna llegara otra cosa, `User.create` la rechaza con un error que dice
- * que esta mal, en lugar de que salga por la API algo a medias.
+ * Solo copia los campos que el dominio conoce, como texto. Si a la columna
+ * llegara otra cosa, `User.create` la rechaza con un error que dice que esta
+ * mal, en lugar de que salga por la API algo a medias. Color y accesorio son
+ * opcionales: solo se copian si estan guardados.
  */
 function mascotaDesde(valor: Prisma.JsonValue): Mascota {
   const objeto =
@@ -49,12 +50,14 @@ function mascotaDesde(valor: Prisma.JsonValue): Mascota {
 
     return typeof campo === 'string' ? campo : '';
   };
+  const opcional = (clave: 'color' | 'accesorio') =>
+    objeto[clave] === undefined ? {} : { [clave]: texto(clave) };
 
   return {
     forma: texto('forma'),
-    color: texto('color'),
-    accesorio: texto('accesorio'),
     nombre: texto('nombre'),
+    ...opcional('color'),
+    ...opcional('accesorio'),
   };
 }
 

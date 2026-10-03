@@ -39,7 +39,14 @@ describe('elegirModulos', () => {
 });
 
 describe('crearMascota', () => {
-  it('normaliza el color y el nombre', () => {
+  it('un personaje solo necesita forma y nombre, y no se le inventa nada mas', () => {
+    expect(crearMascota({ forma: 'fungito', nombre: ' Fungito ' })).toStrictEqual({
+      forma: 'fungito',
+      nombre: 'Fungito',
+    });
+  });
+
+  it('sigue aceptando color y accesorio, como los guardaba el modelo anterior', () => {
     expect(crearMascota(LUMA)).toEqual({
       forma: 'brote',
       color: '#a2d9b6',
@@ -49,7 +56,7 @@ describe('crearMascota', () => {
   });
 
   it('acepta formas nuevas sin tocar el backend', () => {
-    // Los modelos definitivos llegan despues; la forma no es una lista cerrada.
+    // La forma no es una lista cerrada: un personaje nuevo solo toca el frontend.
     expect(crearMascota({ ...LUMA, forma: 'zorro-de-diego' }).forma).toBe('zorro-de-diego');
   });
 

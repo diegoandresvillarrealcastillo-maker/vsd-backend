@@ -191,6 +191,18 @@ export function pruebasDelPuertoDeUsuarios(
       await expect(banco.contar()).resolves.toBe(1);
     });
 
+    it('un personaje sin color ni accesorio vuelve igual, sin campos inventados', async () => {
+      // SCRUM-99: si el adaptador rellenara con texto vacio, el dominio lo
+      // rechazaria al leer y la cuenta dejaria de cargar.
+      const sparky = { forma: 'sparky', nombre: 'Chispita' };
+
+      await banco.repositorio.save(unaCuenta().conPreferencias({ mascota: sparky }));
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.mascota).toStrictEqual(sparky);
+    });
+
     it('borrar una cuenta la quita y deja las demas', async () => {
       await banco.repositorio.save(unaCuenta());
       await banco.repositorio.save(

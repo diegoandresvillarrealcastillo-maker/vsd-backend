@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
 import { UserId } from '../domain/model/Identifier.js';
+import type { Mascota } from '../domain/model/Preferencias.js';
 import { Rol, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
 
@@ -43,6 +45,8 @@ export function unaCuenta(
     rol?: Rol;
     nombre?: string;
     versionPolitica?: string;
+    modulosActivos?: readonly string[];
+    mascota?: Mascota;
   } = {},
 ): User {
   const aceptadoEn = new Date('2026-09-01T10:00:00.000Z');
@@ -53,11 +57,13 @@ export function unaCuenta(
     idProveedorAuth: cambios.idProveedorAuth ?? 'supabase|aaaa-1111',
     rol: cambios.rol ?? Rol.USUARIO,
     consentimiento: {
-      versionPolitica: cambios.versionPolitica ?? '1.0',
+      versionPolitica: cambios.versionPolitica ?? VERSION_VIGENTE_DEL_AVISO,
       aceptadoEn,
     },
     registradoEn: new Date('2026-09-01T10:00:00.000Z'),
     ...(cambios.nombre === undefined ? {} : { nombre: cambios.nombre }),
+    ...(cambios.modulosActivos === undefined ? {} : { modulosActivos: cambios.modulosActivos }),
+    ...(cambios.mascota === undefined ? {} : { mascota: cambios.mascota }),
   });
 }
 
@@ -156,6 +162,69 @@ export function pruebasDelPuertoDeUsuarios(
       expect(una?.id.value).toBe(PERSONA);
       expect(otra?.id.value).toBe(OTRA_PERSONA);
       await expect(banco.contar()).resolves.toBe(2);
+    });
+
+    it('una cuenta nueva sale sin modulos elegidos y sin mascota', async () => {
+      // La lista vacia es lo que lleva a la bienvenida (SCRUM-90). Si el
+      // adaptador devolviera null o los tres modulos, nadie la veria.
+      await banco.repositorio.save(unaCuenta());
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.modulosActivos).toEqual([]);
+      expect(encontrada?.haElegidoModulos()).toBe(false);
+      expect(encontrada?.mascota).toBeUndefined();
+    });
+
+    it('conserva los modulos activos y la mascota', async () => {
+      const luma = { forma: 'brote', color: '#a2d9b6', accesorio: 'bufanda', nombre: 'Luma' };
+
+      await banco.repositorio.save(unaCuenta());
+      await banco.repositorio.save(
+        unaCuenta().conPreferencias({ modulosActivos: ['emociones', 'cognicion'], mascota: luma }),
+      );
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.modulosActivos).toEqual(['cognicion', 'emociones']);
+      expect(encontrada?.mascota).toEqual(luma);
+      await expect(banco.contar()).resolves.toBe(1);
+    });
+
+    it('borrar una cuenta la quita y deja las demas', async () => {
+      await banco.repositorio.save(unaCuenta());
+      await banco.repositorio.save(
+        unaCuenta({
+          id: OTRA_PERSONA,
+          correo: 'otra@ejemplo.test',
+          idProveedorAuth: 'supabase|bbbb',
+        }),
+      );
+
+      await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+
+      await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
+      await expect(banco.repositorio.findById(new UserId(OTRA_PERSONA))).resolves.not.toBeNull();
+    });
+
+    it('si lo de fuera falla, el borrado se deshace', async () => {
+      // Es la garantia de todo o nada. Si el proveedor no borra la identidad,
+      // la cuenta tiene que seguir aqui entera para poder reintentar.
+      await banco.repositorio.save(unaCuenta());
+
+      await expect(
+        banco.repositorio.borrarConTodo(new UserId(PERSONA), () =>
+          Promise.reject(new Error('el proveedor no respondio')),
+        ),
+      ).rejects.toThrow('el proveedor no respondio');
+
+      await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.not.toBeNull();
+    });
+
+    it('borrar una cuenta que no existe no es un error', async () => {
+      await expect(
+        banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve()),
+      ).resolves.toBeUndefined();
     });
 
     it('una cuenta no puede leer los datos de otra', async () => {

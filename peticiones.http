@@ -59,6 +59,14 @@ GET {{host}}/api/catalogo
 Accept: application/json
 
 
+### 3a. Consultar la version vigente del aviso
+# La unica fuente de esa version. Las dos peticiones de alta la toman de aqui
+# en lugar de llevar una copia escrita a mano: si el aviso cambia, no hay que
+# tocar este archivo. Ejecuta esta antes que las de alta.
+# @name aviso
+GET {{host}}/api/aviso
+
+
 ### 3. Dar de alta la cuenta
 # Hay que pasar por aqui **antes** de registrar nada. Supabase autentica, pero
 # no sabe nada del dominio: no conoce el rol ni el consentimiento.
@@ -75,7 +83,7 @@ Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "versionPolitica": "1.0"
+  "versionPolitica": "{{aviso.response.body.version}}"
 }
 
 
@@ -83,6 +91,66 @@ Authorization: Bearer {{token}}
 # Devuelve unicamente la de quien pregunta. No hay forma de consultar la de
 # otra persona: el identificador sale del token.
 GET {{host}}/api/cuenta
+Authorization: Bearer {{token}}
+
+
+### 4a. Elegir los modulos y la mascota
+# Lo que no se manda se queda como estaba. Los modulos se nombran con su
+# clave estable, no con el nombre visible de la categoria.
+PATCH {{host}}/api/cuenta/preferencias
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "modulosActivos": ["cognicion", "emociones"],
+  "mascota": { "forma": "brote", "color": "#a2d9b6", "accesorio": "ninguno", "nombre": "Luma" }
+}
+
+
+### 4b. Quedarse sin modulos: 400 SIN_MODULOS_ACTIVOS
+PATCH {{host}}/api/cuenta/preferencias
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "modulosActivos": []
+}
+
+
+### 4c. Exportar mis datos
+# Derecho de acceso: la cuenta, los resultados y el diario de quien firma el
+# token, como archivo JSON.
+GET {{host}}/api/cuenta/exportacion
+Authorization: Bearer {{token}}
+
+
+### 4d. Borrar la cuenta sin la frase exacta: 400
+DELETE {{host}}/api/cuenta
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "confirmacion": "borrar mi cuenta"
+}
+
+
+### 4e. Borrar la cuenta (NO TIENE VUELTA ATRAS)
+# Borra la cuenta, sus resultados, su diario y su identidad en Supabase. Despues
+# hay que registrarse de nuevo. Se deja comentada para que no se lance por error
+# al recorrer el archivo: quita los # para usarla.
+# DELETE {{host}}/api/cuenta
+# Content-Type: application/json
+# Authorization: Bearer {{token}}
+#
+# {
+#   "confirmacion": "BORRAR MI CUENTA"
+# }
+
+
+### 4f. El progreso de cada modulo activo
+# Etapa, sesiones hechas y lo que toca hoy. Una sesion es un dia con algo
+# hecho del modulo, en hora de Colombia.
+GET {{host}}/api/progreso
 Authorization: Bearer {{token}}
 
 
@@ -95,7 +163,7 @@ Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "versionPolitica": "1.0",
+  "versionPolitica": "{{aviso.response.body.version}}",
   "rol": "administrador"
 }
 

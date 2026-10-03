@@ -1,5 +1,11 @@
-import { FutureConsentDateError, InvalidRoleError, MissingConsentError } from './DomainError.js';
+import {
+  FutureConsentDateError,
+  InvalidNameError,
+  InvalidRoleError,
+  MissingConsentError,
+} from './DomainError.js';
 import { UserId } from './Identifier.js';
+import { crearMascota, elegirModulos, type Mascota, type Modulo } from './Preferencias.js';
 
 /**
  * Rol de la cuenta.
@@ -42,6 +48,39 @@ export interface DatosDeUsuario {
   readonly consentimiento?: Consentimiento | undefined;
   readonly registradoEn: Date;
   readonly nombre?: string | undefined;
+  /**
+   * Vacio mientras la persona no ha elegido. Ver `haElegidoModulos`. Llega
+   * como texto porque `create` lo valida: lo que venga de la base pasa por la
+   * misma regla que lo que llega por la API.
+   */
+  readonly modulosActivos?: readonly string[] | undefined;
+  /** Sin mascota guardada se usa la de siempre. */
+  readonly mascota?: Mascota | undefined;
+}
+
+/** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
+export interface CambiosDePreferencias {
+  /** Como quiere que la llamen. */
+  readonly nombre?: string | undefined;
+  readonly modulosActivos?: readonly string[] | undefined;
+  readonly mascota?: Mascota | undefined;
+}
+
+const LARGO_MAXIMO_DEL_NOMBRE = 100;
+
+// Un nombre se pinta en el saludo; un salto de linea o un caracter invisible
+// ahi no es un nombre.
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+function validarNombre(nombre: string): string {
+  const limpio = nombre.trim();
+
+  if (limpio === '' || [...limpio].length > LARGO_MAXIMO_DEL_NOMBRE || CONTROL.test(limpio)) {
+    throw new InvalidNameError();
+  }
+
+  return limpio;
 }
 
 /**
@@ -66,8 +105,10 @@ export class User {
   readonly consentimiento: Consentimiento | undefined;
   readonly registradoEn: Date;
   readonly nombre: string | undefined;
+  readonly modulosActivos: readonly Modulo[];
+  readonly mascota: Mascota | undefined;
 
-  private constructor(datos: DatosDeUsuario) {
+  private constructor(datos: DatosDeUsuario & { readonly modulosActivos: readonly Modulo[] }) {
     this.id = datos.id;
     this.correo = datos.correo;
     this.idProveedorAuth = datos.idProveedorAuth;
@@ -75,6 +116,8 @@ export class User {
     this.consentimiento = datos.consentimiento;
     this.registradoEn = new Date(datos.registradoEn.getTime());
     this.nombre = datos.nombre;
+    this.modulosActivos = [...datos.modulosActivos];
+    this.mascota = datos.mascota;
   }
 
   static create(datos: DatosDeUsuario, ahora: Date = new Date()): User {
@@ -92,7 +135,53 @@ export class User {
       }
     }
 
-    return new User(datos);
+    // Una lista vacia es valida aqui: es la cuenta recien creada que todavia
+    // no paso por la bienvenida. Lo que no se admite es elegir cero, y eso lo
+    // impide `conPreferencias`.
+    const modulosActivos =
+      datos.modulosActivos === undefined || datos.modulosActivos.length === 0
+        ? []
+        : elegirModulos(datos.modulosActivos);
+
+    return new User({
+      ...datos,
+      modulosActivos,
+      mascota: datos.mascota === undefined ? undefined : crearMascota(datos.mascota),
+    });
+  }
+
+  /**
+   * Si la persona ya eligio con que modulos empezar.
+   *
+   * Una cuenta nueva no los tiene, y el frontend la lleva a la bienvenida
+   * antes del dashboard (SCRUM-90).
+   */
+  haElegidoModulos(): boolean {
+    return this.modulosActivos.length > 0;
+  }
+
+  /**
+   * La misma cuenta con otras preferencias.
+   *
+   * Devuelve una cuenta nueva en lugar de modificar esta. Solo toca el nombre,
+   * los modulos y la mascota: el correo y el rol no se cambian por aqui, y no
+   * hay forma de pasarlos.
+   */
+  conPreferencias(cambios: CambiosDePreferencias): User {
+    return new User({
+      id: this.id,
+      correo: this.correo,
+      idProveedorAuth: this.idProveedorAuth,
+      rol: this.rol,
+      consentimiento: this.consentimiento,
+      registradoEn: this.registradoEn,
+      nombre: cambios.nombre === undefined ? this.nombre : validarNombre(cambios.nombre),
+      modulosActivos:
+        cambios.modulosActivos === undefined
+          ? this.modulosActivos
+          : elegirModulos(cambios.modulosActivos),
+      mascota: cambios.mascota === undefined ? this.mascota : crearMascota(cambios.mascota),
+    });
   }
 
   /**

@@ -6,6 +6,7 @@ import 'dotenv/config';
 
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 
 /**
  * Aislamiento entre personas, comprobado contra PostgreSQL de verdad.
@@ -34,7 +35,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * Git: la migracion crea el rol sin contrasena justamente para eso.
  */
 const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -152,7 +152,7 @@ describe.skipIf(URL_DUENO === undefined)('Aislamiento impuesto por PostgreSQL', 
     // La migracion crea `vsd_app` sin poder conectarse, a proposito: una
     // contrasena versionada en Git es una contrasena publicada. Aqui se le da
     // una que solo vale para esta base local.
-    await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+    await prepararRolDeLaAplicacion(dueno);
 
     await limpiar(dueno);
     await sembrar(dueno);

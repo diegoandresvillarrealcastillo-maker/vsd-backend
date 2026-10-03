@@ -86,6 +86,23 @@
       "name": "1. Dar de alta la cuenta",
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "});"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -131,7 +148,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\"\n}",
+          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -149,6 +166,23 @@
     {
       "name": "2. Pedir rol de administrador en el alta: 400",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "});"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
@@ -173,7 +207,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\",\n  \"rol\": \"administrador\"\n}",
+          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"rol\": \"administrador\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -219,6 +253,214 @@
           "path": ["api", "cuenta"]
         },
         "description": "Devuelve unicamente la cuenta de quien pregunta. No hay forma de consultar la de otra persona: el identificador sale del token y las politicas de la base filtran por el."
+      }
+    },
+    {
+      "name": "3a. Elegir los modulos y la mascota",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Devuelve los modulos en orden canonico', function () {",
+              "  pm.expect(pm.response.json().modulosActivos).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Guarda la mascota con el color normalizado', function () {",
+              "  pm.expect(pm.response.json().mascota).to.include({ nombre: 'Luma', color: '#a2d9b6' });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": [\n    \"emociones\",\n    \"cognicion\"\n  ],\n  \"mascota\": {\n    \"forma\": \"brote\",\n    \"color\": \"#A2D9B6\",\n    \"accesorio\": \"ninguno\",\n    \"nombre\": \"Luma\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga se queda como estaba. El correo y el rol no se cambian por aqui."
+      }
+    },
+    {
+      "name": "3b. Quedarse sin modulos: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Con el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('SIN_MODULOS_ACTIVOS');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Tiene que quedar al menos un modulo activo: con cero, el dashboard quedaria vacio."
+      }
+    },
+    {
+      "name": "3c. Exportar mis datos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Se descarga como archivo', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+              "});",
+              "",
+              "pm.test('Es la cuenta propia, con sus resultados y su diario', function () {",
+              "  const datos = pm.response.json();",
+              "  pm.expect(datos.cuenta.id).to.equal(pm.environment.get('cuentaId'));",
+              "  pm.expect(datos.resultados).to.be.an('array');",
+              "  pm.expect(datos.entradasDeDiario).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/exportacion",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "exportacion"]
+        },
+        "description": "Derecho de acceso (Ley 1581 de 2012): todo lo que VSD Health guarda de quien firma el token, y nada de nadie mas."
+      }
+    },
+    {
+      "name": "3d. Borrar la cuenta sin confirmar: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El borrado de verdad no esta en la coleccion a proposito: borraria la",
+              "// cuenta de pruebas y su identidad en Supabase, y la siguiente corrida",
+              "// ya no podria iniciar sesion. Aqui solo se comprueba que sin la frase",
+              "// exacta no se borra nada.",
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"confirmacion\": \"borrar mi cuenta\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "Hace falta la frase exacta \"BORRAR MI CUENTA\". Sin ella, 400 y la cuenta sigue."
+      }
+    },
+    {
+      "name": "3e. Consultar el progreso por modulo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "// La peticion 3a dejo activos cognicion y emociones, en ese orden.",
+              "pm.test('Un sendero por cada modulo activo, y ninguno mas', function () {",
+              "  pm.expect(pm.response.json().map(function (uno) { return uno.modulo; })).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Cada uno con su etapa y lo que toca hoy', function () {",
+              "  pm.response.json().forEach(function (uno) {",
+              "    pm.expect(uno.etapa.numero).to.be.a('number');",
+              "    pm.expect(uno.hoy).to.be.an('array');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/progreso",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "progreso"]
+        },
+        "description": "Por cada modulo activo: la etapa, las sesiones hechas y lo que toca hoy. Se calcula con los resultados, en hora de Colombia."
       }
     },
     {

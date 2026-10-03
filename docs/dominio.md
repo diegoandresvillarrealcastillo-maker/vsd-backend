@@ -123,6 +123,18 @@ en `exigirConsentimiento()`, que falla en vez de devolver un booleano que
 alguien pueda olvidarse de mirar. Aqui el olvido no seria un error de
 programacion, seria un incumplimiento legal.
 
+#### Una sola version del aviso
+
+La version vigente vive en un unico sitio: `AvisoDePrivacidad.ts`. El frontend
+y la coleccion de Postman la piden a `GET /api/aviso` en lugar de llevar su
+propia copia. Antes habia tres valores para lo mismo, y segun por donde entrara
+alguien quedaba registrado que habia aceptado cosas distintas (SCRUM-85).
+
+Al darse de alta solo se acepta la version vigente: cualquier otra responde
+409 `VERSION_DEL_AVISO_NO_VIGENTE` y no crea nada. Quien ya tenia cuenta
+conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
+lo que acepto aquel dia.
+
 **Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
 sensibles de menores exige garantias adicionales que quedan fuera del alcance
 de esta version.
@@ -137,6 +149,46 @@ ningun usuario.
 
 Ser administrador no es tener una llave maestra. Hay una prueba que lo
 comprueba.
+
+### Las preferencias: modulos activos y mascota
+
+Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
+
+- Los modulos se nombran con una **clave estable** —`cognicion`, `bienestar`,
+  `emociones`—, no con el nombre visible ni con el identificador de la
+  categoria. El nombre ya cambio una vez y el identificador puede variar entre
+  bases.
+- **Una lista vacia significa "todavia no eligio"**, y es lo que lleva a la
+  bienvenida. Elegir cero, en cambio, se rechaza (`SIN_MODULOS_ACTIVOS`): el
+  dashboard quedaria vacio. Las cuentas que ya existian tambien empiezan
+  vacias, para preguntarles en lugar de suponer.
+- La **mascota** valida el formato —claves cortas, color `#RRGGBB`, nombre de
+  1 a 30 caracteres— pero no una lista cerrada de formas: los modelos
+  definitivos llegan despues y no deberian exigir desplegar el backend.
+
+`User.conPreferencias` devuelve una cuenta nueva y solo toca esas dos cosas.
+El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:
+el cuerpo no tiene donde ponerlos, y mandarlos responde 400.
+
+### Exportar y borrar: los derechos de acceso y de supresion
+
+La Ley 1581 de 2012 reconoce a cada persona el derecho a conocer lo que se
+guarda de ella y a pedir que se suprima (SCRUM-75).
+
+- **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados y
+  las entradas de diario. Cada repositorio filtra por la persona y la base lo
+  impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
+  resto de la API: con su nivel orientativo y sin el puntaje normalizado.
+- **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra
+  las filas dentro de una transaccion, borra la identidad en el proveedor y
+  solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
+  respuesta es `BORRADO_NO_COMPLETADO` (503): no se borro nada y se puede
+  reintentar.
+
+Queda un hueco que no se puede cerrar del todo: que la base falle al confirmar
+justo despues de que el proveedor ya borro. Es mucho menos probable que un
+fallo de red, que es lo que este orden cubre, y si ocurre queda en el registro
+del servidor.
 
 ### Lo que falta por conectar
 
@@ -229,6 +281,59 @@ verifica.
 Es un ejemplo concreto del principio de [seguridad.md](seguridad.md): la
 autorizacion vive en la capa de aplicacion, y se comprueba antes de devolver
 nada.
+
+## `Calendario`
+
+### El dia se cuenta en hora de Colombia
+
+Las actividades del dia, el sendero de cada modulo, el diario y el semaforo
+dependen de "que dia es". Ese dia es el de Colombia, no el de UTC, y lo decide
+siempre `Calendario`.
+
+Bogota va cinco horas por detras de UTC. Con la fecha UTC, algo hecho a las
+8 p. m. en Colombia contaria para el dia siguiente: la actividad sumaria en
+manana, el diario la pondria en otro dia y el progreso saldria corrido.
+
+| Metodo               | Que hace                                                                 |
+| -------------------- | ------------------------------------------------------------------------ |
+| `diaDe(instante)`    | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
+| `limitesDelDia(dia)` | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+
+**La regla:** ningun calculo de dia usa la fecha UTC directamente. Nada de
+`toISOString().slice(0, 10)` ni de `getUTCDate()` para decidir a que dia
+pertenece algo. Los instantes se siguen guardando en UTC, que es lo correcto;
+lo que cambia es como se agrupan por dia.
+
+La zona sale de `ZONA_HORARIA`, por defecto `America/Bogota`, y se valida al
+arrancar. Hay un solo `Calendario` para todo el proceso, inyectado con el token
+`CALENDARIO`. Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue
+sin dependencias externas.
+
+## El sendero de cada modulo
+
+`Sendero.ts` decide en que etapa va cada persona en cada modulo y que le toca
+hoy (SCRUM-91). Se expone en `GET /api/progreso`.
+
+- **Una sesion es un dia** en el que la persona hizo algo del modulo, contado
+  con el `Calendario`. Dos actividades el mismo dia suman una sesion, y faltar
+  un dia no deja hueco: el sendero no castiga.
+- **Etapas** de 5, 10, 15 y 20 sesiones; despues, temporadas de 25 sin fin. Al
+  completar una se pasa a la siguiente con cero hechas.
+- **Lo que toca hoy** sale de cada actividad: su `frecuencia` (diaria, ciertos
+  dias de la semana o unica) y su `desdeSesion`, que abre el sendero poco a
+  poco. Hoy cuenta como la sesion siguiente a las anteriores, la haya empezado
+  o no: hacer la primera actividad del dia no abre otras a mitad del dia.
+- Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve hecha
+  hasta manana.
+
+**No se guarda nada aparte.** Todo sale de `resultado`. Un contador propio
+podria desincronizarse del historial, y entonces la pantalla diria una cosa y
+los datos otra.
+
+Cada categoria sabe a que modulo pertenece por su columna `modulo`, con la
+misma clave estable que las preferencias. Un resultado de una actividad que ya
+no esta en el catalogo no cuenta para ningun modulo: no hay forma de saber a
+cual pertenecia.
 
 ## Errores
 

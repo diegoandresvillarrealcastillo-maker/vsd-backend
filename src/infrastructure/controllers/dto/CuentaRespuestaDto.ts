@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { User } from '../../../domain/model/User.js';
+import { MascotaDto } from './ActualizarPreferenciasDto.js';
 
 /** El consentimiento tal como se devuelve. */
 export class ConsentimientoDto {
@@ -36,6 +37,21 @@ export class CuentaRespuestaDto {
   @ApiProperty({ description: 'Cuando se creo la cuenta.', type: String, format: 'date-time' })
   registradoEn!: Date;
 
+  @ApiProperty({
+    description:
+      'Modulos activos, en orden. Vacio mientras la persona no ha elegido: el frontend la lleva a la bienvenida.',
+    type: [String],
+    enum: ['cognicion', 'bienestar', 'emociones'],
+  })
+  modulosActivos!: string[];
+
+  @ApiProperty({
+    description: 'La mascota guardada, o null para usar la de siempre.',
+    type: MascotaDto,
+    nullable: true,
+  })
+  mascota!: MascotaDto | null;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -43,6 +59,8 @@ export class CuentaRespuestaDto {
     dto.correo = cuenta.correo;
     dto.rol = cuenta.rol;
     dto.registradoEn = cuenta.registradoEn;
+    dto.modulosActivos = [...cuenta.modulosActivos];
+    dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

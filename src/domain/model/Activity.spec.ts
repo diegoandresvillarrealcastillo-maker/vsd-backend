@@ -193,3 +193,42 @@ describe('Los textos que ve la persona', () => {
     }
   });
 });
+
+describe('La frecuencia y la sesion de entrada', () => {
+  const BASE = {
+    id: new ActivityId('12121212-1212-4121-8121-121212121212'),
+    nombre: 'Una actividad',
+    direccionEscala: DireccionEscala.SIN_PUNTAJE,
+  };
+
+  it('por defecto es diaria y aparece desde la primera sesion', () => {
+    const actividad = Activity.create(BASE);
+
+    expect(actividad.frecuencia).toEqual({ tipo: 'diaria' });
+    expect(actividad.desdeSesion).toBe(1);
+  });
+
+  it('acepta una frecuencia semanal con dias validos', () => {
+    const actividad = Activity.create({
+      ...BASE,
+      frecuencia: { tipo: 'semanal', dias: [1, 3, 5] },
+    });
+
+    expect(actividad.frecuencia).toEqual({ tipo: 'semanal', dias: [1, 3, 5] });
+  });
+
+  it.each([
+    ['sin dias', []],
+    ['con un dia fuera de 1 a 7', [0, 8]],
+  ])('rechaza una semanal %s', (_caso, dias) => {
+    expect(() => Activity.create({ ...BASE, frecuencia: { tipo: 'semanal', dias } })).toThrow(
+      InvalidActivityConfigurationError,
+    );
+  });
+
+  it.each([0, -1, 1.5])('rechaza aparecer desde la sesion %d', (desdeSesion) => {
+    expect(() => Activity.create({ ...BASE, desdeSesion })).toThrow(
+      InvalidActivityConfigurationError,
+    );
+  });
+});

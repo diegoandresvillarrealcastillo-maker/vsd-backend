@@ -39,6 +39,14 @@ enum DireccionEscala {
   @@map("direccion_escala")
 }
 
+enum FrecuenciaActividad {
+  diaria
+  semanal
+  unica
+
+  @@map("frecuencia_actividad")
+}
+
 /// Nivel orientativo. Descriptivo, nunca clinico: VSD Health no diagnostica.
 enum NivelOrientativo {
   favorable
@@ -70,6 +78,11 @@ model Usuario {
   versionPoliticaAceptada String   @map("version_politica_aceptada") @db.VarChar(20)
   fechaAceptacionPolitica DateTime @map("fecha_aceptacion_politica") @db.Timestamptz(3)
   fechaRegistro           DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(3)
+  /// Claves estables: cognicion, bienestar, emociones. Vacia mientras la
+  /// persona no ha elegido con cuales empezar. SCRUM-88.
+  modulosActivos          String[] @default([]) @map("modulos_activos")
+  /// Forma, color, accesorio y nombre. Sin valor se usa la mascota de siempre.
+  mascota                 Json?    @db.JsonB
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
@@ -81,6 +94,9 @@ model Categoria {
   id          String  @id @default(uuid()) @map("id_categoria") @db.Uuid
   nombre      String  @unique @db.VarChar(50)
   descripcion String?
+  /// El modulo al que corresponde: cognicion, bienestar o emociones. Es la
+  /// clave estable; el nombre es texto visible y puede cambiar. SCRUM-91.
+  modulo      String? @unique @db.VarChar(20)
 
   actividades      Actividad[]
   recursosDeApoyo  RecursoApoyo[]
@@ -105,6 +121,13 @@ model Actividad {
   umbrales        Json?
   /// Textos que ve la persona, en el lenguaje de esta actividad.
   textosNivel     Json?           @map("textos_nivel")
+
+  /// Cada cuanto toca: diaria, ciertos dias de la semana o una sola vez.
+  frecuencia  FrecuenciaActividad @default(diaria)
+  /// Para las semanales: 1 es lunes y 7 domingo.
+  diasSemana  Int[]               @default([]) @map("dias_semana") @db.SmallInt
+  /// Desde que sesion del modulo aparece. SCRUM-91.
+  desdeSesion Int                 @default(1) @map("desde_sesion")
 
   categoria  Categoria   @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
   resultados Resultado[]

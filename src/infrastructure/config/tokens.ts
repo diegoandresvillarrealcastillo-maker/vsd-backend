@@ -15,11 +15,27 @@ export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');
 
+/** Que dia es, en la zona horaria configurada. Ver `Calendario`. */
+export const CALENDARIO = Symbol('Calendario');
+
 /** Las cuentas de VSD Health. */
 export const USER_REPOSITORY = Symbol('UserRepositoryPort');
 
 /** Alta de cuenta: el puente entre la identidad del proveedor y la nuestra. */
 export const REGISTRAR_CUENTA = Symbol('RegistrarCuentaUseCase');
+
+/** Modulos activos y mascota de la cuenta propia. */
+export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
+
+/** Derechos de supresion y de acceso: borrar la cuenta y exportar los datos. */
+export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');
+export const EXPORTAR_DATOS = Symbol('ExportarDatosUseCase');
+
+/** Lectura del diario. */
+export const DIARIO_REPOSITORY = Symbol('DiarioRepositoryPort');
+
+/** La identidad en el proveedor de autenticacion. */
+export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 
 /** Base de conocimiento del asistente: la tabla RECURSO_APOYO. */
 export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
@@ -29,6 +45,9 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  * unico sitio donde se elige entre ese y el que use un modelo de lenguaje.
  */
 export const ASISTENTE = Symbol('AsistentePort');
+
+/** El sendero de cada modulo activo. */
+export const CONSULTAR_PROGRESO = Symbol('ConsultarProgresoUseCase');
 
 /** Lectura del catalogo: categorias con sus actividades. */
 export const CONSULTAR_CATALOGO = Symbol('ConsultarCatalogoUseCase');

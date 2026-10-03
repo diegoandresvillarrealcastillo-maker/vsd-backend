@@ -46,6 +46,16 @@ Solo la configuracion. Ninguna de estas diferencias vive en el codigo:
 `CORS_ORIGIN` nunca puede ser `*` en PRE ni en PROD: debe nombrar el
 dominio exacto.
 
+`SUPABASE_SERVICE_ROLE_KEY` es **obligatoria en PRE y PROD**: sin ella el
+servicio no arranca. Es la clave `service_role` de cada proyecto de Supabase,
+se pone a mano en Render y nunca pasa por Git. El backend la usa solo para
+borrar la identidad de quien borra su cuenta. En DEV es opcional.
+
+`ZONA_HORARIA` es la misma en los tres ambientes, `America/Bogota`, y no hace
+falta declararla: es el valor por defecto. Existe para que las pruebas puedan
+cambiarla. Decide que dia es para las actividades, el sendero, el diario y el
+semaforo; ver "El dia se cuenta en hora de Colombia" en `dominio.md`.
+
 ## Donde vive cada valor
 
 - **En el repositorio** solo esta `.env.example`, con los nombres de las

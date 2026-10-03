@@ -13,8 +13,12 @@
 export abstract class DomainError extends Error {
   abstract readonly code: string;
 
-  protected constructor(message: string) {
-    super(message);
+  /**
+   * `causa` guarda el fallo tecnico que llevo a este error, cuando lo hay. No
+   * sale en la respuesta: es para el registro del servidor.
+   */
+  protected constructor(message: string, causa?: unknown) {
+    super(message, causa === undefined ? undefined : { cause: causa });
     this.name = new.target.name;
   }
 }
@@ -139,6 +143,27 @@ export class MissingConsentError extends DomainError {
 }
 
 /**
+ * Se intento crear una cuenta aceptando un aviso que ya no es el vigente.
+ *
+ * No se acepta en silencio: quedaria registrado que la persona dio permiso a un
+ * texto distinto del que esta en vigor, y esa diferencia es exactamente lo que
+ * no se puede tener ante una reclamacion. Quien llama debe pedir la version
+ * vigente a `GET /api/aviso` y volver a intentarlo.
+ *
+ * Solo aplica al crear la cuenta. Las cuentas que ya existen conservan la
+ * version con la que se crearon.
+ */
+export class OutdatedPrivacyNoticeError extends DomainError {
+  readonly code = 'VERSION_DEL_AVISO_NO_VIGENTE';
+
+  constructor() {
+    super(
+      'La versión del aviso de privacidad que se envió ya no está vigente. Vuelve a cargar la página y acepta la versión actual.',
+    );
+  }
+}
+
+/**
  * Quien llama tiene un token valido pero todavia no tiene cuenta aqui.
  *
  * Supabase y VSD Health guardan identidades distintas a proposito: el token
@@ -198,6 +223,65 @@ export class FutureConsentDateError extends DomainError {
 
   constructor() {
     super('La fecha de aceptación de la política no puede estar en el futuro.');
+  }
+}
+
+/** Se pidio activar un modulo que no existe. */
+export class UnknownModuleError extends DomainError {
+  readonly code = 'MODULO_DESCONOCIDO';
+
+  constructor(valor: string) {
+    super(`El módulo "${valor}" no existe. Los módulos son cognicion, bienestar y emociones.`);
+  }
+}
+
+/**
+ * La eleccion dejaria la cuenta sin ningun modulo activo.
+ *
+ * Con cero modulos el dashboard quedaria vacio y la persona sin nada que hacer.
+ */
+export class NoActiveModulesError extends DomainError {
+  readonly code = 'SIN_MODULOS_ACTIVOS';
+
+  constructor() {
+    super('Tiene que quedar al menos un módulo activo.');
+  }
+}
+
+/** El nombre con el que la persona quiere que la llamen no se puede guardar. */
+export class InvalidNameError extends DomainError {
+  readonly code = 'NOMBRE_INVALIDO';
+
+  constructor() {
+    super('El nombre debe tener entre 1 y 100 caracteres, sin saltos de línea.');
+  }
+}
+
+/**
+ * El borrado de la cuenta no se pudo completar, y por eso no se borro nada.
+ *
+ * Borrar es todo o nada: las filas propias y la identidad en el proveedor de
+ * autenticacion. Si una de las dos mitades falla, la otra se deshace. Un
+ * borrado a medias dejaria datos huerfanos, y eso incumple el derecho de
+ * supresion aunque la pantalla dijera que salio bien.
+ */
+export class AccountDeletionFailedError extends DomainError {
+  readonly code = 'BORRADO_NO_COMPLETADO';
+
+  constructor(causa?: unknown) {
+    super(
+      'No se pudo borrar la cuenta en este momento, así que no se borró nada. Inténtalo de nuevo en unos minutos.',
+      causa,
+    );
+  }
+}
+
+/** La mascota recibida no se puede guardar tal cual. */
+export class InvalidPetError extends DomainError {
+  readonly code = 'MASCOTA_INVALIDA';
+
+  constructor(motivo: string) {
+    super(`No se pudo guardar la mascota: ${motivo}.`);
   }
 }
 

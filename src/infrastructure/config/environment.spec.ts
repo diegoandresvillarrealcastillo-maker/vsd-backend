@@ -36,6 +36,7 @@ describe('validarConfiguracion', () => {
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://vsd.example',
       DATABASE_URL: 'postgresql://x:y@z:5432/db',
+      SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
     });
 
     expect(configuracion.esProduccion).toBe(true);
@@ -109,6 +110,7 @@ describe('La base de datos es obligatoria fuera de desarrollo', () => {
       NODE_ENV: ambiente,
       CORS_ORIGIN: 'https://vsd.example',
       DATABASE_URL: 'postgresql://x:y@z:5432/db',
+      SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
     });
 
     expect(configuracion.urlBaseDeDatos).toBe('postgresql://x:y@z:5432/db');
@@ -188,5 +190,59 @@ describe('Supabase es obligatorio en todos los ambientes', () => {
     });
 
     expect(configuracion.urlDeSupabase).toBe('https://abcdefgh.supabase.co');
+  });
+});
+
+describe('La clave de servicio es obligatoria fuera de local', () => {
+  // Sin ella, borrar una cuenta dejaria la identidad de esa persona en
+  // Supabase: el derecho de supresion a medias, y sin que nadie se entere.
+  const PRODUCTIVA = {
+    ...VALIDA,
+    CORS_ORIGIN: 'https://vsd.example',
+    DATABASE_URL: 'postgresql://x:y@z:5432/db',
+  };
+
+  it.each(['preproduction', 'production'])('no arranca en %s sin la clave', (ambiente) => {
+    expect(() => validarConfiguracion({ ...PRODUCTIVA, NODE_ENV: ambiente })).toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY/,
+    );
+  });
+
+  it('en desarrollo es opcional', () => {
+    expect(validarConfiguracion(VALIDA).claveDeServicioDeSupabase).toBeUndefined();
+  });
+
+  it('el mensaje de error no incluye la clave recibida', () => {
+    // La clave salta todas las politicas. Si apareciera en el error, acabaria
+    // impresa en el registro del despliegue.
+    try {
+      validarConfiguracion({
+        ...PRODUCTIVA,
+        NODE_ENV: 'production',
+        SUPABASE_SERVICE_ROLE_KEY: 'valor-que-no-debe-salir',
+        PORT: 'no-es-un-numero',
+      });
+      expect.unreachable('deberia haber lanzado');
+    } catch (error) {
+      expect((error as Error).message).not.toContain('valor-que-no-debe-salir');
+    }
+  });
+});
+
+describe('La zona horaria decide que dia es', () => {
+  it('por defecto es la de Colombia', () => {
+    expect(validarConfiguracion(VALIDA).zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('acepta otra zona IANA', () => {
+    expect(validarConfiguracion({ ...VALIDA, ZONA_HORARIA: 'UTC' }).zonaHoraria).toBe('UTC');
+  });
+
+  it('no arranca con una zona mal escrita', () => {
+    // Con una zona invalida los dias saldrian corridos sin ningun error
+    // visible. Mejor que el servicio no arranque y diga por que.
+    expect(() => validarConfiguracion({ ...VALIDA, ZONA_HORARIA: 'Bogota' })).toThrow(
+      /ZONA_HORARIA/,
+    );
   });
 });

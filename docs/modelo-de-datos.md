@@ -86,6 +86,8 @@ queda su identificador. Ver
 | `version_politica_aceptada` | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.            |
 | `fecha_aceptacion_politica` | TIMESTAMP    | no   | Cuándo la aceptó.                                                     |
 | `fecha_registro`            | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                             |
+| `modulos_activos`           | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.         |
+| `mascota`                   | JSONB        | sí   | Forma, color, accesorio y nombre. NULL usa la mascota de siempre.     |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una
@@ -104,11 +106,12 @@ El administrador **no** puede leer filas de `USUARIO` ajenas.
 
 Las tres áreas del sistema: cognición, bienestar y emociones.
 
-| Campo          | Tipo        | Nulo | Descripción                       |
-| -------------- | ----------- | ---- | --------------------------------- |
-| `id_categoria` | UUID        | no   | Clave primaria.                   |
-| `nombre`       | VARCHAR(50) | no   | Cognición, Bienestar o Emociones. |
-| `descripcion`  | TEXT        | sí   | Descripción corta del área.       |
+| Campo          | Tipo        | Nulo | Descripción                                    |
+| -------------- | ----------- | ---- | ---------------------------------------------- |
+| `id_categoria` | UUID        | no   | Clave primaria.                                |
+| `nombre`       | VARCHAR(50) | no   | Cognición, Bienestar o Emociones.              |
+| `descripcion`  | TEXT        | sí   | Descripción corta del área.                    |
+| `modulo`       | VARCHAR(20) | sí   | `cognicion`, `bienestar` o `emociones`. Único. |
 
 **Política de acceso:** catálogo. Cualquier sesión autenticada lee; solo el
 administrador escribe.
@@ -130,6 +133,9 @@ Además de describirse a sí misma, **declara cómo se interpreta su puntaje**.
 | `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                 |
 | `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                   |
 | `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                    |
+| `frecuencia`       | ENUM         | no   | `diaria`, `semanal` o `unica`. Por defecto `diaria`.         |
+| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                  |
+| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.          |
 
 ### Por qué la actividad declara la dirección de su escala
 

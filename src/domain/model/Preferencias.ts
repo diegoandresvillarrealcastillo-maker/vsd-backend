@@ -59,20 +59,23 @@ export function elegirModulos(elegidos: readonly string[]): readonly Modulo[] {
 /**
  * Como es la mascota de la persona.
  *
- * Forma y accesorio se validan por formato y no contra una lista cerrada. Los
- * modelos definitivos todavia no existen —hoy se usa Luma, la del diseño de
- * Figma—, y con una lista aqui cada modelo nuevo exigiria desplegar el backend.
- * Es el frontend quien sabe dibujar cada forma, y si recibe una que no conoce
- * usa la de siempre.
+ * La forma es el personaje: `fungito`, `sparky`, `ori`, `gato`, `obsidian` o
+ * `trama` (SCRUM-99). Se valida por formato y no contra esa lista: cada
+ * personaje nuevo exigiria desplegar el backend, y es el frontend quien sabe
+ * dibujarlos. Si recibe una forma que no conoce, usa la de siempre.
+ *
+ * Color y accesorio son opcionales. Los personajes definitivos no los usan —cada
+ * uno tiene su propio dibujo—, pero se aceptan para no invalidar lo que se
+ * guardo con el modelo anterior.
  */
 export interface Mascota {
   readonly forma: string;
-  readonly color: string;
-  readonly accesorio: string;
   readonly nombre: string;
+  readonly color?: string;
+  readonly accesorio?: string;
 }
 
-/** Una clave corta en minusculas: `brote`, `gato`, `bufanda-roja`. */
+/** Una clave corta en minusculas: `fungito`, `gato`, `bufanda-roja`. */
 const CLAVE = /^[a-z][a-z0-9-]{0,29}$/;
 
 const COLOR = /^#[0-9a-f]{6}$/;
@@ -84,22 +87,25 @@ const LARGO_MAXIMO_DEL_NOMBRE = 30;
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
-/** Valida la mascota y la normaliza: color en minusculas, nombre sin espacios sobrantes. */
+/**
+ * Valida la mascota y la normaliza: nombre sin espacios sobrantes y, si viene,
+ * color en minusculas. Lo que no viene no se inventa.
+ */
 export function crearMascota(datos: Mascota): Mascota {
   const forma = datos.forma.trim();
-  const accesorio = datos.accesorio.trim();
-  const color = datos.color.trim().toLowerCase();
   const nombre = datos.nombre.trim();
+  const accesorio = datos.accesorio?.trim();
+  const color = datos.color?.trim().toLowerCase();
 
   if (!CLAVE.test(forma)) {
     throw new InvalidPetError('la forma no es válida');
   }
 
-  if (!CLAVE.test(accesorio)) {
+  if (accesorio !== undefined && !CLAVE.test(accesorio)) {
     throw new InvalidPetError('el accesorio no es válido');
   }
 
-  if (!COLOR.test(color)) {
+  if (color !== undefined && !COLOR.test(color)) {
     throw new InvalidPetError('el color debe tener la forma #RRGGBB');
   }
 
@@ -109,5 +115,10 @@ export function crearMascota(datos: Mascota): Mascota {
     );
   }
 
-  return { forma, color, accesorio, nombre };
+  return {
+    forma,
+    nombre,
+    ...(color === undefined ? {} : { color }),
+    ...(accesorio === undefined ? {} : { accesorio }),
+  };
 }

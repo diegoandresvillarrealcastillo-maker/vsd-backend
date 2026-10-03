@@ -19,7 +19,12 @@ interface Progreso {
   modulo: string;
   sesiones: number;
   etapa: { numero: number; sesionesHechas: number; sesionesDeLaEtapa: number };
-  hoy: { id: string; nombre: string; hecha: boolean }[];
+  hoy: {
+    id: string;
+    nombre: string;
+    hecha: boolean;
+    frecuencia: { tipo: string; dias?: number[] };
+  }[];
 }
 
 async function levantarAplicacion(): Promise<NestExpressApplication> {
@@ -103,6 +108,10 @@ describe('GET /api/progreso', () => {
 
     expect(cognicion?.sesiones).toBe(1);
     expect(cognicion?.hoy).toEqual([expect.objectContaining({ id: SECUENCIAS, hecha: true })]);
+    // La frecuencia viaja con cada actividad, para la etiqueta del sendero
+    // (SCRUM-92). Las del catalogo en memoria son diarias.
+    expect(cognicion?.hoy[0]).toMatchObject({ frecuencia: { tipo: 'diaria' } });
+    expect(cognicion?.hoy[0]?.frecuencia).not.toHaveProperty('dias');
     expect(bienestar?.sesiones).toBe(0);
   });
 

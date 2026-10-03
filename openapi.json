@@ -628,33 +628,31 @@
         "properties": {
           "forma": {
             "type": "string",
-            "description": "Forma del modelo.",
-            "example": "brote",
-            "maxLength": 30
-          },
-          "color": {
-            "type": "string",
-            "description": "Color principal, #RRGGBB.",
-            "example": "#a2d9b6",
-            "maxLength": 7
-          },
-          "accesorio": {
-            "type": "string",
-            "description": "Accesorio, o \"ninguno\".",
-            "example": "bufanda",
+            "description": "El personaje: fungito, sparky, ori, gato, obsidian o trama. Una clave que el frontend no conozca se dibuja como la mascota de siempre.",
+            "example": "fungito",
             "maxLength": 30
           },
           "nombre": {
             "type": "string",
             "description": "Nombre de la mascota.",
-            "example": "Luma",
+            "example": "Fungito",
+            "maxLength": 30
+          },
+          "color": {
+            "type": "string",
+            "description": "Color principal, #RRGGBB. Del modelo anterior; los personajes no lo usan.",
+            "example": "#a2d9b6",
+            "maxLength": 7
+          },
+          "accesorio": {
+            "type": "string",
+            "description": "Accesorio. Del modelo anterior; los personajes no lo usan.",
+            "example": "bufanda",
             "maxLength": 30
           }
         },
         "required": [
           "forma",
-          "color",
-          "accesorio",
           "nombre"
         ]
       },
@@ -896,6 +894,34 @@
           "sesionesDeLaEtapa"
         ]
       },
+      "FrecuenciaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "unica"
+            ]
+          },
+          "dias": {
+            "description": "Solo en las semanales: 1 es lunes y 7 domingo.",
+            "example": [
+              1,
+              3,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tipo"
+        ]
+      },
       "ActividadDeHoyDto": {
         "type": "object",
         "properties": {
@@ -917,12 +943,21 @@
           "hecha": {
             "type": "boolean",
             "description": "Si ya la hizo hoy."
+          },
+          "frecuencia": {
+            "description": "Cada cuanto toca, para la etiqueta del sendero (Diaria, un dia, Una vez).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrecuenciaDto"
+              }
+            ]
           }
         },
         "required": [
           "id",
           "nombre",
-          "hecha"
+          "hecha",
+          "frecuencia"
         ]
       },
       "ProgresoRespuestaDto": {

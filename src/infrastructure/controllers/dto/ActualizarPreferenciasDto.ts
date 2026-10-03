@@ -11,25 +11,40 @@ import {
 
 /** La mascota tal como llega. El formato fino lo valida el dominio. */
 export class MascotaDto {
-  @ApiProperty({ description: 'Forma del modelo.', example: 'brote', maxLength: 30 })
+  @ApiProperty({
+    description:
+      'El personaje: fungito, sparky, ori, gato, obsidian o trama. Una clave que el frontend no conozca se dibuja como la mascota de siempre.',
+    example: 'fungito',
+    maxLength: 30,
+  })
   @IsString()
   @MaxLength(30)
   forma!: string;
 
-  @ApiProperty({ description: 'Color principal, #RRGGBB.', example: '#a2d9b6', maxLength: 7 })
-  @IsString()
-  @MaxLength(7)
-  color!: string;
-
-  @ApiProperty({ description: 'Accesorio, o "ninguno".', example: 'bufanda', maxLength: 30 })
-  @IsString()
-  @MaxLength(30)
-  accesorio!: string;
-
-  @ApiProperty({ description: 'Nombre de la mascota.', example: 'Luma', maxLength: 30 })
+  @ApiProperty({ description: 'Nombre de la mascota.', example: 'Fungito', maxLength: 30 })
   @IsString()
   @MaxLength(30)
   nombre!: string;
+
+  @ApiPropertyOptional({
+    description: 'Color principal, #RRGGBB. Del modelo anterior; los personajes no lo usan.',
+    example: '#a2d9b6',
+    maxLength: 7,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  color?: string;
+
+  @ApiPropertyOptional({
+    description: 'Accesorio. Del modelo anterior; los personajes no lo usan.',
+    example: 'bufanda',
+    maxLength: 30,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  accesorio?: string;
 }
 
 /**

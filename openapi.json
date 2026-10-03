@@ -896,6 +896,34 @@
           "sesionesDeLaEtapa"
         ]
       },
+      "FrecuenciaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "unica"
+            ]
+          },
+          "dias": {
+            "description": "Solo en las semanales: 1 es lunes y 7 domingo.",
+            "example": [
+              1,
+              3,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tipo"
+        ]
+      },
       "ActividadDeHoyDto": {
         "type": "object",
         "properties": {
@@ -917,12 +945,21 @@
           "hecha": {
             "type": "boolean",
             "description": "Si ya la hizo hoy."
+          },
+          "frecuencia": {
+            "description": "Cada cuanto toca, para la etiqueta del sendero (Diaria, un dia, Una vez).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrecuenciaDto"
+              }
+            ]
           }
         },
         "required": [
           "id",
           "nombre",
-          "hecha"
+          "hecha",
+          "frecuencia"
         ]
       },
       "ProgresoRespuestaDto": {

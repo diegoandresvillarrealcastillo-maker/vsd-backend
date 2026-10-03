@@ -97,6 +97,38 @@ describe('DomainExceptionFilter', () => {
     );
   });
 
+  it('de un error de Prisma no anota el mensaje, que puede traer lo que escribio la persona', () => {
+    // SCRUM-94: el texto libre de "Un momento bueno del dia" no puede acabar
+    // en el registro. Prisma repite en su mensaje los argumentos de la llamada
+    // que fallo, y ahi iria la metadata del resultado.
+    const registrar = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const fallo = Object.assign(
+      new Error(
+        'Invalid `prisma.resultado.create()` invocation:\n  metadata: { texto: "hoy hable con mi abuela" }',
+      ),
+      { name: 'PrismaClientValidationError', code: 'P2009' },
+    );
+
+    new DomainExceptionFilter().catch(fallo, hostFalso(respuestaFalsa()));
+
+    const anotado = registrar.mock.calls.flat().join('\n');
+
+    expect(anotado).not.toContain('abuela');
+    expect(anotado).toContain('PrismaClientValidationError P2009');
+    expect(anotado).toContain('at ');
+  });
+
+  it('de lo que no es un Error solo anota que clase de cosa era', () => {
+    const registrar = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    new DomainExceptionFilter().catch({ texto: 'algo privado' }, hostFalso(respuestaFalsa()));
+
+    const anotado = registrar.mock.calls.flat().join('\n');
+
+    expect(anotado).not.toContain('algo privado');
+    expect(anotado).toContain('object');
+  });
+
   it('sin identificador tambien registra, en lugar de fallar al fallar', () => {
     // Un filtro de errores que se rompe mientras informa de un error deja el
     // fallo original sin rastro. Aqui la respuesta no trae la cabecera.

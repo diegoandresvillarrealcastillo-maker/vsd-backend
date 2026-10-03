@@ -97,7 +97,7 @@ describe('Cableado completo', () => {
   it('el servicio registra un resultado usando el adaptador real', async () => {
     const servicio = construirActivityResultService();
 
-    const resultado = await servicio.registrar({
+    const { resultado, lineasDeAtencion } = await servicio.registrar({
       userId: USUARIO,
       activityId: ACTIVIDAD,
       clientOperationId: OPERACION,
@@ -107,6 +107,8 @@ describe('Cableado completo', () => {
 
     expect(resultado.userId.value).toBe(USUARIO);
     expect(resultado.score?.level).toBe('favorable');
+    // Favorable no sugiere acompanamiento: no se adjunta ninguna linea.
+    expect(lineasDeAtencion).toEqual([]);
   });
 
   it('el mismo caso de uso sigue siendo idempotente contra el adaptador real', async () => {
@@ -122,6 +124,6 @@ describe('Cableado completo', () => {
     const primero = await servicio.registrar(comando);
     const segundo = await servicio.registrar(comando);
 
-    expect(segundo.id.value).toBe(primero.id.value);
+    expect(segundo.resultado.id.value).toBe(primero.resultado.id.value);
   });
 });

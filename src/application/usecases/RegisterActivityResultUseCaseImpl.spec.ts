@@ -4,9 +4,11 @@ import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Categoria } from '../../domain/model/Categoria.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import { Cobertura, RecursoApoyo, TipoDeRecurso } from '../../domain/model/RecursoApoyo.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl.js';
 
 /**
@@ -88,12 +90,50 @@ class CatalogoFalso implements ActivityRepositoryPort {
   }
 }
 
+/**
+ * Doble de la base de conocimiento: dos lineas, la de Bogota primero, para
+ * comprobar que salen ordenadas por alcance.
+ */
+class RecursosFalsos implements RecursoApoyoRepositoryPort {
+  lineasDeAtencion(): Promise<readonly RecursoApoyo[]> {
+    return Promise.resolve([
+      RecursoApoyo.create({
+        id: 'linea-106',
+        titulo: 'Línea 106',
+        tipo: TipoDeRecurso.CONTACTO,
+        cobertura: Cobertura.BOGOTA,
+      }),
+      RecursoApoyo.create({
+        id: 'linea-192',
+        titulo: 'Línea 192, opción 4',
+        tipo: TipoDeRecurso.CONTACTO,
+        cobertura: Cobertura.NACIONAL,
+      }),
+    ]);
+  }
+
+  porTema(): Promise<readonly RecursoApoyo[]> {
+    return Promise.resolve([]);
+  }
+}
+
+const SIN_PUNTAJE = '66666666-6666-4666-8666-666666666666';
+
 function actividad(): Activity {
   return Activity.create({
     id: new ActivityId(ACTIVIDAD),
     nombre: 'Secuencias',
     direccionEscala: DireccionEscala.MAYOR_ES_MEJOR,
     puntajeMaximo: 10,
+  });
+}
+
+/** Como "Un momento bueno del dia": registra texto y no puntua. */
+function bitacora(): Activity {
+  return Activity.create({
+    id: new ActivityId(SIN_PUNTAJE),
+    nombre: 'Un momento bueno del día',
+    direccionEscala: DireccionEscala.SIN_PUNTAJE,
   });
 }
 
@@ -112,18 +152,66 @@ describe('RegisterActivityResultUseCaseImpl', () => {
   let repositorio: RepositorioFalso;
   let casoDeUso: RegisterActivityResultUseCaseImpl;
 
+  /** Lo registrado, para las pruebas que no miran las lineas de atencion. */
+  async function registrar(orden: RegistrarResultadoCommand): Promise<ActivityResult> {
+    return (await casoDeUso.execute(orden)).resultado;
+  }
+
   beforeEach(() => {
     repositorio = new RepositorioFalso();
     casoDeUso = new RegisterActivityResultUseCaseImpl(
       repositorio,
-      new CatalogoFalso([actividad()]),
+      new CatalogoFalso([actividad(), bitacora()]),
+      new RecursosFalsos(),
       () => new ResultId(RESULTADO),
       () => AHORA,
     );
   });
 
+  describe('las lineas de atencion (SCRUM-94)', () => {
+    it('no acompanan a un resultado que no lo sugiere', async () => {
+      const { lineasDeAtencion } = await casoDeUso.execute(comando({ score: 8 }));
+
+      expect(lineasDeAtencion).toEqual([]);
+    });
+
+    it('acompanan a un resultado cuyo nivel requiere atencion, ordenadas por alcance', async () => {
+      const { resultado, lineasDeAtencion } = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(resultado.sugiereAcompanamiento()).toBe(true);
+      expect(lineasDeAtencion.map((linea) => linea.id)).toEqual(['linea-192', 'linea-106']);
+    });
+
+    it('acompanan a lo escrito con una senal de riesgo, aunque la actividad no puntue', async () => {
+      const { resultado, lineasDeAtencion } = await casoDeUso.execute(
+        comando({
+          activityId: SIN_PUNTAJE,
+          score: undefined,
+          metadata: { texto: 'Hoy nada, ya no puedo más con esto' },
+        }),
+      );
+
+      expect(resultado.tienePuntaje()).toBe(false);
+      expect(lineasDeAtencion).toHaveLength(2);
+    });
+
+    it('un reintento vuelve a traerlas: quien repite ve lo mismo que la primera vez', async () => {
+      const orden = comando({
+        activityId: SIN_PUNTAJE,
+        score: undefined,
+        metadata: { texto: 'quiero morirme' },
+      });
+
+      await casoDeUso.execute(orden);
+      const { lineasDeAtencion } = await casoDeUso.execute(orden);
+
+      expect(repositorio.cantidad).toBe(1);
+      expect(lineasDeAtencion).toHaveLength(2);
+    });
+  });
+
   it('registra un resultado nuevo', async () => {
-    const resultado = await casoDeUso.execute(comando());
+    const resultado = await registrar(comando());
 
     expect(resultado.id.value).toBe(RESULTADO);
     expect(resultado.userId.value).toBe(USUARIO_A);
@@ -135,16 +223,16 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     // despues de que el servidor guardo pero antes de que el dispositivo
     // reciba la confirmacion, el reintento no debe crear un segundo
     // resultado en el historial del usuario.
-    const primero = await casoDeUso.execute(comando());
-    const segundo = await casoDeUso.execute(comando());
+    const primero = await registrar(comando());
+    const segundo = await registrar(comando());
 
     expect(repositorio.cantidad).toBe(1);
     expect(segundo.id.value).toBe(primero.id.value);
   });
 
   it('devuelve el resultado ya registrado aunque cambien los demas datos', async () => {
-    await casoDeUso.execute(comando({ score: 8 }));
-    const reintento = await casoDeUso.execute(comando({ score: 2 }));
+    await registrar(comando({ score: 8 }));
+    const reintento = await registrar(comando({ score: 2 }));
 
     // La operacion ya ocurrio: manda lo que se registro, no lo que llega
     // despues con el mismo identificador.
@@ -153,9 +241,9 @@ describe('RegisterActivityResultUseCaseImpl', () => {
   });
 
   it('no toca el resultado de otra persona aunque se use su identificador de operacion', async () => {
-    await casoDeUso.execute(comando({ userId: USUARIO_A, score: 8 }));
+    await registrar(comando({ userId: USUARIO_A, score: 8 }));
 
-    const ajeno = await casoDeUso.execute(comando({ userId: USUARIO_B, score: 2 }));
+    const ajeno = await registrar(comando({ userId: USUARIO_B, score: 2 }));
 
     // Son dos resultados distintos, cada uno de su dueno. Lo de A sigue
     // exactamente como estaba: ni se sobrescribio ni se devolvio a B.
@@ -180,10 +268,10 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     // persona diera un error y usar uno inventado diera un resultado, esa sola
     // diferencia permitiria ir probando identificadores hasta averiguar
     // cuales existen, sin llegar a ver ni un dato.
-    await casoDeUso.execute(comando({ userId: USUARIO_A }));
+    await registrar(comando({ userId: USUARIO_A }));
 
-    const conOperacionAjena = await casoDeUso.execute(comando({ userId: USUARIO_B }));
-    const conOperacionNueva = await casoDeUso.execute(
+    const conOperacionAjena = await registrar(comando({ userId: USUARIO_B }));
+    const conOperacionNueva = await registrar(
       comando({ userId: USUARIO_B, clientOperationId: OTRA_OPERACION }),
     );
 
@@ -192,8 +280,8 @@ describe('RegisterActivityResultUseCaseImpl', () => {
   });
 
   it('la idempotencia sigue valiendo dentro de la misma persona', async () => {
-    const primero = await casoDeUso.execute(comando({ userId: USUARIO_B }));
-    const reintento = await casoDeUso.execute(comando({ userId: USUARIO_B }));
+    const primero = await registrar(comando({ userId: USUARIO_B }));
+    const reintento = await registrar(comando({ userId: USUARIO_B }));
 
     expect(reintento.id.value).toBe(primero.id.value);
     expect(repositorio.cantidad).toBe(1);
@@ -204,19 +292,19 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     ['actividad', { activityId: 'no-es-un-uuid' }],
     ['operacion del cliente', { clientOperationId: 'no-es-un-uuid' }],
   ])('rechaza un identificador de %s mal formado', async (_caso, sobrescribir) => {
-    await expect(casoDeUso.execute(comando(sobrescribir))).rejects.toThrow(InvalidIdentifierError);
+    await expect(registrar(comando(sobrescribir))).rejects.toThrow(InvalidIdentifierError);
     expect(repositorio.cantidad).toBe(0);
   });
 
   it('rechaza un puntaje fuera de rango sin guardar nada', async () => {
-    await expect(casoDeUso.execute(comando({ score: 99 }))).rejects.toThrow(ScoreOutOfRangeError);
+    await expect(registrar(comando({ score: 99 }))).rejects.toThrow(ScoreOutOfRangeError);
     expect(repositorio.cantidad).toBe(0);
   });
 
   it('valida antes de consultar el repositorio', async () => {
     // Si algo viene mal formado, debe fallar en la frontera y no despues de
     // haber tocado la persistencia.
-    await expect(casoDeUso.execute(comando({ userId: 'roto' }))).rejects.toThrow();
+    await expect(registrar(comando({ userId: 'roto' }))).rejects.toThrow();
     expect(repositorio.cantidad).toBe(0);
   });
 });

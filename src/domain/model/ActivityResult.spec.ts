@@ -132,6 +132,52 @@ describe('ActivityResult sin puntaje', () => {
   });
 });
 
+describe('ActivityResult y lo que la persona escribio (SCRUM-94)', () => {
+  // El texto libre pasa por la misma deteccion de riesgo que el asistente. Una
+  // senal no espera a ninguna tendencia: sugiere acompanamiento esa vez.
+
+  it('una senal de riesgo en el texto sugiere acompanamiento, aunque no haya puntaje', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { texto: 'Hoy no hubo nada, ya no puedo más' } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(true);
+    expect(resultado.sugiereAcompanamiento()).toBe(true);
+  });
+
+  it('busca en cualquier campo de texto y a cualquier profundidad', () => {
+    const resultado = ActivityResult.create(
+      datos({
+        score: undefined,
+        metadata: { notas: [{ del: 'mañana', texto: 'pensé en quitarme la vida' }] },
+      }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(true);
+  });
+
+  it('un momento bueno de verdad no sugiere nada', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { texto: 'Almorcé con mi abuela y nos reímos mucho' } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(false);
+    expect(resultado.sugiereAcompanamiento()).toBe(false);
+  });
+
+  it('los numeros y las claves no cuentan como texto escrito', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { despertares: 3, seMovio: false, tipos: ['caminar'] } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(false);
+  });
+});
+
 describe('ActivityResult y su metadata', () => {
   it('guarda la informacion propia del tipo de actividad', () => {
     const resultado = ActivityResult.create(

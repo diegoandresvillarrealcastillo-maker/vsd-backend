@@ -1,7 +1,7 @@
-import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
+  RegistroDeResultado,
 } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 
 /**
@@ -18,7 +18,7 @@ import type {
 export class ActivityResultService {
   constructor(private readonly registrarResultado: RegisterActivityResultUseCase) {}
 
-  async registrar(command: RegistrarResultadoCommand): Promise<ActivityResult> {
+  async registrar(command: RegistrarResultadoCommand): Promise<RegistroDeResultado> {
     return this.registrarResultado.execute(command);
   }
 }

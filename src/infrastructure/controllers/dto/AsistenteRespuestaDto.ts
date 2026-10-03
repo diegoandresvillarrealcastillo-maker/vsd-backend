@@ -1,31 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { RecursoApoyo } from '../../../domain/model/RecursoApoyo.js';
+import { ApiProperty } from '@nestjs/swagger';
 import type { RespuestaDelAsistente } from '../../../domain/ports/in/AsistentePort.js';
-
-/** Un recurso tal y como sale por la API. */
-export class RecursoDto {
-  @ApiProperty({ format: 'uuid' })
-  id!: string;
-
-  @ApiProperty({ example: 'Línea 192, opción 4' })
-  titulo!: string;
-
-  @ApiPropertyOptional()
-  descripcion?: string;
-
-  @ApiProperty({ example: 'contacto', enum: ['contacto', 'lectura', 'ejercicio'] })
-  tipo!: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.',
-    example: 'nacional',
-  })
-  cobertura?: string;
-
-  @ApiPropertyOptional({ format: 'uri' })
-  enlace?: string;
-}
+import { RecursoDto } from './RecursoDto.js';
 
 /**
  * Respuesta del asistente.
@@ -64,31 +39,9 @@ export class AsistenteRespuestaDto {
 
     dto.intencion = respuesta.intencion;
     dto.mensaje = respuesta.mensaje;
-    dto.recursos = respuesta.recursos.map((recurso) => AsistenteRespuestaDto.recurso(recurso));
+    dto.recursos = respuesta.recursos.map((recurso) => RecursoDto.desde(recurso));
     dto.senalDeRiesgo = respuesta.senalDeRiesgo;
     dto.incluyeLineasDeAtencion = respuesta.incluyeLineasDeAtencion;
-
-    return dto;
-  }
-
-  private static recurso(recurso: RecursoApoyo): RecursoDto {
-    const dto = new RecursoDto();
-
-    dto.id = recurso.id;
-    dto.titulo = recurso.titulo;
-    dto.tipo = recurso.tipo;
-
-    if (recurso.descripcion !== undefined) {
-      dto.descripcion = recurso.descripcion;
-    }
-
-    if (recurso.cobertura !== undefined) {
-      dto.cobertura = recurso.cobertura;
-    }
-
-    if (recurso.enlace !== undefined) {
-      dto.enlace = recurso.enlace;
-    }
 
     return dto;
   }

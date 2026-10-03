@@ -162,9 +162,11 @@ Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
   bienvenida. Elegir cero, en cambio, se rechaza (`SIN_MODULOS_ACTIVOS`): el
   dashboard quedaria vacio. Las cuentas que ya existian tambien empiezan
   vacias, para preguntarles en lugar de suponer.
-- La **mascota** valida el formato —claves cortas, color `#RRGGBB`, nombre de
-  1 a 30 caracteres— pero no una lista cerrada de formas: los modelos
-  definitivos llegan despues y no deberian exigir desplegar el backend.
+- La **mascota** es un personaje (`fungito`, `sparky`, `ori`, `gato`,
+  `obsidian` o `trama`, SCRUM-99) con un nombre de 1 a 30 caracteres. La forma
+  se valida por formato y no contra esa lista: un personaje nuevo no deberia
+  exigir desplegar el backend. Color (`#RRGGBB`) y accesorio son opcionales y
+  vienen del modelo anterior; los personajes no los usan.
 
 `User.conPreferencias` devuelve una cuenta nueva y solo toca esas dos cosas.
 El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:

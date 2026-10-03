@@ -628,33 +628,31 @@
         "properties": {
           "forma": {
             "type": "string",
-            "description": "Forma del modelo.",
-            "example": "brote",
-            "maxLength": 30
-          },
-          "color": {
-            "type": "string",
-            "description": "Color principal, #RRGGBB.",
-            "example": "#a2d9b6",
-            "maxLength": 7
-          },
-          "accesorio": {
-            "type": "string",
-            "description": "Accesorio, o \"ninguno\".",
-            "example": "bufanda",
+            "description": "El personaje: fungito, sparky, ori, gato, obsidian o trama. Una clave que el frontend no conozca se dibuja como la mascota de siempre.",
+            "example": "fungito",
             "maxLength": 30
           },
           "nombre": {
             "type": "string",
             "description": "Nombre de la mascota.",
-            "example": "Luma",
+            "example": "Fungito",
+            "maxLength": 30
+          },
+          "color": {
+            "type": "string",
+            "description": "Color principal, #RRGGBB. Del modelo anterior; los personajes no lo usan.",
+            "example": "#a2d9b6",
+            "maxLength": 7
+          },
+          "accesorio": {
+            "type": "string",
+            "description": "Accesorio. Del modelo anterior; los personajes no lo usan.",
+            "example": "bufanda",
             "maxLength": 30
           }
         },
         "required": [
           "forma",
-          "color",
-          "accesorio",
           "nombre"
         ]
       },

@@ -81,7 +81,7 @@ model Usuario {
   /// Claves estables: cognicion, bienestar, emociones. Vacia mientras la
   /// persona no ha elegido con cuales empezar. SCRUM-88.
   modulosActivos          String[] @default([]) @map("modulos_activos")
-  /// Forma, color, accesorio y nombre. Sin valor se usa la mascota de siempre.
+  /// Personaje (forma) y nombre; color y accesorio, opcionales. Sin valor se usa la mascota de siempre.
   mascota                 Json?    @db.JsonB
 
   resultados       Resultado[]

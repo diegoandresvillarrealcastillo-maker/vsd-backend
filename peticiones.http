@@ -103,7 +103,7 @@ Authorization: Bearer {{token}}
 
 {
   "modulosActivos": ["cognicion", "emociones"],
-  "mascota": { "forma": "brote", "color": "#a2d9b6", "accesorio": "ninguno", "nombre": "Luma" }
+  "mascota": { "forma": "fungito", "nombre": "Fungito" }
 }
 
 

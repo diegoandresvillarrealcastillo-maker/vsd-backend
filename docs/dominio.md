@@ -231,6 +231,23 @@ Un resultado sin puntaje tampoco sugiere acompanamiento por si solo. Un
 registro cobra sentido en la tendencia, no en una anotacion suelta, y hacer que
 un dato aislado dispare una sugerencia seria leer de mas.
 
+Con una excepcion, desde SCRUM-94: **lo que la persona escribe pasa por la
+misma deteccion de riesgo que el asistente** (`hayRiesgo`). Si algun texto de
+la `metadata`, a cualquier profundidad, trae una senal, el resultado sugiere
+acompanamiento esa misma vez, tenga puntaje o no. Pensado para el texto libre
+de «Un momento bueno del dia», pero cubre cualquier campo de texto futuro sin
+tener que acordarse de anadirlo.
+
+Cuando un resultado sugiere acompanamiento, `POST /api/resultados` devuelve en
+la misma respuesta las lineas de atencion, ordenadas por alcance. Quien recibe
+la senal recibe tambien los telefonos, sin depender de una segunda peticion que
+podria fallar justo entonces.
+
+Ese texto **no aparece en ningun registro**. El registro de peticiones solo
+anota metodo, ruta, estado y duracion. Y de los errores de Prisma, cuyo mensaje
+repite los argumentos de la llamada que fallo, se anota el nombre, el codigo y
+la traza, nunca el mensaje.
+
 ### `metadata`
 
 Guarda lo propio de cada tipo de actividad: las horas de una bitacora de sueno,

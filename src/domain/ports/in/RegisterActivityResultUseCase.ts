@@ -1,4 +1,5 @@
 import type { ActivityResult, Metadata } from '../../model/ActivityResult.js';
+import type { RecursoApoyo } from '../../model/RecursoApoyo.js';
 
 /**
  * Orden de registrar el resultado de una actividad.
@@ -26,6 +27,20 @@ export interface RegistrarResultadoCommand {
 }
 
 /**
+ * Lo que devuelve registrar un resultado: el resultado y, si sugiere
+ * acompanamiento, con que acompanarlo (SCRUM-94).
+ *
+ * Las lineas viajan en la misma respuesta a proposito. Quien recibe la senal
+ * de que conviene apoyo recibe tambien los telefonos, sin depender de una
+ * segunda peticion que podria fallar justo en ese momento.
+ */
+export interface RegistroDeResultado {
+  readonly resultado: ActivityResult;
+  /** Vacia cuando el resultado no sugiere acompanamiento. */
+  readonly lineasDeAtencion: readonly RecursoApoyo[];
+}
+
+/**
  * Puerto de entrada: lo que el dominio ofrece al mundo.
  *
  * La infraestructura (un controlador HTTP en el Ciclo 3) depende de esta
@@ -35,11 +50,12 @@ export interface RegistrarResultadoCommand {
  */
 export interface RegisterActivityResultUseCase {
   /**
-   * Registra el resultado y lo devuelve.
+   * Registra el resultado y lo devuelve, con las lineas de atencion si
+   * sugiere acompanamiento.
    *
    * La operacion es idempotente: si la misma operacion del cliente ya se
    * registro, devuelve el resultado existente en lugar de crear otro. Un
    * reintento tras una caida de red es seguro.
    */
-  execute(command: RegistrarResultadoCommand): Promise<ActivityResult>;
+  execute(command: RegistrarResultadoCommand): Promise<RegistroDeResultado>;
 }

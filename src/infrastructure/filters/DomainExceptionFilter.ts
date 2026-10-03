@@ -73,6 +73,37 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   CONFIGURACION_DE_ACTIVIDAD_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
+/**
+ * Lo que se anota de un error interno sin arriesgar datos de nadie.
+ *
+ * Los errores de Prisma repiten en su mensaje los argumentos de la llamada que
+ * fallo, y ahi pueden ir la metadata de un resultado o el texto libre de "Un
+ * momento bueno del dia" (SCRUM-94). De esos se anota el nombre, el codigo y
+ * los marcos de la traza, que es lo que sirve para encontrar el fallo, y nunca
+ * el mensaje. Los demas errores se anotan enteros, como siempre.
+ */
+export function trazaSegura(error: unknown): string | undefined {
+  if (!(error instanceof Error)) {
+    // Un valor que no es un Error puede ser cualquier cosa, incluido un objeto
+    // con datos de la peticion. Basta con saber que clase de cosa era.
+    return `Se lanzo un valor que no es un Error (${typeof error}).`;
+  }
+
+  if (!error.name.startsWith('PrismaClient')) {
+    return error.stack;
+  }
+
+  const codigo = 'code' in error && typeof error.code === 'string' ? ` ${error.code}` : '';
+  const marcos = (error.stack ?? '')
+    .split('\n')
+    .filter((linea) => linea.trimStart().startsWith('at '));
+
+  return [
+    `${error.name}${codigo} (mensaje omitido: puede traer datos de la peticion)`,
+    ...marcos,
+  ].join('\n');
+}
+
 interface CuerpoDeError {
   readonly codigo: string;
   readonly mensaje: string;
@@ -98,7 +129,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
         this.registro.error(
           `${excepcion.code} [${identificador}]`,
-          causa instanceof Error ? causa.stack : excepcion.stack,
+          trazaSegura(causa instanceof Error ? causa : excepcion),
         );
       }
 
@@ -124,10 +155,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     // el, saber que hubo un error interno no ayuda a encontrar cual.
     const identificador = identificadorDeLaRespuesta(respuesta) ?? 'sin identificador';
 
-    this.registro.error(
-      `Error no controlado [${identificador}]`,
-      excepcion instanceof Error ? excepcion.stack : excepcion,
-    );
+    this.registro.error(`Error no controlado [${identificador}]`, trazaSegura(excepcion));
 
     const cuerpo: CuerpoDeError = {
       codigo: 'ERROR_INTERNO',

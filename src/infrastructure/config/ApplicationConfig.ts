@@ -2,8 +2,10 @@ import { ActivityResultService } from '../../application/services/ActivityResult
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
+import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
 
 /**
  * Cableado de dependencias.
@@ -19,17 +21,20 @@ import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivi
 export interface Dependencias {
   readonly activityResultRepository: ActivityResultRepositoryPort;
   readonly activityRepository: ActivityRepositoryPort;
+  readonly recursoApoyoRepository: RecursoApoyoRepositoryPort;
 }
 
 export function construirActivityResultService(
   dependencias: Dependencias = {
     activityResultRepository: new InMemoryActivityResultRepository(),
     activityRepository: new InMemoryActivityRepository(),
+    recursoApoyoRepository: new InMemoryRecursoApoyoRepository(),
   },
 ): ActivityResultService {
   const casoDeUso = new RegisterActivityResultUseCaseImpl(
     dependencias.activityResultRepository,
     dependencias.activityRepository,
+    dependencias.recursoApoyoRepository,
   );
 
   return new ActivityResultService(casoDeUso);

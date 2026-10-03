@@ -2,12 +2,15 @@ import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
+  RegistroDeResultado,
 } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 
 /**
  * Registra el resultado de una actividad.
@@ -24,11 +27,25 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
   constructor(
     private readonly repositorio: ActivityResultRepositoryPort,
     private readonly actividades: ActivityRepositoryPort,
+    private readonly recursos: RecursoApoyoRepositoryPort,
     private readonly generarId: () => ResultId = () => new ResultId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
-  async execute(command: RegistrarResultadoCommand): Promise<ActivityResult> {
+  async execute(command: RegistrarResultadoCommand): Promise<RegistroDeResultado> {
+    const resultado = await this.registrar(command);
+
+    // Las lineas acompanan al resultado que sugiere apoyo, sea por su nivel o
+    // por una senal de riesgo en lo escrito. Tambien en un reintento: quien
+    // repite la operacion tiene que ver lo mismo que la primera vez.
+    const lineasDeAtencion = resultado.sugiereAcompanamiento()
+      ? RecursoApoyo.ordenarPorAlcance(await this.recursos.lineasDeAtencion())
+      : [];
+
+    return { resultado, lineasDeAtencion };
+  }
+
+  private async registrar(command: RegistrarResultadoCommand): Promise<ActivityResult> {
     // Validar en la frontera: si algo viene mal formado, falla aqui y no
     // a medio camino con datos ya escritos.
     const userId = new UserId(command.userId);

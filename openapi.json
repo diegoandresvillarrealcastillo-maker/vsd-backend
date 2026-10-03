@@ -484,6 +484,45 @@
           "completedAt"
         ]
       },
+      "RecursoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Línea 192, opción 4"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "contacto",
+            "enum": [
+              "contacto",
+              "lectura",
+              "ejercicio"
+            ]
+          },
+          "cobertura": {
+            "type": "string",
+            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
+            "example": "nacional"
+          },
+          "enlace": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "tipo"
+        ]
+      },
       "ResultadoRespuestaDto": {
         "type": "object",
         "properties": {
@@ -506,7 +545,14 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado."
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: por el nivel, o porque lo escrito trae una señal de riesgo."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
           },
           "metadata": {
             "type": "object",
@@ -521,6 +567,7 @@
           "id",
           "activityId",
           "sugiereAcompanamiento",
+          "lineasDeAtencion",
           "completedAt"
         ]
       },
@@ -1007,45 +1054,6 @@
         },
         "required": [
           "texto"
-        ]
-      },
-      "RecursoDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "titulo": {
-            "type": "string",
-            "example": "Línea 192, opción 4"
-          },
-          "descripcion": {
-            "type": "string"
-          },
-          "tipo": {
-            "type": "string",
-            "example": "contacto",
-            "enum": [
-              "contacto",
-              "lectura",
-              "ejercicio"
-            ]
-          },
-          "cobertura": {
-            "type": "string",
-            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
-            "example": "nacional"
-          },
-          "enlace": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": [
-          "id",
-          "titulo",
-          "tipo"
         ]
       },
       "AsistenteRespuestaDto": {

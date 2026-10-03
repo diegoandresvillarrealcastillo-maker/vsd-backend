@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { ActivityResult, Metadata } from '../../../domain/model/ActivityResult.js';
+import type { RecursoApoyo } from '../../../domain/model/RecursoApoyo.js';
+import { RecursoDto } from './RecursoDto.js';
 
 /**
  * Forma del resultado tal y como sale por HTTP.
@@ -24,9 +26,17 @@ export class ResultadoRespuestaDto {
   nivelOrientativo?: string;
 
   @ApiProperty({
-    description: 'Indica si conviene mostrar recursos de apoyo profesional junto al resultado.',
+    description:
+      'Indica si conviene mostrar recursos de apoyo profesional junto al resultado: por el nivel, o porque lo escrito trae una señal de riesgo.',
   })
   sugiereAcompanamiento!: boolean;
+
+  @ApiProperty({
+    description:
+      'Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.',
+    type: [RecursoDto],
+  })
+  lineasDeAtencion!: RecursoDto[];
 
   @ApiProperty({
     description:
@@ -50,7 +60,10 @@ export class ResultadoRespuestaDto {
    * calificacion sobre uno mismo, y esta aplicacion existe para acompanar y no
    * para calificar. Ver docs/modelo-de-datos.md.
    */
-  static desde(resultado: ActivityResult): ResultadoRespuestaDto {
+  static desde(
+    resultado: ActivityResult,
+    lineasDeAtencion: readonly RecursoApoyo[] = [],
+  ): ResultadoRespuestaDto {
     const dto = new ResultadoRespuestaDto();
 
     dto.id = resultado.id.value;
@@ -61,6 +74,7 @@ export class ResultadoRespuestaDto {
     }
 
     dto.sugiereAcompanamiento = resultado.sugiereAcompanamiento();
+    dto.lineasDeAtencion = lineasDeAtencion.map((linea) => RecursoDto.desde(linea));
     dto.metadata = resultado.metadata;
     dto.completedAt = resultado.completedAt.toISOString();
 

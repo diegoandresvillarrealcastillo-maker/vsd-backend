@@ -1,0 +1,67 @@
+# ============================================================
+#  VSD Health - que el API de PRE no se duerma (SCRUM-111)
+# ============================================================
+#  En el plan gratuito, Render apaga el servicio tras 15 minutos
+#  sin peticiones, y despertarlo tarda cerca de un minuto. Quien
+#  abria el panel despues de un rato esperaba ese minuto mirando
+#  "Cargando tu espacio...". Dormido, ademas, no revisa los avisos
+#  de cada minuto (SCRUM-102).
+#
+#  Esto llama a /health cada 10 minutos. /health responde sin
+#  tocar la base de datos, asi que no gasta conexiones de Supabase.
+#
+#  Las horas: Render da 750 gratis al mes por espacio de trabajo, y
+#  un servicio despierto todo el mes usa unas 744. Alcanza para uno.
+#  Por eso aqui solo esta PRE: PROD, si tambien es gratuito y esta
+#  en el mismo espacio, no cabe. Para PROD, un plan de pago, que no
+#  se duerme y no necesita esto.
+#
+#  GitHub ejecuta los programados desde la rama por defecto
+#  (produccion), puede retrasarlos unos minutos en horas de mucha
+#  carga, y los desactiva tras 60 dias sin actividad en el
+#  repositorio.
+# ============================================================
+
+name: Mantener el API despierto
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+
+  # Para lanzarlo a mano desde la pestana Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  despertar:
+    name: Llamar a /health de PRE
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Llamar a /health
+        env:
+          URL: https://vsd-api-pre.onrender.com/health
+        # Si el servicio estaba dormido, la primera llamada lo
+        # despierta y puede tardar cerca de un minuto: de ahi el
+        # --max-time de 120 segundos y los reintentos.
+        run: |
+          set -euo pipefail
+
+          estado=$(curl --silent --show-error --location \
+            --max-time 120 \
+            --retry 2 --retry-delay 10 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "${URL}" || echo "000")
+
+          echo "Respuesta del API: HTTP ${estado}"
+
+          if [ "${estado}" != "200" ]; then
+            echo "El API no respondio bien."
+            exit 1
+          fi
+
+          echo "El API esta despierto."

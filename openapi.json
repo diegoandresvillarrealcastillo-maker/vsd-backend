@@ -1085,6 +1085,10 @@
                 "$ref": "#/components/schemas/MascotaDto"
               }
             ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
           }
         },
         "required": [
@@ -1094,7 +1098,8 @@
           "consentimiento",
           "registradoEn",
           "modulosActivos",
-          "mascota"
+          "mascota",
+          "diarioConRecomendaciones"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1129,6 +1134,11 @@
                 "$ref": "#/components/schemas/MascotaDto"
               }
             ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que lo que escribe en el diario se lea para recomendarle algo, como las líneas de atención si aparece una señal de riesgo. Apagado por defecto (SCRUM-108).",
+            "example": false
           }
         }
       },

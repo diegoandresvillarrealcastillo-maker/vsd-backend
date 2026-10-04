@@ -128,6 +128,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       // DbNull y no undefined: undefined le diria a Prisma "no toques la
       // columna", y quien no tiene mascota guardada debe quedar en NULL.
       mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota },
+      diarioConRecomendaciones: user.diarioConRecomendaciones,
     };
 
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
@@ -204,6 +205,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
         ...(fila.nombre === null ? {} : { nombre: fila.nombre }),
         modulosActivos: fila.modulosActivos,
         ...(fila.mascota === null ? {} : { mascota: mascotaDesde(fila.mascota) }),
+        diarioConRecomendaciones: fila.diarioConRecomendaciones,
       },
       fila.fechaAceptacionPolitica,
     );

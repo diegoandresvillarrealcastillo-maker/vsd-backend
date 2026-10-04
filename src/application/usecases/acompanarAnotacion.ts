@@ -6,15 +6,26 @@ import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoA
 /**
  * Una anotacion con lo que conviene ensenar junto a ella.
  *
- * Si lo escrito trae una senal de riesgo, las lineas de atencion viajan en la
- * misma respuesta, ordenadas por alcance. Igual que con los resultados
- * (SCRUM-94): quien recibe la senal recibe tambien los telefonos, sin una
- * segunda peticion que podria fallar justo entonces.
+ * ## Solo con permiso (SCRUM-108)
+ *
+ * Nadie se mete en lo que alguien escribe en su diario. Si la persona no lo
+ * permitio en su perfil, lo escrito **no se lee**: no se busca ninguna senal y
+ * la respuesta va sin sugerencia y sin lineas. Se guarda y se devuelve, nada
+ * mas.
+ *
+ * Con el permiso dado, si lo escrito trae una senal de riesgo, las lineas de
+ * atencion viajan en la misma respuesta, ordenadas por alcance, como con los
+ * resultados (SCRUM-94).
  */
 export async function acompanarAnotacion(
   entrada: EntradaDeDiario,
   recursos: RecursoApoyoRepositoryPort,
+  conRecomendaciones: boolean,
 ): Promise<AnotacionGuardada> {
+  if (!conRecomendaciones) {
+    return { entrada, sugiereAcompanamiento: false, lineasDeAtencion: [] };
+  }
+
   const sugiereAcompanamiento = entrada.contieneSenalDeRiesgo();
 
   return {

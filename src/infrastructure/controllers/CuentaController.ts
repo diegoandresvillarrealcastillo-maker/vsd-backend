@@ -134,6 +134,9 @@ export class CuentaController {
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
       ...(dto.modulosActivos === undefined ? {} : { modulosActivos: dto.modulosActivos }),
       ...(dto.mascota === undefined ? {} : { mascota: dto.mascota }),
+      ...(dto.diarioConRecomendaciones === undefined
+        ? {}
+        : { diarioConRecomendaciones: dto.diarioConRecomendaciones }),
     });
 
     return CuentaRespuestaDto.desde(actualizada);

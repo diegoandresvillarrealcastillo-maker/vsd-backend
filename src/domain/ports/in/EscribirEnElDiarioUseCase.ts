@@ -6,7 +6,8 @@ import type { RecursoApoyo } from '../../model/RecursoApoyo.js';
  *
  * Lo devuelven escribir y editar. `sugiereAcompanamiento` y las lineas se
  * calculan en cada respuesta y no se guardan: la anotacion no lleva ninguna
- * marca de lo que se detecto en ella.
+ * marca de lo que se detecto en ella. Y solo se calculan si la persona lo
+ * permitio (SCRUM-108); si no, van en falso y vacias.
  */
 export interface AnotacionGuardada {
   readonly entrada: EntradaDeDiario;
@@ -23,6 +24,11 @@ export interface EscribirEnElDiarioCommand {
   /** El documento del editor. Su forma la comprueba el dominio. */
   readonly contenido: unknown;
   readonly adjuntos?: unknown;
+  /**
+   * Si la persona permitio que su diario se lea para recomendarle (SCRUM-108).
+   * Sin ese permiso, lo escrito no pasa por ninguna deteccion.
+   */
+  readonly conRecomendaciones: boolean;
 }
 
 /** Puerto de entrada: escribir una anotacion en el diario propio (SCRUM-95). */

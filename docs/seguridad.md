@@ -228,6 +228,12 @@ como el tema visual o el idioma.
 - El diario lo lee solo quien lo escribe; ni el administrador. Se edita solo
   durante su primera hora, y eso lo impone la base: un `UPDATE` directo con el
   rol de la aplicación, pasada esa hora, no encuentra la fila.
+- **El diario no se analiza sin permiso** (SCRUM-108). Por defecto se guarda y
+  se devuelve, y nada más: no se busca ninguna señal en lo que se escribe.
+  - Solo si la persona enciende «Recomendaciones según mi diario» en su perfil
+    se revisa lo escrito para ofrecerle las líneas de atención.
+  - Lo puede apagar cuando quiera.
+  - Las cuentas que ya existían quedaron apagadas.
 
 El rol de administrador gestiona el catalogo de contenidos —categorias,
 actividades y recursos de apoyo— y **no tiene acceso** a los resultados,

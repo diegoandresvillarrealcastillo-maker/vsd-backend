@@ -37,7 +37,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     const existente = await this.diario.porOperacion(userId, clientOperationId);
 
     if (existente !== null) {
-      return acompanarAnotacion(existente, this.recursos);
+      return acompanarAnotacion(existente, this.recursos, command.conRecomendaciones);
     }
 
     const ahora = this.reloj();
@@ -57,6 +57,10 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
       ahora,
     );
 
-    return acompanarAnotacion(await this.diario.guardarNueva(entrada), this.recursos);
+    return acompanarAnotacion(
+      await this.diario.guardarNueva(entrada),
+      this.recursos,
+      command.conRecomendaciones,
+    );
   }
 }

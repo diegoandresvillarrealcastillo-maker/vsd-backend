@@ -116,6 +116,8 @@ model Usuario {
   modulosActivos          String[] @default([]) @map("modulos_activos")
   /// Personaje (forma) y nombre; color y accesorio, opcionales. Sin valor se usa la mascota de siempre.
   mascota                 Json?    @db.JsonB
+  /// Si permite que el diario se lea para recomendarle. Apagado por defecto (SCRUM-108).
+  diarioConRecomendaciones Boolean @default(false) @map("diario_con_recomendaciones")
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]

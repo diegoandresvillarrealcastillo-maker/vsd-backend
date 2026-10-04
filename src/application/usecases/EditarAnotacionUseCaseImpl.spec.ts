@@ -49,6 +49,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
       contenido: documentoCon('Desayune temprano y sali a caminar'),
@@ -69,6 +70,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
         contenido: documentoCon('Algo que llego tarde'),
@@ -86,6 +88,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
       contenido: documentoCon('Desde el celular'),
@@ -94,6 +97,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
         contenido: documentoCon('Desde el computador'),
@@ -111,6 +115,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: OTRA,
+        conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
         contenido: documentoCon('Intento'),
@@ -127,6 +132,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
         contenido: documentoCon('Justo en el limite'),
@@ -134,11 +140,12 @@ describe('EditarAnotacionUseCaseImpl', () => {
     ).rejects.toThrow(EditWindowClosedError);
   });
 
-  it('una correccion con una senal de riesgo trae las lineas', async () => {
+  it('con permiso, una correccion con una senal de riesgo trae las lineas', async () => {
     const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: true,
       entradaId: ENTRADA,
       version: 1,
       titulo: 'No aguanto mas',
@@ -148,11 +155,27 @@ describe('EditarAnotacionUseCaseImpl', () => {
     expect(guardada.lineasDeAtencion[0]?.id).toBe('linea-192');
   });
 
+  it('sin permiso, la correccion no se lee', async () => {
+    const { casoDeUso } = armar();
+
+    const guardada = await casoDeUso.execute({
+      userId: PERSONA,
+      conRecomendaciones: false,
+      entradaId: ENTRADA,
+      version: 1,
+      titulo: 'No aguanto mas',
+    });
+
+    expect(guardada.sugiereAcompanamiento).toBe(false);
+    expect(guardada.lineasDeAtencion).toEqual([]);
+  });
+
   it('adjuntos null quita los diagramas', async () => {
     const { casoDeUso } = armar();
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
       adjuntos: null,

@@ -52,6 +52,12 @@ export class CuentaRespuestaDto {
   })
   mascota!: MascotaDto | null;
 
+  @ApiProperty({
+    description:
+      'Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108).',
+  })
+  diarioConRecomendaciones!: boolean;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -61,6 +67,7 @@ export class CuentaRespuestaDto {
     dto.registradoEn = cuenta.registradoEn;
     dto.modulosActivos = [...cuenta.modulosActivos];
     dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
+    dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

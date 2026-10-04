@@ -381,8 +381,10 @@ su color.
 
 **Los recordatorios no se guardan**: se calculan al consultar.
 
-- **Umbrales:** un pendiente sin hacer recuerda a los 7 días si es urgente, a
-  los 30 si es prioridad y a los 14 si es aplazable, salvo que esté pospuesto.
+- **Umbrales:** cada color es un plazo (urgente, esta semana; prioridad, de 7
+  a 21 días; aplazable, 21 o más). Un pendiente sin hacer recuerda cuando se le
+  acaba: a los 7 días si es urgente, a los 21 si es prioridad y a los 30 si es
+  aplazable, este con tono suave. Salvo que esté pospuesto.
 - **Uno por visita:** se elige el de mayor color y, a igual color, el más
   antiguo.
 - **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.

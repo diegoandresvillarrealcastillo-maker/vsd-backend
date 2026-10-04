@@ -407,6 +407,34 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 - La consulta trae los sin hacer y los hechos de los ultimos 7 dias.
 - Crear es idempotente por `clientOperationId`, por persona.
 
+## Los avisos por Web Push
+
+`Aviso.ts` define los avisos que la aplicacion manda aunque no este abierta
+(SCRUM-102). Se exponen en `/api/notificaciones`. La ruta no es `/api/avisos`
+para no confundirla con `/api/aviso`, el aviso de privacidad.
+
+- **Dos clases**, que se encienden, cambian de hora y apagan por separado:
+  - `semaforo`: los pendientes sin hacer, con su titulo, a la hora elegida;
+  - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad.
+- **Las horas** van en hora de Colombia, en minutos desde la medianoche.
+  `minutoDeHora("08:30")` da 510, y `Calendario.minutoDelDia(ahora)` dice que
+  minuto es.
+- **Nada de salud.** `mensajeDelSemaforo` cuenta y nombra hasta tres
+  pendientes, y sin pendientes no hay aviso. `mensajeDeLaRacha` invita ("¿Un
+  momento para ti hoy?"). Ninguno menciona un resultado, un nivel ni una
+  emocion, y hay una prueba que lo comprueba.
+- **La revision** (`RevisarAvisosUseCaseImpl`) corre cada minuto dentro del
+  API (`RelojDeAvisos`):
+  - busca a quien le toca: su hora cae en la ultima media hora y ese aviso no
+    se reviso hoy;
+  - lo marca revisado **antes** de mandar: si algo falla, se pierde un aviso,
+    pero nunca se manda dos veces;
+  - entrega a cada navegador de la persona, y suelta los que ya no existen
+    (404 o 410).
+- **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
+  gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
+  manda solo lo de la ultima media hora.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no

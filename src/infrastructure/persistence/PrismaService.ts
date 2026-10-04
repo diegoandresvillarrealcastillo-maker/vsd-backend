@@ -19,7 +19,15 @@ export type ClienteConSesion = Pick<
   | 'recursoApoyo'
   | 'entradaDiario'
   | 'pendiente'
+  | 'suscripcionPush'
+  | 'preferenciaAviso'
 >;
+
+/**
+ * Lo unico que alcanza la tarea de avisos cuando mira a todos a la vez: las
+ * horas, y solo para leerlas. Ver `comoTareaDeAvisos`.
+ */
+export type ClienteDeLaTareaDeAvisos = Pick<PrismaClient, 'preferenciaAviso'>;
 
 /** Rol con el que se declara una sesion. Coincide con el enum `rol` de la base. */
 export const RolDeSesion = {
@@ -122,6 +130,47 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   ): Promise<T> {
     return this.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
+   * Como `comoUsuario`, declarando ademas en que navegador esta la persona
+   * (SCRUM-102).
+   *
+   * Con eso la base le deja borrar la suscripcion de ese navegador aunque sea
+   * de otra persona: es lo que pasa cuando alguien cerro sesion sin apagar
+   * los avisos y otra entro en el mismo equipo. Solo borrar, y solo esa fila:
+   * ver la politica `suscripcion_push_soltar_el_navegador`.
+   *
+   * La direccion tiene que ser la que el navegador acaba de entregar en esta
+   * peticion. Tenerla es estar en ese navegador.
+   */
+  async comoUsuarioEnSuNavegador<T>(
+    userId: string,
+    endpoint: string,
+    tarea: (cliente: ClienteConSesion) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${RolDeSesion.USUARIO}, true), set_config('vsd.endpoint_actual', ${endpoint}, true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
+   * La tarea que revisa cada minuto a quien le toca un aviso (SCRUM-102).
+   *
+   * Es la unica forma de mirar algo de todas las personas a la vez, y es
+   * deliberadamente pobre: el cliente que recibe solo tiene la tabla de horas,
+   * y la politica `preferencia_aviso_leer_para_avisar` solo deja leerla. Ni
+   * pendientes, ni resultados, ni suscripciones: para eso se actua en nombre
+   * de cada persona con `comoUsuario`.
+   */
+  async comoTareaDeAvisos<T>(tarea: (cliente: ClienteDeLaTareaDeAvisos) => Promise<T>): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.tarea_actual', 'avisos', true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
     });

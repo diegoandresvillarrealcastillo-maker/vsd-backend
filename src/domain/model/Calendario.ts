@@ -86,6 +86,16 @@ export class Calendario {
   }
 
   /**
+   * El minuto del dia local de un instante, desde la medianoche: las 8:30 son
+   * 510. Es la hora a la que se comparan los avisos (SCRUM-102).
+   */
+  minutoDelDia(instante: Date): number {
+    const { hora, minuto } = this.partesLocales(instante);
+
+    return Number(hora) * 60 + Number(minuto);
+  }
+
+  /**
    * El dia de la semana de un dia del calendario: 1 es lunes y 7 domingo.
    *
    * No depende de la zona: un dia ya es local. Se calcula sobre su fecha,

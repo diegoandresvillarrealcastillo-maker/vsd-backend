@@ -60,15 +60,16 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 
 ## Trazabilidad
 
-| Tabla            | Requerimientos que sostiene |
-| ---------------- | --------------------------- |
-| `USUARIO`        | RF1, RF2, RF3, RF12         |
-| `CATEGORIA`      | RF4, RF11                   |
-| `ACTIVIDAD`      | RF4, RF5, RF11              |
-| `RESULTADO`      | RF6, RF7, RF9, RF10         |
-| `RECURSO_APOYO`  | RF8, RF11                   |
-| `ENTRADA_DIARIO` | RF14, RF9, RF10             |
-| `PENDIENTE`      | SCRUM-97 (semáforo)         |
+| Tabla                                   | Requerimientos que sostiene |
+| --------------------------------------- | --------------------------- |
+| `USUARIO`                               | RF1, RF2, RF3, RF12         |
+| `CATEGORIA`                             | RF4, RF11                   |
+| `ACTIVIDAD`                             | RF4, RF5, RF11              |
+| `RESULTADO`                             | RF6, RF7, RF9, RF10         |
+| `RECURSO_APOYO`                         | RF8, RF11                   |
+| `ENTRADA_DIARIO`                        | RF14, RF9, RF10             |
+| `PENDIENTE`                             | SCRUM-97 (semáforo)         |
+| `SUSCRIPCION_PUSH`, `PREFERENCIA_AVISO` | SCRUM-102 (avisos)          |
 
 ## USUARIO
 
@@ -393,6 +394,54 @@ su color.
 **Política de acceso:** la misma que `RESULTADO`. RLS forzado; cada persona lee
 y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
 `20261004120000_semaforo_de_pendientes`.
+
+## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
+
+Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes, y el
+de la racha, si ese día no se hizo ninguna actividad. Ninguna de las dos tablas
+guarda datos de salud.
+
+`SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos.
+
+| Campo            | Tipo        | Nulo | Descripción                                                          |
+| ---------------- | ----------- | ---- | -------------------------------------------------------------------- |
+| `id_suscripcion` | UUID        | no   | Clave primaria.                                                      |
+| `id_usuario`     | UUID        | no   | A quién pertenece. Se borra con la cuenta.                           |
+| `endpoint`       | TEXT        | no   | Dirección del servicio de push. **UNIQUE** en toda la tabla y https. |
+| `clave_p256dh`   | TEXT        | no   | Clave para cifrar cada aviso para ese navegador.                     |
+| `clave_auth`     | TEXT        | no   | Secreto de autenticación de ese navegador.                           |
+| `fecha_creacion` | TIMESTAMPTZ | no   | Cuándo se suscribió.                                                 |
+
+`PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
+
+| Campo                   | Tipo        | Nulo | Descripción                                                                 |
+| ----------------------- | ----------- | ---- | --------------------------------------------------------------------------- |
+| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                     |
+| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.        |
+| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.               |
+| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en hora de Colombia, en que se revisó. Así sale una vez al día. |
+| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                 |
+| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                              |
+
+Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
+`TIME` en una fecha completa, y con ella vuelven los problemas de zona.
+
+**Política de acceso:** cada persona lee y escribe solo lo suyo, con RLS
+forzado. Hay dos excepciones, y las dos son estrechas:
+
+- **La tarea de avisos** declara `vsd.tarea_actual = 'avisos'`. Así puede
+  **leer** `PREFERENCIA_AVISO` de todas las personas, para saber a quién le
+  toca, y nada más: ni escribirla ni ninguna otra tabla. Lo demás lo lee en
+  nombre de cada persona.
+- **Soltar un navegador:** quien presenta la dirección de un navegador
+  (`vsd.endpoint_actual`) puede **borrar** la suscripción de ese navegador
+  aunque sea de otra persona. Pasa cuando alguien cerró sesión sin apagar los
+  avisos y otra persona entró en el mismo equipo. PostgreSQL exige que un
+  `DELETE` con `WHERE` también pase una política de lectura, así que hay una
+  para esa misma fila.
+
+Ver la migración `20261005120000_avisos_push` y
+`PrismaAvisosRepository.integracion.spec.ts`, que prueba que no se ensanchan.
 
 ## Resumen de políticas de acceso
 

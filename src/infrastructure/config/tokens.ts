@@ -40,6 +40,10 @@ export const EDITAR_ANOTACION = Symbol('EditarAnotacionUseCase');
 /** El semaforo de pendientes (SCRUM-97). */
 export const PENDIENTES_REPOSITORY = Symbol('PendientesRepositoryPort');
 export const PENDIENTES = Symbol('PendientesUseCase');
+export const AVISOS_REPOSITORY = Symbol('AvisosRepositoryPort');
+export const ENVIADOR_PUSH = Symbol('EnviadorDePushPort');
+export const AVISOS = Symbol('AvisosUseCase');
+export const REVISAR_AVISOS = Symbol('RevisarAvisosUseCase');
 
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');

@@ -5,6 +5,7 @@ import type {
   ExportarDatosUseCase,
 } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -25,6 +26,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly resultados: ActivityResultRepositoryPort,
     private readonly diario: DiarioRepositoryPort,
     private readonly pendientes: PendientesRepositoryPort,
+    private readonly avisos: AvisosRepositoryPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -35,12 +37,23 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       throw new AccountNotProvisionedError();
     }
 
-    const [resultados, entradasDeDiario, pendientes] = await Promise.all([
-      this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
-      this.diario.todasDe(id),
-      this.pendientes.todosDe(id),
-    ]);
+    const [resultados, entradasDeDiario, pendientes, preferencias, navegadores] = await Promise.all(
+      [
+        this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
+        this.diario.todasDe(id),
+        this.pendientes.todosDe(id),
+        this.avisos.preferenciasDe(id),
+        this.avisos.suscripcionesDe(id),
+      ],
+    );
 
-    return { generadoEn: this.reloj(), cuenta, resultados, entradasDeDiario, pendientes };
+    return {
+      generadoEn: this.reloj(),
+      cuenta,
+      resultados,
+      entradasDeDiario,
+      pendientes,
+      avisos: { preferencias, navegadores: navegadores.length },
+    };
   }
 }

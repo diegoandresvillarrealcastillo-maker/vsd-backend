@@ -123,3 +123,15 @@ describe('Calendario, los dias como texto (SCRUM-95)', () => {
     expect(Calendario.diasEntre('2025-10-03', '2026-10-03')).toBe(365);
   });
 });
+
+describe('minutoDelDia (SCRUM-102)', () => {
+  const calendario = new Calendario();
+
+  it('cuenta los minutos desde la medianoche de Bogota, no de UTC', () => {
+    // 13:30 UTC son las 8:30 en Bogota.
+    expect(calendario.minutoDelDia(new Date('2026-10-05T13:30:00Z'))).toBe(510);
+    // 04:59 UTC del dia siguiente siguen siendo las 23:59 en Bogota.
+    expect(calendario.minutoDelDia(new Date('2026-10-06T04:59:00Z'))).toBe(1439);
+    expect(calendario.minutoDelDia(new Date('2026-10-06T05:00:00Z'))).toBe(0);
+  });
+});

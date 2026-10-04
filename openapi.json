@@ -642,6 +642,144 @@
         ]
       }
     },
+    "/api/notificaciones": {
+      "get": {
+        "description": "Si el servidor puede mandar avisos, la clave pública para suscribirse y la hora de cada aviso.",
+        "operationId": "NotificacionesController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar los avisos",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/horas": {
+      "patch": {
+        "description": "HH:MM en hora de Colombia. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
+        "operationId": "NotificacionesController_cambiarHoras",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarHorasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Una hora no tiene el formato HH:MM."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Elegir la hora de cada aviso",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/suscripciones": {
+      "post": {
+        "description": "Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo.",
+        "operationId": "NotificacionesController_suscribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuscribirDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Suscrito."
+          },
+          "400": {
+            "description": "La suscripción no es válida."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Recibir los avisos en este navegador",
+        "tags": [
+          "Notificaciones"
+        ]
+      },
+      "delete": {
+        "description": "No falla si ya no estaba suscrito.",
+        "operationId": "NotificacionesController_desuscribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesuscribirDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Listo."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Dejar de recibir los avisos en este navegador",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
     "/api/progreso": {
       "get": {
         "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
@@ -1279,6 +1417,30 @@
           "editadoEn"
         ]
       },
+      "AvisosExportadosDto": {
+        "type": "object",
+        "properties": {
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00"
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30"
+          },
+          "navegadores": {
+            "type": "number",
+            "description": "En cuántos navegadores recibe avisos."
+          }
+        },
+        "required": [
+          "horaSemaforo",
+          "horaRacha",
+          "navegadores"
+        ]
+      },
       "ExportacionDto": {
         "type": "object",
         "properties": {
@@ -1308,6 +1470,9 @@
             "items": {
               "$ref": "#/components/schemas/PendienteDto"
             }
+          },
+          "avisos": {
+            "$ref": "#/components/schemas/AvisosExportadosDto"
           }
         },
         "required": [
@@ -1315,7 +1480,8 @@
           "cuenta",
           "resultados",
           "entradasDeDiario",
-          "pendientes"
+          "pendientes",
+          "avisos"
         ]
       },
       "BorrarCuentaDto": {
@@ -1639,6 +1805,95 @@
             "description": "Hasta cuándo no recuerda nada. Futura y como mucho a 90 días. Null deja de posponer."
           }
         }
+      },
+      "EstadoDeLosAvisosDto": {
+        "type": "object",
+        "properties": {
+          "disponible": {
+            "type": "boolean",
+            "description": "Si este servidor puede mandar avisos. Sin claves VAPID, false."
+          },
+          "clavePublica": {
+            "type": "string",
+            "nullable": true,
+            "description": "Clave pública VAPID con la que el navegador se suscribe."
+          },
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00",
+            "description": "Hora del aviso del semáforo, en hora de Colombia. Null: apagado."
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30",
+            "description": "Hora del recordatorio de la racha, en hora de Colombia. Null: apagado."
+          }
+        },
+        "required": [
+          "disponible",
+          "clavePublica",
+          "horaSemaforo",
+          "horaRacha"
+        ]
+      },
+      "CambiarHorasDto": {
+        "type": "object",
+        "properties": {
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00"
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30"
+          }
+        }
+      },
+      "ClavesDeSuscripcionDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string"
+          },
+          "auth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "SuscribirDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "La dirección del servicio de push del navegador (https)."
+          },
+          "keys": {
+            "$ref": "#/components/schemas/ClavesDeSuscripcionDto"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ]
+      },
+      "DesuscribirDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
       },
       "EtapaDto": {
         "type": "object",

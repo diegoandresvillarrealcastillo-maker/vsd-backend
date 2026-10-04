@@ -1549,6 +1549,144 @@
           "path": ["api", "pendientes"]
         }
       }
+    },
+    {
+      "name": "28. Consultar las notificaciones",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Dice si hay avisos en este servidor', function () { pm.expect(pm.response.json().disponible).to.be.a('boolean'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones"]
+        }
+      }
+    },
+    {
+      "name": "29. Elegir la hora de cada aviso",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Guarda las dos horas', function () { const r = pm.response.json(); pm.expect(r.horaSemaforo).to.eql('08:00'); pm.expect(r.horaRacha).to.eql('19:30'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaSemaforo\": \"08:00\",\n  \"horaRacha\": \"19:30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
+      }
+    },
+    {
+      "name": "30. Apagar solo el de la racha",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('El del semaforo sigue encendido', function () { const r = pm.response.json(); pm.expect(r.horaSemaforo).to.eql('08:00'); pm.expect(r.horaRacha).to.eql(null); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaRacha\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
+      }
+    },
+    {
+      "name": "31. Una hora imposible: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "pm.test('Con su codigo', function () { pm.expect(pm.response.json().codigo).to.eql('AVISO_INVALIDO'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaSemaforo\": \"25:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
+      }
     }
   ]
 }

@@ -5,6 +5,7 @@ import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuenta
 import { ExportarDatosUseCaseImpl } from '../../application/usecases/ExportarDatosUseCaseImpl.js';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
@@ -20,12 +21,14 @@ import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
+import { AvisosModule } from './AvisosModule.js';
 import { DiarioModule } from './DiarioModule.js';
 import type { Configuracion } from './environment.js';
 import { PendientesModule } from './PendientesModule.js';
 import {
   ACTIVITY_RESULT_REPOSITORY,
   ACTUALIZAR_PREFERENCIAS,
+  AVISOS_REPOSITORY,
   BORRAR_CUENTA,
   CONFIGURACION,
   DIARIO_REPOSITORY,
@@ -58,7 +61,7 @@ import {
  */
 @Module({
   // El diario y los pendientes, para la exportacion de datos.
-  imports: [ActivityResultModule, DiarioModule, PendientesModule],
+  imports: [ActivityResultModule, DiarioModule, PendientesModule, AvisosModule],
   controllers: [CuentaController, AvisoController],
   providers: [
     {
@@ -112,12 +115,14 @@ import {
         resultados: ActivityResultRepositoryPort,
         diario: DiarioRepositoryPort,
         pendientes: PendientesRepositoryPort,
-      ) => new ExportarDatosUseCaseImpl(cuentas, resultados, diario, pendientes),
+        avisos: AvisosRepositoryPort,
+      ) => new ExportarDatosUseCaseImpl(cuentas, resultados, diario, pendientes, avisos),
       inject: [
         USER_REPOSITORY,
         ACTIVITY_RESULT_REPOSITORY,
         DIARIO_REPOSITORY,
         PENDIENTES_REPOSITORY,
+        AVISOS_REPOSITORY,
       ],
     },
     {

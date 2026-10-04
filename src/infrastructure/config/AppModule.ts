@@ -7,6 +7,7 @@ import { RequestLoggingInterceptor } from '../logging/RequestLoggingInterceptor.
 import { ActivityResultModule } from './ActivityResultModule.js';
 import { AsistenteModule } from './AsistenteModule.js';
 import { AutenticacionModule } from './AutenticacionModule.js';
+import { AvisosModule } from './AvisosModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
 import { DiarioModule } from './DiarioModule.js';
 import { PendientesModule } from './PendientesModule.js';
@@ -34,6 +35,7 @@ import { UsuariosModule } from './UsuariosModule.js';
     ProgresoModule,
     DiarioModule,
     PendientesModule,
+    AvisosModule,
     AsistenteModule,
   ],
   controllers: [HealthController],

@@ -122,8 +122,44 @@ model Usuario {
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
   pendientes       Pendiente[]
+  suscripcionesPush SuscripcionPush[]
+  preferenciaAviso PreferenciaAviso?
 
   @@map("usuario")
+}
+
+/// Un navegador donde la persona acepto los avisos (SCRUM-102).
+model SuscripcionPush {
+  id            String   @id @default(uuid()) @map("id_suscripcion") @db.Uuid
+  idUsuario     String   @map("id_usuario") @db.Uuid
+  /// Unica en toda la tabla: un navegador entrega los avisos de una sola persona.
+  endpoint      String   @unique
+  claveP256dh   String   @map("clave_p256dh")
+  claveAuth     String   @map("clave_auth")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("suscripcion_push")
+}
+
+/// A que hora quiere cada aviso, en minutos desde la medianoche de Colombia (SCRUM-102).
+model PreferenciaAviso {
+  idUsuario           String    @id @map("id_usuario") @db.Uuid
+  /// Null es apagado.
+  minutoSemaforo      Int?      @map("minuto_semaforo") @db.SmallInt
+  minutoRacha         Int?      @map("minuto_racha") @db.SmallInt
+  /// El ultimo dia, en hora de Colombia, en que se reviso cada aviso.
+  ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
+  ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
+  fechaEdicion        DateTime  @default(now()) @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([minutoSemaforo])
+  @@index([minutoRacha])
+  @@map("preferencia_aviso")
 }
 
 model Categoria {

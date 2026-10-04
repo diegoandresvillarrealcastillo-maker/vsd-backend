@@ -1,9 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { horaDeMinuto } from '../../../domain/model/Aviso.js';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { CuentaRespuestaDto } from './CuentaRespuestaDto.js';
 import { EntradaDelDiarioDto } from './EntradaDelDiarioDto.js';
 import { PendienteDto } from './PendienteDto.js';
 import { ResultadoRespuestaDto } from './ResultadoRespuestaDto.js';
+
+/** Los avisos, en la exportacion: las horas y en cuantos navegadores (SCRUM-102). */
+export class AvisosExportadosDto {
+  @ApiProperty({ type: String, nullable: true, example: '08:00' })
+  horaSemaforo!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: '19:30' })
+  horaRacha!: string | null;
+
+  @ApiProperty({ description: 'En cuántos navegadores recibe avisos.' })
+  navegadores!: number;
+}
 
 /**
  * Todo lo que VSD Health guarda de una persona, en JSON.
@@ -31,6 +44,9 @@ export class ExportacionDto {
   @ApiProperty({ type: [PendienteDto], description: 'Los del semáforo, hechos o no.' })
   pendientes!: PendienteDto[];
 
+  @ApiProperty({ type: AvisosExportadosDto })
+  avisos!: AvisosExportadosDto;
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -41,6 +57,15 @@ export class ExportacionDto {
       EntradaDelDiarioDto.desde(entrada),
     );
     dto.pendientes = datos.pendientes.map((pendiente) => PendienteDto.desde(pendiente));
+
+    const { preferencias, navegadores } = datos.avisos;
+
+    dto.avisos = {
+      horaSemaforo:
+        preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
+      horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
+      navegadores,
+    };
 
     return dto;
   }

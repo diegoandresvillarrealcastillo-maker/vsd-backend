@@ -78,6 +78,10 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   PENDIENTE_INVALIDO: HttpStatus.BAD_REQUEST,
   PENDIENTE_NO_ENCONTRADO: HttpStatus.NOT_FOUND,
 
+  // Los avisos por Web Push (SCRUM-102): una hora o una suscripcion mal
+  // formada.
+  AVISO_INVALIDO: HttpStatus.BAD_REQUEST,
+
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un
   // momento es exactamente lo que tiene que hacer.

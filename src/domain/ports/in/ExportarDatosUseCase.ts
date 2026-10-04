@@ -1,6 +1,7 @@
 import type { ActivityResult } from '../../model/ActivityResult.js';
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
+import type { Pendiente } from '../../model/Pendiente.js';
 import type { User } from '../../model/User.js';
 
 /** Todo lo que VSD Health guarda de una persona. */
@@ -9,6 +10,8 @@ export interface DatosExportados {
   readonly cuenta: User;
   readonly resultados: readonly ActivityResult[];
   readonly entradasDeDiario: readonly EntradaDeDiario[];
+  /** Los del semaforo, hechos o no (SCRUM-97). */
+  readonly pendientes: readonly Pendiente[];
 }
 
 /**

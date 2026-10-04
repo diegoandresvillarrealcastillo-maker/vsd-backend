@@ -6,6 +6,7 @@ import type {
 } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
 /** Desde cuando se exporta: desde siempre. */
@@ -23,6 +24,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly cuentas: UserRepositoryPort,
     private readonly resultados: ActivityResultRepositoryPort,
     private readonly diario: DiarioRepositoryPort,
+    private readonly pendientes: PendientesRepositoryPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -33,11 +35,12 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       throw new AccountNotProvisionedError();
     }
 
-    const [resultados, entradasDeDiario] = await Promise.all([
+    const [resultados, entradasDeDiario, pendientes] = await Promise.all([
       this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
       this.diario.todasDe(id),
+      this.pendientes.todosDe(id),
     ]);
 
-    return { generadoEn: this.reloj(), cuenta, resultados, entradasDeDiario };
+    return { generadoEn: this.reloj(), cuenta, resultados, entradasDeDiario, pendientes };
   }
 }

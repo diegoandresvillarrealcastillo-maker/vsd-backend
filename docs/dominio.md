@@ -382,6 +382,24 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 
+## El semaforo de pendientes
+
+`Pendiente` es algo por hacer con su color: urgente, prioridad o aplazable
+(SCRUM-97). Se expone en `GET`, `POST`, `PATCH` y `DELETE /api/pendientes`.
+
+- **El color lo pone la persona.** El sistema puede sugerir subirlo, nunca lo
+  sube solo.
+- **Recordatorios con calma.** `recordatorio(ahora)` dice si toca recordarlo:
+  sin hacer, sin posponer, y pasado el tiempo de su nivel desde que se anoto (7
+  dias urgente, 30 prioridad, 14 aplazable). Sugiere el nivel siguiente;
+  urgente no tiene siguiente.
+- **Uno por visita.** `elegirRecordatorio` devuelve uno como mucho: el de mayor
+  color y, a igual color, el mas antiguo.
+- **Posponer** es dar una fecha futura, como mucho a 90 dias. Hasta entonces no
+  recuerda nada; `null` deja de posponer.
+- La consulta trae los sin hacer y los hechos de los ultimos 7 dias.
+- Crear es idempotente por `clientOperationId`, por persona.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
@@ -404,6 +422,8 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `JournalEntryNotFoundError`         | `ANOTACION_NO_ENCONTRADA`             | No existe o es de otra persona               |
 | `EditWindowClosedError`             | `EDICION_FUERA_DE_PLAZO`              | Paso la hora para editar la anotacion        |
 | `StaleJournalEntryError`            | `VERSION_DESACTUALIZADA`              | Otro dispositivo la cambio entretanto        |
+| `InvalidTaskError`                  | `PENDIENTE_INVALIDO`                  | Texto, nivel o fecha de posponer no validos  |
+| `TaskNotFoundError`                 | `PENDIENTE_NO_ENCONTRADO`             | No existe o es de otra persona               |
 
 La clave de operacion es unica **por persona** desde el ADR 0010, asi que usar
 la de otra ya no produce un error distinto: se registra un resultado propio,

@@ -49,6 +49,7 @@ const TABLAS_ESPERADAS = [
   'resultado',
   'recurso_apoyo',
   'entrada_diario',
+  'pendiente',
 ];
 
 // ---------- 1. Tablas ----------
@@ -158,7 +159,7 @@ for (const r of recursos) {
 }
 
 // ---------- 6. Datos de personas ----------
-for (const tabla of ['usuario', 'resultado', 'entrada_diario']) {
+for (const tabla of ['usuario', 'resultado', 'entrada_diario', 'pendiente']) {
   const { rows } = await cliente.query(`SELECT count(*)::int AS n FROM "${tabla}"`);
   console.log(`Filas en ${tabla}: ${rows[0].n}`);
 }

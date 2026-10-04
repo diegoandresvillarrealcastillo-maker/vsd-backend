@@ -199,7 +199,8 @@ como el tema visual o el idioma.
   queda registrado con su fecha y la version del aviso aceptado.
 - El usuario puede exportar y eliminar su informacion:
   - `GET /api/cuenta/exportacion` devuelve en JSON todo lo que se guarda
-    de quien firma el token: la cuenta, los resultados y el diario.
+    de quien firma el token: la cuenta, los resultados, el diario y los
+    pendientes.
   - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, borra la cuenta
     con todo lo suyo y su identidad en Supabase Auth. Es todo o nada: si
     Supabase no responde, la transaccion se deshace y no se borra nada.

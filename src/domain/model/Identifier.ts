@@ -85,6 +85,13 @@ export class EntradaId extends Identifier {
   }
 }
 
+/** Identifica un pendiente del semaforo. */
+export class PendienteId extends Identifier {
+  constructor(value: string) {
+    super(value, 'pendiente');
+  }
+}
+
 /** Identifica una categoria del catalogo. */
 export class CategoryId extends Identifier {
   constructor(value: string) {

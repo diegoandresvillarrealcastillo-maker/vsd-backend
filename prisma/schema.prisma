@@ -67,6 +67,39 @@ enum FormatoEntrada {
   @@map("formato_entrada")
 }
 
+/// El color de un pendiente del semaforo (SCRUM-97).
+enum NivelPendiente {
+  urgente
+  prioridad
+  aplazable
+
+  @@map("nivel_pendiente")
+}
+
+/// Un pendiente del semaforo (SCRUM-97). Datos personales: aislado por
+/// persona con RLS forzado, igual que RESULTADO, y se borra con la cuenta.
+model Pendiente {
+  id        String         @id @default(uuid()) @map("id_pendiente") @db.Uuid
+  idUsuario String         @map("id_usuario") @db.Uuid
+  texto     String         @db.VarChar(280)
+  nivel     NivelPendiente
+  hecho     Boolean        @default(false)
+
+  /// Mientras no llegue, el pendiente no recuerda nada.
+  posponerHasta DateTime? @map("posponer_hasta") @db.Timestamptz(3)
+
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
+
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@unique([idUsuario, idOperacionCliente])
+  @@index([idUsuario, hecho])
+  @@map("pendiente")
+}
+
 model Usuario {
   id                      String   @id @default(uuid()) @map("id_usuario") @db.Uuid
   nombre                  String?  @db.VarChar(100)
@@ -86,6 +119,7 @@ model Usuario {
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
+  pendientes       Pendiente[]
 
   @@map("usuario")
 }

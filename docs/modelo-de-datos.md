@@ -68,6 +68,7 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 | `RESULTADO`      | RF6, RF7, RF9, RF10         |
 | `RECURSO_APOYO`  | RF8, RF11                   |
 | `ENTRADA_DIARIO` | RF14, RF9, RF10             |
+| `PENDIENTE`      | SCRUM-97 (semáforo)         |
 
 ## USUARIO
 
@@ -361,6 +362,35 @@ Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.
 
+## PENDIENTE
+
+Los pendientes del semáforo (SCRUM-97). Lo que la persona tiene por hacer, con
+su color.
+
+| Campo                  | Tipo            | Nulo | Descripción                                         |
+| ---------------------- | --------------- | ---- | --------------------------------------------------- |
+| `id_pendiente`         | UUID            | no   | Clave primaria.                                     |
+| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.          |
+| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.       |
+| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.               |
+| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                      |
+| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.               |
+| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo. |
+| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.     |
+| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                     |
+
+**Los recordatorios no se guardan**: se calculan al consultar.
+
+- **Umbrales:** un pendiente sin hacer recuerda a los 7 días si es urgente, a
+  los 30 si es prioridad y a los 14 si es aplazable, salvo que esté pospuesto.
+- **Uno por visita:** se elige el de mayor color y, a igual color, el más
+  antiguo.
+- **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.
+
+**Política de acceso:** la misma que `RESULTADO`. RLS forzado; cada persona lee
+y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
+`20261004120000_semaforo_de_pendientes`.
+
 ## Resumen de políticas de acceso
 
 | Tabla            | Persona dueña                                       | Otra persona | Administrador |
@@ -371,6 +401,7 @@ no puede fallar. Hay una prueba de integración que comprueba que están.
 | `RESULTADO`      | lee y escribe los suyos                             | nada         | **nada**      |
 | `RECURSO_APOYO`  | lee                                                 | lee          | lee y escribe |
 | `ENTRADA_DIARIO` | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
+| `PENDIENTE`      | lee y escribe los suyos                             | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

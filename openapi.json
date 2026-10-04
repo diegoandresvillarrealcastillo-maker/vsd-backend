@@ -486,6 +486,162 @@
         ]
       }
     },
+    "/api/pendientes": {
+      "get": {
+        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: a los 7 días un urgente, a los 30 una prioridad y a los 14 un aplazable, salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
+        "operationId": "PendientesController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemaforoDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el semáforo",
+        "tags": [
+          "Pendientes"
+        ]
+      },
+      "post": {
+        "description": "Idempotente por clientOperationId: un reintento devuelve el ya guardado.",
+        "operationId": "PendientesController_crear",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearPendienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendienteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Texto vacío, de más de 280 caracteres o nivel desconocido."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Anotar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      }
+    },
+    "/api/pendientes/{id}": {
+      "patch": {
+        "description": "Texto, nivel, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer.",
+        "operationId": "PendientesController_editar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarPendienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendienteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido o no trae nada que cambiar."
+          },
+          "404": {
+            "description": "No existe o es de otra persona; las dos se responden igual."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Cambiar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      },
+      "delete": {
+        "operationId": "PendientesController_borrar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Borrado."
+          },
+          "404": {
+            "description": "No existe o es de otra persona; las dos se responden igual."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Borrar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      }
+    },
     "/api/progreso": {
       "get": {
         "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
@@ -1066,6 +1222,53 @@
           "editableHasta"
         ]
       },
+      "PendienteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "hecho": {
+            "type": "boolean"
+          },
+          "posponerHasta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Mientras no llegue, no recuerda nada."
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editadoEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "texto",
+          "nivel",
+          "hecho",
+          "posponerHasta",
+          "creadoEn",
+          "editadoEn"
+        ]
+      },
       "ExportacionDto": {
         "type": "object",
         "properties": {
@@ -1088,13 +1291,21 @@
             "items": {
               "$ref": "#/components/schemas/EntradaDelDiarioDto"
             }
+          },
+          "pendientes": {
+            "description": "Los del semáforo, hechos o no.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendienteDto"
+            }
           }
         },
         "required": [
           "generadoEn",
           "cuenta",
           "resultados",
-          "entradasDeDiario"
+          "entradasDeDiario",
+          "pendientes"
         ]
       },
       "BorrarCuentaDto": {
@@ -1293,6 +1504,122 @@
         "required": [
           "version"
         ]
+      },
+      "RecordatorioDto": {
+        "type": "object",
+        "properties": {
+          "pendienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "dias": {
+            "type": "number",
+            "description": "Días completos desde que se anotó."
+          },
+          "nivelSugerido": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ],
+            "nullable": true,
+            "description": "El nivel que se sugiere subir. Nunca se aplica solo: lo decide la persona. Null si ya es urgente."
+          }
+        },
+        "required": [
+          "pendienteId",
+          "nivel",
+          "dias",
+          "nivelSugerido"
+        ]
+      },
+      "SemaforoDto": {
+        "type": "object",
+        "properties": {
+          "pendientes": {
+            "description": "Primero los sin hacer, por nivel y del más antiguo al más nuevo; después los hechos en los últimos 7 días.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendienteDto"
+            }
+          },
+          "recordatorio": {
+            "nullable": true,
+            "description": "Uno como mucho por visita, o null.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecordatorioDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "pendientes",
+          "recordatorio"
+        ]
+      },
+      "CrearPendienteDto": {
+        "type": "object",
+        "properties": {
+          "clientOperationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Generado en el dispositivo. Reenviarlo en un reintento no duplica el pendiente."
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          }
+        },
+        "required": [
+          "clientOperationId",
+          "texto",
+          "nivel"
+        ]
+      },
+      "EditarPendienteDto": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "hecho": {
+            "type": "boolean"
+          },
+          "posponerHasta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Hasta cuándo no recuerda nada. Futura y como mucho a 90 días. Null deja de posponer."
+          }
+        }
       },
       "EtapaDto": {
         "type": "object",

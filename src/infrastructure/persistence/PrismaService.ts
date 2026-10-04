@@ -12,7 +12,13 @@ import { PrismaClient } from '@prisma/client';
  */
 export type ClienteConSesion = Pick<
   PrismaClient,
-  'usuario' | 'categoria' | 'actividad' | 'resultado' | 'recursoApoyo' | 'entradaDiario'
+  | 'usuario'
+  | 'categoria'
+  | 'actividad'
+  | 'resultado'
+  | 'recursoApoyo'
+  | 'entradaDiario'
+  | 'pendiente'
 >;
 
 /** Rol con el que se declara una sesion. Coincide con el enum `rol` de la base. */

@@ -16,11 +16,10 @@ import {
 import { AvisoController } from '../controllers/AvisoController.js';
 import { CuentaController } from '../controllers/CuentaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
-import { InMemoryDiarioRepository } from '../repositories/InMemoryDiarioRepository.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
-import { PrismaDiarioRepository } from '../repositories/PrismaDiarioRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
+import { DiarioModule } from './DiarioModule.js';
 import type { Configuracion } from './environment.js';
 import {
   ACTIVITY_RESULT_REPOSITORY,
@@ -55,7 +54,8 @@ import {
  * necesita la identidad que aquel deja en la peticion.
  */
 @Module({
-  imports: [ActivityResultModule],
+  // El diario, para la exportacion de datos.
+  imports: [ActivityResultModule, DiarioModule],
   controllers: [CuentaController, AvisoController],
   providers: [
     {
@@ -84,12 +84,6 @@ import {
       provide: ACTUALIZAR_PREFERENCIAS,
       useFactory: (cuentas: UserRepositoryPort) => new ActualizarPreferenciasUseCaseImpl(cuentas),
       inject: [USER_REPOSITORY],
-    },
-    {
-      provide: DIARIO_REPOSITORY,
-      useFactory: (prisma: PrismaService | null): DiarioRepositoryPort =>
-        prisma === null ? new InMemoryDiarioRepository() : new PrismaDiarioRepository(prisma),
-      inject: [PRISMA],
     },
     {
       provide: PROVEEDOR_DE_IDENTIDAD,

@@ -31,8 +31,11 @@ export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
 export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');
 export const EXPORTAR_DATOS = Symbol('ExportarDatosUseCase');
 
-/** Lectura del diario. */
+/** El diario: sus anotaciones y los tres casos de uso (SCRUM-95). */
 export const DIARIO_REPOSITORY = Symbol('DiarioRepositoryPort');
+export const CONSULTAR_DIARIO = Symbol('ConsultarDiarioUseCase');
+export const ESCRIBIR_EN_EL_DIARIO = Symbol('EscribirEnElDiarioUseCase');
+export const EDITAR_ANOTACION = Symbol('EditarAnotacionUseCase');
 
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');

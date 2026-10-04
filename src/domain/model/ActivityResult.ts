@@ -1,7 +1,7 @@
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
-import { hayRiesgo } from './SenalesDeRiesgo.js';
+import { hayRiesgo, textosDe } from './SenalesDeRiesgo.js';
 
 /**
  * Valores que admite `metadata`. Es lo que cabe en un JSONB de PostgreSQL.
@@ -38,23 +38,6 @@ const CLAVES_RESERVADAS: ReadonlySet<string> = new Set([
   'nivel_orientativo',
   'fecha',
 ]);
-
-/** Todo el texto de un valor de metadata, a cualquier profundidad. */
-function textosDe(valor: ValorDeMetadata): string[] {
-  if (typeof valor === 'string') {
-    return [valor];
-  }
-
-  if (Array.isArray(valor)) {
-    return (valor as readonly ValorDeMetadata[]).flatMap(textosDe);
-  }
-
-  if (valor !== null && typeof valor === 'object') {
-    return Object.values(valor).flatMap(textosDe);
-  }
-
-  return [];
-}
 
 /** Datos necesarios para registrar un resultado. */
 export interface DatosDeResultado {

@@ -1030,6 +1030,282 @@
         },
         "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Línea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
       }
+    },
+    {
+      "name": "16. Escribir en el diario",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Cada ejecucion usa su propia operacion. La 17 la reutiliza para",
+              "// demostrar la idempotencia.",
+              "pm.environment.set('operacionDiario', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201', function () { pm.response.to.have.status(201); });",
+              "",
+              "const r = pm.response.json();",
+              "pm.environment.set('anotacionId', r.id);",
+              "",
+              "pm.test('Es la version 1, con su dia y el documento tal cual', function () {",
+              "  pm.expect(r.version).to.equal(1);",
+              "  pm.expect(r.dia).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+              "  pm.expect(r.contenido.type).to.equal('doc');",
+              "});",
+              "",
+              "pm.test('Se puede editar durante una hora', function () {",
+              "  pm.expect(Date.parse(r.editableHasta) - Date.parse(r.creadaEn)).to.equal(3600000);",
+              "});",
+              "",
+              "pm.test('Sin senal de riesgo no trae lineas de atencion', function () {",
+              "  pm.expect(r.sugiereAcompanamiento).to.be.false;",
+              "  pm.expect(r.lineasDeAtencion).to.be.an('array').that.is.empty;",
+              "});",
+              "",
+              "pm.test('No devuelve el identificador de la persona', function () {",
+              "  pm.expect(r).to.not.have.property('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionDiario}}\",\n  \"titulo\": \"Sabado\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "SCRUM-95. Una anotacion del diario de hoy, en hora de Colombia.\n\nEl contenido es el documento del editor, nunca HTML. Se puede mandar \"dia\" para escribir en un dia pasado; en uno futuro responde 400."
+      }
+    },
+    {
+      "name": "17. Reenviar la misma anotacion (idempotencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201, igual que la primera vez', function () { pm.response.to.have.status(201); });",
+              "",
+              "pm.test('Devuelve LA MISMA anotacion, no crea otra', function () {",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('anotacionId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionDiario}}\",\n  \"titulo\": \"Sabado\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "La misma operacion que la 16. Es lo que hace seguro reintentar sin conexion."
+      }
+    },
+    {
+      "name": "18. Corregir la anotacion en su primera hora",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Sube a la version 2 y conserva el titulo', function () {",
+              "  const r = pm.response.json();",
+              "  pm.expect(r.version).to.equal(2);",
+              "  pm.expect(r.titulo).to.equal('Sabado');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": 1,\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato, y volvi con hambre.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario/{{anotacionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario", "{{anotacionId}}"]
+        },
+        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribio responde 409 EDICION_FUERA_DE_PLAZO: la base no deja editarla."
+      }
+    },
+    {
+      "name": "19. Editar con una version vieja: 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 409 VERSION_DESACTUALIZADA', function () {",
+              "  pm.response.to.have.status(409);",
+              "  pm.expect(pm.response.json().codigo).to.equal('VERSION_DESACTUALIZADA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": 1,\n  \"titulo\": \"Desde otro dispositivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario/{{anotacionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario", "{{anotacionId}}"]
+        },
+        "description": "La 18 ya la llevo a la version 2. Editar desde la 1 es lo que pasa con dos dispositivos: no se pisa la otra edicion, y el cliente guarda lo suyo como anotacion nueva (ADR 0009)."
+      }
+    },
+    {
+      "name": "20. Consultar el diario de hoy",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 con una lista', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Trae la anotacion corregida', function () {",
+              "  const r = pm.response.json().find((una) => una.id === pm.environment.get('anotacionId'));",
+              "  pm.expect(r).to.exist;",
+              "  pm.expect(r.version).to.equal(2);",
+              "});",
+              "",
+              "pm.test('Ninguna cache la guarda', function () {",
+              "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "Sin parametros, las de hoy en Colombia. Con ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD, las de ese rango (como mucho 366 dias)."
+      }
+    },
+    {
+      "name": "21. Escribir en un dia futuro: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400 DIA_EN_EL_FUTURO', function () {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().codigo).to.equal('DIA_EN_EL_FUTURO');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{$guid}}\",\n  \"dia\": \"2999-01-01\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "Se puede escribir en un dia pasado, nunca en uno que no ha llegado."
+      }
     }
   ]
 }

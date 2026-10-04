@@ -87,3 +87,28 @@ export function hayRiesgo(texto: string): boolean {
 
   return EXPRESIONES_DE_RIESGO.some((expresion) => limpio.includes(expresion));
 }
+
+/**
+ * Todo el texto de un valor JSON, a cualquier profundidad.
+ *
+ * Sirve para pasar por `hayRiesgo` lo que alguien escribio dentro de una
+ * estructura: la metadata de un resultado, los diagramas del diario. Un campo
+ * nuevo de texto libre queda cubierto sin acordarse de anadirlo. Los numeros y
+ * los booleanos no cuentan, y las claves tampoco: las pone el programa, no la
+ * persona.
+ */
+export function textosDe(valor: unknown): string[] {
+  if (typeof valor === 'string') {
+    return [valor];
+  }
+
+  if (Array.isArray(valor)) {
+    return (valor as readonly unknown[]).flatMap(textosDe);
+  }
+
+  if (valor !== null && typeof valor === 'object') {
+    return Object.values(valor).flatMap(textosDe);
+  }
+
+  return [];
+}

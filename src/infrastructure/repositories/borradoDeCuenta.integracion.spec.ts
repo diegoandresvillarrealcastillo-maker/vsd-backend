@@ -202,6 +202,9 @@ describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () =
     const entradas = await diario.todasDe(new UserId(PERSONA));
 
     expect(entradas).toHaveLength(1);
-    expect(entradas[0]).toMatchObject({ id: ENTRADA, contenido: 'Lo que escribi hoy' });
+    expect(entradas[0]?.id.value).toBe(ENTRADA);
+    // Se sembro como texto sin formato, como antes del editor: se sigue
+    // leyendo, ahora como documento (SCRUM-95).
+    expect(entradas[0]?.documento.textoPlano()).toBe('Lo que escribi hoy');
   });
 });

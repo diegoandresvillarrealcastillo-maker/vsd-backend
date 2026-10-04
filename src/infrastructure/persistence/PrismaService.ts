@@ -100,6 +100,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * transaccion como el de Supabase la siguiente peticion heredaria la
    * identidad de la anterior. Ese fallo es de los que no se notan hasta que
    * alguien ve datos ajenos.
+   *
+   * La zona horaria de la sesion se fija en UTC por un fallo del adaptador de
+   * Prisma 7: al leer un `timestamptz` descarta el desfase y lo toma como UTC.
+   * Con la base en otra zona, como la local en `America/Bogota`, una fecha
+   * guardada a las 7 p. m. se leia como las 2 p. m., y la hora para editar el
+   * diario (SCRUM-95) aparecia vencida al momento de escribir. En UTC el
+   * desfase es cero y no hay nada que descartar. Supabase ya esta en UTC: esto
+   * hace que no dependa de que siga asi.
    */
   async comoUsuario<T>(
     userId: string,
@@ -107,7 +115,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     rol: RolDeSesion = RolDeSesion.USUARIO,
   ): Promise<T> {
     return this.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true)`;
+      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
     });
@@ -137,7 +145,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     tarea: (cliente: ClienteConSesion) => Promise<T>,
   ): Promise<T> {
     return this.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true)`;
+      await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
     });

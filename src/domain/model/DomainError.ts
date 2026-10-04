@@ -286,6 +286,84 @@ export class InvalidPetError extends DomainError {
 }
 
 /**
+ * La anotacion del diario no tiene la forma que el diario guarda.
+ *
+ * El motivo dice que parte esta mal, nunca que trae: el mensaje viaja en la
+ * respuesta, y repetir aqui un trozo de lo escrito seria sacarlo del diario.
+ */
+export class InvalidJournalEntryError extends DomainError {
+  readonly code = 'ANOTACION_INVALIDA';
+
+  constructor(motivo: string) {
+    super(`La anotación no se puede guardar: ${motivo}.`);
+  }
+}
+
+/** Se intento escribir en un dia que todavia no ha llegado. */
+export class FutureJournalDayError extends DomainError {
+  readonly code = 'DIA_EN_EL_FUTURO';
+
+  constructor(dia: string) {
+    super(`No se puede escribir en un día que todavía no ha llegado: ${dia}.`);
+  }
+}
+
+/** El rango de dias pedido no se puede consultar. */
+export class InvalidDayRangeError extends DomainError {
+  readonly code = 'RANGO_DE_DIAS_INVALIDO';
+
+  constructor(motivo: string) {
+    super(`El rango de días no es válido: ${motivo}.`);
+  }
+}
+
+/**
+ * La anotacion no existe, o no es de quien la pide.
+ *
+ * Las dos cosas se responden igual a proposito: distinguirlas diria que
+ * identificadores son de otra persona.
+ */
+export class JournalEntryNotFoundError extends DomainError {
+  readonly code = 'ANOTACION_NO_ENCONTRADA';
+
+  constructor() {
+    super('Esa anotación no existe.');
+  }
+}
+
+/**
+ * Ya paso la hora para editar la anotacion.
+ *
+ * No se pierde nada: quien llama guarda lo que traia como una anotacion nueva
+ * del mismo dia, y la original queda como se escribio (ADR 0009).
+ */
+export class EditWindowClosedError extends DomainError {
+  readonly code = 'EDICION_FUERA_DE_PLAZO';
+
+  constructor() {
+    super(
+      'Ya pasó la hora para editar esta anotación. Lo que escribiste se puede guardar como una anotación nueva del mismo día.',
+    );
+  }
+}
+
+/**
+ * La anotacion cambio desde que quien llama la leyo.
+ *
+ * Pasa cuando se edita desde dos dispositivos. La regla del ADR 0009 es no
+ * sobrescribir: lo que llega se guarda como anotacion nueva.
+ */
+export class StaleJournalEntryError extends DomainError {
+  readonly code = 'VERSION_DESACTUALIZADA';
+
+  constructor() {
+    super(
+      'Esta anotación cambió desde otro dispositivo. Para no perder ninguna de las dos versiones, guarda lo tuyo como una anotación nueva.',
+    );
+  }
+}
+
+/**
  * Un recurso de apoyo esta mal formado y no se puede mostrar.
  *
  * Importa mas de lo que parece: los recursos son lo que el asistente responde

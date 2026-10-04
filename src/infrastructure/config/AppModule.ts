@@ -8,6 +8,7 @@ import { ActivityResultModule } from './ActivityResultModule.js';
 import { AsistenteModule } from './AsistenteModule.js';
 import { AutenticacionModule } from './AutenticacionModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
+import { DiarioModule } from './DiarioModule.js';
 import { ProgresoModule } from './ProgresoModule.js';
 import { UsuariosModule } from './UsuariosModule.js';
 
@@ -30,6 +31,7 @@ import { UsuariosModule } from './UsuariosModule.js';
     ActivityResultModule,
     UsuariosModule,
     ProgresoModule,
+    DiarioModule,
     AsistenteModule,
   ],
   controllers: [HealthController],

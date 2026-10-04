@@ -62,6 +62,18 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   MASCOTA_INVALIDA: HttpStatus.BAD_REQUEST,
   NOMBRE_INVALIDO: HttpStatus.BAD_REQUEST,
 
+  // Diario (SCRUM-95).
+  ANOTACION_INVALIDA: HttpStatus.BAD_REQUEST,
+  DIA_EN_EL_FUTURO: HttpStatus.BAD_REQUEST,
+  RANGO_DE_DIAS_INVALIDO: HttpStatus.BAD_REQUEST,
+  // Inexistente o de otra persona: las dos se responden igual.
+  ANOTACION_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+  // 409 y no 403: la peticion esta bien y la anotacion es suya. Lo que choca
+  // es el estado: paso su hora, o la cambio otro dispositivo. Las dos se
+  // resuelven igual, guardando lo que se traia como una anotacion nueva.
+  EDICION_FUERA_DE_PLAZO: HttpStatus.CONFLICT,
+  VERSION_DESACTUALIZADA: HttpStatus.CONFLICT,
+
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un
   // momento es exactamente lo que tiene que hacer.
@@ -109,6 +121,29 @@ interface CuerpoDeError {
   readonly mensaje: string;
 }
 
+/**
+ * El estado de un error al leer el cuerpo de la peticion, si lo es.
+ *
+ * Los lanza el lector de JSON de Express antes de llegar a ninguna ruta: un
+ * cuerpo demasiado grande (413) o que no es JSON (400). Traen su estado y la
+ * marca `expose`, que dice que es un error de quien llama y se puede contar.
+ *
+ * Sin esto caian en el error interno: respondian 500 por algo que no es culpa
+ * del servidor y se anotaban enteros. Y el mensaje de un JSON mal formado cita
+ * un trozo del cuerpo, que en el diario es lo que alguien escribio.
+ */
+function estadoAlLeerElCuerpo(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const { status, expose } = error as { status?: unknown; expose?: unknown };
+
+  return typeof status === 'number' && status >= 400 && status < 500 && expose === true
+    ? status
+    : undefined;
+}
+
 @Catch()
 export class DomainExceptionFilter implements ExceptionFilter {
   private readonly registro = new Logger('Errores');
@@ -142,6 +177,27 @@ export class DomainExceptionFilter implements ExceptionFilter {
     // encontrada, limite de peticiones superado.
     if (excepcion instanceof HttpException) {
       respuesta.status(excepcion.getStatus()).json(excepcion.getResponse());
+
+      return;
+    }
+
+    // El cuerpo no se pudo leer. Es de quien llama, asi que no se anota: el
+    // registro de peticiones ya deja la linea con su estado.
+    const estadoDelCuerpo = estadoAlLeerElCuerpo(excepcion);
+
+    if (estadoDelCuerpo !== undefined) {
+      const cuerpo: CuerpoDeError =
+        estadoDelCuerpo === Number(HttpStatus.PAYLOAD_TOO_LARGE)
+          ? {
+              codigo: 'CUERPO_DEMASIADO_GRANDE',
+              mensaje: 'Lo que enviaste supera el tamaño máximo que admite esta ruta.',
+            }
+          : {
+              codigo: 'CUERPO_ILEGIBLE',
+              mensaje: 'No se pudo leer el cuerpo de la petición. Comprueba que sea JSON válido.',
+            };
+
+      respuesta.status(estadoDelCuerpo).json(cuerpo);
 
       return;
     }

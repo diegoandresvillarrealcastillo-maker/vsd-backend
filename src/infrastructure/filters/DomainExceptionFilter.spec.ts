@@ -47,6 +47,40 @@ describe('DomainExceptionFilter', () => {
     );
   });
 
+  it('un cuerpo demasiado grande responde 413 y no se anota como fallo nuestro', () => {
+    // Es la forma del error que lanza el lector de JSON de Express. Antes
+    // caia en el error interno: 500, y anotado entero (SCRUM-95).
+    const anotado = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const respuesta = respuestaFalsa();
+    const error = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      expose: true,
+      type: 'entity.too.large',
+    });
+
+    new DomainExceptionFilter().catch(error, hostFalso(respuesta));
+
+    expect(respuesta.status).toHaveBeenCalledWith(HttpStatus.PAYLOAD_TOO_LARGE);
+    expect(respuesta.json).toHaveBeenCalledWith(
+      expect.objectContaining({ codigo: 'CUERPO_DEMASIADO_GRANDE' }),
+    );
+    expect(anotado).not.toHaveBeenCalled();
+  });
+
+  it('un error con estado 4xx pero sin `expose` sigue siendo un fallo interno', () => {
+    // `expose` es lo que dice que el error es de quien llama y se puede
+    // contar. Sin el, no se le cree el estado.
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const respuesta = respuestaFalsa();
+
+    new DomainExceptionFilter().catch(
+      Object.assign(new Error('algo'), { status: 400 }),
+      hostFalso(respuesta),
+    );
+
+    expect(respuesta.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+  });
+
   it('respeta el estado de las excepciones que ya lo traen', () => {
     const respuesta = respuestaFalsa();
 

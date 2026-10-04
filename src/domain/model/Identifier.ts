@@ -78,6 +78,13 @@ export class ClientOperationId extends Identifier {
   }
 }
 
+/** Identifica una anotacion del diario. */
+export class EntradaId extends Identifier {
+  constructor(value: string) {
+    super(value, 'anotacion del diario');
+  }
+}
+
 /** Identifica una categoria del catalogo. */
 export class CategoryId extends Identifier {
   constructor(value: string) {

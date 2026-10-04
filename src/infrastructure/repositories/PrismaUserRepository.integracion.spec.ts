@@ -4,6 +4,7 @@ import 'dotenv/config';
 
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
+import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { pruebasDelPuertoDeUsuarios, unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -142,6 +143,26 @@ if (URL_DUENO === undefined) {
       const porId = await repositorio.findById(new UserId(PERSONA));
 
       expect(porId?.id.value).toBe(PERSONA);
+    });
+
+    it('un correo que ya tiene otra cuenta se rechaza como CORREO_YA_REGISTRADO', async () => {
+      // SCRUM-105. Con el adaptador de Prisma 7 el error de unicidad ya no trae
+      // `meta.target`, y sin reconocerlo esto salia como un 500.
+      const { dueno, repositorio } = await preparar();
+
+      await limpiarCon(dueno);
+      const primera = unaCuenta();
+      await repositorio.save(primera);
+
+      await expect(
+        repositorio.save(
+          unaCuenta({
+            id: OTRA_PERSONA,
+            correo: primera.correo,
+            idProveedorAuth: 'supabase|google-del-mismo-correo',
+          }),
+        ),
+      ).rejects.toThrow(EmailAlreadyRegisteredError);
     });
 
     it('sin fijar ninguna sesion no se ve absolutamente nada', async () => {

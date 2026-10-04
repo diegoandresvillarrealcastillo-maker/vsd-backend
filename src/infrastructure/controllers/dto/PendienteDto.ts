@@ -78,6 +78,13 @@ export class RecordatorioDto {
   })
   nivelSugerido!: string | null;
 
+  @ApiProperty({
+    enum: ['plazo', 'suave'],
+    description:
+      'Cómo suena. plazo: se acabó el tiempo que se le dio (urgente, prioridad). suave: no es urgente, pero que no se acumule (aplazable).',
+  })
+  tono!: string;
+
   static desde(recordatorio: Recordatorio): RecordatorioDto {
     const dto = new RecordatorioDto();
 
@@ -85,6 +92,7 @@ export class RecordatorioDto {
     dto.nivel = recordatorio.nivel;
     dto.dias = recordatorio.dias;
     dto.nivelSugerido = recordatorio.nivelSugerido;
+    dto.tono = recordatorio.tono;
 
     return dto;
   }

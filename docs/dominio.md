@@ -389,10 +389,13 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 
 - **El color lo pone la persona.** El sistema puede sugerir subirlo, nunca lo
   sube solo.
+- **Cada color es un plazo** (SCRUM-107): urgente, esta semana; prioridad,
+  entre 7 y 21 dias; aplazable, 21 o mas.
 - **Recordatorios con calma.** `recordatorio(ahora)` dice si toca recordarlo:
-  sin hacer, sin posponer, y pasado el tiempo de su nivel desde que se anoto (7
-  dias urgente, 30 prioridad, 14 aplazable). Sugiere el nivel siguiente;
-  urgente no tiene siguiente.
+  sin hacer, sin posponer, y acabado el plazo de su color desde que se anoto (7
+  dias urgente, 21 prioridad, 30 aplazable). Sugiere el nivel siguiente;
+  urgente no tiene siguiente. Lleva un `tono`: `plazo` para urgente y
+  prioridad, `suave` para aplazable ("no es urgente, pero que no se acumule").
 - **Uno por visita.** `elegirRecordatorio` devuelve uno como mucho: el de mayor
   color y, a igual color, el mas antiguo.
 - **Posponer** es dar una fecha futura, como mucho a 90 dias. Hasta entonces no

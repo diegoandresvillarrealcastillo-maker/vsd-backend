@@ -199,11 +199,12 @@ describe('PendientesUseCaseImpl', () => {
       texto: 'Leer',
       nivel: 'aplazable',
     });
-    reloj.ahora = new Date(INICIO.getTime() + 15 * UN_DIA);
+    reloj.ahora = new Date(INICIO.getTime() + 31 * UN_DIA);
 
     const { pendientes, recordatorio } = await semaforo.consultar(PERSONA);
 
     expect(recordatorio?.nivelSugerido).toBe('prioridad');
+    expect(recordatorio?.tono).toBe('suave');
     expect(pendientes[0]?.nivel).toBe('aplazable');
   });
 

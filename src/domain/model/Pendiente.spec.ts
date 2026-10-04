@@ -83,8 +83,8 @@ describe('Editar', () => {
 describe('Los recordatorios', () => {
   it.each([
     ['urgente', 7],
-    ['prioridad', 30],
-    ['aplazable', 14],
+    ['prioridad', 21],
+    ['aplazable', 30],
   ] as const)('un %s recuerda a los %i dias, no antes', (nivel, dias) => {
     const pendiente = nuevo(nivel);
 
@@ -94,15 +94,31 @@ describe('Los recordatorios', () => {
   });
 
   it('sugiere subir un escalon, y urgente ya no tiene donde subir', () => {
-    expect(nuevo('aplazable').recordatorio(diasDespues(14))?.nivelSugerido).toBe('prioridad');
-    expect(nuevo('prioridad').recordatorio(diasDespues(30))?.nivelSugerido).toBe('urgente');
+    expect(nuevo('aplazable').recordatorio(diasDespues(30))?.nivelSugerido).toBe('prioridad');
+    expect(nuevo('prioridad').recordatorio(diasDespues(21))?.nivelSugerido).toBe('urgente');
     expect(nuevo('urgente').recordatorio(diasDespues(7))?.nivelSugerido).toBeNull();
+  });
+
+  it('el del aplazable es el suave; urgente y prioridad, el de plazo', () => {
+    expect(nuevo('aplazable').recordatorio(diasDespues(30))?.tono).toBe('suave');
+    expect(nuevo('prioridad').recordatorio(diasDespues(21))?.tono).toBe('plazo');
+    expect(nuevo('urgente').recordatorio(diasDespues(7))?.tono).toBe('plazo');
+  });
+
+  it('cada color recuerda al acabarse su plazo: urgente antes que prioridad, y esta antes que aplazable', () => {
+    // La logica de Diego: urgente es esta semana, prioridad entre 7 y 21
+    // dias, aplazable 21 o mas.
+    const a14Dias = diasDespues(14);
+
+    expect(nuevo('urgente').recordatorio(a14Dias)).not.toBeNull();
+    expect(nuevo('prioridad').recordatorio(a14Dias)).toBeNull();
+    expect(nuevo('aplazable').recordatorio(diasDespues(25))).toBeNull();
   });
 
   it('sugerir no cambia el nivel: lo sube la persona o nadie', () => {
     const pendiente = nuevo('aplazable');
 
-    pendiente.recordatorio(diasDespues(20));
+    pendiente.recordatorio(diasDespues(31));
 
     expect(pendiente.nivel).toBe('aplazable');
   });
@@ -144,7 +160,7 @@ describe('Uno por visita', () => {
     const viejo = nuevo('aplazable', 'viejo', ANOTADO);
     const nuevoEnElTiempo = nuevo('aplazable', 'nuevo', diasDespues(1));
 
-    const elegido = elegirRecordatorio([nuevoEnElTiempo, viejo], diasDespues(20));
+    const elegido = elegirRecordatorio([nuevoEnElTiempo, viejo], diasDespues(40));
 
     expect(elegido?.pendienteId.equals(viejo.id)).toBe(true);
   });

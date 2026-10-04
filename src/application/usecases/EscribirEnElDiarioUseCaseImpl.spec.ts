@@ -46,6 +46,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: operacion(),
       contenido: documentoCon('Cene con mi familia'),
     });
@@ -59,6 +60,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: operacion(),
       dia: '2026-09-28',
       contenido: documentoCon('Me acorde de algo del domingo'),
@@ -74,6 +76,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         clientOperationId: operacion(),
         dia: '2026-10-03',
         contenido: documentoCon('Manana'),
@@ -88,11 +91,13 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const primera = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('Una vez'),
     });
     const segunda = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('Una vez'),
     });
@@ -107,10 +112,16 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('A'),
     });
-    await casoDeUso.execute({ userId: OTRA, clientOperationId: op, contenido: documentoCon('B') });
+    await casoDeUso.execute({
+      userId: OTRA,
+      conRecomendaciones: false,
+      clientOperationId: op,
+      contenido: documentoCon('B'),
+    });
 
     expect(await diario.todasDe(new UserId(OTRA))).toHaveLength(1);
   });
@@ -120,6 +131,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: false,
       clientOperationId: operacion(),
       contenido: documentoCon('Un dia tranquilo'),
     });
@@ -129,11 +141,28 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(lineas.consultas).toBe(0);
   });
 
-  it('con una senal de riesgo vienen las lineas, la nacional primero', async () => {
+  it('sin permiso, el diario no se lee: ni sugerencia ni lineas, aunque haya una senal', async () => {
+    // La decision de Diego (SCRUM-108): nadie se mete en el diario de nadie.
+    const { casoDeUso, lineas } = armar();
+
+    const guardada = await casoDeUso.execute({
+      userId: PERSONA,
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      contenido: documentoCon('Hoy pense que no quiero seguir viviendo'),
+    });
+
+    expect(guardada.sugiereAcompanamiento).toBe(false);
+    expect(guardada.lineasDeAtencion).toEqual([]);
+    expect(lineas.consultas).toBe(0);
+  });
+
+  it('con permiso, una senal de riesgo trae las lineas, la nacional primero', async () => {
     const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      conRecomendaciones: true,
       clientOperationId: operacion(),
       contenido: documentoCon('Hoy pense que no quiero seguir viviendo'),
     });
@@ -147,6 +176,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     const op = operacion();
     const peticion = {
       userId: PERSONA,
+      conRecomendaciones: true,
       clientOperationId: op,
       contenido: documentoCon('ya no puedo mas'),
     };
@@ -164,6 +194,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         clientOperationId: operacion(),
         contenido: '<p>hola</p>',
       }),
@@ -177,6 +208,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        conRecomendaciones: false,
         clientOperationId: 'no-es-un-uuid',
         contenido: documentoCon('x'),
       }),

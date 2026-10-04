@@ -374,11 +374,15 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   comprueba la forma del arbol (cada nodo con un `type` valido y solo las
   claves que usa el editor), su profundidad y su tamano. No cierra la lista de
   tipos: eso es del editor. Los diagramas van en `adjuntos`.
-- **Senales de riesgo.** `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el
-  titulo, el texto del documento con las frases enteras aunque el editor las
-  parta por marcas, y el texto de los diagramas. La respuesta trae
-  `sugiereAcompanamiento` y las lineas de atencion, como un resultado. **No se
-  guarda ninguna marca** en la anotacion.
+- **Senales de riesgo, solo con permiso** (SCRUM-108). Nadie se mete en el
+  diario de nadie: si la persona no encendio `diarioConRecomendaciones` en su
+  perfil (apagado por defecto), lo escrito no pasa por ninguna deteccion y la
+  respuesta va sin sugerencia ni lineas. Con el permiso,
+  `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el titulo, el texto del
+  documento con las frases enteras aunque el editor las parta por marcas, y el
+  texto de los diagramas, y la respuesta trae `sugiereAcompanamiento` y las
+  lineas de atencion, como un resultado. **No se guarda ninguna marca** en la
+  anotacion.
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 

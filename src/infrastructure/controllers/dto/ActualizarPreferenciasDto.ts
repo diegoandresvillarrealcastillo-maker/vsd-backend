@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   MaxLength,
@@ -83,4 +84,13 @@ export class ActualizarPreferenciasDto {
   @ValidateNested()
   @Type(() => MascotaDto)
   mascota?: MascotaDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Si permite que lo que escribe en el diario se lea para recomendarle algo, como las líneas de atención si aparece una señal de riesgo. Apagado por defecto (SCRUM-108).',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  diarioConRecomendaciones?: boolean;
 }

@@ -162,7 +162,29 @@ describe('/api/diario', () => {
       }).expect(400);
     });
 
-    it('una senal de riesgo trae las lineas, y el texto no queda en ningun registro', async () => {
+    it('por defecto el diario no se lee: una senal de riesgo no trae nada (SCRUM-108)', async () => {
+      // Nadie se mete en el diario de nadie sin que lo pida.
+      const respuesta = await escribir(A, {
+        clientOperationId: operacion(),
+        contenido: documentoCon('Hoy pense que ya no puedo mas'),
+      }).expect(201);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({
+        sugiereAcompanamiento: false,
+        lineasDeAtencion: [],
+      });
+    });
+
+    it('con el permiso dado en el perfil, una senal trae las lineas, y el texto no queda en ningun registro', async () => {
+      const preferencias = (valor: boolean) =>
+        request(app.getHttpServer())
+          .patch('/api/cuenta/preferencias')
+          .set(...comoUsuario(B))
+          .send({ diarioConRecomendaciones: valor })
+          .expect(200);
+
+      await preferencias(true);
+
       const anotado: string[] = [];
 
       for (const nivel of ['log', 'warn', 'error', 'debug', 'verbose'] as const) {
@@ -171,7 +193,7 @@ describe('/api/diario', () => {
         });
       }
 
-      const respuesta = await escribir(A, {
+      const respuesta = await escribir(B, {
         clientOperationId: operacion(),
         titulo: 'Martes',
         contenido: documentoCon('Hoy pense que ya no puedo mas'),
@@ -190,6 +212,9 @@ describe('/api/diario', () => {
       // se escribe, y aun asi el texto no aparece.
       await vi.waitFor(() => expect(anotado.join('\n')).toContain('POST /api/diario 201'));
       expect(anotado.join('\n')).not.toContain('ya no puedo');
+
+      vi.restoreAllMocks();
+      await preferencias(false);
     });
 
     it('un error de validacion no repite lo escrito, ni en la respuesta ni en el registro', async () => {

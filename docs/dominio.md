@@ -231,6 +231,23 @@ Un resultado sin puntaje tampoco sugiere acompanamiento por si solo. Un
 registro cobra sentido en la tendencia, no en una anotacion suelta, y hacer que
 un dato aislado dispare una sugerencia seria leer de mas.
 
+Con una excepcion, desde SCRUM-94: **lo que la persona escribe pasa por la
+misma deteccion de riesgo que el asistente** (`hayRiesgo`). Si algun texto de
+la `metadata`, a cualquier profundidad, trae una senal, el resultado sugiere
+acompanamiento esa misma vez, tenga puntaje o no. Pensado para el texto libre
+de «Un momento bueno del dia», pero cubre cualquier campo de texto futuro sin
+tener que acordarse de anadirlo.
+
+Cuando un resultado sugiere acompanamiento, `POST /api/resultados` devuelve en
+la misma respuesta las lineas de atencion, ordenadas por alcance. Quien recibe
+la senal recibe tambien los telefonos, sin depender de una segunda peticion que
+podria fallar justo entonces.
+
+Ese texto **no aparece en ningun registro**. El registro de peticiones solo
+anota metodo, ruta, estado y duracion. Y de los errores de Prisma, cuyo mensaje
+repite los argumentos de la llamada que fallo, se anota el nombre, el codigo y
+la traza, nunca el mensaje.
+
 ### `metadata`
 
 Guarda lo propio de cada tipo de actividad: las horas de una bitacora de sueno,
@@ -337,6 +354,34 @@ misma clave estable que las preferencias. Un resultado de una actividad que ya
 no esta en el catalogo no cuenta para ningun modulo: no hay forma de saber a
 cual pertenecia.
 
+## El diario
+
+`EntradaDeDiario` es una anotacion del diario (SCRUM-95). El diario de un dia
+es el conjunto de sus anotaciones, y cada una tiene su hora: escribir algo mas
+tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
+`GET`, `POST` y `PATCH /api/diario`.
+
+- **El dia** es el del `Calendario`, no el de UTC. Se puede escribir en un dia
+  pasado y la anotacion conserva la hora real en que se escribio; en uno futuro
+  no (`DIA_EN_EL_FUTURO`).
+- **Una hora para editar.** `editar()` comprueba primero la hora y despues la
+  version. Fuera de plazo da `EDICION_FUERA_DE_PLAZO`. Con una version vieja,
+  porque otro dispositivo la cambio, da `VERSION_DESACTUALIZADA`. En los dos
+  casos no se toca nada y el cliente guarda lo suyo como una anotacion nueva
+  (ADR 0009). La regla esta aqui para contestar claro, pero quien la hace
+  cumplir es la base: ver `docs/modelo-de-datos.md`.
+- **El contenido es un documento del editor**, no HTML: `DocumentoDelDiario`
+  comprueba la forma del arbol (cada nodo con un `type` valido y solo las
+  claves que usa el editor), su profundidad y su tamano. No cierra la lista de
+  tipos: eso es del editor. Los diagramas van en `adjuntos`.
+- **Senales de riesgo.** `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el
+  titulo, el texto del documento con las frases enteras aunque el editor las
+  parta por marcas, y el texto de los diagramas. La respuesta trae
+  `sugiereAcompanamiento` y las lineas de atencion, como un resultado. **No se
+  guarda ninguna marca** en la anotacion.
+- Escribir es idempotente por `clientOperationId`, por persona, igual que un
+  resultado.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
@@ -353,6 +398,12 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `ActivityNotFoundError`             | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
 | `ScoreNotApplicableError`           | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
 | `InvalidActivityConfigurationError` | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
+| `InvalidJournalEntryError`          | `ANOTACION_INVALIDA`                  | La anotacion no tiene la forma del diario    |
+| `FutureJournalDayError`             | `DIA_EN_EL_FUTURO`                    | Se escribe en un dia que no ha llegado       |
+| `InvalidDayRangeError`              | `RANGO_DE_DIAS_INVALIDO`              | El rango pedido al diario no es valido       |
+| `JournalEntryNotFoundError`         | `ANOTACION_NO_ENCONTRADA`             | No existe o es de otra persona               |
+| `EditWindowClosedError`             | `EDICION_FUERA_DE_PLAZO`              | Paso la hora para editar la anotacion        |
+| `StaleJournalEntryError`            | `VERSION_DESACTUALIZADA`              | Otro dispositivo la cambio entretanto        |
 
 La clave de operacion es unica **por persona** desde el ADR 0010, asi que usar
 la de otra ya no produce un error distinto: se registra un resultado propio,

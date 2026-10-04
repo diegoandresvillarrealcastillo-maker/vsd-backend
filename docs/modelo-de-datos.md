@@ -260,19 +260,39 @@ administrador escribe.
 
 Lo que la persona escribe por su cuenta. Corresponde al RF14.
 
-| Campo                  | Tipo         | Nulo | Descripción                                |
-| ---------------------- | ------------ | ---- | ------------------------------------------ |
-| `id_entrada`           | UUID         | no   | Clave primaria.                            |
-| `id_usuario`           | UUID         | no   | A quién pertenece.                         |
-| `titulo`               | VARCHAR(120) | sí   | Título opcional.                           |
-| `contenido`            | TEXT         | no   | Lo que escribió.                           |
-| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`.             |
-| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión.     |
-| `adjuntos`             | JSONB        | sí   | Referencias a imágenes. Solo con conexión. |
-| `id_operacion_cliente` | UUID         | no   | **UNIQUE.** Generado en el dispositivo.    |
-| `version`              | INTEGER      | no   | Aumenta con cada edición.                  |
-| `fecha_creacion`       | TIMESTAMP    | no   | Cuándo se creó.                            |
-| `fecha_edicion`        | TIMESTAMP    | no   | Última edición.                            |
+| Campo                  | Tipo         | Nulo | Descripción                                                              |
+| ---------------------- | ------------ | ---- | ------------------------------------------------------------------------ |
+| `id_entrada`           | UUID         | no   | Clave primaria.                                                          |
+| `id_usuario`           | UUID         | no   | A quién pertenece.                                                       |
+| `dia`                  | DATE         | no   | Día del calendario de Colombia al que pertenece. Desde SCRUM-95.         |
+| `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                         |
+| `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.          |
+| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.     |
+| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión. Ninguna ruta las escribe todavía. |
+| `adjuntos`             | JSONB        | sí   | Los diagramas: `{ id, tipo: "diagrama", datos }`. Solo con conexión.     |
+| `id_operacion_cliente` | UUID         | no   | **UNIQUE** por persona. Generado en el dispositivo.                      |
+| `version`              | INTEGER      | no   | Aumenta con cada edición.                                                |
+| `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió. La pone la base al insertar y no se puede editar.    |
+| `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición.                                                          |
+
+### Un registro por día, con una hora para editar (SCRUM-95)
+
+El diario de un día es el conjunto de sus anotaciones, y cada anotación es una
+fila. Escribir algo por la tarde no reescribe lo de la mañana: se añade debajo.
+
+- **`dia` no se deriva de `fecha_creacion`.** Se puede añadir a un día pasado,
+  y la anotación conserva la hora real en que se escribió. En un día futuro, no.
+- **Una hora para editar, impuesta por la base.** La política de UPDATE solo
+  deja pasar filas con `fecha_creacion > now() - interval '60 minutes'`. Fuera
+  de esa hora, un UPDATE directo con el rol de la aplicación no encuentra la
+  fila. La API responde `409 EDICION_FUERA_DE_PLAZO`, y el cliente guarda lo
+  suyo como una anotación nueva.
+- **Nadie puede alargar esa hora.** Un disparador fija `fecha_creacion` al
+  insertar, venga lo que venga. Además, `vsd_app` solo tiene permiso de UPDATE
+  sobre las columnas que se editan: `fecha_creacion`, `dia`, `id_usuario` e
+  `id_operacion_cliente` no se pueden cambiar.
+
+Ver la migración `20261003180000_diario_por_dia`.
 
 ### El contenido del diario no se evalúa
 
@@ -314,7 +334,8 @@ puntaje. Cifrado en reposo. Ningún administrador puede leerlo. El RF12 debe
 descargarlo y eliminarlo junto con el resto de la cuenta.
 
 **Política de acceso:** cada persona lee y escribe únicamente sus propias
-entradas. El administrador **no** tiene acceso a ninguna.
+entradas, y solo las edita durante su primera hora. El administrador **no**
+tiene acceso a ninguna.
 
 ### RECURSO_APOYO dejó de ser un catálogo
 
@@ -342,14 +363,14 @@ no puede fallar. Hay una prueba de integración que comprueba que están.
 
 ## Resumen de políticas de acceso
 
-| Tabla            | Persona dueña           | Otra persona | Administrador |
-| ---------------- | ----------------------- | ------------ | ------------- |
-| `USUARIO`        | lee y escribe su fila   | nada         | nada          |
-| `CATEGORIA`      | lee                     | lee          | lee y escribe |
-| `ACTIVIDAD`      | lee                     | lee          | lee y escribe |
-| `RESULTADO`      | lee y escribe los suyos | nada         | **nada**      |
-| `RECURSO_APOYO`  | lee                     | lee          | lee y escribe |
-| `ENTRADA_DIARIO` | lee y escribe las suyas | nada         | **nada**      |
+| Tabla            | Persona dueña                                       | Otra persona | Administrador |
+| ---------------- | --------------------------------------------------- | ------------ | ------------- |
+| `USUARIO`        | lee y escribe su fila                               | nada         | nada          |
+| `CATEGORIA`      | lee                                                 | lee          | lee y escribe |
+| `ACTIVIDAD`      | lee                                                 | lee          | lee y escribe |
+| `RESULTADO`      | lee y escribe los suyos                             | nada         | **nada**      |
+| `RECURSO_APOYO`  | lee                                                 | lee          | lee y escribe |
+| `ENTRADA_DIARIO` | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

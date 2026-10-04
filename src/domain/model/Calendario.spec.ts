@@ -103,3 +103,23 @@ describe('Calendario', () => {
     });
   });
 });
+
+describe('Calendario, los dias como texto (SCRUM-95)', () => {
+  it.each(['2026-10-03', '2024-02-29', '1999-12-31'])('"%s" es un dia', (dia) => {
+    expect(Calendario.esDia(dia)).toBe(true);
+  });
+
+  it.each(['2026-02-30', '2025-02-29', '2026-13-01', '2026-1-3', '03/10/2026', ''])(
+    '"%s" no lo es',
+    (dia) => {
+      expect(Calendario.esDia(dia)).toBe(false);
+    },
+  );
+
+  it('cuenta los dias entre dos fechas, tambien hacia atras', () => {
+    expect(Calendario.diasEntre('2026-10-03', '2026-10-03')).toBe(0);
+    expect(Calendario.diasEntre('2026-09-27', '2026-10-03')).toBe(6);
+    expect(Calendario.diasEntre('2026-10-03', '2026-09-27')).toBe(-6);
+    expect(Calendario.diasEntre('2025-10-03', '2026-10-03')).toBe(365);
+  });
+});

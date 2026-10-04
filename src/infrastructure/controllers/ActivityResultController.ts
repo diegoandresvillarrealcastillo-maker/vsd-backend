@@ -55,7 +55,7 @@ export class ActivityResultController {
     @Body() dto: RegistrarResultadoDto,
     @CuentaActual() cuenta: User,
   ): Promise<ResultadoRespuestaDto> {
-    const resultado = await this.resultados.registrar({
+    const { resultado, lineasDeAtencion } = await this.resultados.registrar({
       // Del token, no del cuerpo: es la diferencia entre "de quien dice el
       // cliente que es este resultado" y "de quien es".
       //
@@ -72,6 +72,6 @@ export class ActivityResultController {
       metadata: dto.metadata as Metadata | undefined,
     });
 
-    return ResultadoRespuestaDto.desde(resultado);
+    return ResultadoRespuestaDto.desde(resultado, lineasDeAtencion);
   }
 }

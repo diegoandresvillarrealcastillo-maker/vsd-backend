@@ -1,7 +1,8 @@
+import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   SESIONES,
   VerificadorFalso,
@@ -26,6 +27,10 @@ const B = 'token-de-B';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
 /** Bitacora de sueno: es la actividad del catalogo que no puntua. */
 const BITACORA = '88888888-8888-4888-a888-888888888888';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /** Cada prueba usa su propia operacion para no interferir con las demas. */
 let contador = 0;
@@ -147,13 +152,26 @@ describe('POST /api/resultados', () => {
     expect(respuesta.body).not.toHaveProperty('userId');
   });
 
-  it('sugiere acompanamiento cuando el puntaje es bajo', async () => {
+  it('sugiere acompanamiento cuando el puntaje es bajo, y trae las lineas de atencion', async () => {
     const respuesta = await registrarComo(app, A).send(cuerpo({ score: 2 }));
+    const lineas = (respuesta.body as { lineasDeAtencion: { tipo: string; cobertura?: string }[] })
+      .lineasDeAtencion;
 
     expect(respuesta.body).toMatchObject({
       nivelOrientativo: 'requiere_atencion',
       sugiereAcompanamiento: true,
     });
+    // SCRUM-94: los telefonos viajan en la misma respuesta, ordenados por
+    // alcance, sin depender de una segunda peticion.
+    expect(lineas.length).toBeGreaterThan(0);
+    expect(lineas.every((linea) => linea.tipo === 'contacto')).toBe(true);
+    expect(lineas[0]?.cobertura).toBe('nacional');
+  });
+
+  it('sin sugerencia, la lista de lineas va vacia', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 9 }));
+
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: false, lineasDeAtencion: [] });
   });
 
   it('es idempotente: el reintento devuelve el mismo resultado', async () => {
@@ -432,5 +450,32 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     await registrarComo(app, A)
       .send(sinValorar({ metadata: { puntaje: 99 } }))
       .expect(400);
+  });
+
+  it('una senal de riesgo en el texto libre trae las lineas, y el texto no queda en ningun registro', async () => {
+    // SCRUM-94. Es "Un momento bueno del dia": no puntua, y aun asi lo escrito
+    // pasa por la misma deteccion de riesgo que el asistente.
+    const texto = 'Hoy no hubo nada bueno, ya no puedo mas con todo';
+    const anotado: string[] = [];
+
+    for (const nivel of ['log', 'warn', 'error', 'debug', 'verbose'] as const) {
+      vi.spyOn(Logger.prototype, nivel).mockImplementation((...partes: unknown[]) => {
+        anotado.push(partes.map(String).join(' '));
+      });
+    }
+
+    const respuesta = await registrarComo(app, A)
+      .send(sinValorar({ metadata: { texto } }))
+      .expect(201);
+
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: true });
+    expect(
+      (respuesta.body as { lineasDeAtencion: unknown[] }).lineasDeAtencion.length,
+    ).toBeGreaterThan(0);
+    // El registro si anoto la peticion: la prueba escucha donde de verdad se
+    // escribe, y aun asi el texto no aparece.
+    await vi.waitFor(() => expect(anotado.join('\n')).toContain('POST /api/resultados 201'));
+    expect(anotado.join('\n')).not.toContain('ya no puedo');
+    expect(anotado.join('\n')).not.toContain('nada bueno');
   });
 });

@@ -319,6 +319,173 @@
         ]
       }
     },
+    "/api/diario": {
+      "get": {
+        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en Colombia. Como mucho 366 días por consulta.",
+        "operationId": "DiarioController_consultar",
+        "parameters": [
+          {
+            "name": "desde",
+            "required": false,
+            "in": "query",
+            "description": "Primer día del rango, incluido. Si no viene, el mismo que \"hasta\".",
+            "schema": {
+              "format": "date",
+              "example": "2026-09-27",
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "required": false,
+            "in": "query",
+            "description": "Último día del rango, incluido. Si no viene, hoy en Colombia.",
+            "schema": {
+              "format": "date",
+              "example": "2026-10-03",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntradaDelDiarioDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un día mal escrito o un rango no válido."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar las anotaciones de un rango de días",
+        "tags": [
+          "Diario"
+        ]
+      },
+      "post": {
+        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió. Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.",
+        "operationId": "DiarioController_escribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscribirEnElDiarioDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotacionGuardadaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido, la anotación está vacía o el día es futuro."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "El cuerpo supera 1 MB."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Escribir una anotación",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
+    "/api/diario/{id}": {
+      "patch": {
+        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). La hora la impone la base de datos, no solo la API.",
+        "operationId": "DiarioController_editar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarAnotacionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotacionGuardadaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido o no trae nada que cambiar."
+          },
+          "404": {
+            "description": "La anotación no existe o es de otra persona; las dos se responden igual."
+          },
+          "409": {
+            "description": "EDICION_FUERA_DE_PLAZO o VERSION_DESACTUALIZADA. Guardar como anotación nueva."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Corregir una anotación durante su primera hora",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
     "/api/progreso": {
       "get": {
         "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
@@ -484,6 +651,45 @@
           "completedAt"
         ]
       },
+      "RecursoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Línea 192, opción 4"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "contacto",
+            "enum": [
+              "contacto",
+              "lectura",
+              "ejercicio"
+            ]
+          },
+          "cobertura": {
+            "type": "string",
+            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
+            "example": "nacional"
+          },
+          "enlace": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "tipo"
+        ]
+      },
       "ResultadoRespuestaDto": {
         "type": "object",
         "properties": {
@@ -506,7 +712,14 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado."
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: por el nivel, o porque lo escrito trae una señal de riesgo."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
           },
           "metadata": {
             "type": "object",
@@ -521,6 +734,7 @@
           "id",
           "activityId",
           "sugiereAcompanamiento",
+          "lineasDeAtencion",
           "completedAt"
         ]
       },
@@ -762,49 +976,94 @@
           }
         }
       },
-      "EntradaExportadaDto": {
+      "EntradaDelDiarioDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
           "titulo": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 120
           },
           "contenido": {
-            "type": "string"
-          },
-          "formato": {
-            "type": "string",
-            "enum": [
-              "texto_plano",
-              "enriquecido"
-            ]
-          },
-          "etiquetas": {
             "type": "object",
-            "nullable": true,
-            "description": "Etiquetas de ánimo, si las hay."
+            "additionalProperties": true,
+            "description": "El documento del editor: un árbol de nodos con \"type\", y opcionalmente \"content\", \"text\", \"marks\" y \"attrs\". Nunca HTML.",
+            "example": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hoy salí a caminar con "
+                    },
+                    {
+                      "type": "text",
+                      "text": "calma",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas de la anotación: { id, tipo: \"diagrama\", datos }. Los datos son la escena del editor de diagramas, tal cual."
+          },
+          "version": {
+            "type": "number",
+            "description": "Sube con cada edición. Hay que enviarla al editar: si no coincide, alguien la cambió desde otro dispositivo.",
+            "example": 1
           },
           "creadaEn": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Cuándo se escribió de verdad."
           },
           "editadaEn": {
             "type": "string",
             "format": "date-time"
+          },
+          "editableHasta": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
           }
         },
         "required": [
           "id",
+          "dia",
           "titulo",
           "contenido",
-          "formato",
-          "etiquetas",
+          "adjuntos",
+          "version",
           "creadaEn",
-          "editadaEn"
+          "editadaEn",
+          "editableHasta"
         ]
       },
       "ExportacionDto": {
@@ -827,7 +1086,7 @@
           "entradasDeDiario": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EntradaExportadaDto"
+              "$ref": "#/components/schemas/EntradaDelDiarioDto"
             }
           }
         },
@@ -858,6 +1117,177 @@
             "type": "string",
             "description": "Version vigente del aviso. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
             "example": "2026-09-1"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "EscribirEnElDiarioDto": {
+        "type": "object",
+        "properties": {
+          "clientOperationId": {
+            "type": "string",
+            "description": "Identificador de la operación, generado por el dispositivo. Reenviar el mismo valor en un reintento devuelve la anotación ya guardada en lugar de crear otra.",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de Colombia. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
+          "titulo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor, con \"type\": \"doc\". Nunca HTML."
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas: { id, tipo: \"diagrama\", datos }. Como mucho diez."
+          }
+        },
+        "required": [
+          "clientOperationId",
+          "contenido"
+        ]
+      },
+      "AnotacionGuardadaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor: un árbol de nodos con \"type\", y opcionalmente \"content\", \"text\", \"marks\" y \"attrs\". Nunca HTML.",
+            "example": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hoy salí a caminar con "
+                    },
+                    {
+                      "type": "text",
+                      "text": "calma",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas de la anotación: { id, tipo: \"diagrama\", datos }. Los datos son la escena del editor de diagramas, tal cual."
+          },
+          "version": {
+            "type": "number",
+            "description": "Sube con cada edición. Hay que enviarla al editar: si no coincide, alguien la cambió desde otro dispositivo.",
+            "example": 1
+          },
+          "creadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se escribió de verdad."
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editableHasta": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
+          },
+          "sugiereAcompanamiento": {
+            "type": "boolean",
+            "description": "Si lo escrito trae una señal de riesgo. Se calcula en cada respuesta y no se guarda con la anotación."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance (lo nacional primero), cuando sugiereAcompanamiento es cierto. Vacía en otro caso.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "dia",
+          "titulo",
+          "contenido",
+          "adjuntos",
+          "version",
+          "creadaEn",
+          "editadaEn",
+          "editableHasta",
+          "sugiereAcompanamiento",
+          "lineasDeAtencion"
+        ]
+      },
+      "EditarAnotacionDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "La versión de la anotación cuando se abrió para editar. Si ya no es la actual, la edición se rechaza con 409 VERSION_DESACTUALIZADA.",
+            "minimum": 1
+          },
+          "titulo": {
+            "type": "string",
+            "maxLength": 120,
+            "nullable": true
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor completo, con \"type\": \"doc\"."
+          },
+          "adjuntos": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
           }
         },
         "required": [
@@ -1007,45 +1437,6 @@
         },
         "required": [
           "texto"
-        ]
-      },
-      "RecursoDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "titulo": {
-            "type": "string",
-            "example": "Línea 192, opción 4"
-          },
-          "descripcion": {
-            "type": "string"
-          },
-          "tipo": {
-            "type": "string",
-            "example": "contacto",
-            "enum": [
-              "contacto",
-              "lectura",
-              "ejercicio"
-            ]
-          },
-          "cobertura": {
-            "type": "string",
-            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
-            "example": "nacional"
-          },
-          "enlace": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": [
-          "id",
-          "titulo",
-          "tipo"
         ]
       },
       "AsistenteRespuestaDto": {

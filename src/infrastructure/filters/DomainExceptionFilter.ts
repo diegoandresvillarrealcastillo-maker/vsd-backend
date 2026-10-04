@@ -62,6 +62,18 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   MASCOTA_INVALIDA: HttpStatus.BAD_REQUEST,
   NOMBRE_INVALIDO: HttpStatus.BAD_REQUEST,
 
+  // Diario (SCRUM-95).
+  ANOTACION_INVALIDA: HttpStatus.BAD_REQUEST,
+  DIA_EN_EL_FUTURO: HttpStatus.BAD_REQUEST,
+  RANGO_DE_DIAS_INVALIDO: HttpStatus.BAD_REQUEST,
+  // Inexistente o de otra persona: las dos se responden igual.
+  ANOTACION_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+  // 409 y no 403: la peticion esta bien y la anotacion es suya. Lo que choca
+  // es el estado: paso su hora, o la cambio otro dispositivo. Las dos se
+  // resuelven igual, guardando lo que se traia como una anotacion nueva.
+  EDICION_FUERA_DE_PLAZO: HttpStatus.CONFLICT,
+  VERSION_DESACTUALIZADA: HttpStatus.CONFLICT,
+
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un
   // momento es exactamente lo que tiene que hacer.
@@ -73,9 +85,63 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   CONFIGURACION_DE_ACTIVIDAD_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
+/**
+ * Lo que se anota de un error interno sin arriesgar datos de nadie.
+ *
+ * Los errores de Prisma repiten en su mensaje los argumentos de la llamada que
+ * fallo, y ahi pueden ir la metadata de un resultado o el texto libre de "Un
+ * momento bueno del dia" (SCRUM-94). De esos se anota el nombre, el codigo y
+ * los marcos de la traza, que es lo que sirve para encontrar el fallo, y nunca
+ * el mensaje. Los demas errores se anotan enteros, como siempre.
+ */
+export function trazaSegura(error: unknown): string | undefined {
+  if (!(error instanceof Error)) {
+    // Un valor que no es un Error puede ser cualquier cosa, incluido un objeto
+    // con datos de la peticion. Basta con saber que clase de cosa era.
+    return `Se lanzo un valor que no es un Error (${typeof error}).`;
+  }
+
+  if (!error.name.startsWith('PrismaClient')) {
+    return error.stack;
+  }
+
+  const codigo = 'code' in error && typeof error.code === 'string' ? ` ${error.code}` : '';
+  const marcos = (error.stack ?? '')
+    .split('\n')
+    .filter((linea) => linea.trimStart().startsWith('at '));
+
+  return [
+    `${error.name}${codigo} (mensaje omitido: puede traer datos de la peticion)`,
+    ...marcos,
+  ].join('\n');
+}
+
 interface CuerpoDeError {
   readonly codigo: string;
   readonly mensaje: string;
+}
+
+/**
+ * El estado de un error al leer el cuerpo de la peticion, si lo es.
+ *
+ * Los lanza el lector de JSON de Express antes de llegar a ninguna ruta: un
+ * cuerpo demasiado grande (413) o que no es JSON (400). Traen su estado y la
+ * marca `expose`, que dice que es un error de quien llama y se puede contar.
+ *
+ * Sin esto caian en el error interno: respondian 500 por algo que no es culpa
+ * del servidor y se anotaban enteros. Y el mensaje de un JSON mal formado cita
+ * un trozo del cuerpo, que en el diario es lo que alguien escribio.
+ */
+function estadoAlLeerElCuerpo(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const { status, expose } = error as { status?: unknown; expose?: unknown };
+
+  return typeof status === 'number' && status >= 400 && status < 500 && expose === true
+    ? status
+    : undefined;
 }
 
 @Catch()
@@ -98,7 +164,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
         this.registro.error(
           `${excepcion.code} [${identificador}]`,
-          causa instanceof Error ? causa.stack : excepcion.stack,
+          trazaSegura(causa instanceof Error ? causa : excepcion),
         );
       }
 
@@ -115,6 +181,27 @@ export class DomainExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    // El cuerpo no se pudo leer. Es de quien llama, asi que no se anota: el
+    // registro de peticiones ya deja la linea con su estado.
+    const estadoDelCuerpo = estadoAlLeerElCuerpo(excepcion);
+
+    if (estadoDelCuerpo !== undefined) {
+      const cuerpo: CuerpoDeError =
+        estadoDelCuerpo === Number(HttpStatus.PAYLOAD_TOO_LARGE)
+          ? {
+              codigo: 'CUERPO_DEMASIADO_GRANDE',
+              mensaje: 'Lo que enviaste supera el tamaño máximo que admite esta ruta.',
+            }
+          : {
+              codigo: 'CUERPO_ILEGIBLE',
+              mensaje: 'No se pudo leer el cuerpo de la petición. Comprueba que sea JSON válido.',
+            };
+
+      respuesta.status(estadoDelCuerpo).json(cuerpo);
+
+      return;
+    }
+
     // Cualquier otra cosa es un fallo nuestro. El detalle va al registro del
     // servidor, donde sirve para diagnosticar; al cliente solo le llega un
     // mensaje generico. Devolver la traza seria entregar un mapa del interior
@@ -124,10 +211,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     // el, saber que hubo un error interno no ayuda a encontrar cual.
     const identificador = identificadorDeLaRespuesta(respuesta) ?? 'sin identificador';
 
-    this.registro.error(
-      `Error no controlado [${identificador}]`,
-      excepcion instanceof Error ? excepcion.stack : excepcion,
-    );
+    this.registro.error(`Error no controlado [${identificador}]`, trazaSegura(excepcion));
 
     const cuerpo: CuerpoDeError = {
       codigo: 'ERROR_INTERNO',

@@ -57,6 +57,27 @@ export class Calendario {
     }
   }
 
+  /** Si el texto es un dia real con formato AAAA-MM-DD: "2026-02-30" no lo es. */
+  static esDia(valor: string): boolean {
+    const coincidencia = FORMATO_DE_DIA.exec(valor);
+
+    if (!coincidencia) {
+      return false;
+    }
+
+    const [, anio, mes, dia] = coincidencia;
+    const fecha = new Date(Date.UTC(Number(anio), Number(mes) - 1, Number(dia)));
+
+    return fecha.toISOString().slice(0, 10) === valor;
+  }
+
+  /** Cuantos dias van de uno a otro: 0 si son el mismo, negativo si va hacia atras. */
+  static diasEntre(desde: Dia, hasta: Dia): number {
+    return Math.round(
+      (Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / UN_DIA_EN_MS,
+    );
+  }
+
   /** El dia local al que pertenece un instante. */
   diaDe(instante: Date): Dia {
     const { anio, mes, dia } = this.partesLocales(instante);

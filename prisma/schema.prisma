@@ -98,8 +98,8 @@ model Categoria {
   /// clave estable; el nombre es texto visible y puede cambiar. SCRUM-91.
   modulo      String? @unique @db.VarChar(20)
 
-  actividades      Actividad[]
-  recursosDeApoyo  RecursoApoyo[]
+  actividades     Actividad[]
+  recursosDeApoyo RecursoApoyo[]
 
   @@map("categoria")
 }
@@ -218,9 +218,17 @@ model RecursoApoyo {
 /// Su contenido **no se evalua**. Ninguna entrada produce puntaje ni nivel, y
 /// por eso no se relaciona con actividad ni con categoria.
 model EntradaDiario {
-  id        String  @id @default(uuid()) @map("id_entrada") @db.Uuid
-  idUsuario String  @map("id_usuario") @db.Uuid
-  titulo    String? @db.VarChar(120)
+  id        String @id @default(uuid()) @map("id_entrada") @db.Uuid
+  idUsuario String @map("id_usuario") @db.Uuid
+
+  /// El dia del calendario de Colombia al que pertenece la anotacion. No
+  /// siempre coincide con `fechaCreacion`: se puede anadir a un dia pasado.
+  dia DateTime @default(dbgenerated("((now() AT TIME ZONE 'America/Bogota'::text))::date")) @db.Date
+
+  titulo String? @db.VarChar(120)
+
+  /// Con formato `enriquecido`, el documento del editor serializado en JSON.
+  /// Nunca HTML. Los diagramas van aparte, en `adjuntos`.
   contenido String
 
   formato FormatoEntrada @default(texto_plano)
@@ -238,6 +246,9 @@ model EntradaDiario {
   /// la copia local se guarda aparte. Ver ADR 0009.
   version Int @default(1)
 
+  /// La pone la base al insertar, venga lo que venga: de ella se cuenta la
+  /// hora para editar, y no puede elegirla quien escribe. No se puede editar.
+  /// Ver la migracion 20261003180000_diario_por_dia.
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 
@@ -245,5 +256,6 @@ model EntradaDiario {
 
   @@unique([idUsuario, idOperacionCliente])
   @@index([idUsuario, fechaCreacion])
+  @@index([idUsuario, dia])
   @@map("entrada_diario")
 }

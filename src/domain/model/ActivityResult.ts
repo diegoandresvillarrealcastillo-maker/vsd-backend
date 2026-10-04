@@ -1,6 +1,7 @@
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
+import { hayRiesgo, textosDe } from './SenalesDeRiesgo.js';
 
 /**
  * Valores que admite `metadata`. Es lo que cabe en un JSONB de PostgreSQL.
@@ -119,15 +120,33 @@ export class ActivityResult {
   }
 
   /**
-   * Indica si conviene acompanar el resultado con recursos de apoyo
-   * profesional. Delega en el puntaje: la regla vive donde vive el nivel.
+   * Si algo de lo que la persona escribio trae una senal de riesgo (SCRUM-94).
    *
-   * Un resultado sin puntaje no sugiere nada por si mismo. Anotar que hoy te
-   * moviste, o que hubo un momento bueno, cobra sentido en la tendencia y no
-   * en una anotacion suelta, y hacer que un registro aislado dispare una
-   * sugerencia seria leer de mas.
+   * Pasa por la misma comprobacion que el asistente, `hayRiesgo`, sobre todo el
+   * texto de la metadata y a cualquier profundidad: un campo nuevo de texto
+   * libre queda cubierto sin tener que acordarse de anadirlo aqui.
+   */
+  contieneSenalDeRiesgo(): boolean {
+    return Object.values(this.metadata).flatMap(textosDe).some(hayRiesgo);
+  }
+
+  /**
+   * Indica si conviene acompanar el resultado con recursos de apoyo
+   * profesional.
+   *
+   * Dos caminos, y basta con uno:
+   * - **Una senal de riesgo en lo escrito.** No espera a ninguna tendencia: si
+   *   alguien escribe algo preocupante en "Un momento bueno del dia", las
+   *   lineas de atencion aparecen esa misma vez, como en el asistente.
+   * - **El puntaje**, que delega en el nivel: la regla vive donde vive el
+   *   nivel.
+   *
+   * Fuera de eso, un resultado sin puntaje no sugiere nada por si mismo.
+   * Anotar que hoy te moviste cobra sentido en la tendencia y no en una
+   * anotacion suelta, y hacer que un registro aislado dispare una sugerencia
+   * seria leer de mas.
    */
   sugiereAcompanamiento(): boolean {
-    return this.score?.sugiereAcompanamiento() ?? false;
+    return this.contieneSenalDeRiesgo() || (this.score?.sugiereAcompanamiento() ?? false);
   }
 }

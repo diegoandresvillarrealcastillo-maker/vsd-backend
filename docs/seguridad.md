@@ -212,6 +212,21 @@ como el tema visual o el idioma.
     `id_usuario` y falla si alguna conserva filas despues del borrado.
 - Los datos de otros usuarios nunca aparecen en registros ni en
   mensajes de error.
+- **Lo que alguien escribe no sale nunca por el registro.** Esto vale para el
+  diario y para el texto libre de los resultados.
+  - El registro de peticiones anota método, ruta, estado y duración, nunca el
+    cuerpo.
+  - De los errores de Prisma se anota el nombre, el código y la traza, nunca
+    el mensaje, que repite los argumentos.
+  - Un cuerpo que no se puede leer responde 400 o 413 sin anotarse, porque el
+    mensaje de un JSON mal formado cita un trozo del cuerpo.
+  - Los mensajes de error del diario dicen qué parte está mal, nunca qué
+    contiene.
+  - Hay pruebas que escuchan el registro de verdad y comprueban que el texto no
+    aparece.
+- El diario lo lee solo quien lo escribe; ni el administrador. Se edita solo
+  durante su primera hora, y eso lo impone la base: un `UPDATE` directo con el
+  rol de la aplicación, pasada esa hora, no encuentra la fila.
 
 El rol de administrador gestiona el catalogo de contenidos —categorias,
 actividades y recursos de apoyo— y **no tiene acceso** a los resultados,

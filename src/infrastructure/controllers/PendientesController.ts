@@ -40,7 +40,7 @@ export class PendientesController {
   @ApiOperation({
     summary: 'Consultar el semáforo',
     description:
-      'Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: a los 7 días un urgente, a los 30 una prioridad y a los 14 un aplazable, salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.',
+      'Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave), salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.',
   })
   @ApiResponse({ status: 200, type: SemaforoDto })
   @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })

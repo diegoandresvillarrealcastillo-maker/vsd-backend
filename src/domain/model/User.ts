@@ -56,6 +56,8 @@ export interface DatosDeUsuario {
   readonly modulosActivos?: readonly string[] | undefined;
   /** Sin mascota guardada se usa la de siempre. */
   readonly mascota?: Mascota | undefined;
+  /** Si la persona permite que lo que escribe en el diario se lea para recomendarle. Por defecto, no. */
+  readonly diarioConRecomendaciones?: boolean | undefined;
 }
 
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
@@ -64,6 +66,7 @@ export interface CambiosDePreferencias {
   readonly nombre?: string | undefined;
   readonly modulosActivos?: readonly string[] | undefined;
   readonly mascota?: Mascota | undefined;
+  readonly diarioConRecomendaciones?: boolean | undefined;
 }
 
 const LARGO_MAXIMO_DEL_NOMBRE = 100;
@@ -108,6 +111,17 @@ export class User {
   readonly modulosActivos: readonly Modulo[];
   readonly mascota: Mascota | undefined;
 
+  /**
+   * Si la persona permite que el servidor lea lo que escribe en su diario
+   * para recomendarle algo (SCRUM-108).
+   *
+   * Apagado por defecto, y asi quedan las cuentas que ya existian. Con esto
+   * apagado, el diario se guarda y se devuelve, y nada mas: ni se busca una
+   * senal de riesgo ni se ofrece nada. Nadie se mete en el diario de nadie
+   * sin que lo pida. Solo lo cambia la propia persona, desde su perfil.
+   */
+  readonly diarioConRecomendaciones: boolean;
+
   private constructor(datos: DatosDeUsuario & { readonly modulosActivos: readonly Modulo[] }) {
     this.id = datos.id;
     this.correo = datos.correo;
@@ -118,6 +132,7 @@ export class User {
     this.nombre = datos.nombre;
     this.modulosActivos = [...datos.modulosActivos];
     this.mascota = datos.mascota;
+    this.diarioConRecomendaciones = datos.diarioConRecomendaciones ?? false;
   }
 
   static create(datos: DatosDeUsuario, ahora: Date = new Date()): User {
@@ -164,8 +179,8 @@ export class User {
    * La misma cuenta con otras preferencias.
    *
    * Devuelve una cuenta nueva en lugar de modificar esta. Solo toca el nombre,
-   * los modulos y la mascota: el correo y el rol no se cambian por aqui, y no
-   * hay forma de pasarlos.
+   * los modulos, la mascota y el permiso sobre el diario: el correo y el rol no
+   * se cambian por aqui, y no hay forma de pasarlos.
    */
   conPreferencias(cambios: CambiosDePreferencias): User {
     return new User({
@@ -181,6 +196,7 @@ export class User {
           ? this.modulosActivos
           : elegirModulos(cambios.modulosActivos),
       mascota: cambios.mascota === undefined ? this.mascota : crearMascota(cambios.mascota),
+      diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
     });
   }
 

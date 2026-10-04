@@ -24,6 +24,7 @@ interface Cuenta {
   rol: string;
   modulosActivos: string[];
   mascota: { forma: string; nombre: string; color?: string; accesorio?: string } | null;
+  diarioConRecomendaciones: boolean;
 }
 
 /** `PATCH /api/cuenta/preferencias` por HTTP, con la tuberia de verdad. */
@@ -92,6 +93,24 @@ describe('PATCH /api/cuenta/preferencias', () => {
     });
 
     expect((await cuentaDe(A)).modulosActivos).toEqual(['cognicion', 'emociones']);
+  });
+
+  it('el permiso sobre el diario empieza apagado, y solo la persona lo enciende (SCRUM-108)', async () => {
+    expect((await cuentaDe(B)).diarioConRecomendaciones).toBe(false);
+
+    const encendido = await preferencias(B).send({ diarioConRecomendaciones: true }).expect(200);
+
+    expect(encendido.body).toMatchObject({ diarioConRecomendaciones: true });
+    // Encender el permiso de una persona no toca el de otra.
+    expect((await cuentaDe(A)).diarioConRecomendaciones).toBe(false);
+
+    await preferencias(B).send({ diarioConRecomendaciones: false }).expect(200);
+
+    expect((await cuentaDe(B)).diarioConRecomendaciones).toBe(false);
+  });
+
+  it('el permiso sobre el diario solo admite si o no', async () => {
+    await preferencias(B).send({ diarioConRecomendaciones: 'si' }).expect(400);
   });
 
   it('lo que no se manda se queda como estaba', async () => {

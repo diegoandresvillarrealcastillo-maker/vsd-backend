@@ -89,6 +89,8 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.escribirEnElDiario.execute({
       userId: cuenta.id.value,
+      // El permiso es de la cuenta y lo cambia solo ella, desde su perfil.
+      conRecomendaciones: cuenta.diarioConRecomendaciones,
       clientOperationId: dto.clientOperationId,
       dia: dto.dia,
       titulo: dto.titulo,
@@ -123,6 +125,7 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.editarAnotacion.execute({
       userId: cuenta.id.value,
+      conRecomendaciones: cuenta.diarioConRecomendaciones,
       entradaId: id,
       version: dto.version,
       titulo: dto.titulo,

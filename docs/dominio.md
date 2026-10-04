@@ -374,11 +374,15 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   comprueba la forma del arbol (cada nodo con un `type` valido y solo las
   claves que usa el editor), su profundidad y su tamano. No cierra la lista de
   tipos: eso es del editor. Los diagramas van en `adjuntos`.
-- **Senales de riesgo.** `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el
-  titulo, el texto del documento con las frases enteras aunque el editor las
-  parta por marcas, y el texto de los diagramas. La respuesta trae
-  `sugiereAcompanamiento` y las lineas de atencion, como un resultado. **No se
-  guarda ninguna marca** en la anotacion.
+- **Senales de riesgo, solo con permiso** (SCRUM-108). Nadie se mete en el
+  diario de nadie: si la persona no encendio `diarioConRecomendaciones` en su
+  perfil (apagado por defecto), lo escrito no pasa por ninguna deteccion y la
+  respuesta va sin sugerencia ni lineas. Con el permiso,
+  `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el titulo, el texto del
+  documento con las frases enteras aunque el editor las parta por marcas, y el
+  texto de los diagramas, y la respuesta trae `sugiereAcompanamiento` y las
+  lineas de atencion, como un resultado. **No se guarda ninguna marca** en la
+  anotacion.
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 
@@ -389,10 +393,13 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 
 - **El color lo pone la persona.** El sistema puede sugerir subirlo, nunca lo
   sube solo.
+- **Cada color es un plazo** (SCRUM-107): urgente, esta semana; prioridad,
+  entre 7 y 21 dias; aplazable, 21 o mas.
 - **Recordatorios con calma.** `recordatorio(ahora)` dice si toca recordarlo:
-  sin hacer, sin posponer, y pasado el tiempo de su nivel desde que se anoto (7
-  dias urgente, 30 prioridad, 14 aplazable). Sugiere el nivel siguiente;
-  urgente no tiene siguiente.
+  sin hacer, sin posponer, y acabado el plazo de su color desde que se anoto (7
+  dias urgente, 21 prioridad, 30 aplazable). Sugiere el nivel siguiente;
+  urgente no tiene siguiente. Lleva un `tono`: `plazo` para urgente y
+  prioridad, `suave` para aplazable ("no es urgente, pero que no se acumule").
 - **Uno por visita.** `elegirRecordatorio` devuelve uno como mucho: el de mayor
   color y, a igual color, el mas antiguo.
 - **Posponer** es dar una fecha futura, como mucho a 90 dias. Hasta entonces no

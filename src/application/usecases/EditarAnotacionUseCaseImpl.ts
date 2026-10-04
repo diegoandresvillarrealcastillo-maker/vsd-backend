@@ -56,7 +56,7 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
     const guardada = await this.diario.guardarEdicion(editada, actual.version);
 
     if (guardada !== null) {
-      return acompanarAnotacion(guardada, this.recursos);
+      return acompanarAnotacion(guardada, this.recursos, command.conRecomendaciones);
     }
 
     // La base no la dejo pasar. Puede que otro dispositivo la editara entre

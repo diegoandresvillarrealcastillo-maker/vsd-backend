@@ -191,6 +191,20 @@ export function pruebasDelPuertoDeUsuarios(
       await expect(banco.contar()).resolves.toBe(1);
     });
 
+    it('el permiso sobre el diario empieza apagado y se conserva al cambiarlo (SCRUM-108)', async () => {
+      await banco.repositorio.save(unaCuenta());
+
+      expect(
+        (await banco.repositorio.findById(new UserId(PERSONA)))?.diarioConRecomendaciones,
+      ).toBe(false);
+
+      await banco.repositorio.save(unaCuenta().conPreferencias({ diarioConRecomendaciones: true }));
+
+      expect(
+        (await banco.repositorio.findById(new UserId(PERSONA)))?.diarioConRecomendaciones,
+      ).toBe(true);
+    });
+
     it('un personaje sin color ni accesorio vuelve igual, sin campos inventados', async () => {
       // SCRUM-99: si el adaptador rellenara con texto vacio, el dominio lo
       // rechazaria al leer y la cuenta dejaria de cargar.

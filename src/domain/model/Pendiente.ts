@@ -8,12 +8,19 @@ import type { ClientOperationId, PendienteId, UserId } from './Identifier.js';
  * el suyo y solo ella lo cambia: el sistema puede sugerir subirlo, nunca lo
  * sube solo.
  *
+ * ## Cada color es un plazo
+ *
+ * Asi lo definio Diego (SCRUM-107): **urgente** es para esta semana,
+ * **prioridad** para entre 7 y 21 dias, y **aplazable** para 21 dias o mas.
+ *
  * ## Recordatorios con calma
  *
- * Un pendiente sin hacer recuerda que sigue ahi pasado un tiempo desde que se
- * anoto: 7 dias si es urgente, 14 si es aplazable y 30 si es prioridad. Es
- * un recordatorio, no una alarma, y por eso hay uno por visita como mucho
- * (ver `elegirRecordatorio`). Posponerlo lo calla hasta la fecha elegida.
+ * Un pendiente sin hacer recuerda que sigue ahi cuando se le acaba el plazo:
+ * a los 7 dias si es urgente, a los 21 si es prioridad y a los 30 si es
+ * aplazable. El del aplazable es el suave: no es urgente, pero que no se
+ * acumule. Es un recordatorio, no una alarma, y por eso hay uno por visita
+ * como mucho (ver `elegirRecordatorio`). Posponerlo lo calla hasta la fecha
+ * elegida.
  */
 export const NivelDePendiente = {
   URGENTE: 'urgente',
@@ -25,11 +32,23 @@ export type NivelDePendiente = (typeof NivelDePendiente)[keyof typeof NivelDePen
 
 const NIVELES: readonly NivelDePendiente[] = Object.values(NivelDePendiente);
 
-/** Cuantos dias espera cada nivel antes de recordar. */
+/** Cuantos dias espera cada nivel antes de recordar: el final de su plazo. */
 export const DIAS_PARA_RECORDAR: Readonly<Record<NivelDePendiente, number>> = {
   urgente: 7,
-  prioridad: 30,
-  aplazable: 14,
+  prioridad: 21,
+  aplazable: 30,
+};
+
+/**
+ * Como suena el recordatorio. `plazo`: se acabo el tiempo que se le dio.
+ * `suave`: no es urgente, pero que no se acumule. Lo redacta la pantalla.
+ */
+export type TonoDelRecordatorio = 'plazo' | 'suave';
+
+const TONO: Readonly<Record<NivelDePendiente, TonoDelRecordatorio>> = {
+  urgente: 'plazo',
+  prioridad: 'plazo',
+  aplazable: 'suave',
 };
 
 /** Lo que se sugiere al recordar: subir un escalon. Urgente ya no tiene donde subir. */
@@ -90,6 +109,7 @@ export interface Recordatorio {
   readonly dias: number;
   /** El nivel que se sugiere, o `null` si ya es urgente. Nunca se aplica solo. */
   readonly nivelSugerido: NivelDePendiente | null;
+  readonly tono: TonoDelRecordatorio;
 }
 
 export interface DatosDePendiente {
@@ -209,6 +229,7 @@ export class Pendiente {
       nivel: this.nivel,
       dias,
       nivelSugerido: NIVEL_SUGERIDO[this.nivel],
+      tono: TONO[this.nivel],
     };
   }
 

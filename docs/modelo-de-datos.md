@@ -77,18 +77,19 @@ el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí sol
 queda su identificador. Ver
 [ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
-| Campo                       | Tipo         | Nulo | Descripción                                                           |
-| --------------------------- | ------------ | ---- | --------------------------------------------------------------------- |
-| `id_usuario`                | UUID         | no   | Clave primaria.                                                       |
-| `nombre`                    | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                    |
-| `correo`                    | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                |
-| `id_proveedor_auth`         | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único. |
-| `rol`                       | VARCHAR(20)  | no   | `usuario` o `administrador`.                                          |
-| `version_politica_aceptada` | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.            |
-| `fecha_aceptacion_politica` | TIMESTAMP    | no   | Cuándo la aceptó.                                                     |
-| `fecha_registro`            | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                             |
-| `modulos_activos`           | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.         |
-| `mascota`                   | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto. |
+| Campo                        | Tipo         | Nulo | Descripción                                                                         |
+| ---------------------------- | ------------ | ---- | ----------------------------------------------------------------------------------- |
+| `id_usuario`                 | UUID         | no   | Clave primaria.                                                                     |
+| `nombre`                     | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                  |
+| `correo`                     | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                              |
+| `id_proveedor_auth`          | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.               |
+| `rol`                        | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                        |
+| `version_politica_aceptada`  | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                          |
+| `fecha_aceptacion_politica`  | TIMESTAMP    | no   | Cuándo la aceptó.                                                                   |
+| `fecha_registro`             | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                           |
+| `modulos_activos`            | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                       |
+| `mascota`                    | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.               |
+| `diario_con_recomendaciones` | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108). |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una
@@ -381,8 +382,10 @@ su color.
 
 **Los recordatorios no se guardan**: se calculan al consultar.
 
-- **Umbrales:** un pendiente sin hacer recuerda a los 7 días si es urgente, a
-  los 30 si es prioridad y a los 14 si es aplazable, salvo que esté pospuesto.
+- **Umbrales:** cada color es un plazo (urgente, esta semana; prioridad, de 7
+  a 21 días; aplazable, 21 o más). Un pendiente sin hacer recuerda cuando se le
+  acaba: a los 7 días si es urgente, a los 21 si es prioridad y a los 30 si es
+  aplazable, este con tono suave. Salvo que esté pospuesto.
 - **Uno por visita:** se elige el de mayor color y, a igual color, el más
   antiguo.
 - **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.

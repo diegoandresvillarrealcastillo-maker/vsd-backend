@@ -488,7 +488,7 @@
     },
     "/api/pendientes": {
       "get": {
-        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: a los 7 días un urgente, a los 30 una prioridad y a los 14 un aplazable, salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
+        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave), salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
         "operationId": "PendientesController_consultar",
         "parameters": [],
         "responses": {
@@ -1085,6 +1085,10 @@
                 "$ref": "#/components/schemas/MascotaDto"
               }
             ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
           }
         },
         "required": [
@@ -1094,7 +1098,8 @@
           "consentimiento",
           "registradoEn",
           "modulosActivos",
-          "mascota"
+          "mascota",
+          "diarioConRecomendaciones"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1129,6 +1134,11 @@
                 "$ref": "#/components/schemas/MascotaDto"
               }
             ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que lo que escribe en el diario se lea para recomendarle algo, como las líneas de atención si aparece una señal de riesgo. Apagado por defecto (SCRUM-108).",
+            "example": false
           }
         }
       },
@@ -1533,13 +1543,22 @@
             ],
             "nullable": true,
             "description": "El nivel que se sugiere subir. Nunca se aplica solo: lo decide la persona. Null si ya es urgente."
+          },
+          "tono": {
+            "type": "string",
+            "enum": [
+              "plazo",
+              "suave"
+            ],
+            "description": "Cómo suena. plazo: se acabó el tiempo que se le dio (urgente, prioridad). suave: no es urgente, pero que no se acumule (aplazable)."
           }
         },
         "required": [
           "pendienteId",
           "nivel",
           "dias",
-          "nivelSugerido"
+          "nivelSugerido",
+          "tono"
         ]
       },
       "SemaforoDto": {

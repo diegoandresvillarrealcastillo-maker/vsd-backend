@@ -9,6 +9,8 @@ export interface EditarAnotacionCommand {
   readonly titulo?: string | null | undefined;
   readonly contenido?: unknown;
   readonly adjuntos?: unknown;
+  /** Ver `EscribirEnElDiarioCommand.conRecomendaciones`. */
+  readonly conRecomendaciones: boolean;
 }
 
 /**

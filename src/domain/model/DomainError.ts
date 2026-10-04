@@ -364,6 +364,27 @@ export class StaleJournalEntryError extends DomainError {
 }
 
 /**
+ * El pendiente no se puede guardar tal cual. Como en el diario, el motivo
+ * dice que parte esta mal y nunca repite lo escrito.
+ */
+export class InvalidTaskError extends DomainError {
+  readonly code = 'PENDIENTE_INVALIDO';
+
+  constructor(motivo: string) {
+    super(`El pendiente no se puede guardar: ${motivo}.`);
+  }
+}
+
+/** El pendiente no existe, o no es de quien lo pide. Se responde igual. */
+export class TaskNotFoundError extends DomainError {
+  readonly code = 'PENDIENTE_NO_ENCONTRADO';
+
+  constructor() {
+    super('Ese pendiente no existe.');
+  }
+}
+
+/**
  * Un recurso de apoyo esta mal formado y no se puede mostrar.
  *
  * Importa mas de lo que parece: los recursos son lo que el asistente responde

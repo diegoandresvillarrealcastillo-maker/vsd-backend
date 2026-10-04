@@ -383,11 +383,18 @@ describe.skipIf(URL_DUENO === undefined)('Aislamiento impuesto por PostgreSQL', 
     // Sin FORCE, bastaria con conectar la aplicacion con el usuario de las
     // migraciones para que el aislamiento desapareciera sin dar ningun error.
     const { rows } = await dueno.query<{ relname: string }>(
+      // Toda tabla con `id_usuario` guarda algo de una persona. No se usa una
+      // lista escrita a mano: asi una tabla nueva sin FORCE, como la de
+      // pendientes antes de su migracion (SCRUM-97), falla aqui sola.
       `SELECT c.relname
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
-         AND c.relname IN ('usuario', 'resultado', 'entrada_diario')
+         AND c.relkind = 'r'
+         AND EXISTS (SELECT 1 FROM information_schema.columns col
+                      WHERE col.table_schema = 'public'
+                        AND col.table_name = c.relname
+                        AND col.column_name = 'id_usuario')
          AND c.relforcerowsecurity = false`,
     );
 

@@ -37,6 +37,10 @@ export const CONSULTAR_DIARIO = Symbol('ConsultarDiarioUseCase');
 export const ESCRIBIR_EN_EL_DIARIO = Symbol('EscribirEnElDiarioUseCase');
 export const EDITAR_ANOTACION = Symbol('EditarAnotacionUseCase');
 
+/** El semaforo de pendientes (SCRUM-97). */
+export const PENDIENTES_REPOSITORY = Symbol('PendientesRepositoryPort');
+export const PENDIENTES = Symbol('PendientesUseCase');
+
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 

@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { CuentaRespuestaDto } from './CuentaRespuestaDto.js';
 import { EntradaDelDiarioDto } from './EntradaDelDiarioDto.js';
+import { PendienteDto } from './PendienteDto.js';
 import { ResultadoRespuestaDto } from './ResultadoRespuestaDto.js';
 
 /**
@@ -27,6 +28,9 @@ export class ExportacionDto {
   @ApiProperty({ type: [EntradaDelDiarioDto] })
   entradasDeDiario!: EntradaDelDiarioDto[];
 
+  @ApiProperty({ type: [PendienteDto], description: 'Los del semáforo, hechos o no.' })
+  pendientes!: PendienteDto[];
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -36,6 +40,7 @@ export class ExportacionDto {
     dto.entradasDeDiario = datos.entradasDeDiario.map((entrada) =>
       EntradaDelDiarioDto.desde(entrada),
     );
+    dto.pendientes = datos.pendientes.map((pendiente) => PendienteDto.desde(pendiente));
 
     return dto;
   }

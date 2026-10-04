@@ -74,6 +74,10 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   EDICION_FUERA_DE_PLAZO: HttpStatus.CONFLICT,
   VERSION_DESACTUALIZADA: HttpStatus.CONFLICT,
 
+  // Semaforo de pendientes (SCRUM-97).
+  PENDIENTE_INVALIDO: HttpStatus.BAD_REQUEST,
+  PENDIENTE_NO_ENCONTRADO: HttpStatus.NOT_FOUND,
+
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un
   // momento es exactamente lo que tiene que hacer.

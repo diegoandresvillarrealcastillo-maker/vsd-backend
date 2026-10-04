@@ -3,10 +3,17 @@ import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
-import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
+import {
+  ClientOperationId,
+  EntradaId,
+  PendienteId,
+  UserId,
+} from '../../domain/model/Identifier.js';
+import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
 import { ExportarDatosUseCaseImpl } from './ExportarDatosUseCaseImpl.js';
@@ -23,10 +30,20 @@ const ENTRADA = EntradaDeDiario.guardada({
   creadaEn: AHORA,
   editadaEn: AHORA,
 });
+const PENDIENTE = Pendiente.nuevo(
+  {
+    id: new PendienteId('55555555-5555-4555-a555-555555555555'),
+    userId: new UserId(PERSONA),
+    clientOperationId: new ClientOperationId('66666666-6666-4666-a666-666666666666'),
+    texto: 'Pagar la matricula',
+    nivel: 'urgente',
+  },
+  AHORA,
+);
 
 /** Arma el caso de uso con dobles que anotan por quien les preguntaron. */
 function armar(cuenta: User | null) {
-  const preguntas: { resultados?: string; desde?: Date; diario?: string } = {};
+  const preguntas: { resultados?: string; desde?: Date; diario?: string; pendientes?: string } = {};
 
   const cuentas: UserRepositoryPort = {
     findById: () => Promise.resolve(cuenta),
@@ -52,9 +69,17 @@ function armar(cuenta: User | null) {
     },
   } as unknown as DiarioRepositoryPort;
 
+  const pendientes = {
+    todosDe: (id: UserId) => {
+      preguntas.pendientes = id.value;
+
+      return Promise.resolve([PENDIENTE]);
+    },
+  } as unknown as PendientesRepositoryPort;
+
   return {
     preguntas,
-    casoDeUso: new ExportarDatosUseCaseImpl(cuentas, resultados, diario, () => AHORA),
+    casoDeUso: new ExportarDatosUseCaseImpl(cuentas, resultados, diario, pendientes, () => AHORA),
   };
 }
 
@@ -67,6 +92,7 @@ describe('ExportarDatosUseCaseImpl', () => {
     expect(datos.cuenta.id.value).toBe(PERSONA);
     expect(datos.resultados).toEqual([]);
     expect(datos.entradasDeDiario).toEqual([ENTRADA]);
+    expect(datos.pendientes).toEqual([PENDIENTE]);
     expect(datos.generadoEn).toEqual(AHORA);
   });
 
@@ -77,6 +103,7 @@ describe('ExportarDatosUseCaseImpl', () => {
 
     expect(preguntas.resultados).toBe(PERSONA);
     expect(preguntas.diario).toBe(PERSONA);
+    expect(preguntas.pendientes).toBe(PERSONA);
   });
 
   it('exporta los resultados desde siempre, no solo los recientes', async () => {

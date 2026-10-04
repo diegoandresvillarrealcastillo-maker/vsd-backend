@@ -9,6 +9,7 @@ import { AsistenteModule } from './AsistenteModule.js';
 import { AutenticacionModule } from './AutenticacionModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
 import { DiarioModule } from './DiarioModule.js';
+import { PendientesModule } from './PendientesModule.js';
 import { ProgresoModule } from './ProgresoModule.js';
 import { UsuariosModule } from './UsuariosModule.js';
 
@@ -32,6 +33,7 @@ import { UsuariosModule } from './UsuariosModule.js';
     UsuariosModule,
     ProgresoModule,
     DiarioModule,
+    PendientesModule,
     AsistenteModule,
   ],
   controllers: [HealthController],

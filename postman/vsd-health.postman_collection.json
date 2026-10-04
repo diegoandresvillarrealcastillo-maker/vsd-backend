@@ -1306,6 +1306,249 @@
         },
         "description": "Se puede escribir en un dia pasado, nunca en uno que no ha llegado."
       }
+    },
+    {
+      "name": "22. Anotar un pendiente",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('operacionPendiente', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201', function () { pm.response.to.have.status(201); });",
+              "",
+              "const r = pm.response.json();",
+              "pm.environment.set('pendienteId', r.id);",
+              "",
+              "pm.test('Empieza sin hacer y sin posponer', function () {",
+              "  pm.expect(r.hecho).to.be.false;",
+              "  pm.expect(r.posponerHasta).to.be.null;",
+              "  pm.expect(r.nivel).to.equal('aplazable');",
+              "});",
+              "",
+              "pm.test('No devuelve el identificador de la persona', function () {",
+              "  pm.expect(r).to.not.have.property('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionPendiente}}\",\n  \"texto\": \"Pedir la cita médica\",\n  \"nivel\": \"aplazable\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        },
+        "description": "SCRUM-97. Idempotente por clientOperationId."
+      }
+    },
+    {
+      "name": "23. Reenviar el mismo pendiente (idempotencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve EL MISMO pendiente, no crea otro', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('pendienteId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionPendiente}}\",\n  \"texto\": \"Pedir la cita médica\",\n  \"nivel\": \"aplazable\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
+    },
+    {
+      "name": "24. Posponerlo una semana",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('enUnaSemana', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 y queda pospuesto', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().posponerHasta).to.equal(pm.environment.get('enUnaSemana'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"posponerHasta\": \"{{enUnaSemana}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes/{{pendienteId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes", "{{pendienteId}}"]
+        },
+        "description": "Mientras no llegue esa fecha, el pendiente no recuerda nada."
+      }
+    },
+    {
+      "name": "25. Consultar el semaforo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 con pendientes y recordatorio', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const r = pm.response.json();",
+              "  pm.expect(r.pendientes).to.be.an('array');",
+              "  pm.expect(r).to.have.property('recordatorio');",
+              "});",
+              "",
+              "pm.test('Trae el pendiente anotado', function () {",
+              "  const r = pm.response.json().pendientes.find((uno) => uno.id === pm.environment.get('pendienteId'));",
+              "  pm.expect(r).to.exist;",
+              "});",
+              "",
+              "pm.test('Ninguna cache lo guarda', function () {",
+              "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
+    },
+    {
+      "name": "26. Borrar el pendiente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 204', function () { pm.response.to.have.status(204); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes/{{pendienteId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes", "{{pendienteId}}"]
+        }
+      }
+    },
+    {
+      "name": "27. Un nivel que no es del semaforo: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 400', function () { pm.response.to.have.status(400); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{$guid}}\",\n  \"texto\": \"Algo\",\n  \"nivel\": \"critico\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
     }
   ]
 }

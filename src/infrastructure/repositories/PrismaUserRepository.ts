@@ -13,23 +13,20 @@ import type { PrismaService } from '../persistence/PrismaService.js';
  * del mensaje, que cambia entre versiones de Prisma. No se importa el tipo de
  * error del cliente generado: esos tipos cambian sin avisar y este archivo es
  * justo el que no debe dejarlos salir hacia el dominio.
+ *
+ * Con el adaptador de PostgreSQL de Prisma 7 no llega `meta.target`: el
+ * nombre del indice (`usuario_correo_key`) viene dentro de
+ * `meta.driverAdapterError`. Se busca en toda la `meta` para que valga con las
+ * dos formas (SCRUM-105). Sin esto, un correo repetido salia como un 500.
  */
 function esCorreoDuplicado(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {
     return false;
   }
 
-  const posible = error as { code?: unknown; meta?: { target?: unknown } };
+  const posible = error as { code?: unknown; meta?: unknown };
 
-  if (posible.code !== 'P2002') {
-    return false;
-  }
-
-  const campos = posible.meta?.target;
-
-  return Array.isArray(campos)
-    ? campos.includes('correo')
-    : typeof campos === 'string' && campos.includes('correo');
+  return posible.code === 'P2002' && /correo/i.test(JSON.stringify(posible.meta ?? {}));
 }
 
 /**

@@ -399,3 +399,12 @@ export class InvalidResourceError extends DomainError {
     super(`Recurso de apoyo inválido: ${motivo}.`);
   }
 }
+
+/** Una hora o una suscripcion de avisos que no se puede guardar (SCRUM-102). */
+export class InvalidNotificationSettingError extends DomainError {
+  readonly code = 'AVISO_INVALIDO';
+
+  constructor(motivo: string) {
+    super(`El aviso no se puede guardar: ${motivo}.`);
+  }
+}

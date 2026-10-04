@@ -56,6 +56,20 @@ falta declararla: es el valor por defecto. Existe para que las pruebas puedan
 cambiarla. Decide que dia es para las actividades, el sendero, el diario y el
 semaforo; ver "El dia se cuenta en hora de Colombia" en `dominio.md`.
 
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` son las claves de los
+avisos por Web Push (SCRUM-102).
+
+- **Opcionales en los tres ambientes:** sin ellas no se mandan avisos y todo lo
+  demas funciona igual. Van las tres juntas o ninguna, y una suelta impide
+  arrancar.
+- **Un par por ambiente**, generado con `npm run vapid:generar`. Lo generan
+  Diego o Samuel.
+- **La privada es un secreto:** se pone a mano en Render y nunca pasa por Git.
+  La publica viaja al navegador.
+- **Cambiarlas obliga a reactivar los avisos:** las suscripciones quedan atadas
+  a la clave publica con la que se hicieron, asi que cada persona tendria que
+  activarlos de nuevo.
+
 ## Donde vive cada valor
 
 - **En el repositorio** solo esta `.env.example`, con los nombres de las

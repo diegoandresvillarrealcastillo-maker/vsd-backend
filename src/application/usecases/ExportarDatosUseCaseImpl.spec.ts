@@ -13,6 +13,7 @@ import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
@@ -77,9 +78,23 @@ function armar(cuenta: User | null) {
     },
   } as unknown as PendientesRepositoryPort;
 
+  const avisos = {
+    preferenciasDe: (id: UserId) =>
+      Promise.resolve({ userId: id, minutoSemaforo: 480, minutoRacha: null }),
+    suscripcionesDe: () =>
+      Promise.resolve([{ endpoint: 'https://push.example.com/a', p256dh: 'p', auth: 'a' }]),
+  } as unknown as AvisosRepositoryPort;
+
   return {
     preguntas,
-    casoDeUso: new ExportarDatosUseCaseImpl(cuentas, resultados, diario, pendientes, () => AHORA),
+    casoDeUso: new ExportarDatosUseCaseImpl(
+      cuentas,
+      resultados,
+      diario,
+      pendientes,
+      avisos,
+      () => AHORA,
+    ),
   };
 }
 
@@ -94,6 +109,18 @@ describe('ExportarDatosUseCaseImpl', () => {
     expect(datos.entradasDeDiario).toEqual([ENTRADA]);
     expect(datos.pendientes).toEqual([PENDIENTE]);
     expect(datos.generadoEn).toEqual(AHORA);
+  });
+
+  it('incluye las horas de los avisos y en cuantos navegadores, sin sus claves (SCRUM-102)', async () => {
+    const { casoDeUso } = armar(unaCuenta());
+
+    const datos = await casoDeUso.execute(new UserId(PERSONA));
+
+    expect(datos.avisos).toEqual({
+      preferencias: { userId: new UserId(PERSONA), minutoSemaforo: 480, minutoRacha: null },
+      navegadores: 1,
+    });
+    expect(JSON.stringify(datos.avisos)).not.toContain('push.example.com');
   });
 
   it('pregunta por la misma persona en cada repositorio', async () => {

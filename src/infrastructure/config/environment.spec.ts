@@ -92,6 +92,42 @@ describe('validarConfiguracion', () => {
   });
 });
 
+describe('las claves VAPID (SCRUM-102)', () => {
+  const CLAVES = {
+    VAPID_PUBLIC_KEY: 'clave-publica',
+    VAPID_PRIVATE_KEY: 'clave-privada',
+    VAPID_SUBJECT: 'mailto:soporte@ejemplo.co',
+  };
+
+  it('sin ninguna no hay avisos, y el servicio arranca igual', () => {
+    expect(validarConfiguracion(VALIDA).vapid).toBeUndefined();
+  });
+
+  it('con las tres, hay avisos', () => {
+    expect(validarConfiguracion({ ...VALIDA, ...CLAVES }).vapid).toEqual({
+      publica: 'clave-publica',
+      privada: 'clave-privada',
+      contacto: 'mailto:soporte@ejemplo.co',
+    });
+  });
+
+  it('una suelta no deja arrancar, y el error no la muestra', () => {
+    try {
+      validarConfiguracion({ ...VALIDA, VAPID_PRIVATE_KEY: 'secreto-que-no-debe-salir' });
+      expect.unreachable('deberia haber lanzado');
+    } catch (error) {
+      expect((error as Error).message).toMatch(/van las tres juntas/);
+      expect((error as Error).message).not.toContain('secreto-que-no-debe-salir');
+    }
+  });
+
+  it('el contacto es un correo o una web', () => {
+    expect(() =>
+      validarConfiguracion({ ...VALIDA, ...CLAVES, VAPID_SUBJECT: 'soporte@ejemplo.co' }),
+    ).toThrow(/VAPID_SUBJECT/);
+  });
+});
+
 describe('La base de datos es obligatoria fuera de desarrollo', () => {
   // Sin DATABASE_URL el servicio guarda en memoria y al reiniciarse no queda
   // nada. En desarrollo eso es comodo. En preproduccion o produccion seria

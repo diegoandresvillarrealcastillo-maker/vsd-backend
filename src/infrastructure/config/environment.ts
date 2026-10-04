@@ -74,6 +74,16 @@ const esquema = z
       .refine((valor) => Calendario.esZonaValida(valor), {
         message: 'Debe ser una zona horaria IANA, como America/Bogota',
       }),
+
+    // Claves VAPID para los avisos por Web Push (SCRUM-102). Las tres juntas o
+    // ninguna. Sin ellas no hay avisos y todo lo demas funciona igual, por eso
+    // no son obligatorias en ningun ambiente: se pueden poner despues de
+    // desplegar. La privada es un secreto: vive en el panel del servicio,
+    // nunca en el repositorio. Se generan con `npm run vapid:generar`.
+    VAPID_PUBLIC_KEY: z.string().trim().optional(),
+    VAPID_PRIVATE_KEY: z.string().trim().optional(),
+    // Un contacto para los servicios de push: mailto: o https:.
+    VAPID_SUBJECT: z.string().trim().optional(),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -99,6 +109,31 @@ const esquema = z
         code: 'custom',
         path: ['SUPABASE_SERVICE_ROLE_KEY'],
         message: `Es obligatoria con NODE_ENV=${valores.NODE_ENV}. Sin ella, borrar una cuenta dejaria la identidad de esa persona en Supabase.`,
+      });
+    }
+
+    // Una clave VAPID suelta es un error de configuracion, no "sin avisos":
+    // quien la puso queria avisos y no los tendria sin enterarse.
+    const vapid = [valores.VAPID_PUBLIC_KEY, valores.VAPID_PRIVATE_KEY, valores.VAPID_SUBJECT];
+    const vapidPuestas = vapid.filter((valor) => (valor ?? '') !== '').length;
+
+    if (vapidPuestas > 0 && vapidPuestas < vapid.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_PUBLIC_KEY'],
+        message:
+          'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY y VAPID_SUBJECT van las tres juntas o ninguna.',
+      });
+    }
+
+    if (
+      (valores.VAPID_SUBJECT ?? '') !== '' &&
+      !/^(mailto:|https:\/\/)/.test(valores.VAPID_SUBJECT ?? '')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_SUBJECT'],
+        message: 'Debe empezar por mailto: o https://, como mailto:soporte@ejemplo.co',
       });
     }
 
@@ -135,6 +170,14 @@ export interface Configuracion {
   readonly claveDeServicioDeSupabase: string | undefined;
   /** Zona IANA con la que se decide que dia es. Ver Calendario. */
   readonly zonaHoraria: string;
+  /** Claves para los avisos por Web Push. Ausentes, no hay avisos (SCRUM-102). */
+  readonly vapid: ClavesVapid | undefined;
+}
+
+export interface ClavesVapid {
+  readonly publica: string;
+  readonly privada: string;
+  readonly contacto: string;
 }
 
 /**
@@ -166,6 +209,9 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
     ZONA_HORARIA,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT,
   } = resultado.data;
 
   return {
@@ -182,5 +228,13 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     claveDeServicioDeSupabase:
       (SUPABASE_SERVICE_ROLE_KEY ?? '') === '' ? undefined : SUPABASE_SERVICE_ROLE_KEY,
     zonaHoraria: ZONA_HORARIA,
+    vapid:
+      (VAPID_PUBLIC_KEY ?? '') === ''
+        ? undefined
+        : {
+            publica: VAPID_PUBLIC_KEY ?? '',
+            privada: VAPID_PRIVATE_KEY ?? '',
+            contacto: VAPID_SUBJECT ?? '',
+          },
   };
 }

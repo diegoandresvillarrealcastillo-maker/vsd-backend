@@ -1,4 +1,5 @@
 import type { ActivityResult } from '../../model/ActivityResult.js';
+import type { PreferenciasDeAviso } from '../../model/Aviso.js';
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { Pendiente } from '../../model/Pendiente.js';
@@ -12,6 +13,15 @@ export interface DatosExportados {
   readonly entradasDeDiario: readonly EntradaDeDiario[];
   /** Los del semaforo, hechos o no (SCRUM-97). */
   readonly pendientes: readonly Pendiente[];
+  /**
+   * A que hora quiere cada aviso, y en cuantos navegadores (SCRUM-102). Las
+   * direcciones y claves de los navegadores no salen: sirven para mandarle
+   * avisos a ese equipo, no para que la persona las lea.
+   */
+  readonly avisos: {
+    readonly preferencias: PreferenciasDeAviso;
+    readonly navegadores: number;
+  };
 }
 
 /**

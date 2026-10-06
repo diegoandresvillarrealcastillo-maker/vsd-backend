@@ -147,6 +147,92 @@ describe('/api/pendientes', () => {
     expect(cuerpoDe(hecho)).toMatchObject({ hecho: true, posponerHasta: null });
   });
 
+  describe('la fecha limite, opcional (SCRUM-119)', () => {
+    it('sale como null cuando no se puso', async () => {
+      const id = await nuevo();
+
+      const { pendientes } = cuerpoDe(await consultar(A).expect(200)) as {
+        pendientes: Record<string, unknown>[];
+      };
+
+      expect(pendientes.find((uno) => uno['id'] === id)).toMatchObject({ fechaLimite: null });
+    });
+
+    it('se anota con fecha y sale tal cual', async () => {
+      const respuesta = await crear(A, {
+        clientOperationId: operacion(),
+        texto: 'Entregar el informe',
+        nivel: 'prioridad',
+        fechaLimite: '2026-10-12',
+      }).expect(201);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({ fechaLimite: '2026-10-12' });
+    });
+
+    it('se puede poner, cambiar y quitar', async () => {
+      const id = await nuevo();
+
+      expect(
+        cuerpoDe(await editar(A, id, { fechaLimite: '2026-10-12' }).expect(200)),
+      ).toMatchObject({
+        fechaLimite: '2026-10-12',
+      });
+      expect(cuerpoDe(await editar(A, id, { texto: 'otro' }).expect(200))).toMatchObject({
+        fechaLimite: '2026-10-12',
+      });
+      expect(cuerpoDe(await editar(A, id, { fechaLimite: null }).expect(200))).toMatchObject({
+        fechaLimite: null,
+      });
+    });
+
+    it.each(['12/10/2026', '2026-10-12T10:00:00Z', 'pronto'])(
+      'rechaza "%s" por el formato, antes de llegar al dominio',
+      async (fecha) => {
+        await crear(A, {
+          clientOperationId: operacion(),
+          texto: 'x',
+          nivel: 'urgente',
+          fechaLimite: fecha,
+        }).expect(400);
+      },
+    );
+
+    it('un dia que no existe responde 400 PENDIENTE_INVALIDO', async () => {
+      const respuesta = await crear(A, {
+        clientOperationId: operacion(),
+        texto: 'x',
+        nivel: 'urgente',
+        fechaLimite: '2026-02-30',
+      }).expect(400);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({ codigo: 'PENDIENTE_INVALIDO' });
+    });
+
+    it('el recordatorio llega el dia limite y dice cual era', async () => {
+      const id = String(
+        cuerpoDe(
+          await crear(B, {
+            clientOperationId: operacion(),
+            texto: 'Entregar hoy',
+            nivel: 'aplazable',
+            fechaLimite: '2020-01-01',
+          }).expect(201),
+        )['id'],
+      );
+
+      const respuesta = await consultar(B).expect(200);
+
+      expect(cuerpoDe(respuesta)['recordatorio']).toMatchObject({
+        pendienteId: id,
+        fechaLimite: '2020-01-01',
+        tono: 'plazo',
+      });
+
+      // Se tacha para no dejarle un recordatorio a las pruebas que siguen.
+      await editar(B, id, { hecho: true }).expect(200);
+    });
+  });
+
   it('posponer hacia el pasado se rechaza', async () => {
     const id = await nuevo();
 

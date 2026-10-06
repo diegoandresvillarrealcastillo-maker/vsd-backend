@@ -36,7 +36,12 @@ function nuevoId(): string {
   return '97979797-1111-4111-8111-' + String(contador).padStart(12, '0');
 }
 
-function pendiente(persona: string, texto: string, operacion = nuevoId()): Pendiente {
+function pendiente(
+  persona: string,
+  texto: string,
+  operacion = nuevoId(),
+  fechaLimite?: string,
+): Pendiente {
   return Pendiente.nuevo(
     {
       id: new PendienteId(nuevoId()),
@@ -44,6 +49,7 @@ function pendiente(persona: string, texto: string, operacion = nuevoId()): Pendi
       clientOperationId: new ClientOperationId(operacion),
       texto,
       nivel: 'urgente',
+      fechaLimite,
     },
     new Date(),
   );
@@ -136,6 +142,52 @@ describe.skipIf(URL_DUENO === undefined)('El semaforo en PostgreSQL', () => {
       expect(uno?.nivel).toBe('urgente');
       expect(uno?.creadoEn).toEqual(nuevo.creadoEn);
     }
+  });
+
+  describe('la fecha limite (SCRUM-119)', () => {
+    it('un pendiente sin fecha vuelve sin fecha', async () => {
+      const guardado = await pendientes.guardarNuevo(pendiente(PERSONA, 'General'));
+
+      expect(guardado.fechaLimite).toBeUndefined();
+      expect((await pendientes.porId(guardado.userId, guardado.id))?.fechaLimite).toBeUndefined();
+    });
+
+    it('guarda el dia tal cual, sin moverlo por la zona del servidor', async () => {
+      const nuevo = pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12');
+
+      const guardado = await pendientes.guardarNuevo(nuevo);
+      const leido = await pendientes.porId(nuevo.userId, nuevo.id);
+
+      expect(guardado.fechaLimite).toBe('2026-10-12');
+      expect(leido?.fechaLimite).toBe('2026-10-12');
+    });
+
+    it('se puede cambiar y quitar, y llega a la base', async () => {
+      const guardado = await pendientes.guardarNuevo(
+        pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12'),
+      );
+
+      const cambiada = await pendientes.actualizar(
+        guardado.editar({ fechaLimite: '2026-11-03' }, new Date()),
+      );
+      const quitada = await pendientes.actualizar(
+        guardado.editar({ fechaLimite: null }, new Date()),
+      );
+
+      expect(cambiada?.fechaLimite).toBe('2026-11-03');
+      expect(quitada?.fechaLimite).toBeUndefined();
+    });
+
+    it('la columna es un DATE: no guarda la hora', async () => {
+      await pendientes.guardarNuevo(pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12'));
+
+      const { rows } = await dueno.query<{ tipo: string }>(
+        `SELECT data_type AS tipo FROM information_schema.columns
+          WHERE table_name = 'pendiente' AND column_name = 'fecha_limite'`,
+      );
+
+      expect(rows[0]?.tipo).toBe('date');
+    });
   });
 
   it('posponer y marcar hecho llegan a la base', async () => {

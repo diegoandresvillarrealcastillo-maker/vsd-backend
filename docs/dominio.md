@@ -422,11 +422,23 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   sube solo.
 - **Cada color es un plazo** (SCRUM-107): urgente, esta semana; prioridad,
   entre 7 y 21 dias; aplazable, 21 o mas.
-- **Recordatorios con calma.** `recordatorio(ahora)` dice si toca recordarlo:
-  sin hacer, sin posponer, y acabado el plazo de su color desde que se anoto (7
-  dias urgente, 21 prioridad, 30 aplazable). Sugiere el nivel siguiente;
-  urgente no tiene siguiente. Lleva un `tono`: `plazo` para urgente y
-  prioridad, `suave` para aplazable ("no es urgente, pero que no se acumule").
+- **Recordatorios con calma.** `recordatorio(ahora, hoy)` dice si toca
+  recordarlo: sin hacer, sin posponer, y acabado el plazo de su color desde que
+  se anoto (7 dias urgente, 21 prioridad, 30 aplazable). Sugiere el nivel
+  siguiente; urgente no tiene siguiente. Lleva un `tono`: `plazo` para urgente
+  y prioridad, `suave` para aplazable ("no es urgente, pero que no se
+  acumule").
+- **La fecha limite es opcional** (SCRUM-119). Un pendiente puede tener un dia
+  limite, o no tenerlo: hay cosas que no vencen un dia concreto, como una tarea
+  recurrente. Es un dia `AAAA-MM-DD` del calendario de la persona y no un
+  instante. Sin fecha, todo funciona como arriba. **Con fecha, el recordatorio
+  llega desde ese dia** en lugar de esperar los dias del color, con tono de
+  `plazo` en cualquier color, y trae `fechaLimite` para que la pantalla diga que
+  llego el dia. `hoy` es el de la zona de la cuenta (ADR 0014), asi que el
+  mismo instante puede ser el dia limite para quien esta en Madrid y todavia no
+  para quien esta en Bogota. Se pone, se cambia y se quita con `PATCH`
+  (`fechaLimite: null` la quita); una que no es un dia real responde 400
+  `PENDIENTE_INVALIDO`.
 - **Uno por visita.** `elegirRecordatorio` devuelve uno como mucho: el de mayor
   color y, a igual color, el mas antiguo.
 - **Posponer** es dar una fecha futura, como mucho a 90 dias. Hasta entonces no

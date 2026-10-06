@@ -40,13 +40,13 @@ export class PendientesController {
   @ApiOperation({
     summary: 'Consultar el semáforo',
     description:
-      'Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave), salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.',
+      'Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho. Sin fecha límite, cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave). Con fecha límite, desde ese día, que se cuenta en la zona horaria de la persona. Un pendiente pospuesto no recuerda nada. El recordatorio sugiere subir de nivel; nunca lo sube solo.',
   })
   @ApiResponse({ status: 200, type: SemaforoDto })
   @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })
   @ApiResponse({ status: 403, description: 'Hay sesión pero todavía no hay cuenta.' })
   async consultar(@CuentaActual() cuenta: User): Promise<SemaforoDto> {
-    return SemaforoDto.desde(await this.semaforo.consultar(cuenta.id.value));
+    return SemaforoDto.desde(await this.semaforo.consultar(cuenta.id.value, cuenta.zonaHoraria));
   }
 
   @Post()
@@ -59,7 +59,8 @@ export class PendientesController {
   @ApiResponse({ status: 201, type: PendienteDto })
   @ApiResponse({
     status: 400,
-    description: 'Texto vacío, de más de 280 caracteres o nivel desconocido.',
+    description:
+      'Texto vacío, de más de 280 caracteres, nivel desconocido o fecha límite que no es un día real.',
   })
   async crear(@Body() dto: CrearPendienteDto, @CuentaActual() cuenta: User): Promise<PendienteDto> {
     return PendienteDto.desde(
@@ -68,6 +69,7 @@ export class PendientesController {
         clientOperationId: dto.clientOperationId,
         texto: dto.texto,
         nivel: dto.nivel,
+        fechaLimite: dto.fechaLimite,
       }),
     );
   }
@@ -77,7 +79,7 @@ export class PendientesController {
   @ApiOperation({
     summary: 'Cambiar un pendiente',
     description:
-      'Texto, nivel, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer.',
+      'Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita.',
   })
   @ApiResponse({ status: 200, type: PendienteDto })
   @ApiResponse({ status: 400, description: 'El cuerpo no es válido o no trae nada que cambiar.' })
@@ -98,6 +100,7 @@ export class PendientesController {
         nivel: dto.nivel,
         hecho: dto.hecho,
         posponerHasta: dto.posponerHasta,
+        fechaLimite: dto.fechaLimite,
       }),
     );
   }

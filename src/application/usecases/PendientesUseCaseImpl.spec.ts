@@ -6,6 +6,7 @@ import type { Pendiente } from '../../domain/model/Pendiente.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import { PendientesUseCaseImpl } from './PendientesUseCaseImpl.js';
 
+const ZONA = 'America/Bogota';
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 const OTRA = '22222222-2222-4222-9222-222222222222';
 const INICIO = new Date('2026-10-01T15:00:00.000Z');
@@ -123,7 +124,7 @@ describe('PendientesUseCaseImpl', () => {
     });
     await semaforo.editar({ userId: PERSONA, pendienteId: hecho.id.value, hecho: true });
 
-    const { pendientes } = await semaforo.consultar(PERSONA);
+    const { pendientes } = await semaforo.consultar(PERSONA, ZONA);
 
     expect(pendientes.map((uno) => uno.texto)).toEqual(['U', 'P', 'A', 'H']);
   });
@@ -140,7 +141,7 @@ describe('PendientesUseCaseImpl', () => {
     await semaforo.editar({ userId: PERSONA, pendienteId: pendiente.id.value, hecho: true });
     reloj.ahora = new Date(INICIO.getTime() + 8 * UN_DIA);
 
-    expect((await semaforo.consultar(PERSONA)).pendientes).toHaveLength(0);
+    expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(0);
   });
 
   it('el mismo clientOperationId no duplica', async () => {
@@ -175,7 +176,7 @@ describe('PendientesUseCaseImpl', () => {
     });
 
     reloj.ahora = new Date(INICIO.getTime() + 8 * UN_DIA);
-    expect((await semaforo.consultar(PERSONA)).recordatorio?.nivel).toBe('urgente');
+    expect((await semaforo.consultar(PERSONA, ZONA)).recordatorio?.nivel).toBe('urgente');
 
     await semaforo.editar({
       userId: PERSONA,
@@ -184,10 +185,10 @@ describe('PendientesUseCaseImpl', () => {
     });
 
     reloj.ahora = new Date(INICIO.getTime() + 12 * UN_DIA);
-    expect((await semaforo.consultar(PERSONA)).recordatorio).toBeNull();
+    expect((await semaforo.consultar(PERSONA, ZONA)).recordatorio).toBeNull();
 
     reloj.ahora = new Date(INICIO.getTime() + 15 * UN_DIA);
-    expect((await semaforo.consultar(PERSONA)).recordatorio).not.toBeNull();
+    expect((await semaforo.consultar(PERSONA, ZONA)).recordatorio).not.toBeNull();
   });
 
   it('el recordatorio sugiere subir de nivel sin subirlo', async () => {
@@ -201,7 +202,7 @@ describe('PendientesUseCaseImpl', () => {
     });
     reloj.ahora = new Date(INICIO.getTime() + 31 * UN_DIA);
 
-    const { pendientes, recordatorio } = await semaforo.consultar(PERSONA);
+    const { pendientes, recordatorio } = await semaforo.consultar(PERSONA, ZONA);
 
     expect(recordatorio?.nivelSugerido).toBe('prioridad');
     expect(recordatorio?.tono).toBe('suave');
@@ -221,7 +222,7 @@ describe('PendientesUseCaseImpl', () => {
       semaforo.editar({ userId: OTRA, pendienteId: suyo.id.value, hecho: true }),
     ).rejects.toThrow(TaskNotFoundError);
     await expect(semaforo.borrar(OTRA, suyo.id.value)).rejects.toThrow(TaskNotFoundError);
-    expect((await semaforo.consultar(PERSONA)).pendientes).toHaveLength(1);
+    expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(1);
   });
 
   it('borrar lo quita', async () => {
@@ -235,12 +236,94 @@ describe('PendientesUseCaseImpl', () => {
 
     await semaforo.borrar(PERSONA, pendiente.id.value);
 
-    expect((await semaforo.consultar(PERSONA)).pendientes).toHaveLength(0);
+    expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(0);
   });
 
   it('un identificador mal formado se rechaza', async () => {
     const { semaforo } = armar();
 
     await expect(semaforo.borrar(PERSONA, 'no-es-un-uuid')).rejects.toThrow(InvalidIdentifierError);
+  });
+});
+
+describe('La fecha limite en el semaforo (SCRUM-119)', () => {
+  it('se anota con fecha limite, y sin ella como siempre', async () => {
+    const { semaforo } = armar();
+
+    const con = await semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto: 'Entregar el informe',
+      nivel: 'prioridad',
+      fechaLimite: '2026-10-12',
+    });
+    const sin = await semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto: 'Algo general',
+      nivel: 'aplazable',
+    });
+
+    expect(con.fechaLimite).toBe('2026-10-12');
+    expect(sin.fechaLimite).toBeUndefined();
+  });
+
+  it('una fecha que no es un dia real impide anotarlo', async () => {
+    const { semaforo, repositorio } = armar();
+
+    await expect(
+      semaforo.crear({
+        userId: PERSONA,
+        clientOperationId: operacion(),
+        texto: 'Entregar el informe',
+        nivel: 'prioridad',
+        fechaLimite: '2026-02-30',
+      }),
+    ).rejects.toThrow(/fecha límite/);
+    expect(repositorio.todos).toHaveLength(0);
+  });
+
+  it('el recordatorio llega el dia limite, contado en la zona de la persona', async () => {
+    const { semaforo, reloj } = armar();
+    // 9 p. m. del 1 de octubre en Bogota; en Madrid ya es el 2.
+    reloj.ahora = new Date('2026-10-02T02:00:00.000Z');
+
+    await semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto: 'Pagar la matricula',
+      nivel: 'aplazable',
+      fechaLimite: '2026-10-02',
+    });
+
+    expect((await semaforo.consultar(PERSONA, 'America/Bogota')).recordatorio).toBeNull();
+    expect((await semaforo.consultar(PERSONA, 'Europe/Madrid')).recordatorio).toMatchObject({
+      fechaLimite: '2026-10-02',
+      tono: 'plazo',
+    });
+  });
+
+  it('se puede poner, cambiar y quitar la fecha de uno que ya existe', async () => {
+    const { semaforo } = armar();
+    const creado = await semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto: 'Algo',
+      nivel: 'urgente',
+    });
+
+    const con = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      fechaLimite: '2026-10-12',
+    });
+    const sin = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      fechaLimite: null,
+    });
+
+    expect(con.fechaLimite).toBe('2026-10-12');
+    expect(sin.fechaLimite).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import { Calendario } from '../../domain/model/Calendario.js';
 import { TaskNotFoundError } from '../../domain/model/DomainError.js';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { elegirRecordatorio, NivelDePendiente, Pendiente } from '../../domain/model/Pendiente.js';
@@ -30,7 +31,7 @@ export class PendientesUseCaseImpl implements PendientesUseCase {
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
-  async consultar(userId: string): Promise<SemaforoDePendientes> {
+  async consultar(userId: string, zonaHoraria: string): Promise<SemaforoDePendientes> {
     const ahora = this.reloj();
     const suyos = await this.pendientes.vigentesDe(
       new UserId(userId),
@@ -50,7 +51,7 @@ export class PendientesUseCaseImpl implements PendientesUseCase {
 
     return {
       pendientes: [...porHacer, ...hechos],
-      recordatorio: elegirRecordatorio(porHacer, ahora),
+      recordatorio: elegirRecordatorio(porHacer, ahora, Calendario.de(zonaHoraria).diaDe(ahora)),
     };
   }
 
@@ -73,6 +74,7 @@ export class PendientesUseCaseImpl implements PendientesUseCase {
           clientOperationId,
           texto: command.texto,
           nivel: command.nivel,
+          fechaLimite: command.fechaLimite,
         },
         this.reloj(),
       ),
@@ -94,6 +96,7 @@ export class PendientesUseCaseImpl implements PendientesUseCase {
         nivel: command.nivel,
         hecho: command.hecho,
         posponerHasta: command.posponerHasta,
+        fechaLimite: command.fechaLimite,
       },
       this.reloj(),
     );

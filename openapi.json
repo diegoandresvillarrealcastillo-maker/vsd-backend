@@ -488,7 +488,7 @@
     },
     "/api/pendientes": {
       "get": {
-        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave), salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
+        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho. Sin fecha límite, cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave). Con fecha límite, desde ese día, que se cuenta en la zona horaria de la persona. Un pendiente pospuesto no recuerda nada. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
         "operationId": "PendientesController_consultar",
         "parameters": [],
         "responses": {
@@ -545,7 +545,7 @@
             }
           },
           "400": {
-            "description": "Texto vacío, de más de 280 caracteres o nivel desconocido."
+            "description": "Texto vacío, de más de 280 caracteres, nivel desconocido o fecha límite que no es un día real."
           }
         },
         "security": [
@@ -561,7 +561,7 @@
     },
     "/api/pendientes/{id}": {
       "patch": {
-        "description": "Texto, nivel, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer.",
+        "description": "Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita.",
         "operationId": "PendientesController_editar",
         "parameters": [
           {
@@ -1410,6 +1410,13 @@
             "nullable": true,
             "description": "Mientras no llegue, no recuerda nada."
           },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite, en el calendario de la persona (SCRUM-119). Null: no vence un día concreto."
+          },
           "creadoEn": {
             "type": "string",
             "format": "date-time"
@@ -1425,6 +1432,7 @@
           "nivel",
           "hecho",
           "posponerHasta",
+          "fechaLimite",
           "creadoEn",
           "editadoEn"
         ]
@@ -1729,6 +1737,12 @@
               "suave"
             ],
             "description": "Cómo suena. plazo: se acabó el tiempo que se le dio (urgente, prioridad). suave: no es urgente, pero que no se acumule (aplazable)."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "El día límite que llegó, o null si el recordatorio es por los días de su color (SCRUM-119)."
           }
         },
         "required": [
@@ -1736,7 +1750,8 @@
           "nivel",
           "dias",
           "nivelSugerido",
-          "tono"
+          "tono",
+          "fechaLimite"
         ]
       },
       "SemaforoDto": {
@@ -1784,6 +1799,12 @@
               "prioridad",
               "aplazable"
             ]
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Opcional: sin ella el pendiente no vence un día concreto."
           }
         },
         "required": [
@@ -1815,6 +1836,13 @@
             "format": "date-time",
             "nullable": true,
             "description": "Hasta cuándo no recuerda nada. Futura y como mucho a 90 días. Null deja de posponer."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Null la quita."
           }
         }
       },

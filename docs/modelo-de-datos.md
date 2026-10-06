@@ -369,24 +369,26 @@ no puede fallar. Hay una prueba de integración que comprueba que están.
 Los pendientes del semáforo (SCRUM-97). Lo que la persona tiene por hacer, con
 su color.
 
-| Campo                  | Tipo            | Nulo | Descripción                                         |
-| ---------------------- | --------------- | ---- | --------------------------------------------------- |
-| `id_pendiente`         | UUID            | no   | Clave primaria.                                     |
-| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.          |
-| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.       |
-| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.               |
-| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                      |
-| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.               |
-| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo. |
-| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.     |
-| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                     |
+| Campo                  | Tipo            | Nulo | Descripción                                                                                   |
+| ---------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `id_pendiente`         | UUID            | no   | Clave primaria.                                                                               |
+| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.                                                    |
+| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.                                                 |
+| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.                                                         |
+| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                                                                |
+| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.                                                         |
+| `fecha_limite`         | DATE            | sí   | Día límite, en el calendario de la persona. Sin él no vence un día concreto. Desde SCRUM-119. |
+| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo.                                           |
+| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.                                               |
+| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                                                               |
 
 **Los recordatorios no se guardan**: se calculan al consultar.
 
 - **Umbrales:** cada color es un plazo (urgente, esta semana; prioridad, de 7
   a 21 días; aplazable, 21 o más). Un pendiente sin hacer recuerda cuando se le
   acaba: a los 7 días si es urgente, a los 21 si es prioridad y a los 30 si es
-  aplazable, este con tono suave. Salvo que esté pospuesto.
+  aplazable, este con tono suave. Salvo que esté pospuesto. **Con fecha límite**
+  (SCRUM-119) recuerda desde ese día, en lugar de esperar los días de su color.
 - **Uno por visita:** se elige el de mayor color y, a igual color, el más
   antiguo.
 - **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.

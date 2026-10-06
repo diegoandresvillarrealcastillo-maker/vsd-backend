@@ -123,29 +123,37 @@ identificadores no acaben en el registro solo por viajar en la direccion.
 
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado            |
-| -------- | ----------------------------------------- | ----------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | **Preparado**     |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**     |
+| Ambiente | Donde vive                                | Estado                                 |
+| -------- | ----------------------------------------- | -------------------------------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento                      |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento                      |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | **En uso**, con las 13 migraciones     |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**, con 5 de 13 migraciones |
 
-Preparado quiere decir las cinco migraciones aplicadas, el catalogo sembrado y
-el rol `vsd_app` con contrasena y sujeto a las politicas de aislamiento. Los
-dos quedaron asi el **21/09/2026**, comprobados con `npm run db:revisar`.
+Preparado quiere decir las migraciones de ese momento aplicadas, el catalogo
+sembrado y el rol `vsd_app` con contrasena y sujeto a las politicas de
+aislamiento. Los dos quedaron asi el **21/09/2026**, con cinco migraciones,
+comprobados con `npm run db:revisar`. Desde entonces cada uno siguio un camino
+distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
 
-Lo que todavia no existe es un despliegue que se conecte a ellas.
+- **PRE** recibio las migraciones a medida que llegaban a `preproduccion`.
+  Tiene las 13, hasta `20261005120000_avisos_push`, y es la base que usa el API
+  desplegado.
+- **PROD** sigue como quedo el 21/09: 5 de 13, hasta
+  `20260921120000_catalogo_inicial`. Le faltan las ocho siguientes, que tienen
+  que estar aplicadas antes del primer despliegue de PROD. Ver "Estado actual".
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
-ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
-lineas de atencion y **el catalogo de tres categorias y nueve actividades**.
+ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas
+de atencion y **el catalogo de tres categorias y nueve actividades**.
 
 El catalogo se siembra con una migracion y no desde el panel justamente por
 eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de
 significar algo, y el fallo no daria ningun error: la aplicacion se veria bien
 y mostraria cosas distintas en cada sitio.
 
-Ninguno de los dos contiene datos de ninguna persona.
+PROD no contiene datos de ninguna persona. PRE si tiene cuentas, creadas desde
+la PWA desplegada.
 
 Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
 plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
@@ -213,13 +221,29 @@ politicas apagadas.
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Las bases de PRE y PROD estan preparadas y listas para recibir conexiones,
-pero **todavia no hay ningun despliegue** que las use: la API solo corre en
-local y en el contenedor del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
-seccion se actualiza cuando eso cambie.
+| Ambiente | API                                                        | PWA                                 | Base                                       |
+| -------- | ---------------------------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| DEV      | `http://localhost:3000`                                    | `http://localhost:5173`             | Local                                      |
+| PRE      | Render, servicio `vsd-api-pre`: `vsd-api-pre.onrender.com` | Vercel: `vsd-health-pre.vercel.app` | `vsd-health-pre`                           |
+| PROD     | Sin desplegar                                              | Sin desplegar                       | `vsd-health-prod`, preparada pero atrasada |
 
-Los dos pasos manuales de cada ambiente —aplicar las migraciones y darle
-contrasena a `vsd_app`— ya estan hechos. Se hicieron con `npm run db:preparar`,
+**PRE esta desplegado y en uso.** Las variables de cada servicio se cargaron a
+mano en Render y en Vercel; ninguna paso por Git. Dos cosas propias de este
+despliegue:
+
+- **Vercel sirve la PWA en cualquier ruta.** `vercel.json` reescribe toda ruta
+  a `index.html`, porque las rutas las resuelve React en el navegador. Sin eso,
+  entrar directo a `/panel` o recargar respondia 404 (SCRUM-104).
+- **Render se duerme.** En el plan gratuito apaga el servicio tras 15 minutos
+  sin peticiones, y despertarlo tarda cerca de un minuto. Lo cubren dos cosas
+  (SCRUM-111): la PWA llama a `/health` en cuanto se abre, y el workflow
+  `mantener-el-api-despierto.yml` lo llama cada 10 minutos. GitHub ejecuta los
+  workflows programados desde la rama por defecto, `produccion`, asi que ese
+  ultimo empieza a correr cuando SCRUM-111 llegue alli; mientras tanto se lanza
+  a mano desde Actions.
+
+Los dos pasos manuales de cada base —aplicar las migraciones y darle
+contrasena a `vsd_app`— se hicieron en PRE y en PROD con `npm run db:preparar`,
 que los encadena en el orden correcto: el rol lo crea una migracion, asi que
 darle contrasena antes no funciona.
 
@@ -227,5 +251,15 @@ Las contrasenas viven en el gestor del equipo y **son distintas por ambiente**.
 Si una se compromete, la otra no se va con ella. No pasan por Git ni por
 ningun chat.
 
-Queda anotar las dos URL en el gestor de secretos del proveedor de despliegue,
-cuando ese despliegue exista.
+### Lo que falta para PROD
+
+1. **Ponerle al dia la base.** Aplicar a `vsd-health-prod` las ocho
+   migraciones que le faltan con `npm run db:aplicar`, con `DIRECT_URL`
+   apuntando al session pooler de PROD en la misma orden. Lo hace una persona
+   del equipo, y antes de ejecutarlo se comprueba a que host apunta.
+2. **Crear el servicio del API y el proyecto de la PWA**, con sus propias
+   variables: `CORS_ORIGIN` con el dominio exacto de PROD, su propio par de
+   claves VAPID y la `DATABASE_URL` de `vsd_app` en PROD.
+3. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
+   en el mismo espacio de trabajo: uno solo usa unas 744 de las 750 horas del
+   mes. Ver el encabezado de `mantener-el-api-despierto.yml`.

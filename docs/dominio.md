@@ -192,11 +192,19 @@ justo despues de que el proveedor ya borro. Es mucho menos probable que un
 fallo de red, que es lo que este orden cubre, y si ocurre queda en el registro
 del servidor.
 
-### Lo que falta por conectar
+### Como llega el consentimiento al flujo HTTP
 
-La regla del consentimiento esta modelada y probada en el dominio, pero
-todavia no se aplica en el flujo HTTP: para exigirla hace falta saber quien
-hace la peticion, y eso es autenticacion. Se conecta en el Ciclo 5.
+Desde el Ciclo 5 la regla se aplica en tres puntos, y ninguna peticion con
+datos de salud puede saltarselos:
+
+- **El alta lo exige.** `POST /api/cuenta` sin consentimiento responde 400
+  `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada (`RegistrarCuentaUseCaseImpl`).
+- **Sin cuenta no se opera.** `GuardiaDeCuenta` traduce la identidad del token
+  a la cuenta propia en cada ruta, y si no existe responde 403
+  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta.
+- **La base no lo admite.** Las columnas del consentimiento son `NOT NULL`, y
+  `PrismaUserRepository` se niega a guardar una cuenta sin el antes de llegar
+  a PostgreSQL.
 
 ## `ActivityResult`
 
@@ -467,6 +475,12 @@ que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 
-No hay entidades `Categoria` ni `RecursoApoyo`. Se
-incorporan cuando se necesiten, no antes. Tampoco hay persistencia real: el
-unico adaptador es en memoria, y el de Prisma llega en el Ciclo 4.
+- **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`
+  existen y se leen, pero el catalogo y los recursos solo cambian con una
+  migracion: todavia no hay casos de uso para que el administrador los cree o
+  los edite (SCRUM-76). El limite de ese rol ya esta escrito y probado; ver
+  "El administrador gestiona contenidos, no personas".
+- **La sincronizacion sin conexion.** La API ya es idempotente por
+  `clientOperationId`, que es lo que una cola de reintentos necesita para no
+  duplicar nada, pero la cola local del frontend todavia no existe (SCRUM-18
+  y SCRUM-19).

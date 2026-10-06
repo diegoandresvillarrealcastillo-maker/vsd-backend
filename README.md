@@ -65,13 +65,18 @@ caso de uso como las politicas de la base; el cuerpo de la peticion ya no puede
 decir de quien es un dato.
 Ver [ADR 0013](docs/adr/0013-la-api-verifica-el-token-contra-el-jwks.md).
 
-| Ciclo | Que se incorporo                                      | Estado    |
-| ----- | ----------------------------------------------------- | --------- |
-| 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
-| 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
-| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
-| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
-| 5     | Usuarios y autenticacion                              | En curso  |
+La API **ya esta desplegada en PRE**, en Render, y la usa la PWA publicada en
+Vercel. PROD todavia no tiene despliegue. Lo que existe en cada ambiente y lo
+que falta para PROD esta en [docs/ambientes.md](docs/ambientes.md).
+
+| Ciclo | Que se incorporo                                                                | Estado                                         |
+| ----- | ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1     | Repositorio, ramas, CI, documentacion                                           | Terminado                                      |
+| 2     | Dominio y aplicacion en TypeScript, sin framework                               | Terminado                                      |
+| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI                           | Terminado                                      |
+| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS                             | Terminado                                      |
+| 5     | Usuarios y autenticacion                                                        | Terminado, salvo Google y el rol administrador |
+| 6     | Actividades, sendero, diario, semaforo, avisos, VSD IA, derechos de datos y PRE | En curso                                       |
 
 ## Como ejecutarlo en local
 
@@ -215,7 +220,7 @@ Start-Process "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
 
 No se pierde nada: los contenedores y sus datos viven en volumenes aparte.
 
-## Stack previsto
+## Stack
 
 - **NestJS** + **TypeScript**
 - **Prisma** como ORM

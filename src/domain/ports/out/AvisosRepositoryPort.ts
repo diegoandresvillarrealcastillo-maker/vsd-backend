@@ -23,14 +23,22 @@ export interface AvisosRepositoryPort {
   suscripcionesDe(userId: UserId): Promise<readonly SuscripcionPush[]>;
 
   /**
-   * A quien le toca un aviso: su hora cae entre `desde` y `hasta` (minutos
-   * del dia, ambos incluidos) y ese aviso todavia no se reviso `dia`.
+   * Las zonas horarias en que hay alguien con algun aviso encendido
+   * (SCRUM-123). Cada minuto se mira la hora de cada una, y son pocas.
+   */
+  zonasEnUso(): Promise<readonly string[]>;
+
+  /**
+   * A quien le toca un aviso: su zona es `zona`, su hora cae entre `desde` y
+   * `hasta` (minutos del dia en esa zona, ambos incluidos) y ese aviso
+   * todavia no se reviso `dia`.
    *
    * Es lo unico que se mira de todos a la vez, y devuelve solo
    * identificadores. Lo demas se lee en nombre de cada persona.
    */
   aQuienLeToca(
     tipo: TipoDeAviso,
+    zona: string,
     desde: number,
     hasta: number,
     dia: Dia,

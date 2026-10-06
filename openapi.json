@@ -321,7 +321,7 @@
     },
     "/api/diario": {
       "get": {
-        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en Colombia. Como mucho 366 días por consulta.",
+        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en la zona horaria de la persona. Como mucho 366 días por consulta.",
         "operationId": "DiarioController_consultar",
         "parameters": [
           {
@@ -339,7 +339,7 @@
             "name": "hasta",
             "required": false,
             "in": "query",
-            "description": "Último día del rango, incluido. Si no viene, hoy en Colombia.",
+            "description": "Último día del rango, incluido. Si no viene, hoy en la zona de la persona.",
             "schema": {
               "format": "date",
               "example": "2026-10-03",
@@ -678,7 +678,7 @@
     },
     "/api/notificaciones/horas": {
       "patch": {
-        "description": "HH:MM en hora de Colombia. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
+        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
         "operationId": "NotificacionesController_cambiarHoras",
         "parameters": [],
         "requestBody": {
@@ -782,7 +782,7 @@
     },
     "/api/progreso": {
       "get": {
-        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
+        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
         "operationId": "ProgresoController_consultar",
         "parameters": [],
         "responses": {
@@ -1106,6 +1106,12 @@
             "description": "Nombre con el que la persona quiere que la llamen.",
             "example": "Diego",
             "maxLength": 100
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.",
+            "example": "America/Bogota",
+            "maxLength": 64
           }
         },
         "required": [
@@ -1227,6 +1233,11 @@
           "diarioConRecomendaciones": {
             "type": "boolean",
             "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).",
+            "example": "America/Bogota"
           }
         },
         "required": [
@@ -1237,7 +1248,8 @@
           "registradoEn",
           "modulosActivos",
           "mascota",
-          "diarioConRecomendaciones"
+          "diarioConRecomendaciones",
+          "zonaHoraria"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1289,7 +1301,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "description": "El día al que pertenece, en el calendario de la persona.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1520,7 +1532,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
+            "description": "El día al que pertenece, en el calendario de la persona. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1556,7 +1568,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "description": "El día al que pertenece, en el calendario de la persona.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1822,13 +1834,13 @@
             "type": "string",
             "nullable": true,
             "example": "08:00",
-            "description": "Hora del aviso del semáforo, en hora de Colombia. Null: apagado."
+            "description": "Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado."
           },
           "horaRacha": {
             "type": "string",
             "nullable": true,
             "example": "19:30",
-            "description": "Hora del recordatorio de la racha, en hora de Colombia. Null: apagado."
+            "description": "Hora del recordatorio de la racha, en la zona horaria de la persona. Null: apagado."
           }
         },
         "required": [

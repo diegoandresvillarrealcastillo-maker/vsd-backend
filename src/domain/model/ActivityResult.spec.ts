@@ -31,6 +31,7 @@ function datos(sobrescribir: Partial<DatosDeResultado> = {}): DatosDeResultado {
     clientOperationId: new ClientOperationId(OPERACION),
     score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    dia: '2026-09-14',
     ...sobrescribir,
   };
 }

@@ -14,7 +14,7 @@ export class ConsultarDiarioDto {
   desde?: string;
 
   @ApiPropertyOptional({
-    description: 'Último día del rango, incluido. Si no viene, hoy en Colombia.',
+    description: 'Último día del rango, incluido. Si no viene, hoy en la zona de la persona.',
     example: '2026-10-03',
     format: 'date',
   })

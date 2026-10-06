@@ -150,6 +150,8 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     operacion: string;
     puntajeCrudo?: number;
     metadata?: Record<string, string | number | boolean>;
+    completedAt?: Date;
+    dia?: string;
   }): Promise<ActivityResult> {
     const actividad = await catalogo.findById(new ActivityId(opciones.actividad));
 
@@ -166,7 +168,8 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
         opciones.puntajeCrudo === undefined
           ? undefined
           : OrientativeScore.create(opciones.puntajeCrudo, actividad),
-      completedAt: new Date('2026-09-14T11:00:00.000Z'),
+      completedAt: opciones.completedAt ?? new Date('2026-09-14T11:00:00.000Z'),
+      dia: opciones.dia ?? '2026-09-14',
       metadata: opciones.metadata,
     });
   }
@@ -191,6 +194,45 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     expect(recuperado?.score?.value).toBe(80);
     expect(recuperado?.score?.level).toBe('favorable');
     expect(recuperado?.metadata).toMatchObject({ aciertos: 8, intentos: 10 });
+  });
+
+  it('el dia queda guardado como se registro, no se recalcula al leer (SCRUM-123)', async () => {
+    // El mismo instante, 9 p. m. del 14 en Bogota y 4 a. m. del 15 en Madrid,
+    // registrado por dos personas que estaban en sitios distintos.
+    const instante = new Date('2026-09-15T02:00:00.000Z');
+
+    await repositorio.save(
+      await unResultado({
+        id: '40000000-0000-4000-8000-0000000000d1',
+        usuario: USUARIO_A,
+        actividad: ACTIVIDAD_MEMORIA,
+        operacion: '50000000-0000-4000-8000-0000000000d1',
+        completedAt: instante,
+        dia: '2026-09-14',
+      }),
+    );
+    await repositorio.save(
+      await unResultado({
+        id: '40000000-0000-4000-8000-0000000000d2',
+        usuario: USUARIO_B,
+        actividad: ACTIVIDAD_MEMORIA,
+        operacion: '50000000-0000-4000-8000-0000000000d2',
+        completedAt: instante,
+        dia: '2026-09-15',
+      }),
+    );
+
+    const enBogota = await repositorio.findByClientOperationId(
+      new ClientOperationId('50000000-0000-4000-8000-0000000000d1'),
+      new UserId(USUARIO_A),
+    );
+    const enMadrid = await repositorio.findByClientOperationId(
+      new ClientOperationId('50000000-0000-4000-8000-0000000000d2'),
+      new UserId(USUARIO_B),
+    );
+
+    expect(enBogota?.dia).toBe('2026-09-14');
+    expect(enMadrid?.dia).toBe('2026-09-15');
   });
 
   it('guarda un resultado sin puntaje', async () => {

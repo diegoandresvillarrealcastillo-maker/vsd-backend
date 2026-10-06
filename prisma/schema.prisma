@@ -118,6 +118,9 @@ model Usuario {
   mascota                 Json?    @db.JsonB
   /// Si permite que el diario se lea para recomendarle. Apagado por defecto (SCRUM-108).
   diarioConRecomendaciones Boolean @default(false) @map("diario_con_recomendaciones")
+  /// Zona IANA de la persona, informada por su dispositivo (SCRUM-123). Decide
+  /// que dia es para ella. Las cuentas anteriores quedan en America/Bogota.
+  zonaHoraria String @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
@@ -153,6 +156,11 @@ model PreferenciaAviso {
   /// El ultimo dia, en hora de Colombia, en que se reviso cada aviso.
   ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
   ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
+  /// La zona en que se leen los dos minutos de arriba. La copia la base desde
+  /// `usuario.zona_horaria` (disparadores de la migracion de SCRUM-123): la
+  /// tarea de avisos solo puede leer esta tabla y necesita saber en que zona
+  /// es cada hora. Nadie la escribe desde la aplicacion.
+  zonaHoraria         String    @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
   fechaEdicion        DateTime  @default(now()) @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
@@ -238,6 +246,11 @@ model Resultado {
 
   fecha DateTime @default(now()) @db.Timestamptz(3)
 
+  /// El dia, en la zona de la persona, en que se completo (SCRUM-123). Se
+  /// guarda y no se deriva de `fecha` al leer: si cambiara con la zona de hoy,
+  /// viajar romperia las rachas ya ganadas.
+  dia DateTime @default(dbgenerated("((now() AT TIME ZONE 'America/Bogota'::text))::date")) @db.Date
+
   /// Al eliminar la cuenta se borran sus resultados. Es el RF12: la persona
   /// puede pedir que se elimine todo lo suyo.
   usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
@@ -246,6 +259,7 @@ model Resultado {
   @@unique([idUsuario, idOperacionCliente])
   /// El historial se consulta por persona y por fecha; de ahi el indice.
   @@index([idUsuario, fecha])
+  @@index([idUsuario, dia])
   @@index([idActividad])
   @@map("resultado")
 }

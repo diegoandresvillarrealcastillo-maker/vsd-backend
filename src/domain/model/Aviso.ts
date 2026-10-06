@@ -53,9 +53,14 @@ export function horaDeMinuto(minuto: number): string {
 /** A que hora quiere cada aviso. `null` es apagado. */
 export interface PreferenciasDeAviso {
   readonly userId: UserId;
-  /** Minutos desde la medianoche, en hora de Colombia. */
+  /** Minutos desde la medianoche, en la zona horaria de la persona. */
   readonly minutoSemaforo: number | null;
   readonly minutoRacha: number | null;
+  /**
+   * La zona en que se leen esas horas (SCRUM-123): las 8:00 de Bogota no son
+   * las 8:00 de Madrid. Es la de la cuenta; en PostgreSQL la copia la base.
+   */
+  readonly zonaHoraria: string;
 }
 
 /**

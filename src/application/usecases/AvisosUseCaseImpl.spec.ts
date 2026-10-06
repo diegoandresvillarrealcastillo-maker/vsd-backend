@@ -11,6 +11,7 @@ import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosReposito
 import type { EnviadorDePushPort } from '../../domain/ports/out/EnviadorDePushPort.js';
 import { AvisosUseCaseImpl } from './AvisosUseCaseImpl.js';
 
+const ZONA = 'America/Bogota';
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 
 /** Lo minimo del puerto para estas pruebas: horas y suscripciones. */
@@ -19,17 +20,21 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   minutoRacha: number | null = null;
   suscripciones: SuscripcionPush[] = [];
 
+  zonaHoraria = 'America/Bogota';
+
   preferenciasDe(userId: UserId) {
     return Promise.resolve({
       userId,
       minutoSemaforo: this.minutoSemaforo,
       minutoRacha: this.minutoRacha,
+      zonaHoraria: this.zonaHoraria,
     });
   }
 
   guardarPreferencias(preferencias: PreferenciasDeAviso) {
     this.minutoSemaforo = preferencias.minutoSemaforo;
     this.minutoRacha = preferencias.minutoRacha;
+    this.zonaHoraria = preferencias.zonaHoraria;
 
     return Promise.resolve(preferencias);
   }
@@ -50,7 +55,11 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve(this.suscripciones);
   }
 
-  aQuienLeToca(_tipo: TipoDeAviso, _desde: number, _hasta: number, _dia: Dia) {
+  zonasEnUso() {
+    return Promise.resolve([]);
+  }
+
+  aQuienLeToca(_tipo: TipoDeAviso, _zona: string, _desde: number, _hasta: number, _dia: Dia) {
     return Promise.resolve([]);
   }
 
@@ -79,7 +88,7 @@ describe('AvisosUseCaseImpl', () => {
     const avisos = new AvisosUseCaseImpl(new AvisosDePrueba(), enviador(null));
 
     await expect(
-      avisos.cambiarHoras({ userId: PERSONA, horaSemaforo: '08:00' }),
+      avisos.cambiarHoras({ userId: PERSONA, zonaHoraria: ZONA, horaSemaforo: '08:00' }),
     ).resolves.toMatchObject({ disponible: false, clavePublica: null, horaSemaforo: '08:00' });
   });
 
@@ -87,13 +96,22 @@ describe('AvisosUseCaseImpl', () => {
     const repositorio = new AvisosDePrueba();
     const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
 
-    await avisos.cambiarHoras({ userId: PERSONA, horaSemaforo: '08:00', horaRacha: '19:30' });
+    await avisos.cambiarHoras({
+      userId: PERSONA,
+      zonaHoraria: ZONA,
+      horaSemaforo: '08:00',
+      horaRacha: '19:30',
+    });
 
-    expect(await avisos.cambiarHoras({ userId: PERSONA, horaSemaforo: '09:15' })).toMatchObject({
+    expect(
+      await avisos.cambiarHoras({ userId: PERSONA, zonaHoraria: ZONA, horaSemaforo: '09:15' }),
+    ).toMatchObject({
       horaSemaforo: '09:15',
       horaRacha: '19:30',
     });
-    expect(await avisos.cambiarHoras({ userId: PERSONA, horaRacha: null })).toMatchObject({
+    expect(
+      await avisos.cambiarHoras({ userId: PERSONA, zonaHoraria: ZONA, horaRacha: null }),
+    ).toMatchObject({
       horaSemaforo: '09:15',
       horaRacha: null,
     });
@@ -104,9 +122,9 @@ describe('AvisosUseCaseImpl', () => {
     const repositorio = new AvisosDePrueba();
     const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
 
-    await expect(avisos.cambiarHoras({ userId: PERSONA, horaSemaforo: '25:00' })).rejects.toThrow(
-      InvalidNotificationSettingError,
-    );
+    await expect(
+      avisos.cambiarHoras({ userId: PERSONA, zonaHoraria: ZONA, horaSemaforo: '25:00' }),
+    ).rejects.toThrow(InvalidNotificationSettingError);
     expect(repositorio.minutoSemaforo).toBeNull();
   });
 

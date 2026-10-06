@@ -4,6 +4,7 @@ import {
   InvalidNameError,
   InvalidPetError,
   InvalidRoleError,
+  InvalidTimeZoneError,
   MissingConsentError,
   NoActiveModulesError,
   UnknownModuleError,
@@ -211,5 +212,63 @@ describe('Las preferencias de la cuenta', () => {
     expect(() => User.create(datos({ modulosActivos: ['finanzas'] }), AHORA)).toThrow(
       UnknownModuleError,
     );
+  });
+});
+
+describe('La zona horaria de la cuenta (SCRUM-123)', () => {
+  it('sin zona, es la de Colombia: es la de todas las cuentas anteriores', () => {
+    expect(User.create(datos(), AHORA).zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('guarda la zona que informa el dispositivo', () => {
+    expect(User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA).zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+  });
+
+  it('la guarda con la forma de IANA, aunque llegue en otras mayusculas', () => {
+    expect(User.create(datos({ zonaHoraria: 'europe/madrid' }), AHORA).zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+  });
+
+  it.each(['Marte/Olympus', '', '   ', 'Bogota'])('rechaza la zona "%s"', (zona) => {
+    expect(() => User.create(datos({ zonaHoraria: zona }), AHORA)).toThrow(InvalidTimeZoneError);
+  });
+
+  it('conZonaHoraria devuelve otra cuenta con la zona nueva y todo lo demas igual', () => {
+    const antes = User.create(
+      datos({ nombre: 'Ana', modulosActivos: ['cognicion'], diarioConRecomendaciones: true }),
+      AHORA,
+    );
+
+    const despues = antes.conZonaHoraria('Asia/Tokyo');
+
+    expect(despues).not.toBe(antes);
+    expect(despues.zonaHoraria).toBe('Asia/Tokyo');
+    expect(despues.id.value).toBe(antes.id.value);
+    expect(despues.nombre).toBe('Ana');
+    expect(despues.modulosActivos).toEqual(['cognicion']);
+    expect(despues.diarioConRecomendaciones).toBe(true);
+    // La cuenta original no cambia.
+    expect(antes.zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('conZonaHoraria devuelve esta misma cuenta si la zona ya es esa', () => {
+    const cuenta = User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA);
+
+    expect(cuenta.conZonaHoraria('europe/madrid')).toBe(cuenta);
+  });
+
+  it('conZonaHoraria rechaza una zona que no existe', () => {
+    expect(() => User.create(datos(), AHORA).conZonaHoraria('Marte/Olympus')).toThrow(
+      InvalidTimeZoneError,
+    );
+  });
+
+  it('cambiar las preferencias no cambia la zona', () => {
+    const cuenta = User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA);
+
+    expect(cuenta.conPreferencias({ nombre: 'Ana' }).zonaHoraria).toBe('Europe/Madrid');
   });
 });

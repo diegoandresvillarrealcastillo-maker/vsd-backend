@@ -4,7 +4,7 @@ import {
   TipoDeAviso,
   type MensajeDeAviso,
 } from '../../domain/model/Aviso.js';
-import type { Calendario } from '../../domain/model/Calendario.js';
+import { Calendario } from '../../domain/model/Calendario.js';
 import type { UserId } from '../../domain/model/Identifier.js';
 import type {
   ResumenDeLaRevision,
@@ -22,15 +22,20 @@ import type { PendientesRepositoryPort } from '../../domain/ports/out/Pendientes
  */
 export const MINUTOS_DE_GRACIA = 30;
 
-/** Para el registro: que fallo sin contar de quien. */
+/** Para el registro: que fallo sin contar de quien. `zona` es una zona que no se pudo leer. */
 export interface RegistroDeAvisos {
-  fallo(tipo: TipoDeAviso, error: unknown): void;
+  fallo(tipo: TipoDeAviso | 'zona', error: unknown): void;
 }
 
 /**
  * La revision de cada minuto (SCRUM-102).
  *
- * Para cada clase de aviso:
+ * Cada persona tiene su zona horaria (SCRUM-123), y "las 8:00" son otro
+ * instante en cada una. Por eso lo primero es saber en que zonas hay alguien
+ * con un aviso encendido, y repetir lo de abajo para cada una con su propio
+ * dia y su propio minuto. Son pocas.
+ *
+ * Para cada zona y cada clase de aviso:
  *
  * 1. Pregunta a quien le toca: su hora cae en la ultima media hora y hoy
  *    todavia no se reviso. Es lo unico que se mira de todos a la vez.
@@ -49,7 +54,6 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     private readonly enviador: EnviadorDePushPort,
     private readonly pendientes: PendientesRepositoryPort,
     private readonly resultados: ActivityResultRepositoryPort,
-    private readonly calendario: Calendario,
     private readonly registro: RegistroDeAvisos = { fallo: () => undefined },
   ) {}
 
@@ -60,19 +64,48 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       return resumen;
     }
 
-    const dia = this.calendario.diaDe(ahora);
-    const minuto = this.calendario.minutoDelDia(ahora);
+    for (const zona of await this.avisos.zonasEnUso()) {
+      let calendario: Calendario;
+
+      try {
+        calendario = Calendario.de(zona);
+      } catch (error) {
+        // Una zona que este servidor no conoce no detiene las demas. Con la
+        // validacion de la cuenta no deberia ocurrir; si ocurre, queda dicho.
+        this.registro.fallo('zona', error);
+        continue;
+      }
+
+      await this.revisarZona(calendario, ahora, resumen);
+    }
+
+    return resumen;
+  }
+
+  private async revisarZona(
+    calendario: Calendario,
+    ahora: Date,
+    resumen: { entregados: number; caducadas: number },
+  ): Promise<void> {
+    const dia = calendario.diaDe(ahora);
+    const minuto = calendario.minutoDelDia(ahora);
     // La gracia no cruza la medianoche: el dia ya es otro.
     const desde = Math.max(0, minuto - MINUTOS_DE_GRACIA);
 
     for (const tipo of Object.values(TipoDeAviso)) {
-      const personas = await this.avisos.aQuienLeToca(tipo, desde, minuto, dia);
+      const personas = await this.avisos.aQuienLeToca(
+        tipo,
+        calendario.zonaHoraria,
+        desde,
+        minuto,
+        dia,
+      );
 
       for (const userId of personas) {
         try {
           await this.avisos.marcarRevisado(userId, tipo, dia);
 
-          const mensaje = await this.mensajePara(tipo, userId, ahora, dia);
+          const mensaje = await this.mensajePara(tipo, userId, ahora, dia, calendario);
 
           if (mensaje !== null) {
             await this.entregar(userId, mensaje, resumen);
@@ -82,8 +115,6 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
         }
       }
     }
-
-    return resumen;
   }
 
   private async mensajePara(
@@ -91,6 +122,7 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     userId: UserId,
     ahora: Date,
     dia: string,
+    calendario: Calendario,
   ): Promise<MensajeDeAviso | null> {
     if (tipo === TipoDeAviso.SEMAFORO) {
       // Los hechos no cuentan: `ahora` como corte deja fuera los de antes.
@@ -104,7 +136,7 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       );
     }
 
-    const { desde } = this.calendario.limitesDelDia(dia);
+    const { desde } = calendario.limitesDelDia(dia);
     const deHoy = await this.resultados.ultimosDe(userId, desde);
 
     return deHoy.length > 0 ? null : mensajeDeLaRacha();

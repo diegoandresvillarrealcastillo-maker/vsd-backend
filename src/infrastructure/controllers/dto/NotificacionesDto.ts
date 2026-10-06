@@ -28,7 +28,7 @@ export class EstadoDeLosAvisosDto {
     type: String,
     nullable: true,
     example: '08:00',
-    description: 'Hora del aviso del semáforo, en hora de Colombia. Null: apagado.',
+    description: 'Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado.',
   })
   horaSemaforo!: string | null;
 
@@ -36,7 +36,8 @@ export class EstadoDeLosAvisosDto {
     type: String,
     nullable: true,
     example: '19:30',
-    description: 'Hora del recordatorio de la racha, en hora de Colombia. Null: apagado.',
+    description:
+      'Hora del recordatorio de la racha, en la zona horaria de la persona. Null: apagado.',
   })
   horaRacha!: string | null;
 

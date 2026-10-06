@@ -51,10 +51,11 @@ servicio no arranca. Es la clave `service_role` de cada proyecto de Supabase,
 se pone a mano en Render y nunca pasa por Git. El backend la usa solo para
 borrar la identidad de quien borra su cuenta. En DEV es opcional.
 
-`ZONA_HORARIA` es la misma en los tres ambientes, `America/Bogota`, y no hace
-falta declararla: es el valor por defecto. Existe para que las pruebas puedan
-cambiarla. Decide que dia es para las actividades, el sendero, el diario y el
-semaforo; ver "El dia se cuenta en hora de Colombia" en `dominio.md`.
+**No hay variable de zona horaria.** `ZONA_HORARIA` existio hasta SCRUM-123,
+cuando el servicio contaba el dia en una sola zona. Ahora cada cuenta guarda la
+suya y la informa el dispositivo; ver "El dia se cuenta en la zona de cada
+persona" en `dominio.md` y el ADR 0014. Si todavia esta declarada en Render, se
+puede quitar: ya no se lee.
 
 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` son las claves de los
 avisos por Web Push (SCRUM-102).

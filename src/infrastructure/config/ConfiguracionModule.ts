@@ -1,7 +1,6 @@
 import { Global, Module } from '@nestjs/common';
-import { Calendario } from '../../domain/model/Calendario.js';
 import { type Configuracion, validarConfiguracion } from './environment.js';
-import { CALENDARIO, CONFIGURACION } from './tokens.js';
+import { CONFIGURACION } from './tokens.js';
 
 /**
  * Configuracion del servicio, disponible en toda la aplicacion.
@@ -25,15 +24,7 @@ import { CALENDARIO, CONFIGURACION } from './tokens.js';
       provide: CONFIGURACION,
       useFactory: (): Configuracion => validarConfiguracion(process.env),
     },
-    {
-      // Uno solo para todo el proceso, con la zona ya validada. Quien necesite
-      // saber que dia es lo pide por este token y nunca mira la fecha UTC.
-      provide: CALENDARIO,
-      useFactory: (configuracion: Configuracion): Calendario =>
-        new Calendario(configuracion.zonaHoraria),
-      inject: [CONFIGURACION],
-    },
   ],
-  exports: [CONFIGURACION, CALENDARIO],
+  exports: [CONFIGURACION],
 })
 export class ConfiguracionModule {}

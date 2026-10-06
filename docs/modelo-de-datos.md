@@ -267,7 +267,7 @@ Lo que la persona escribe por su cuenta. Corresponde al RF14.
 | ---------------------- | ------------ | ---- | ------------------------------------------------------------------------ |
 | `id_entrada`           | UUID         | no   | Clave primaria.                                                          |
 | `id_usuario`           | UUID         | no   | A quién pertenece.                                                       |
-| `dia`                  | DATE         | no   | Día del calendario de Colombia al que pertenece. Desde SCRUM-95.         |
+| `dia`                  | DATE         | no   | Día del calendario de la persona al que pertenece. Desde SCRUM-95.       |
 | `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                         |
 | `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.          |
 | `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.     |
@@ -414,14 +414,14 @@ guarda datos de salud.
 
 `PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
 
-| Campo                   | Tipo        | Nulo | Descripción                                                                 |
-| ----------------------- | ----------- | ---- | --------------------------------------------------------------------------- |
-| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                     |
-| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.        |
-| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.               |
-| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en hora de Colombia, en que se revisó. Así sale una vez al día. |
-| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                 |
-| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                              |
+| Campo                   | Tipo        | Nulo | Descripción                                                                  |
+| ----------------------- | ----------- | ---- | ---------------------------------------------------------------------------- |
+| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                      |
+| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.         |
+| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                |
+| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día. |
+| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                  |
+| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                               |
 
 Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
 `TIME` en una fecha completa, y con ella vuelven los problemas de zona.

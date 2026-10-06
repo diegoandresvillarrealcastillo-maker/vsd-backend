@@ -1,4 +1,4 @@
-import type { Calendario } from '../../domain/model/Calendario.js';
+import { Calendario } from '../../domain/model/Calendario.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
@@ -22,7 +22,6 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
   constructor(
     private readonly diario: DiarioRepositoryPort,
     private readonly recursos: RecursoApoyoRepositoryPort,
-    private readonly calendario: Calendario,
     private readonly generarId: () => EntradaId = () =>
       new EntradaId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
@@ -41,7 +40,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     }
 
     const ahora = this.reloj();
-    const hoy = this.calendario.diaDe(ahora);
+    const hoy = Calendario.de(command.zonaHoraria).diaDe(ahora);
 
     const entrada = EntradaDeDiario.nueva(
       {

@@ -22,7 +22,7 @@ export class ProgresoController {
   @ApiOperation({
     summary: 'Consultar el progreso de cada modulo activo',
     description:
-      'Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.',
+      'Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.',
   })
   @ApiResponse({ status: 200, type: [ProgresoRespuestaDto] })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })

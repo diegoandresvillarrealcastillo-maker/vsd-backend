@@ -1,6 +1,6 @@
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
-import type { Dia } from '../../domain/model/Calendario.js';
+import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
@@ -28,10 +28,14 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: fila?.minutoSemaforo ?? null,
       minutoRacha: fila?.minutoRacha ?? null,
+      zonaHoraria: fila?.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO,
     };
   }
 
   async guardarPreferencias(preferencias: PreferenciasDeAviso): Promise<PreferenciasDeAviso> {
+    // La zona no se escribe: la copia la base desde la cuenta, con los
+    // disparadores de la migracion de SCRUM-123. Tener un solo camino evita
+    // que las dos queden distintas.
     const { userId, minutoSemaforo, minutoRacha } = preferencias;
 
     await this.prisma.comoUsuario(userId.value, (cliente) =>
@@ -83,8 +87,21 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
     }));
   }
 
+  async zonasEnUso(): Promise<readonly string[]> {
+    const filas = await this.prisma.comoTareaDeAvisos((cliente) =>
+      cliente.preferenciaAviso.findMany({
+        where: { OR: [{ minutoSemaforo: { not: null } }, { minutoRacha: { not: null } }] },
+        distinct: ['zonaHoraria'],
+        select: { zonaHoraria: true },
+      }),
+    );
+
+    return filas.map((fila) => fila.zonaHoraria);
+  }
+
   async aQuienLeToca(
     tipo: TipoDeAviso,
+    zona: string,
     desde: number,
     hasta: number,
     dia: Dia,
@@ -95,10 +112,12 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
         where:
           tipo === TipoDeAviso.SEMAFORO
             ? {
+                zonaHoraria: zona,
                 minutoSemaforo: { gte: desde, lte: hasta },
                 OR: [{ ultimoAvisoSemaforo: null }, { ultimoAvisoSemaforo: { lt: hoy } }],
               }
             : {
+                zonaHoraria: zona,
                 minutoRacha: { gte: desde, lte: hasta },
                 OR: [{ ultimoAvisoRacha: null }, { ultimoAvisoRacha: { lt: hoy } }],
               },

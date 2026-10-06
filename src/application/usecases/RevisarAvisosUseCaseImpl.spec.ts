@@ -6,7 +6,7 @@ import type {
   SuscripcionPush,
 } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
-import { Calendario, type Dia } from '../../domain/model/Calendario.js';
+import type { Dia } from '../../domain/model/Calendario.js';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -24,12 +24,15 @@ const minutos = (cuantos: number) => new Date(OCHO.getTime() + cuantos * 60_000)
 
 /** Las horas y las suscripciones de cada persona, como las guardaria la base. */
 class AvisosDePrueba implements AvisosRepositoryPort {
-  readonly horas = new Map<string, { semaforo: number | null; racha: number | null }>();
+  readonly horas = new Map<
+    string,
+    { semaforo: number | null; racha: number | null; zona: string }
+  >();
   readonly revisados = new Map<string, Dia>();
   suscripciones = new Map<string, SuscripcionPush[]>();
 
-  elegir(persona: string, semaforo: number | null, racha: number | null) {
-    this.horas.set(persona, { semaforo, racha });
+  elegir(persona: string, semaforo: number | null, racha: number | null, zona = 'America/Bogota') {
+    this.horas.set(persona, { semaforo, racha, zona });
     this.suscripciones.set(persona, [
       { endpoint: `https://push.example.com/${persona}`, p256dh: 'p', auth: 'a' },
     ]);
@@ -42,6 +45,7 @@ class AvisosDePrueba implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: horas?.semaforo ?? null,
       minutoRacha: horas?.racha ?? null,
+      zonaHoraria: horas?.zona ?? 'America/Bogota',
     });
   }
 
@@ -66,13 +70,18 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve(this.suscripciones.get(userId.value) ?? []);
   }
 
-  aQuienLeToca(tipo: TipoDeAviso, desde: number, hasta: number, dia: Dia) {
+  zonasEnUso() {
+    return Promise.resolve([...new Set([...this.horas.values()].map((horas) => horas.zona))]);
+  }
+
+  aQuienLeToca(tipo: TipoDeAviso, zona: string, desde: number, hasta: number, dia: Dia) {
     return Promise.resolve(
       [...this.horas.entries()]
         .filter(([persona, horas]) => {
           const minuto = tipo === TipoDeAviso.SEMAFORO ? horas.semaforo : horas.racha;
 
           return (
+            horas.zona === zona &&
             minuto !== null &&
             minuto >= desde &&
             minuto <= hasta &&
@@ -167,7 +176,6 @@ function armar({
     enviador,
     pendientes(conPendientes),
     resultados(conActividadHoy),
-    new Calendario(),
     { fallo: (_tipo, error) => fallos.push(error) },
   );
 
@@ -175,6 +183,39 @@ function armar({
 }
 
 describe('la revision de cada minuto', () => {
+  it('cada persona recibe su aviso a las 8:00 de su zona, no de la de otra (SCRUM-123)', async () => {
+    const { avisos, enviador, revision } = armar({
+      conPendientes: { [ANA]: ['Pagar la matrícula'], [BETO]: ['Pedir cita'] },
+    });
+
+    // Las dos eligieron las 8:00. Ana esta en Bogota (13:00 UTC) y Beto en
+    // Madrid, donde las 8:00 de ese dia son las 6:00 UTC.
+    avisos.elegir(ANA, 480, null, 'America/Bogota');
+    avisos.elegir(BETO, 480, null, 'Europe/Madrid');
+
+    // 6:00 UTC: es la hora de Beto y todavia no la de Ana.
+    await revision.revisar(new Date('2026-10-05T06:00:00.000Z'));
+    expect(enviador.para(BETO)).toHaveLength(1);
+    expect(enviador.para(ANA)).toHaveLength(0);
+
+    // 13:00 UTC: ahora es la de Ana, y Beto no recibe un segundo aviso.
+    await revision.revisar(OCHO);
+    expect(enviador.para(ANA)).toHaveLength(1);
+    expect(enviador.para(BETO)).toHaveLength(1);
+  });
+
+  it('una zona que el servidor no conoce no detiene a las demas', async () => {
+    const { avisos, enviador, revision, fallos } = armar();
+
+    avisos.elegir(BETO, 480, null, 'Marte/Olympus');
+    avisos.elegir(ANA, 480, null);
+
+    await revision.revisar(OCHO);
+
+    expect(enviador.para(ANA)).toHaveLength(1);
+    expect(fallos).toHaveLength(1);
+  });
+
   it('a la hora elegida manda el semaforo con los pendientes', async () => {
     const { avisos, enviador, revision } = armar();
 
@@ -225,7 +266,7 @@ describe('la revision de cada minuto', () => {
     const { avisos, enviador, revision } = armar();
 
     avisos.elegir(ANA, 480, null);
-    avisos.horas.set(ANA, { semaforo: 540, racha: null });
+    avisos.horas.set(ANA, { semaforo: 540, racha: null, zona: 'America/Bogota' });
 
     await revision.revisar(OCHO);
     expect(enviador.para(ANA)).toEqual([]);

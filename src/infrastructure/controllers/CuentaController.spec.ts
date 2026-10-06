@@ -233,3 +233,78 @@ describe('Sin cuenta no se puede operar', () => {
       .expect(200);
   });
 });
+
+describe('La zona horaria por HTTP (SCRUM-123)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const cuerpo = { versionPolitica: VERSION_VIGENTE_DEL_AVISO };
+
+  it('una cuenta nueva nace en la zona del dispositivo y la devuelve', async () => {
+    const respuesta = await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Europe/Madrid' })
+      .expect(200);
+
+    expect(respuesta.body).toMatchObject({ zonaHoraria: 'Europe/Madrid' });
+  });
+
+  it('al entrar desde otra zona la cuenta la cambia, y GET /api/cuenta la ve', async () => {
+    await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Asia/Tokyo' })
+      .expect(200);
+
+    const cuenta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(cuenta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+
+  it('al entrar sin zona deja la que hay', async () => {
+    const respuesta = await alta(app, A).send(cuerpo).expect(200);
+
+    expect(respuesta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+
+  it('una zona que no existe responde 400 y no crea la cuenta', async () => {
+    const respuesta = await alta(app, B)
+      .send({ ...cuerpo, zonaHoraria: 'Marte/Olympus' })
+      .expect(400);
+
+    expect(respuesta.body).toMatchObject({ codigo: 'ZONA_HORARIA_INVALIDA' });
+
+    await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(B))
+      .expect(403);
+  });
+
+  it('una zona demasiado larga se rechaza antes de llegar al dominio', async () => {
+    const respuesta = await alta(app, B)
+      .send({ ...cuerpo, zonaHoraria: 'A'.repeat(65) })
+      .expect(400);
+
+    expect(JSON.stringify(respuesta.body)).toContain('zonaHoraria');
+  });
+
+  it('al entrar con una zona invalida la cuenta que ya existe no cambia', async () => {
+    await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Marte/Olympus' })
+      .expect(400);
+
+    const cuenta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(cuenta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+});

@@ -27,6 +27,16 @@ export interface RegistrarCuentaCommand {
 
   /** Como quiere que la llamen. Opcional. */
   readonly nombre?: string | undefined;
+
+  /**
+   * La zona horaria que informa el dispositivo (SCRUM-123). Opcional.
+   *
+   * Se manda en cada entrada, no solo en el alta: es lo que hace que viajar no
+   * obligue a configurar nada. Si la cuenta ya existe y la zona es otra, se
+   * actualiza; si no viene, se deja la que hay. Una zona que el servidor no
+   * conoce se rechaza con `ZONA_HORARIA_INVALIDA`.
+   */
+  readonly zonaHoraria?: string | undefined;
 }
 
 /**

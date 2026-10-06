@@ -22,6 +22,11 @@ export interface RegistrarResultadoCommand {
    */
   readonly score?: number | undefined;
   readonly completedAt: Date;
+  /**
+   * La zona horaria de la persona, de su cuenta (SCRUM-123). Decide a que dia
+   * pertenece el resultado, que queda guardado y no se recalcula.
+   */
+  readonly zonaHoraria: string;
   /** Informacion propia del tipo de actividad. Ver ADR 0008. */
   readonly metadata?: Metadata | undefined;
 }

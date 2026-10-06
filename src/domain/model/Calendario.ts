@@ -10,6 +10,10 @@
  * fecha UTC la actividad contaria para manana, el diario la pondria en otro dia
  * y el progreso saldria corrido.
  *
+ * La zona es de cada persona (SCRUM-123, ADR 0014): cada cuenta guarda la suya
+ * y se pide con `Calendario.de`. `America/Bogota` es la de quien todavia no ha
+ * dicho otra y la de todas las cuentas que existian antes.
+ *
  * Usa `Intl`, que es parte del lenguaje y no una dependencia externa: el
  * dominio sigue sin importar nada de fuera.
  */
@@ -41,6 +45,42 @@ export class Calendario {
       minute: '2-digit',
       second: '2-digit',
     });
+  }
+
+  private static readonly guardados = new Map<string, Calendario>();
+
+  /**
+   * El calendario de una zona, sin construirlo otra vez en cada peticion.
+   *
+   * Construir un `Intl.DateTimeFormat` cuesta, y se hace por peticion y por
+   * minuto en la tarea de avisos. La memoria esta acotada: solo se guardan
+   * zonas validas, que son unos cientos.
+   */
+  static de(zona: string): Calendario {
+    const canonica = Calendario.canonica(zona);
+    const guardado = Calendario.guardados.get(canonica);
+
+    if (guardado !== undefined) {
+      return guardado;
+    }
+
+    const nuevo = new Calendario(canonica);
+    Calendario.guardados.set(canonica, nuevo);
+
+    return nuevo;
+  }
+
+  /**
+   * El nombre de la zona como lo escribe IANA: `america/bogota` y
+   * `America/Bogota` son la misma, y se guarda una sola forma. Falla si no es
+   * una zona conocida.
+   */
+  static canonica(zona: string): string {
+    if (!Calendario.esZonaValida(zona)) {
+      throw new RangeError(`"${zona}" no es una zona horaria IANA conocida.`);
+    }
+
+    return new Intl.DateTimeFormat('en-US', { timeZone: zona }).resolvedOptions().timeZone;
   }
 
   /** Si el nombre es una zona IANA que el entorno conoce, como `America/Bogota`. */

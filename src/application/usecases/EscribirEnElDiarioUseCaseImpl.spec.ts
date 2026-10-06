@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { Calendario } from '../../domain/model/Calendario.js';
 import {
   FutureJournalDayError,
   InvalidIdentifierError,
@@ -9,6 +8,7 @@ import { EntradaId, UserId } from '../../domain/model/Identifier.js';
 import { DiarioDePrueba, documentoCon, LineasDePrueba } from '../../pruebas/diarioDePrueba.js';
 import { EscribirEnElDiarioUseCaseImpl } from './EscribirEnElDiarioUseCaseImpl.js';
 
+const ZONA = 'America/Bogota';
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 const OTRA = '22222222-2222-4222-9222-222222222222';
 // 9 p. m. del 2 de octubre en Bogota, que en UTC ya es el 3.
@@ -28,7 +28,6 @@ function armar() {
   const casoDeUso = new EscribirEnElDiarioUseCaseImpl(
     diario,
     lineas,
-    new Calendario('America/Bogota'),
     () => {
       ids += 1;
 
@@ -46,6 +45,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: operacion(),
       contenido: documentoCon('Cene con mi familia'),
@@ -55,11 +55,70 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(entrada.creadaEn).toEqual(AHORA);
   });
 
+  it('sin dia, la anotacion es de hoy en la zona de quien la escribe (SCRUM-123)', async () => {
+    const { casoDeUso } = armar();
+
+    // El mismo instante: 9 p. m. del 2 de octubre en Bogota, 4 a. m. del 3 en
+    // Madrid y 11 a. m. del 3 en Tokio.
+    const bogota = await casoDeUso.execute({
+      userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      contenido: documentoCon('desde Bogota'),
+    });
+    const madrid = await casoDeUso.execute({
+      userId: PERSONA,
+      zonaHoraria: 'Europe/Madrid',
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      contenido: documentoCon('desde Madrid'),
+    });
+    const tokio = await casoDeUso.execute({
+      userId: PERSONA,
+      zonaHoraria: 'Asia/Tokyo',
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      contenido: documentoCon('desde Tokio'),
+    });
+
+    expect(bogota.entrada.dia).toBe('2026-10-02');
+    expect(madrid.entrada.dia).toBe('2026-10-03');
+    expect(tokio.entrada.dia).toBe('2026-10-03');
+  });
+
+  it('un dia de manana en Bogota sigue siendo futuro, pero hoy en Madrid no lo es', async () => {
+    const { casoDeUso } = armar();
+
+    await expect(
+      casoDeUso.execute({
+        userId: PERSONA,
+        zonaHoraria: 'America/Bogota',
+        conRecomendaciones: false,
+        clientOperationId: operacion(),
+        dia: '2026-10-03',
+        contenido: documentoCon('adelantada'),
+      }),
+    ).rejects.toThrow(FutureJournalDayError);
+
+    const { entrada } = await casoDeUso.execute({
+      userId: PERSONA,
+      zonaHoraria: 'Europe/Madrid',
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      dia: '2026-10-03',
+      contenido: documentoCon('ya es 3 en Madrid'),
+    });
+
+    expect(entrada.dia).toBe('2026-10-03');
+  });
+
   it('se puede escribir en un dia pasado, con la hora real de creacion', async () => {
     const { casoDeUso } = armar();
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: operacion(),
       dia: '2026-09-28',
@@ -76,6 +135,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: ZONA,
         conRecomendaciones: false,
         clientOperationId: operacion(),
         dia: '2026-10-03',
@@ -91,12 +151,14 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const primera = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('Una vez'),
     });
     const segunda = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('Una vez'),
@@ -112,12 +174,14 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('A'),
     });
     await casoDeUso.execute({
       userId: OTRA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: op,
       contenido: documentoCon('B'),
@@ -131,6 +195,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: operacion(),
       contenido: documentoCon('Un dia tranquilo'),
@@ -147,6 +212,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: false,
       clientOperationId: operacion(),
       contenido: documentoCon('Hoy pense que no quiero seguir viviendo'),
@@ -162,6 +228,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: true,
       clientOperationId: operacion(),
       contenido: documentoCon('Hoy pense que no quiero seguir viviendo'),
@@ -176,6 +243,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     const op = operacion();
     const peticion = {
       userId: PERSONA,
+      zonaHoraria: ZONA,
       conRecomendaciones: true,
       clientOperationId: op,
       contenido: documentoCon('ya no puedo mas'),
@@ -194,6 +262,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: ZONA,
         conRecomendaciones: false,
         clientOperationId: operacion(),
         contenido: '<p>hola</p>',
@@ -208,6 +277,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: ZONA,
         conRecomendaciones: false,
         clientOperationId: 'no-es-un-uuid',
         contenido: documentoCon('x'),

@@ -80,7 +80,7 @@ function tituloLimpio(titulo: string | null | undefined): string | undefined {
  *
  * ## El dia
  *
- * El de la persona, en hora de Colombia, no el de UTC. Se puede escribir en un
+ * El de la persona, en su zona horaria, no el de UTC. Se puede escribir en un
  * dia pasado, y la anotacion conserva igual la hora real en que se escribio.
  * En un dia que todavia no llego, no.
  */

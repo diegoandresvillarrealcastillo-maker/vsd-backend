@@ -79,6 +79,8 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
           // omitirla deja la columna en NULL, que es lo que queremos.
           ...(tieneMetadata ? { metadata: result.metadata } : {}),
           fecha: result.completedAt,
+          // Una columna DATE: Prisma la recibe como la medianoche UTC del dia.
+          dia: new Date(`${result.dia}T00:00:00.000Z`),
         },
       }),
     );
@@ -135,6 +137,7 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
         clientOperationId: new ClientOperationId(fila.idOperacionCliente),
         score,
         completedAt: fila.fecha,
+        dia: fila.dia.toISOString().slice(0, 10),
         metadata: (fila.metadata ?? {}) as Metadata,
       },
       // La fecha ya paso la validacion al guardarse. Se usa la propia fila

@@ -248,6 +248,15 @@ export class NoActiveModulesError extends DomainError {
   }
 }
 
+/** La zona horaria que llego no es una zona IANA que el servidor conozca (SCRUM-123). */
+export class InvalidTimeZoneError extends DomainError {
+  readonly code = 'ZONA_HORARIA_INVALIDA';
+
+  constructor() {
+    super('La zona horaria no es válida. Usa un nombre como America/Bogota.');
+  }
+}
+
 /** El nombre con el que la persona quiere que la llamen no se puede guardar. */
 export class InvalidNameError extends DomainError {
   readonly code = 'NOMBRE_INVALIDO';

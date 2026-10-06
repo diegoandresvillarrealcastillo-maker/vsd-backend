@@ -14,6 +14,12 @@ export class AvisosExportadosDto {
   @ApiProperty({ type: String, nullable: true, example: '19:30' })
   horaRacha!: string | null;
 
+  @ApiProperty({ description: 'Recordatorio de las 8:00 (SCRUM-126).' })
+  recordatorioManana!: boolean;
+
+  @ApiProperty({ description: 'Recordatorio de las 20:00 (SCRUM-126).' })
+  recordatorioNoche!: boolean;
+
   @ApiProperty({ description: 'En cuántos navegadores recibe avisos.' })
   navegadores!: number;
 }
@@ -64,6 +70,8 @@ export class ExportacionDto {
       horaSemaforo:
         preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
       horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
+      recordatorioManana: preferencias.minutoManana !== null,
+      recordatorioNoche: preferencias.minutoNoche !== null,
       navegadores,
     };
 

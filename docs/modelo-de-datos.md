@@ -399,9 +399,10 @@ y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
 
 ## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
 
-Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes, y el
-de la racha, si ese día no se hizo ninguna actividad. Ninguna de las dos tablas
-guarda datos de salud.
+Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
+la racha, si ese día no se hizo ninguna actividad; y los recordatorios de las
+8:00 (siempre) y las 20:00 (solo si ese día no hubo actividad) de SCRUM-126.
+Ninguna de las dos tablas guarda datos de salud.
 
 `SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos.
 
@@ -421,8 +422,12 @@ guarda datos de salud.
 | `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                      |
 | `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.         |
 | `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                |
+| `minuto_manana`         | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).       |
+| `minuto_noche`          | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).     |
 | `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día. |
 | `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                  |
+| `ultimo_aviso_manana`   | DATE        | sí   | Igual, para el de las 8:00.                                                  |
+| `ultimo_aviso_noche`    | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.  |
 | `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                               |
 
 Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte

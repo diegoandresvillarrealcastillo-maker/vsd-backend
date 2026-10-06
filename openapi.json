@@ -717,6 +717,47 @@
         ]
       }
     },
+    "/api/notificaciones/recordatorios": {
+      "patch": {
+        "description": "A las 8:00 y a las 20:00 de la zona horaria de la persona, que no se pueden mover. El de la noche solo sale si ese día no hizo ninguna actividad. Lo que no viene se queda.",
+        "operationId": "NotificacionesController_cambiarRecordatorios",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarRecordatoriosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un valor no es verdadero ni falso."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Encender o apagar los recordatorios de las 8:00 y las 20:00",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
     "/api/notificaciones/suscripciones": {
       "post": {
         "description": "Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo.",
@@ -1450,6 +1491,14 @@
             "nullable": true,
             "example": "19:30"
           },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00 (SCRUM-126)."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00 (SCRUM-126)."
+          },
           "navegadores": {
             "type": "number",
             "description": "En cuántos navegadores recibe avisos."
@@ -1458,6 +1507,8 @@
         "required": [
           "horaSemaforo",
           "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche",
           "navegadores"
         ]
       },
@@ -1869,13 +1920,23 @@
             "nullable": true,
             "example": "19:30",
             "description": "Hora del recordatorio de la racha, en la zona horaria de la persona. Null: apagado."
+          },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00, en la zona horaria de la persona. La hora no se mueve: se enciende o se apaga."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00, en la zona horaria de la persona. Solo sale si ese día no hizo ninguna actividad."
           }
         },
         "required": [
           "disponible",
           "clavePublica",
           "horaSemaforo",
-          "horaRacha"
+          "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche"
         ]
       },
       "CambiarHorasDto": {
@@ -1890,6 +1951,19 @@
             "type": "string",
             "nullable": true,
             "example": "19:30"
+          }
+        }
+      },
+      "CambiarRecordatoriosDto": {
+        "type": "object",
+        "properties": {
+          "manana": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 8:00."
+          },
+          "noche": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 20:00."
           }
         }
       },

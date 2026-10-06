@@ -158,10 +158,16 @@ model PreferenciaAviso {
   /// Null es apagado.
   minutoSemaforo      Int?      @map("minuto_semaforo") @db.SmallInt
   minutoRacha         Int?      @map("minuto_racha") @db.SmallInt
-  /// El ultimo dia, en hora de Colombia, en que se reviso cada aviso.
+  /// Los recordatorios de las 8:00 y las 20:00 (SCRUM-126). La hora no se
+  /// mueve: la aplicacion solo escribe 480 y 1200, o null para apagarlos.
+  minutoManana        Int?      @map("minuto_manana") @db.SmallInt
+  minutoNoche         Int?      @map("minuto_noche") @db.SmallInt
+  /// El ultimo dia, en la zona de la persona, en que se reviso cada aviso.
   ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
   ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
-  /// La zona en que se leen los dos minutos de arriba. La copia la base desde
+  ultimoAvisoManana   DateTime? @map("ultimo_aviso_manana") @db.Date
+  ultimoAvisoNoche    DateTime? @map("ultimo_aviso_noche") @db.Date
+  /// La zona en que se leen los minutos de arriba. La copia la base desde
   /// `usuario.zona_horaria` (disparadores de la migracion de SCRUM-123): la
   /// tarea de avisos solo puede leer esta tabla y necesita saber en que zona
   /// es cada hora. Nadie la escribe desde la aplicacion.
@@ -172,6 +178,8 @@ model PreferenciaAviso {
 
   @@index([minutoSemaforo])
   @@index([minutoRacha])
+  @@index([minutoManana])
+  @@index([minutoNoche])
   @@map("preferencia_aviso")
 }
 

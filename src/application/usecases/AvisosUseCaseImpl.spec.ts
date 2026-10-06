@@ -18,6 +18,8 @@ const PERSONA = '11111111-1111-4111-8111-111111111111';
 class AvisosDePrueba implements AvisosRepositoryPort {
   minutoSemaforo: number | null = null;
   minutoRacha: number | null = null;
+  minutoManana: number | null = null;
+  minutoNoche: number | null = null;
   suscripciones: SuscripcionPush[] = [];
 
   zonaHoraria = 'America/Bogota';
@@ -27,6 +29,8 @@ class AvisosDePrueba implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: this.minutoSemaforo,
       minutoRacha: this.minutoRacha,
+      minutoManana: this.minutoManana,
+      minutoNoche: this.minutoNoche,
       zonaHoraria: this.zonaHoraria,
     });
   }
@@ -34,6 +38,8 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   guardarPreferencias(preferencias: PreferenciasDeAviso) {
     this.minutoSemaforo = preferencias.minutoSemaforo;
     this.minutoRacha = preferencias.minutoRacha;
+    this.minutoManana = preferencias.minutoManana;
+    this.minutoNoche = preferencias.minutoNoche;
     this.zonaHoraria = preferencias.zonaHoraria;
 
     return Promise.resolve(preferencias);
@@ -73,7 +79,7 @@ function enviador(clavePublica: string | null): EnviadorDePushPort {
 }
 
 describe('AvisosUseCaseImpl', () => {
-  it('sin nada elegido, los dos avisos estan apagados', async () => {
+  it('sin nada elegido, todos los avisos estan apagados', async () => {
     const avisos = new AvisosUseCaseImpl(new AvisosDePrueba(), enviador('clave-publica'));
 
     await expect(avisos.consultar(PERSONA)).resolves.toEqual({
@@ -81,6 +87,8 @@ describe('AvisosUseCaseImpl', () => {
       clavePublica: 'clave-publica',
       horaSemaforo: null,
       horaRacha: null,
+      recordatorioManana: false,
+      recordatorioNoche: false,
     });
   });
 
@@ -116,6 +124,88 @@ describe('AvisosUseCaseImpl', () => {
       horaRacha: null,
     });
     expect(repositorio.minutoSemaforo).toBe(555);
+  });
+
+  describe('los recordatorios de las 8:00 y las 20:00 (SCRUM-126)', () => {
+    it('se encienden en su hora fija, cada uno por separado', async () => {
+      const repositorio = new AvisosDePrueba();
+      const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+      expect(
+        await avisos.cambiarRecordatorios({ userId: PERSONA, zonaHoraria: ZONA, manana: true }),
+      ).toMatchObject({ recordatorioManana: true, recordatorioNoche: false });
+      expect(repositorio.minutoManana).toBe(480);
+      expect(repositorio.minutoNoche).toBeNull();
+
+      expect(
+        await avisos.cambiarRecordatorios({ userId: PERSONA, zonaHoraria: ZONA, noche: true }),
+      ).toMatchObject({ recordatorioManana: true, recordatorioNoche: true });
+      expect(repositorio.minutoNoche).toBe(1200);
+    });
+
+    it('apagar uno no apaga el otro, y no pedir nada deja todo como estaba', async () => {
+      const repositorio = new AvisosDePrueba();
+      const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+      await avisos.cambiarRecordatorios({
+        userId: PERSONA,
+        zonaHoraria: ZONA,
+        manana: true,
+        noche: true,
+      });
+
+      expect(
+        await avisos.cambiarRecordatorios({ userId: PERSONA, zonaHoraria: ZONA, manana: false }),
+      ).toMatchObject({ recordatorioManana: false, recordatorioNoche: true });
+      expect(
+        await avisos.cambiarRecordatorios({ userId: PERSONA, zonaHoraria: ZONA }),
+      ).toMatchObject({ recordatorioManana: false, recordatorioNoche: true });
+    });
+
+    it('cambiar las horas del semaforo o de la racha no los apaga', async () => {
+      const repositorio = new AvisosDePrueba();
+      const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+      await avisos.cambiarRecordatorios({
+        userId: PERSONA,
+        zonaHoraria: ZONA,
+        manana: true,
+        noche: true,
+      });
+
+      expect(
+        await avisos.cambiarHoras({ userId: PERSONA, zonaHoraria: ZONA, horaSemaforo: '09:00' }),
+      ).toMatchObject({ horaSemaforo: '09:00', recordatorioManana: true, recordatorioNoche: true });
+    });
+
+    it('y al reves: encenderlos no mueve las horas de los otros dos', async () => {
+      const repositorio = new AvisosDePrueba();
+      const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+      await avisos.cambiarHoras({
+        userId: PERSONA,
+        zonaHoraria: ZONA,
+        horaSemaforo: '08:00',
+        horaRacha: '19:30',
+      });
+
+      expect(
+        await avisos.cambiarRecordatorios({ userId: PERSONA, zonaHoraria: ZONA, noche: true }),
+      ).toMatchObject({ horaSemaforo: '08:00', horaRacha: '19:30', recordatorioNoche: true });
+    });
+
+    it('se leen en la zona de la cuenta, y la cuenta la lleva a las preferencias', async () => {
+      const repositorio = new AvisosDePrueba();
+      const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+      await avisos.cambiarRecordatorios({
+        userId: PERSONA,
+        zonaHoraria: 'Europe/Madrid',
+        manana: true,
+      });
+
+      expect(repositorio.zonaHoraria).toBe('Europe/Madrid');
+    });
   });
 
   it('una hora mal escrita no se guarda', async () => {

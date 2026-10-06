@@ -1,6 +1,9 @@
 import {
+  mensajeDeLaManana,
+  mensajeDeLaNoche,
   mensajeDeLaRacha,
   mensajeDelSemaforo,
+  semillaDelAviso,
   TipoDeAviso,
   type MensajeDeAviso,
 } from '../../domain/model/Aviso.js';
@@ -43,7 +46,8 @@ export interface RegistroDeAvisos {
  *    se pierde un aviso; al reves se mandaria dos veces, y un aviso repetido
  *    molesta mas que uno que no llego.
  * 3. Decide el mensaje en nombre de la persona: sin pendientes no hay aviso
- *    del semaforo, y quien ya hizo una actividad hoy no recibe el de la racha.
+ *    del semaforo, y quien ya hizo una actividad hoy no recibe el de la racha
+ *    ni el de la noche. El de la manana sale siempre.
  * 4. Lo entrega a cada navegador suyo. Un navegador que ya no existe se suelta.
  *
  * Lo que falle con una persona no detiene a las demas.
@@ -136,10 +140,21 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       );
     }
 
+    if (tipo === TipoDeAviso.MANANA) {
+      return mensajeDeLaManana(semillaDelAviso(userId, dia));
+    }
+
+    // La racha y la noche: una invitacion, solo si hoy no hizo nada todavia.
     const { desde } = calendario.limitesDelDia(dia);
     const deHoy = await this.resultados.ultimosDe(userId, desde);
 
-    return deHoy.length > 0 ? null : mensajeDeLaRacha();
+    if (deHoy.length > 0) {
+      return null;
+    }
+
+    return tipo === TipoDeAviso.NOCHE
+      ? mensajeDeLaNoche(semillaDelAviso(userId, dia))
+      : mensajeDeLaRacha();
   }
 
   private async entregar(

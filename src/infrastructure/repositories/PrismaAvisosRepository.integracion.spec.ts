@@ -123,6 +123,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: null,
+      minutoManana: null,
+      minutoNoche: null,
     });
 
     await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toEqual({
@@ -130,11 +132,15 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: null,
+      minutoManana: null,
+      minutoNoche: null,
     });
     // Sin nada guardado, apagados.
     await expect(avisos.preferenciasDe(new UserId(BETO))).resolves.toMatchObject({
       minutoSemaforo: null,
       minutoRacha: null,
+      minutoManana: null,
+      minutoNoche: null,
     });
   });
 
@@ -144,6 +150,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: 600,
+      minutoManana: null,
+      minutoNoche: null,
     });
 
     const { rowCount } = await conAjustes(
@@ -162,12 +170,16 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
       });
       await avisos.guardarPreferencias({
         userId: new UserId(BETO),
         zonaHoraria: ZONA,
         minutoSemaforo: 470,
         minutoRacha: 480,
+        minutoManana: null,
+        minutoNoche: null,
       });
 
       const tocan = await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, ZONA, 450, 480, HOY);
@@ -199,6 +211,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
       });
       await avisos.suscribir(new UserId(ANA), NAVEGADOR);
       await dueno.query('BEGIN');
@@ -224,6 +238,188 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     });
   });
 
+  describe('los recordatorios de las 8:00 y las 20:00 (SCRUM-126)', () => {
+    const MANANA_FIJA = 480;
+    const NOCHE_FIJA = 1200;
+
+    function preferencias(persona: string, cambios: Record<string, number | null> = {}) {
+      return {
+        userId: new UserId(persona),
+        zonaHoraria: ZONA,
+        minutoSemaforo: null,
+        minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
+        ...cambios,
+      };
+    }
+
+    async function aQuien(tipo: TipoDeAviso, desde = 0, hasta = 1439, dia = HOY) {
+      return (await avisos.aQuienLeToca(tipo, ZONA, desde, hasta, dia)).map((uno) => uno.value);
+    }
+
+    it('se guardan y vuelven, cada uno por separado', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, { minutoManana: MANANA_FIJA }));
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        minutoManana: 480,
+        minutoNoche: null,
+      });
+
+      await avisos.guardarPreferencias(
+        preferencias(ANA, { minutoManana: MANANA_FIJA, minutoNoche: NOCHE_FIJA }),
+      );
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        minutoManana: 480,
+        minutoNoche: 1200,
+      });
+    });
+
+    it('quien tiene solo uno encendido ya cuenta como zona en uso', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, { minutoNoche: NOCHE_FIJA }));
+
+      await expect(avisos.zonasEnUso()).resolves.toEqual([ZONA]);
+    });
+
+    it('le toca a quien lo tiene encendido, a su hora, y una sola vez al dia', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, { minutoManana: MANANA_FIJA }));
+      await avisos.guardarPreferencias(preferencias(BETO, { minutoNoche: NOCHE_FIJA }));
+
+      expect(await aQuien(TipoDeAviso.MANANA, 450, 480)).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.MANANA, 481, 510)).toEqual([]);
+      expect(await aQuien(TipoDeAviso.NOCHE, 1170, 1200)).toEqual([BETO]);
+
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, HOY);
+
+      expect(await aQuien(TipoDeAviso.MANANA)).toEqual([]);
+      expect(await aQuien(TipoDeAviso.MANANA, 0, 1439, '2026-10-06')).toEqual([ANA]);
+    });
+
+    it('revisar uno no cuenta como revisar el otro', async () => {
+      await avisos.guardarPreferencias(
+        preferencias(ANA, { minutoManana: MANANA_FIJA, minutoNoche: NOCHE_FIJA }),
+      );
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, HOY);
+
+      expect(await aQuien(TipoDeAviso.NOCHE)).toEqual([ANA]);
+    });
+
+    it('la racha y la noche invitan a lo mismo: la primera que se revisa cada dia es la unica', async () => {
+      await avisos.guardarPreferencias(
+        preferencias(ANA, { minutoRacha: 1140, minutoNoche: NOCHE_FIJA }),
+      );
+
+      // Antes de que salga alguna, le tocan las dos.
+      expect(await aQuien(TipoDeAviso.RACHA)).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.NOCHE)).toEqual([ANA]);
+
+      // Salio la racha (19:00): la noche ya no le toca ese dia...
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.RACHA, HOY);
+      expect(await aQuien(TipoDeAviso.NOCHE)).toEqual([]);
+      // ... y al dia siguiente vuelven las dos.
+      expect(await aQuien(TipoDeAviso.NOCHE, 0, 1439, '2026-10-06')).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.RACHA, 0, 1439, '2026-10-06')).toEqual([ANA]);
+    });
+
+    it('y al reves: si salio la noche, la racha mas tarde ya no le toca', async () => {
+      await avisos.guardarPreferencias(
+        preferencias(ANA, { minutoRacha: 1260, minutoNoche: NOCHE_FIJA }),
+      );
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.NOCHE, HOY);
+
+      expect(await aQuien(TipoDeAviso.RACHA)).toEqual([]);
+    });
+
+    it('lo de una persona no afecta a otra, ni a lo que dice otra cosa', async () => {
+      await avisos.guardarPreferencias(
+        preferencias(ANA, {
+          minutoSemaforo: 480,
+          minutoManana: MANANA_FIJA,
+          minutoRacha: 1140,
+          minutoNoche: NOCHE_FIJA,
+        }),
+      );
+      await avisos.guardarPreferencias(preferencias(BETO, { minutoNoche: NOCHE_FIJA }));
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.RACHA, HOY);
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.NOCHE, HOY);
+
+      expect(await aQuien(TipoDeAviso.NOCHE)).toEqual([BETO]);
+      expect(await aQuien(TipoDeAviso.SEMAFORO)).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.MANANA)).toEqual([ANA]);
+    });
+
+    it('la tarea de avisos los lee, pero no los escribe', async () => {
+      await avisos.guardarPreferencias(
+        preferencias(ANA, { minutoManana: MANANA_FIJA, minutoNoche: NOCHE_FIJA }),
+      );
+
+      const tarea = { 'vsd.tarea_actual': 'avisos' };
+
+      expect(
+        (await conAjustes(tarea, 'SELECT minuto_manana, minuto_noche FROM preferencia_aviso'))
+          .rowCount,
+      ).toBeGreaterThan(0);
+      expect(
+        (await conAjustes(tarea, 'UPDATE preferencia_aviso SET minuto_manana = 0')).rowCount,
+      ).toBe(0);
+      expect(
+        (await conAjustes(tarea, 'UPDATE preferencia_aviso SET ultimo_aviso_noche = now()'))
+          .rowCount,
+      ).toBe(0);
+    });
+
+    it('nadie ve ni toca los de otra persona', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, { minutoManana: MANANA_FIJA }));
+
+      const comoBeto = { 'vsd.usuario_actual': BETO };
+
+      expect(
+        (await conAjustes(comoBeto, 'SELECT * FROM preferencia_aviso WHERE id_usuario = $1', [ANA]))
+          .rowCount,
+      ).toBe(0);
+      expect(
+        (
+          await conAjustes(
+            comoBeto,
+            'UPDATE preferencia_aviso SET minuto_manana = NULL WHERE id_usuario = $1',
+            [ANA],
+          )
+        ).rowCount,
+      ).toBe(0);
+    });
+
+    it.each(['minuto_manana', 'minuto_noche'])(
+      '%s no puede ser un minuto que no existe',
+      async (columna) => {
+        await expect(
+          dueno.query(`INSERT INTO preferencia_aviso (id_usuario, ${columna}) VALUES ($1, $2)`, [
+            ANA,
+            1440,
+          ]),
+        ).rejects.toThrow(/del_dia/);
+      },
+    );
+
+    it('las cuentas que ya existian antes de la migracion quedan con los dos apagados', async () => {
+      // Una fila como las de antes de SCRUM-126: sin tocar las columnas nuevas.
+      await dueno.query('BEGIN');
+      await dueno.query("SELECT set_config('vsd.usuario_actual', $1, true)", [ANA]);
+      await dueno.query(
+        'INSERT INTO preferencia_aviso (id_usuario, minuto_semaforo, minuto_racha) VALUES ($1, 480, 1140)',
+        [ANA],
+      );
+      await dueno.query('COMMIT');
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        minutoSemaforo: 480,
+        minutoRacha: 1140,
+        minutoManana: null,
+        minutoNoche: null,
+      });
+    });
+  });
+
   describe('la zona de cada persona (SCRUM-123)', () => {
     /** Cambia la zona de la cuenta como lo hace la API: la persona, en su sesion. */
     async function cambiarZona(persona: string, zona: string): Promise<void> {
@@ -243,6 +439,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: 'Asia/Tokyo',
         minutoSemaforo: 480,
         minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
       });
 
       await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
@@ -256,6 +454,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: 600,
+        minutoManana: null,
+        minutoNoche: null,
       });
 
       await cambiarZona(ANA, 'Europe/Madrid');
@@ -264,6 +464,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: 'Europe/Madrid',
         minutoSemaforo: 480,
         minutoRacha: 600,
+        minutoManana: null,
+        minutoNoche: null,
       });
     });
 
@@ -274,6 +476,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           zonaHoraria: ZONA,
           minutoSemaforo: 480,
           minutoRacha: null,
+          minutoManana: null,
+          minutoNoche: null,
         });
       }
 
@@ -293,6 +497,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           zonaHoraria: ZONA,
           minutoSemaforo: 480,
           minutoRacha: null,
+          minutoManana: null,
+          minutoNoche: null,
         });
       }
 
@@ -323,6 +529,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: ZONA,
         minutoSemaforo: null,
         minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
       });
 
       await expect(avisos.zonasEnUso()).resolves.toEqual([]);
@@ -374,6 +582,8 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: 480,
+        minutoManana: null,
+        minutoNoche: null,
       });
 
       await dueno.query('DELETE FROM usuario WHERE id_usuario = $1', [ANA]);

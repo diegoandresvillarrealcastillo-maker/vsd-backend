@@ -60,6 +60,13 @@ describe('/api/notificaciones', () => {
       .send(cuerpo);
   }
 
+  function recordatorios(token: string, cuerpo: Record<string, unknown>): request.Test {
+    return request(app.getHttpServer())
+      .patch('/api/notificaciones/recordatorios')
+      .set(...comoUsuario(token))
+      .send(cuerpo);
+  }
+
   beforeAll(async () => {
     app = await levantarAplicacion();
   });
@@ -80,6 +87,8 @@ describe('/api/notificaciones', () => {
       clavePublica: null,
       horaSemaforo: null,
       horaRacha: null,
+      recordatorioManana: false,
+      recordatorioNoche: false,
     });
     expect(respuesta.headers['cache-control']).toBe('no-store');
   });
@@ -110,6 +119,80 @@ describe('/api/notificaciones', () => {
     if (codigo !== undefined) {
       expect(respuesta.body).toMatchObject({ codigo });
     }
+  });
+
+  describe('los recordatorios de las 8:00 y las 20:00 (SCRUM-126)', () => {
+    it('se encienden y se apagan por separado, sin tocar las horas de los otros avisos', async () => {
+      await horas(A, { horaSemaforo: '08:00', horaRacha: '19:30' }).expect(200);
+
+      const encendido = await recordatorios(A, { manana: true }).expect(200);
+
+      expect(encendido.body).toMatchObject({
+        recordatorioManana: true,
+        recordatorioNoche: false,
+        horaSemaforo: '08:00',
+        horaRacha: '19:30',
+      });
+      expect(encendido.headers['cache-control']).toBe('no-store');
+
+      const ambos = await recordatorios(A, { noche: true }).expect(200);
+
+      expect(ambos.body).toMatchObject({ recordatorioManana: true, recordatorioNoche: true });
+
+      const apagado = await recordatorios(A, { manana: false }).expect(200);
+
+      expect(apagado.body).toMatchObject({ recordatorioManana: false, recordatorioNoche: true });
+      expect((await consultar(A)).body).toMatchObject({
+        recordatorioManana: false,
+        recordatorioNoche: true,
+      });
+    });
+
+    it('cambiar las horas despues no los apaga', async () => {
+      await recordatorios(A, { manana: true, noche: true }).expect(200);
+
+      const respuesta = await horas(A, { horaSemaforo: '09:15' }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        horaSemaforo: '09:15',
+        recordatorioManana: true,
+        recordatorioNoche: true,
+      });
+    });
+
+    it('un cuerpo vacio no cambia nada', async () => {
+      await recordatorios(A, { manana: true, noche: false }).expect(200);
+
+      const respuesta = await recordatorios(A, {}).expect(200);
+
+      expect(respuesta.body).toMatchObject({ recordatorioManana: true, recordatorioNoche: false });
+    });
+
+    it('los de una persona no son los de otra', async () => {
+      await recordatorios(A, { manana: true, noche: true }).expect(200);
+
+      expect((await consultar(B)).body).toMatchObject({
+        recordatorioManana: false,
+        recordatorioNoche: false,
+      });
+    });
+
+    it.each([
+      ['un texto', { manana: 'si' }],
+      ['un numero', { noche: 1 }],
+      ['null', { manana: null }],
+      ['una hora, porque no se mueven', { manana: '09:00' }],
+      ['un campo que no existe', { tarde: true }],
+    ])('rechaza %s', async (_caso, cuerpo) => {
+      await recordatorios(A, cuerpo).expect(400);
+    });
+
+    it('sin sesion no hay nada', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/notificaciones/recordatorios')
+        .send({ manana: true })
+        .expect(401);
+    });
   });
 
   it('suscribe y suelta un navegador', async () => {

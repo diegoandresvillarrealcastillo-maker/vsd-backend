@@ -452,9 +452,25 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 (SCRUM-102). Se exponen en `/api/notificaciones`. La ruta no es `/api/avisos`
 para no confundirla con `/api/aviso`, el aviso de privacidad.
 
-- **Dos clases**, que se encienden, cambian de hora y apagan por separado:
+- **Cuatro clases**, que se encienden y apagan por separado:
   - `semaforo`: los pendientes sin hacer, con su titulo, a la hora elegida;
-  - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad.
+  - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad, a la
+    hora elegida;
+  - `manana` (SCRUM-126): a las **8:00** de la persona, una invitacion a empezar
+    el dia. Sale siempre;
+  - `noche` (SCRUM-126): a las **20:00** de la persona, solo si ese dia no se
+    hizo ninguna actividad.
+- **La manana y la noche tienen la hora fija.** Se encienden o se apagan
+  (`PATCH /api/notificaciones/recordatorios`, con `manana` y `noche` en `true` o
+  `false`); no se mueven. `MINUTO_DE_LA_MANANA` (480) y `MINUTO_DE_LA_NOCHE`
+  (1200) son lo unico que se escribe en la base, o `NULL` para apagado. Todas las
+  cuentas que ya existian quedan con los dos apagados: nadie recibe un aviso que
+  no pidio.
+- **Una sola invitacion al dia.** La racha y la noche dicen lo mismo con otras
+  palabras. Con las dos encendidas, la que se revise primero cada dia es la
+  unica: `aQuienLeToca` no le toca a una si la otra ya se reviso hoy, haya
+  salido o no (si no salio, fue porque ya habia hecho una actividad, y entonces
+  la otra tampoco saldria). La manana y el semaforo no entran en esa regla.
 - **Las horas** van en la zona de la persona (SCRUM-123), en minutos desde la
   medianoche.
   `minutoDeHora("08:30")` da 510, y `Calendario.minutoDelDia(ahora)` dice que
@@ -463,6 +479,14 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
   pendientes, y sin pendientes no hay aviso. `mensajeDeLaRacha` invita ("¿Un
   momento para ti hoy?"). Ninguno menciona un resultado, un nivel ni una
   emocion, y hay una prueba que lo comprueba.
+- **Los textos de la manana y la noche** viven en `TextosDeLosRecordatorios.ts`
+  (doce de cada uno) y rotan: `semillaDelAviso(persona, dia)` es el numero del
+  dia mas un desfase por persona, asi que el texto cambia cada dia, no se repite
+  dos dias seguidos y no hay azar ni nada que guardar. Se escriben **con juego y
+  sin culpa**: misiones, pasos, el sendero; nunca "no pierdas", "todavia no" ni
+  una cuenta de dias. Si se quiere cambiar o ampliar uno, hay pruebas que
+  vigilan que ninguno hable de salud, ni culpe, ni se pase de largo para la
+  pantalla bloqueada. Tocarlos lleva a `/panel`, donde estan las actividades.
 - **La revision** (`RevisarAvisosUseCaseImpl`) corre cada minuto dentro del
   API (`RelojDeAvisos`):
   - busca a quien le toca: su hora cae en la ultima media hora y ese aviso no

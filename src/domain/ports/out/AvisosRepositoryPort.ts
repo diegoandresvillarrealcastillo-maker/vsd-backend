@@ -7,7 +7,7 @@ import type { UserId } from '../../model/Identifier.js';
  * (SCRUM-102).
  */
 export interface AvisosRepositoryPort {
-  /** Sin nada guardado, los dos avisos apagados. */
+  /** Sin nada guardado, todos los avisos apagados. */
   preferenciasDe(userId: UserId): Promise<PreferenciasDeAviso>;
 
   guardarPreferencias(preferencias: PreferenciasDeAviso): Promise<PreferenciasDeAviso>;
@@ -35,6 +35,12 @@ export interface AvisosRepositoryPort {
    *
    * Es lo unico que se mira de todos a la vez, y devuelve solo
    * identificadores. Lo demas se lee en nombre de cada persona.
+   *
+   * La racha y la noche (SCRUM-126) son la misma invitacion con otras
+   * palabras: si la persona tiene las dos encendidas, la primera que se revise
+   * cada dia es la unica. Una de las dos no le toca si la otra ya se reviso
+   * `dia`, haya salido o no (si no salio fue porque ya hizo una actividad, y
+   * entonces la otra tampoco saldria).
    */
   aQuienLeToca(
     tipo: TipoDeAviso,

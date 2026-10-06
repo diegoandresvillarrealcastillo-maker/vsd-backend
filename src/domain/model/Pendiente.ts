@@ -1,3 +1,4 @@
+import { Calendario, type Dia } from './Calendario.js';
 import { InvalidTaskError } from './DomainError.js';
 import type { ClientOperationId, PendienteId, UserId } from './Identifier.js';
 
@@ -21,6 +22,15 @@ import type { ClientOperationId, PendienteId, UserId } from './Identifier.js';
  * acumule. Es un recordatorio, no una alarma, y por eso hay uno por visita
  * como mucho (ver `elegirRecordatorio`). Posponerlo lo calla hasta la fecha
  * elegida.
+ *
+ * ## La fecha limite es opcional (SCRUM-119)
+ *
+ * Un pendiente puede tener un dia limite, o no tenerlo: hay cosas que no
+ * vencen un dia concreto, como una tarea recurrente o algo general. Sin fecha,
+ * todo funciona como antes. Con fecha, el recordatorio no espera los 7, 21 o 30
+ * dias del color: llega cuando llega ese dia, que es el plazo que la persona
+ * eligio. La fecha es un dia del calendario de la persona y no un instante:
+ * "el 12" es el 12 donde ella esta.
  */
 export const NivelDePendiente = {
   URGENTE: 'urgente',
@@ -101,6 +111,15 @@ function nivelValido(nivel: string): NivelDePendiente {
   return nivel;
 }
 
+/** La fecha limite como dia real AAAA-MM-DD, o falla: "2026-02-30" no existe. */
+function fechaLimiteValida(fecha: string): Dia {
+  if (!Calendario.esDia(fecha)) {
+    throw new InvalidTaskError('la fecha límite tiene que ser un día real, con formato AAAA-MM-DD');
+  }
+
+  return fecha;
+}
+
 /** Lo que dice un recordatorio. Se calcula al consultar; no se guarda. */
 export interface Recordatorio {
   readonly pendienteId: PendienteId;
@@ -110,6 +129,12 @@ export interface Recordatorio {
   /** El nivel que se sugiere, o `null` si ya es urgente. Nunca se aplica solo. */
   readonly nivelSugerido: NivelDePendiente | null;
   readonly tono: TonoDelRecordatorio;
+  /**
+   * El dia limite que llego, o `null` si el recordatorio es por los dias del
+   * color (SCRUM-119). La pantalla lo dice distinto: "llego el dia" no es lo
+   * mismo que "ya lleva un tiempo".
+   */
+  readonly fechaLimite: Dia | null;
 }
 
 export interface DatosDePendiente {
@@ -120,6 +145,8 @@ export interface DatosDePendiente {
   readonly nivel: NivelDePendiente;
   readonly hecho: boolean;
   readonly posponerHasta: Date | undefined;
+  /** Dia limite, en el calendario de la persona. Sin el, no vence un dia concreto. */
+  readonly fechaLimite: Dia | undefined;
   readonly creadoEn: Date;
   readonly editadoEn: Date;
 }
@@ -130,6 +157,8 @@ export interface CambiosDePendiente {
   readonly nivel?: string | undefined;
   readonly hecho?: boolean | undefined;
   readonly posponerHasta?: Date | null | undefined;
+  /** AAAA-MM-DD. `null` quita la fecha limite. */
+  readonly fechaLimite?: string | null | undefined;
 }
 
 export class Pendiente {
@@ -140,6 +169,7 @@ export class Pendiente {
   readonly nivel: NivelDePendiente;
   readonly hecho: boolean;
   readonly posponerHasta: Date | undefined;
+  readonly fechaLimite: Dia | undefined;
   readonly creadoEn: Date;
   readonly editadoEn: Date;
 
@@ -152,6 +182,7 @@ export class Pendiente {
     this.hecho = datos.hecho;
     this.posponerHasta =
       datos.posponerHasta === undefined ? undefined : new Date(datos.posponerHasta.getTime());
+    this.fechaLimite = datos.fechaLimite;
     this.creadoEn = new Date(datos.creadoEn.getTime());
     this.editadoEn = new Date(datos.editadoEn.getTime());
   }
@@ -160,6 +191,7 @@ export class Pendiente {
     datos: Pick<DatosDePendiente, 'id' | 'userId' | 'clientOperationId'> & {
       readonly texto: string;
       readonly nivel: string;
+      readonly fechaLimite?: string | undefined;
     },
     ahora: Date,
   ): Pendiente {
@@ -169,6 +201,8 @@ export class Pendiente {
       nivel: nivelValido(datos.nivel),
       hecho: false,
       posponerHasta: undefined,
+      fechaLimite:
+        datos.fechaLimite === undefined ? undefined : fechaLimiteValida(datos.fechaLimite),
       creadoEn: ahora,
       editadoEn: ahora,
     });
@@ -184,7 +218,8 @@ export class Pendiente {
       cambios.texto === undefined &&
       cambios.nivel === undefined &&
       cambios.hecho === undefined &&
-      cambios.posponerHasta === undefined
+      cambios.posponerHasta === undefined &&
+      cambios.fechaLimite === undefined
     ) {
       throw new InvalidTaskError('la edición no trae nada que cambiar');
     }
@@ -195,6 +230,7 @@ export class Pendiente {
       nivel: cambios.nivel === undefined ? this.nivel : nivelValido(cambios.nivel),
       hecho: cambios.hecho ?? this.hecho,
       posponerHasta: this.nuevaFechaParaPosponer(cambios.posponerHasta, ahora),
+      fechaLimite: this.nuevaFechaLimite(cambios.fechaLimite),
       editadoEn: ahora,
     });
   }
@@ -206,10 +242,15 @@ export class Pendiente {
   /**
    * Si toca recordarlo ahora.
    *
-   * No, si esta hecho, si esta pospuesto o si todavia no paso el tiempo de su
-   * nivel desde que se anoto.
+   * No, si esta hecho o si esta pospuesto. Despues, depende de si tiene fecha
+   * limite (SCRUM-119):
+   *
+   * - **Con fecha**, toca desde ese dia en adelante. `hoy` es el dia de la
+   *   persona, en su zona: el mismo instante es un dia distinto en cada sitio.
+   *   El tono es el del plazo, porque el plazo lo puso ella.
+   * - **Sin fecha**, cuando pasan los dias de su color desde que se anoto.
    */
-  recordatorio(ahora: Date): Recordatorio | null {
+  recordatorio(ahora: Date, hoy: Dia): Recordatorio | null {
     if (this.hecho) {
       return null;
     }
@@ -219,6 +260,22 @@ export class Pendiente {
     }
 
     const dias = Math.floor((ahora.getTime() - this.creadoEn.getTime()) / UN_DIA_EN_MS);
+
+    if (this.fechaLimite !== undefined) {
+      // Los dias AAAA-MM-DD se ordenan como texto.
+      if (hoy < this.fechaLimite) {
+        return null;
+      }
+
+      return {
+        pendienteId: this.id,
+        nivel: this.nivel,
+        dias,
+        nivelSugerido: NIVEL_SUGERIDO[this.nivel],
+        tono: 'plazo',
+        fechaLimite: this.fechaLimite,
+      };
+    }
 
     if (dias < DIAS_PARA_RECORDAR[this.nivel]) {
       return null;
@@ -230,7 +287,16 @@ export class Pendiente {
       dias,
       nivelSugerido: NIVEL_SUGERIDO[this.nivel],
       tono: TONO[this.nivel],
+      fechaLimite: null,
     };
+  }
+
+  private nuevaFechaLimite(pedida: string | null | undefined): Dia | undefined {
+    if (pedida === undefined) {
+      return this.fechaLimite;
+    }
+
+    return pedida === null ? undefined : fechaLimiteValida(pedida);
   }
 
   private nuevaFechaParaPosponer(pedida: Date | null | undefined, ahora: Date): Date | undefined {
@@ -264,9 +330,10 @@ export class Pendiente {
 export function elegirRecordatorio(
   pendientes: readonly Pendiente[],
   ahora: Date,
+  hoy: Dia,
 ): Recordatorio | null {
   const candidatos = pendientes
-    .map((pendiente) => ({ pendiente, recordatorio: pendiente.recordatorio(ahora) }))
+    .map((pendiente) => ({ pendiente, recordatorio: pendiente.recordatorio(ahora, hoy) }))
     .filter(
       (uno): uno is { pendiente: Pendiente; recordatorio: Recordatorio } =>
         uno.recordatorio !== null,

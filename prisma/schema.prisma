@@ -88,6 +88,11 @@ model Pendiente {
   /// Mientras no llegue, el pendiente no recuerda nada.
   posponerHasta DateTime? @map("posponer_hasta") @db.Timestamptz(3)
 
+  /// Dia limite, en el calendario de la persona (SCRUM-119). Es un dia y no un
+  /// instante: "el 12" es el 12 donde ella esta. Sin el, no vence un dia
+  /// concreto.
+  fechaLimite DateTime? @map("fecha_limite") @db.Date
+
   idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)

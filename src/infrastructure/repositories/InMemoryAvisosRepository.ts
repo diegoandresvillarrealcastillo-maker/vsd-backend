@@ -1,10 +1,11 @@
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
-import type { Dia } from '../../domain/model/Calendario.js';
+import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 
 interface Fila {
+  zonaHoraria: string;
   minutoSemaforo: number | null;
   minutoRacha: number | null;
   ultimoAvisoSemaforo: Dia | null;
@@ -15,6 +16,10 @@ interface Fila {
  * Los avisos en memoria, para desarrollo sin base de datos y para las
  * pruebas. Se comporta como el de PostgreSQL: un navegador entrega los avisos
  * de una sola persona.
+ *
+ * La zona es lo unico en que difiere: en PostgreSQL la copia la base desde la
+ * cuenta cada vez que esta cambia; aqui queda la que traia el ultimo cambio de
+ * horas.
  */
 export class InMemoryAvisosRepository implements AvisosRepositoryPort {
   private readonly preferencias = new Map<string, Fila>();
@@ -31,6 +36,7 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: fila?.minutoSemaforo ?? null,
       minutoRacha: fila?.minutoRacha ?? null,
+      zonaHoraria: fila?.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO,
     });
   }
 
@@ -40,6 +46,7 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     this.preferencias.set(preferencias.userId.value, {
       ultimoAvisoSemaforo: actual?.ultimoAvisoSemaforo ?? null,
       ultimoAvisoRacha: actual?.ultimoAvisoRacha ?? null,
+      zonaHoraria: preferencias.zonaHoraria,
       minutoSemaforo: preferencias.minutoSemaforo,
       minutoRacha: preferencias.minutoRacha,
     });
@@ -69,8 +76,19 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     );
   }
 
+  zonasEnUso(): Promise<readonly string[]> {
+    return Promise.resolve([
+      ...new Set(
+        [...this.preferencias.values()]
+          .filter((fila) => fila.minutoSemaforo !== null || fila.minutoRacha !== null)
+          .map((fila) => fila.zonaHoraria),
+      ),
+    ]);
+  }
+
   aQuienLeToca(
     tipo: TipoDeAviso,
+    zona: string,
     desde: number,
     hasta: number,
     dia: Dia,
@@ -78,6 +96,10 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     return Promise.resolve(
       [...this.preferencias.entries()]
         .filter(([, fila]) => {
+          if (fila.zonaHoraria !== zona) {
+            return false;
+          }
+
           const minuto = tipo === TipoDeAviso.SEMAFORO ? fila.minutoSemaforo : fila.minutoRacha;
           const ultimo =
             tipo === TipoDeAviso.SEMAFORO ? fila.ultimoAvisoSemaforo : fila.ultimoAvisoRacha;

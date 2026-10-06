@@ -1,7 +1,9 @@
+import { Calendario, ZONA_HORARIA_POR_DEFECTO } from './Calendario.js';
 import {
   FutureConsentDateError,
   InvalidNameError,
   InvalidRoleError,
+  InvalidTimeZoneError,
   MissingConsentError,
 } from './DomainError.js';
 import { UserId } from './Identifier.js';
@@ -58,6 +60,8 @@ export interface DatosDeUsuario {
   readonly mascota?: Mascota | undefined;
   /** Si la persona permite que lo que escribe en el diario se lea para recomendarle. Por defecto, no. */
   readonly diarioConRecomendaciones?: boolean | undefined;
+  /** Zona IANA de la persona (SCRUM-123). Sin ella, `America/Bogota`. */
+  readonly zonaHoraria?: string | undefined;
 }
 
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
@@ -70,6 +74,15 @@ export interface CambiosDePreferencias {
 }
 
 const LARGO_MAXIMO_DEL_NOMBRE = 100;
+
+/** La zona como la escribe IANA, o falla: una zona que el servidor no conoce no se guarda. */
+function validarZona(zona: string): string {
+  if (!Calendario.esZonaValida(zona)) {
+    throw new InvalidTimeZoneError();
+  }
+
+  return Calendario.canonica(zona);
+}
 
 // Un nombre se pinta en el saludo; un salto de linea o un caracter invisible
 // ahi no es un nombre.
@@ -122,6 +135,15 @@ export class User {
    */
   readonly diarioConRecomendaciones: boolean;
 
+  /**
+   * Donde esta la persona, como zona IANA (SCRUM-123, ADR 0014).
+   *
+   * Es lo que decide que dia es para ella: sus actividades, su sendero, su
+   * diario, su semaforo y la hora de sus avisos. El dispositivo la informa al
+   * entrar, de modo que viajar no obliga a configurar nada.
+   */
+  readonly zonaHoraria: string;
+
   private constructor(datos: DatosDeUsuario & { readonly modulosActivos: readonly Modulo[] }) {
     this.id = datos.id;
     this.correo = datos.correo;
@@ -133,6 +155,7 @@ export class User {
     this.modulosActivos = [...datos.modulosActivos];
     this.mascota = datos.mascota;
     this.diarioConRecomendaciones = datos.diarioConRecomendaciones ?? false;
+    this.zonaHoraria = datos.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO;
   }
 
   static create(datos: DatosDeUsuario, ahora: Date = new Date()): User {
@@ -162,6 +185,7 @@ export class User {
       ...datos,
       modulosActivos,
       mascota: datos.mascota === undefined ? undefined : crearMascota(datos.mascota),
+      zonaHoraria: datos.zonaHoraria === undefined ? undefined : validarZona(datos.zonaHoraria),
     });
   }
 
@@ -197,6 +221,37 @@ export class User {
           : elegirModulos(cambios.modulosActivos),
       mascota: cambios.mascota === undefined ? this.mascota : crearMascota(cambios.mascota),
       diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
+      zonaHoraria: this.zonaHoraria,
+    });
+  }
+
+  /**
+   * La misma cuenta en otra zona horaria.
+   *
+   * Aparte de `conPreferencias` a proposito: no es algo que la persona elija en
+   * una pantalla, sino lo que informa su dispositivo. Devuelve esta misma
+   * cuenta si la zona es la que ya tiene, para que quien la llame pueda
+   * comparar y no guardar de mas.
+   */
+  conZonaHoraria(zona: string): User {
+    const nueva = validarZona(zona);
+
+    if (nueva === this.zonaHoraria) {
+      return this;
+    }
+
+    return new User({
+      id: this.id,
+      correo: this.correo,
+      idProveedorAuth: this.idProveedorAuth,
+      rol: this.rol,
+      consentimiento: this.consentimiento,
+      registradoEn: this.registradoEn,
+      nombre: this.nombre,
+      modulosActivos: this.modulosActivos,
+      mascota: this.mascota,
+      diarioConRecomendaciones: this.diarioConRecomendaciones,
+      zonaHoraria: nueva,
     });
   }
 

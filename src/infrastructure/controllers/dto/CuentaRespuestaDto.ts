@@ -58,6 +58,13 @@ export class CuentaRespuestaDto {
   })
   diarioConRecomendaciones!: boolean;
 
+  @ApiProperty({
+    description:
+      'Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).',
+    example: 'America/Bogota',
+  })
+  zonaHoraria!: string;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -68,6 +75,7 @@ export class CuentaRespuestaDto {
     dto.modulosActivos = [...cuenta.modulosActivos];
     dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
     dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
+    dto.zonaHoraria = cuenta.zonaHoraria;
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

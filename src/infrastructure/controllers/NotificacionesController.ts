@@ -54,7 +54,7 @@ export class NotificacionesController {
   @ApiOperation({
     summary: 'Elegir la hora de cada aviso',
     description:
-      'HH:MM en hora de Colombia. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.',
+      'HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.',
   })
   @ApiResponse({ status: 200, type: EstadoDeLosAvisosDto })
   @ApiResponse({ status: 400, description: 'Una hora no tiene el formato HH:MM.' })
@@ -65,6 +65,7 @@ export class NotificacionesController {
     return EstadoDeLosAvisosDto.desde(
       await this.avisos.cambiarHoras({
         userId: cuenta.id.value,
+        zonaHoraria: cuenta.zonaHoraria,
         horaSemaforo: dto.horaSemaforo,
         horaRacha: dto.horaRacha,
       }),

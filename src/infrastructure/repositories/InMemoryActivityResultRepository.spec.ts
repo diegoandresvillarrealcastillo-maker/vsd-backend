@@ -36,6 +36,7 @@ function unResultado(
     clientOperationId: new ClientOperationId(operacion),
     score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    dia: '2026-09-14',
   });
 }
 
@@ -103,6 +104,7 @@ describe('Cableado completo', () => {
       clientOperationId: OPERACION,
       score: 8,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
+      zonaHoraria: 'America/Bogota',
     });
 
     expect(resultado.userId.value).toBe(USUARIO);
@@ -119,6 +121,7 @@ describe('Cableado completo', () => {
       clientOperationId: OPERACION,
       score: 8,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
+      zonaHoraria: 'America/Bogota',
     };
 
     const primero = await servicio.registrar(comando);

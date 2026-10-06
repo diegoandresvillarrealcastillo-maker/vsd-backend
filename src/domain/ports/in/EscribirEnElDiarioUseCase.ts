@@ -17,6 +17,8 @@ export interface AnotacionGuardada {
 
 export interface EscribirEnElDiarioCommand {
   readonly userId: string;
+  /** La zona horaria de la persona, de su cuenta: decide cual es "hoy". */
+  readonly zonaHoraria: string;
   readonly clientOperationId: string;
   /** AAAA-MM-DD. Si no viene, hoy en el calendario de la persona. */
   readonly dia?: string | undefined;

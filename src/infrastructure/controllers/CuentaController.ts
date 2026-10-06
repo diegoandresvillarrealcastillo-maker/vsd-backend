@@ -93,6 +93,7 @@ export class CuentaController {
       correo: identidad.correo ?? '',
       versionPolitica: dto.versionPolitica,
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
+      ...(dto.zonaHoraria === undefined ? {} : { zonaHoraria: dto.zonaHoraria }),
     });
 
     return CuentaRespuestaDto.desde(cuenta);

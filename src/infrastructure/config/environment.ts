@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { Calendario, ZONA_HORARIA_POR_DEFECTO } from '../../domain/model/Calendario.js';
 
 /**
  * Esquema de la configuracion del servicio.
@@ -63,17 +62,6 @@ const esquema = z
     // dejaria el correo de esa persona en Supabase, y el derecho de supresion
     // quedaria a medias sin que nadie se enterara. En local es opcional.
     SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional(),
-
-    // Zona en la que se decide "que dia es" para las actividades, el sendero,
-    // el diario y el semaforo. Por defecto Colombia. Se valida aqui para que
-    // un nombre mal escrito impida arrancar en lugar de correr los dias.
-    ZONA_HORARIA: z
-      .string()
-      .trim()
-      .default(ZONA_HORARIA_POR_DEFECTO)
-      .refine((valor) => Calendario.esZonaValida(valor), {
-        message: 'Debe ser una zona horaria IANA, como America/Bogota',
-      }),
 
     // Claves VAPID para los avisos por Web Push (SCRUM-102). Las tres juntas o
     // ninguna. Sin ellas no hay avisos y todo lo demas funciona igual, por eso
@@ -168,8 +156,6 @@ export interface Configuracion {
    * local, donde el borrado no toca Supabase.
    */
   readonly claveDeServicioDeSupabase: string | undefined;
-  /** Zona IANA con la que se decide que dia es. Ver Calendario. */
-  readonly zonaHoraria: string;
   /** Claves para los avisos por Web Push. Ausentes, no hay avisos (SCRUM-102). */
   readonly vapid: ClavesVapid | undefined;
 }
@@ -208,7 +194,6 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     DATABASE_URL,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
-    ZONA_HORARIA,
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY,
     VAPID_SUBJECT,
@@ -227,7 +212,6 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),
     claveDeServicioDeSupabase:
       (SUPABASE_SERVICE_ROLE_KEY ?? '') === '' ? undefined : SUPABASE_SERVICE_ROLE_KEY,
-    zonaHoraria: ZONA_HORARIA,
     vapid:
       (VAPID_PUBLIC_KEY ?? '') === ''
         ? undefined

@@ -1,4 +1,5 @@
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
+import { Calendario } from '../../domain/model/Calendario.js';
 import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
@@ -95,6 +96,9 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
         clientOperationId,
         score,
         completedAt: command.completedAt,
+        // El dia queda fijado aqui, en la zona que la persona tiene ahora. Si
+        // despues viaja, este resultado sigue siendo de ese dia.
+        dia: Calendario.de(command.zonaHoraria).diaDe(command.completedAt),
         metadata: command.metadata,
       },
       this.reloj(),

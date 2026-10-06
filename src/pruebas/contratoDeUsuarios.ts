@@ -205,6 +205,31 @@ export function pruebasDelPuertoDeUsuarios(
       ).toBe(true);
     });
 
+    it('la zona horaria empieza en la de Colombia y se conserva al cambiarla (SCRUM-123)', async () => {
+      await banco.repositorio.save(unaCuenta());
+
+      expect((await banco.repositorio.findById(new UserId(PERSONA)))?.zonaHoraria).toBe(
+        'America/Bogota',
+      );
+
+      await banco.repositorio.save(unaCuenta().conZonaHoraria('Europe/Madrid'));
+
+      expect((await banco.repositorio.findById(new UserId(PERSONA)))?.zonaHoraria).toBe(
+        'Europe/Madrid',
+      );
+    });
+
+    it('cambiar las preferencias no devuelve la zona a la de Colombia', async () => {
+      await banco.repositorio.save(unaCuenta().conZonaHoraria('Asia/Tokyo'));
+
+      const guardada = await banco.repositorio.findById(new UserId(PERSONA));
+      await banco.repositorio.save((guardada ?? unaCuenta()).conPreferencias({ nombre: 'Ana' }));
+
+      expect((await banco.repositorio.findById(new UserId(PERSONA)))?.zonaHoraria).toBe(
+        'Asia/Tokyo',
+      );
+    });
+
     it('un personaje sin color ni accesorio vuelve igual, sin campos inventados', async () => {
       // SCRUM-99: si el adaptador rellenara con texto vacio, el dominio lo
       // rechazaria al leer y la cuenta dejaria de cargar.

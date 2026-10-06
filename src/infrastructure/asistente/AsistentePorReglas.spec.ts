@@ -33,6 +33,7 @@ function unResultado(dias: number, operacion: string): ActivityResult {
       clientOperationId: new ClientOperationId(operacion),
       score: OrientativeScore.create(8, actividad()),
       completedAt: cuando,
+      dia: cuando.toISOString().slice(0, 10),
     },
     AHORA,
   );

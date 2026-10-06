@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConsultarProgresoUseCaseImpl } from '../../application/usecases/ConsultarProgresoUseCaseImpl.js';
-import type { Calendario } from '../../domain/model/Calendario.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -9,7 +8,6 @@ import { ActivityResultModule } from './ActivityResultModule.js';
 import {
   ACTIVITY_REPOSITORY,
   ACTIVITY_RESULT_REPOSITORY,
-  CALENDARIO,
   CONSULTAR_PROGRESO,
   USER_REPOSITORY,
 } from './tokens.js';
@@ -32,9 +30,8 @@ import { UsuariosModule } from './UsuariosModule.js';
         cuentas: UserRepositoryPort,
         catalogo: ActivityRepositoryPort,
         resultados: ActivityResultRepositoryPort,
-        calendario: Calendario,
-      ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados, calendario),
-      inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, CALENDARIO],
+      ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados),
+      inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
     },
   ],
 })

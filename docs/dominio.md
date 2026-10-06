@@ -303,30 +303,49 @@ nada.
 
 ## `Calendario`
 
-### El dia se cuenta en hora de Colombia
+### El dia se cuenta en la zona de cada persona
 
 Las actividades del dia, el sendero de cada modulo, el diario y el semaforo
-dependen de "que dia es". Ese dia es el de Colombia, no el de UTC, y lo decide
-siempre `Calendario`.
+dependen de "que dia es". Ese dia es el de la zona horaria de la persona, no el
+de UTC, y lo decide siempre `Calendario`. Hasta SCRUM-123 era siempre el de
+Colombia; ver el [ADR 0014](adr/0014-cada-persona-tiene-su-zona-horaria.md).
 
 Bogota va cinco horas por detras de UTC. Con la fecha UTC, algo hecho a las
 8 p. m. en Colombia contaria para el dia siguiente: la actividad sumaria en
 manana, el diario la pondria en otro dia y el progreso saldria corrido.
 
-| Metodo               | Que hace                                                                 |
-| -------------------- | ------------------------------------------------------------------------ |
-| `diaDe(instante)`    | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
-| `limitesDelDia(dia)` | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+| Metodo                | Que hace                                                                 |
+| --------------------- | ------------------------------------------------------------------------ |
+| `diaDe(instante)`     | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
+| `limitesDelDia(dia)`  | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+| `minutoDelDia(i)`     | Los minutos desde la medianoche local: la hora de cada aviso.            |
+| `Calendario.de(zona)` | El calendario de una zona, sin construirlo otra vez en cada peticion.    |
 
 **La regla:** ningun calculo de dia usa la fecha UTC directamente. Nada de
 `toISOString().slice(0, 10)` ni de `getUTCDate()` para decidir a que dia
 pertenece algo. Los instantes se siguen guardando en UTC, que es lo correcto;
 lo que cambia es como se agrupan por dia.
 
-La zona sale de `ZONA_HORARIA`, por defecto `America/Bogota`, y se valida al
-arrancar. Hay un solo `Calendario` para todo el proceso, inyectado con el token
-`CALENDARIO`. Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue
-sin dependencias externas.
+**La zona es de la cuenta** (`User.zonaHoraria`, una zona IANA). La informa el
+dispositivo en cada entrada y las cuentas anteriores quedan en `America/Bogota`:
+
+- `POST /api/cuenta` acepta `zonaHoraria`. Si la cuenta ya existe y la zona es
+  otra, la actualiza; si no viene, deja la que hay. Una zona que el servidor no
+  conoce responde 400 `ZONA_HORARIA_INVALIDA`.
+- Quien necesita saber que dia es recibe la zona de la cuenta en su orden: el
+  diario, el registro de resultados y los avisos. El progreso la lee de la
+  cuenta. No hay un calendario global ni la variable `ZONA_HORARIA`.
+- Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue sin
+  dependencias externas.
+
+**El dia de un resultado se guarda** (`resultado.dia`) cuando se registra, en la
+zona que la persona tenia entonces. No se recalcula al leer: si viajar moviera
+de dia lo que ya se hizo, se romperian rachas ya ganadas.
+
+**Los avisos se leen en la zona de cada persona.** La tarea de cada minuto mira
+las zonas en uso y, en cada una, a quien le toca en su minuto local. La zona de
+`preferencia_aviso` la copia la base desde la cuenta con dos disparadores, para
+que la tarea no necesite leer `usuario`.
 
 ## El sendero de cada modulo
 
@@ -416,7 +435,8 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
 - **Dos clases**, que se encienden, cambian de hora y apagan por separado:
   - `semaforo`: los pendientes sin hacer, con su titulo, a la hora elegida;
   - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad.
-- **Las horas** van en hora de Colombia, en minutos desde la medianoche.
+- **Las horas** van en la zona de la persona (SCRUM-123), en minutos desde la
+  medianoche.
   `minutoDeHora("08:30")` da 510, y `Calendario.minutoDelDia(ahora)` dice que
   minuto es.
 - **Nada de salud.** `mensajeDelSemaforo` cuenta y nombra hasta tres

@@ -34,4 +34,15 @@ export class RegistrarCuentaDto {
   @IsString()
   @Length(1, 100)
   nombre?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.',
+    example: 'America/Bogota',
+    maxLength: 64,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  zonaHoraria?: string;
 }

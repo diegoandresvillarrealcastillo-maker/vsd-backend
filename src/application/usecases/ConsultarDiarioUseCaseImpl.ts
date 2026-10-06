@@ -22,13 +22,12 @@ export const MAXIMO_DE_DIAS_POR_CONSULTA = 366;
 export class ConsultarDiarioUseCaseImpl implements ConsultarDiarioUseCase {
   constructor(
     private readonly diario: DiarioRepositoryPort,
-    private readonly calendario: Calendario,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
   async execute(query: ConsultarDiarioQuery): Promise<readonly EntradaDeDiario[]> {
     const userId = new UserId(query.userId);
-    const hasta = query.hasta ?? this.calendario.diaDe(this.reloj());
+    const hasta = query.hasta ?? Calendario.de(query.zonaHoraria).diaDe(this.reloj());
     const desde = query.desde ?? hasta;
 
     for (const dia of [desde, hasta]) {

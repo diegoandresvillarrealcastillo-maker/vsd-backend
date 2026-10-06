@@ -24,7 +24,7 @@ export class EntradaDelDiarioDto {
   id!: string;
 
   @ApiProperty({
-    description: 'El día al que pertenece, en el calendario de Colombia.',
+    description: 'El día al que pertenece, en el calendario de la persona.',
     example: '2026-10-03',
     format: 'date',
   })

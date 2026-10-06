@@ -144,6 +144,7 @@ function comando(sobrescribir: Partial<RegistrarResultadoCommand> = {}): Registr
     clientOperationId: OPERACION,
     score: 8,
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    zonaHoraria: 'America/Bogota',
     ...sobrescribir,
   };
 }

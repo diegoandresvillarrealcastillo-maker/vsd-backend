@@ -44,6 +44,7 @@ export class AvisosUseCaseImpl implements AvisosUseCase {
 
     const guardadas = await this.avisos.guardarPreferencias({
       userId,
+      zonaHoraria: command.zonaHoraria,
       minutoSemaforo: nuevoMinuto(command.horaSemaforo, actuales.minutoSemaforo),
       minutoRacha: nuevoMinuto(command.horaRacha, actuales.minutoRacha),
     });

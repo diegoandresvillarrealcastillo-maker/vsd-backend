@@ -24,6 +24,7 @@ const URL_DUENO = process.env['DATABASE_URL'];
 const ANA = '10210210-0000-4000-8000-0000000000a1';
 const BETO = '10210210-0000-4000-8000-0000000000b2';
 const HOY = '2026-10-05';
+const ZONA = 'America/Bogota';
 
 const NAVEGADOR = {
   endpoint: 'https://push.example.com/10210210-navegador-compartido',
@@ -119,12 +120,14 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
   it('guarda las horas de cada aviso por separado', async () => {
     await avisos.guardarPreferencias({
       userId: new UserId(ANA),
+      zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: null,
     });
 
     await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toEqual({
       userId: new UserId(ANA),
+      zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: null,
     });
@@ -138,6 +141,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
   it('nadie ve las horas de otra persona', async () => {
     await avisos.guardarPreferencias({
       userId: new UserId(ANA),
+      zonaHoraria: ZONA,
       minutoSemaforo: 480,
       minutoRacha: 600,
     });
@@ -155,31 +159,35 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     it('encuentra a quien le toca, de todas las personas, y no lo repite el mismo dia', async () => {
       await avisos.guardarPreferencias({
         userId: new UserId(ANA),
+        zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: null,
       });
       await avisos.guardarPreferencias({
         userId: new UserId(BETO),
+        zonaHoraria: ZONA,
         minutoSemaforo: 470,
         minutoRacha: 480,
       });
 
-      const tocan = await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, 450, 480, HOY);
+      const tocan = await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, ZONA, 450, 480, HOY);
 
       expect(tocan.map((uno) => uno.value).sort()).toEqual([ANA, BETO]);
 
       await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO, HOY);
 
       expect(
-        (await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, 450, 480, HOY)).map((uno) => uno.value),
+        (await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, ZONA, 450, 480, HOY)).map(
+          (uno) => uno.value,
+        ),
       ).toEqual([BETO]);
       // Revisar el semaforo no toca la racha.
       expect(
-        (await avisos.aQuienLeToca(TipoDeAviso.RACHA, 450, 480, HOY)).map((uno) => uno.value),
+        (await avisos.aQuienLeToca(TipoDeAviso.RACHA, ZONA, 450, 480, HOY)).map((uno) => uno.value),
       ).toEqual([BETO]);
       // Al dia siguiente vuelve a tocar.
       expect(
-        (await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, 450, 480, '2026-10-06')).map(
+        (await avisos.aQuienLeToca(TipoDeAviso.SEMAFORO, ZONA, 450, 480, '2026-10-06')).map(
           (uno) => uno.value,
         ),
       ).toContain(ANA);
@@ -188,6 +196,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     it('solo lee las horas: ni las cambia ni alcanza ninguna otra tabla', async () => {
       await avisos.guardarPreferencias({
         userId: new UserId(ANA),
+        zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: null,
       });
@@ -212,6 +221,111 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       expect((await conAjustes(tarea, 'SELECT * FROM pendiente')).rowCount).toBe(0);
       expect((await conAjustes(tarea, 'SELECT * FROM suscripcion_push')).rowCount).toBe(0);
       expect((await conAjustes(tarea, 'SELECT * FROM usuario')).rowCount).toBe(0);
+    });
+  });
+
+  describe('la zona de cada persona (SCRUM-123)', () => {
+    /** Cambia la zona de la cuenta como lo hace la API: la persona, en su sesion. */
+    async function cambiarZona(persona: string, zona: string): Promise<void> {
+      await conAjustes(
+        { 'vsd.usuario_actual': persona },
+        'UPDATE usuario SET zona_horaria = $1 WHERE id_usuario = $2',
+        [zona, persona],
+      );
+    }
+
+    it('las preferencias nacen en la zona de la cuenta, aunque la aplicacion mande otra', async () => {
+      await cambiarZona(ANA, 'Europe/Madrid');
+
+      // La aplicacion no escribe la zona de los avisos: la copia la base.
+      await avisos.guardarPreferencias({
+        userId: new UserId(ANA),
+        zonaHoraria: 'Asia/Tokyo',
+        minutoSemaforo: 480,
+        minutoRacha: null,
+      });
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        zonaHoraria: 'Europe/Madrid',
+      });
+    });
+
+    it('si la persona cambia de zona, sus horas pasan a leerse en la nueva', async () => {
+      await avisos.guardarPreferencias({
+        userId: new UserId(ANA),
+        zonaHoraria: ZONA,
+        minutoSemaforo: 480,
+        minutoRacha: 600,
+      });
+
+      await cambiarZona(ANA, 'Europe/Madrid');
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        zonaHoraria: 'Europe/Madrid',
+        minutoSemaforo: 480,
+        minutoRacha: 600,
+      });
+    });
+
+    it('cambiar la zona de una persona no toca las horas de otra', async () => {
+      for (const persona of [ANA, BETO]) {
+        await avisos.guardarPreferencias({
+          userId: new UserId(persona),
+          zonaHoraria: ZONA,
+          minutoSemaforo: 480,
+          minutoRacha: null,
+        });
+      }
+
+      await cambiarZona(ANA, 'Europe/Madrid');
+
+      await expect(avisos.preferenciasDe(new UserId(BETO))).resolves.toMatchObject({
+        zonaHoraria: ZONA,
+      });
+    });
+
+    it('la tarea ve las zonas en uso y a quien le toca en cada una', async () => {
+      await cambiarZona(BETO, 'Europe/Madrid');
+
+      for (const persona of [ANA, BETO]) {
+        await avisos.guardarPreferencias({
+          userId: new UserId(persona),
+          zonaHoraria: ZONA,
+          minutoSemaforo: 480,
+          minutoRacha: null,
+        });
+      }
+
+      expect([...(await avisos.zonasEnUso())].sort()).toEqual(['America/Bogota', 'Europe/Madrid']);
+
+      const enBogota = await avisos.aQuienLeToca(
+        TipoDeAviso.SEMAFORO,
+        'America/Bogota',
+        480,
+        480,
+        HOY,
+      );
+      const enMadrid = await avisos.aQuienLeToca(
+        TipoDeAviso.SEMAFORO,
+        'Europe/Madrid',
+        480,
+        480,
+        HOY,
+      );
+
+      expect(enBogota.map((uno) => uno.value)).toEqual([ANA]);
+      expect(enMadrid.map((uno) => uno.value)).toEqual([BETO]);
+    });
+
+    it('una persona con todos los avisos apagados no cuenta como zona en uso', async () => {
+      await avisos.guardarPreferencias({
+        userId: new UserId(ANA),
+        zonaHoraria: ZONA,
+        minutoSemaforo: null,
+        minutoRacha: null,
+      });
+
+      await expect(avisos.zonasEnUso()).resolves.toEqual([]);
     });
   });
 
@@ -257,6 +371,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       await avisos.suscribir(new UserId(ANA), NAVEGADOR);
       await avisos.guardarPreferencias({
         userId: new UserId(ANA),
+        zonaHoraria: ZONA,
         minutoSemaforo: 480,
         minutoRacha: 480,
       });

@@ -12,13 +12,15 @@ export interface EstadoDeLosAvisos {
   readonly disponible: boolean;
   /** La clave publica VAPID, para que el navegador se suscriba. */
   readonly clavePublica: string | null;
-  /** "HH:MM" en hora de Colombia, o null si esta apagado. */
+  /** "HH:MM" en la zona horaria de la persona, o null si esta apagado. */
   readonly horaSemaforo: string | null;
   readonly horaRacha: string | null;
 }
 
 export interface CambiarHorasCommand {
   readonly userId: string;
+  /** La zona horaria de la persona, de su cuenta: en ella se leen las horas. */
+  readonly zonaHoraria: string;
   /** Lo que no viene se queda; null lo apaga. */
   readonly horaSemaforo?: string | null | undefined;
   readonly horaRacha?: string | null | undefined;

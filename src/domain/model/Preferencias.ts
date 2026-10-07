@@ -59,10 +59,11 @@ export function elegirModulos(elegidos: readonly string[]): readonly Modulo[] {
 /**
  * Como es la mascota de la persona.
  *
- * La forma es el personaje: `fungito`, `sparky`, `ori`, `gato`, `obsidian` o
- * `trama` (SCRUM-99). Se valida por formato y no contra esa lista: cada
- * personaje nuevo exigiria desplegar el backend, y es el frontend quien sabe
- * dibujarlos. Si recibe una forma que no conoce, usa la de siempre.
+ * La forma es el personaje: `fungito`, `sparky`, `ori`, `gato` u `obsidian`
+ * (SCRUM-99; `trama` se retiro en SCRUM-121). Se valida por formato y no contra
+ * esa lista: cada personaje nuevo exigiria desplegar el backend, y es el
+ * frontend quien sabe dibujarlos. Si recibe una forma que no conoce, usa la de
+ * siempre.
  *
  * Color y accesorio son opcionales. Los personajes definitivos no los usan —cada
  * uno tiene su propio dibujo—, pero se aceptan para no invalidar lo que se

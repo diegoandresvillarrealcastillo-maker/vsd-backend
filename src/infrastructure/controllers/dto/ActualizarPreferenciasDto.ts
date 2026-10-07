@@ -14,7 +14,7 @@ import {
 export class MascotaDto {
   @ApiProperty({
     description:
-      'El personaje: fungito, sparky, ori, gato, obsidian o trama. Una clave que el frontend no conozca se dibuja como la mascota de siempre.',
+      'El personaje: fungito, sparky, ori, gato u obsidian. Una clave que el frontend no conozca se dibuja como la mascota de siempre.',
     example: 'fungito',
     maxLength: 30,
   })

@@ -57,7 +57,12 @@ export class AsistenteController {
     //
     // Se usa el identificador de la cuenta y no el del proveedor, porque es el
     // que relaciona la tabla de resultados.
-    const respuesta = await this.asistente.responder({ userId: cuenta.id.value, texto: dto.texto });
+    const respuesta = await this.asistente.responder({
+      userId: cuenta.id.value,
+      texto: dto.texto,
+      // Solo para que "hola, Luma" se lea como un saludo. No se guarda.
+      nombreDeLaMascota: cuenta.mascota?.nombre,
+    });
 
     return AsistenteRespuestaDto.desde(respuesta);
   }

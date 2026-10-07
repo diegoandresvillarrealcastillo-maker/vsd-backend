@@ -223,6 +223,47 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(lineas.consultas).toBe(0);
   });
 
+  describe('las lineas son las del pais de la zona de quien escribe (SCRUM-124)', () => {
+    const SENAL = 'Hoy pense que no quiero seguir viviendo';
+
+    it.each([
+      ['America/Bogota', 'CO'],
+      ['America/Mexico_City', 'MX'],
+      ['Europe/Madrid', 'ES'],
+      ['America/New_York', 'US'],
+      ['America/Lima', undefined],
+      ['Asia/Tokyo', undefined],
+    ])('%s pide las de %s', async (zonaHoraria, pais) => {
+      const { casoDeUso, lineas } = armar();
+
+      await casoDeUso.execute({
+        userId: PERSONA,
+        zonaHoraria,
+        conRecomendaciones: true,
+        clientOperationId: operacion(),
+        contenido: documentoCon(SENAL),
+      });
+
+      expect(lineas.paises).toEqual([pais]);
+    });
+
+    it('un reintento las pide igual: quien repite ve lo mismo que la primera vez', async () => {
+      const { casoDeUso, lineas } = armar();
+      const orden = {
+        userId: PERSONA,
+        zonaHoraria: 'Europe/Madrid',
+        conRecomendaciones: true,
+        clientOperationId: operacion(),
+        contenido: documentoCon(SENAL),
+      };
+
+      await casoDeUso.execute(orden);
+      await casoDeUso.execute(orden);
+
+      expect(lineas.paises).toEqual(['ES', 'ES']);
+    });
+  });
+
   it('con permiso, una senal de riesgo trae las lineas, la nacional primero', async () => {
     const { casoDeUso } = armar();
 

@@ -95,19 +95,28 @@ class CatalogoFalso implements ActivityRepositoryPort {
  * comprobar que salen ordenadas por alcance.
  */
 class RecursosFalsos implements RecursoApoyoRepositoryPort {
-  lineasDeAtencion(): Promise<readonly RecursoApoyo[]> {
+  /** El pais con el que se pidieron las lineas, en el orden en que se pidieron. */
+  paises: (string | undefined)[] = [];
+
+  lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]> {
+    this.paises.push(pais);
+
     return Promise.resolve([
       RecursoApoyo.create({
         id: 'linea-106',
         titulo: 'Línea 106',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.BOGOTA,
+        fuente: 'https://pruebas.test/106',
+        verificadoEl: '2026-10-06',
       }),
       RecursoApoyo.create({
         id: 'linea-192',
         titulo: 'Línea 192, opción 4',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.NACIONAL,
+        fuente: 'https://pruebas.test/192',
+        verificadoEl: '2026-10-06',
       }),
     ]);
   }
@@ -151,6 +160,7 @@ function comando(sobrescribir: Partial<RegistrarResultadoCommand> = {}): Registr
 
 describe('RegisterActivityResultUseCaseImpl', () => {
   let repositorio: RepositorioFalso;
+  let recursos: RecursosFalsos;
   let casoDeUso: RegisterActivityResultUseCaseImpl;
 
   /** Lo registrado, para las pruebas que no miran las lineas de atencion. */
@@ -160,10 +170,11 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
   beforeEach(() => {
     repositorio = new RepositorioFalso();
+    recursos = new RecursosFalsos();
     casoDeUso = new RegisterActivityResultUseCaseImpl(
       repositorio,
       new CatalogoFalso([actividad(), bitacora()]),
-      new RecursosFalsos(),
+      recursos,
       () => new ResultId(RESULTADO),
       () => AHORA,
     );
@@ -194,6 +205,33 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
       expect(resultado.tienePuntaje()).toBe(false);
       expect(lineasDeAtencion).toHaveLength(2);
+    });
+
+    it.each([
+      ['America/Bogota', 'CO'],
+      ['America/Mexico_City', 'MX'],
+      ['Europe/Madrid', 'ES'],
+      ['America/New_York', 'US'],
+    ])(
+      'se piden con el pais de la zona de la cuenta: %s es %s (SCRUM-124)',
+      async (zonaHoraria, pais) => {
+        await casoDeUso.execute(comando({ score: 1, zonaHoraria }));
+
+        expect(recursos.paises).toEqual([pais]);
+      },
+    );
+
+    it('una zona sin pais con lineas verificadas las pide sin pais, y nunca como Colombia', async () => {
+      // Lima comparte hora con Bogota. Pedirlas como Colombia le daria el 192.
+      await casoDeUso.execute(comando({ score: 1, zonaHoraria: 'America/Lima' }));
+
+      expect(recursos.paises).toEqual([undefined]);
+    });
+
+    it('un resultado que no sugiere acompanamiento no pide ninguna linea', async () => {
+      await casoDeUso.execute(comando({ score: 8, zonaHoraria: 'Europe/Madrid' }));
+
+      expect(recursos.paises).toEqual([]);
     });
 
     it('un reintento vuelve a traerlas: quien repite ve lo mismo que la primera vez', async () => {

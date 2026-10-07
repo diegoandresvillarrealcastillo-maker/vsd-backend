@@ -60,6 +60,11 @@ export interface ConsultaAlAsistente {
   /** Lo que escribio, tal cual. */
   readonly texto: string;
   /**
+   * La zona horaria de su cuenta. De ella sale el pais de las lineas de
+   * atencion que se ensenan (SCRUM-124): nunca se pide ubicacion.
+   */
+  readonly zonaHoraria: string;
+  /**
    * El nombre que le puso a su mascota, si tiene.
    *
    * Sirve para una sola cosa: que "hola, Luma" se lea como un saludo y no como

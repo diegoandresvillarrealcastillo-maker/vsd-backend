@@ -302,10 +302,27 @@ model RecursoApoyo {
   /// contesta, y en una situacion de riesgo eso no es un detalle.
   cobertura String? @db.VarChar(30)
 
+  /// El pais donde sirve, como codigo ISO 3166-1 de dos letras (`CO`).
+  ///
+  /// Se deduce de la zona horaria de la persona, nunca de su ubicacion
+  /// (SCRUM-124). Vacio cuando sirve en cualquier parte: las lecturas y el
+  /// directorio internacional, que es lo unico que recibe quien esta en un pais
+  /// sin lineas verificadas.
+  pais String? @db.VarChar(2)
+
+  /// De donde sale el dato: la pagina oficial donde se confirmo. Obligatoria en
+  /// los contactos (restriccion `recurso_apoyo_contacto_con_fuente`).
+  fuente String? @db.VarChar(255)
+
+  /// El dia en que una persona lo confirmo en esa fuente. Obligatorio en los
+  /// contactos, junto a la fuente.
+  verificadoEl DateTime? @map("verificado_el") @db.Date
+
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])
   @@index([tipo, tema])
+  @@index([tipo, pais])
   @@map("recurso_apoyo")
 }
 

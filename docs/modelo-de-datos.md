@@ -360,6 +360,19 @@ fuera de Bogotá es dar un teléfono que no contesta, y en una situación de rie
 eso no es un detalle. Por eso el asistente ordena por cobertura y lo nacional va
 primero.
 
+Tres columnas más desde SCRUM-124 (ver el [ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md)):
+
+`pais` es el código ISO de dos letras donde sirve la fila (`CO`, `MX`, `ES`,
+`US`). Se deduce de la zona horaria de la cuenta, nunca de la ubicación. Vacío
+cuando sirve en cualquier parte: las lecturas, y el **directorio internacional**,
+que es lo único que recibe quien está en un lugar sin líneas verificadas.
+Una restricción de la base impone que sean dos letras mayúsculas.
+
+`fuente` y `verificado_el` son la página oficial donde se confirmó el dato y el
+día en que una persona lo confirmó. **Son obligatorias en los contactos**: la
+restricción `recurso_apoyo_contacto_con_fuente` no deja guardar un teléfono sin
+ellas. Es la forma de que «cada línea tiene fuente» no dependa de acordarse.
+
 Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.

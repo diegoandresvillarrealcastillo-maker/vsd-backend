@@ -5,6 +5,7 @@ import {
   StaleJournalEntryError,
 } from '../../domain/model/DomainError.js';
 import { EntradaId, UserId } from '../../domain/model/Identifier.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import type {
   EditarAnotacionCommand,
   EditarAnotacionUseCase,
@@ -56,7 +57,12 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
     const guardada = await this.diario.guardarEdicion(editada, actual.version);
 
     if (guardada !== null) {
-      return acompanarAnotacion(guardada, this.recursos, command.conRecomendaciones);
+      return acompanarAnotacion(
+        guardada,
+        this.recursos,
+        command.conRecomendaciones,
+        paisDeLaZona(command.zonaHoraria),
+      );
     }
 
     // La base no la dejo pasar. Puede que otro dispositivo la editara entre

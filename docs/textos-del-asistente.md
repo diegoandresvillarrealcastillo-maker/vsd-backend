@@ -124,16 +124,107 @@ Vive en la tabla `RECURSO_APOYO`, así que se puede corregir sin desplegar.
 
 ## 4. Líneas de atención
 
-| Línea             | Texto                                                                                                                                                                                                             | Cobertura   |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **192, opción 4** | Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.                                                           | Nacional    |
-| **123**           | Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                            | Nacional    |
-| **106**           | Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co. | Solo Bogotá |
+Se enseñan las del **país de la persona**, que sale de la zona horaria de su
+cuenta (SCRUM-124, [ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md)).
+Nunca se pide GPS ni ubicación.
 
-Datos verificados en fuentes oficiales el 2026-09-16.
+**Cada línea tiene fuente y fecha de verificación**, y la base no deja guardar un
+contacto sin ellas. La fecha es el día en que una persona abrió esa página
+oficial y comprobó el número, el horario y que fuera gratuita. **Un país entra al
+catálogo solo si sus líneas se leyeron en la fuente**: lo que no se pudo abrir no
+se añade.
 
-**Falta el recurso de la universidad.** Se retiró por no estar confirmado. Ver
-el final de esta página.
+Quien está en un lugar sin líneas verificadas recibe el **directorio
+internacional** y ningún teléfono, porque no se sabe cuál sería el suyo (ver más
+abajo).
+
+### Colombia (`America/Bogota`)
+
+| Línea             | Texto                                                                                                                                                                                                             | Cobertura   | Fuente                                                                                                                                                             | Verificada |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| **192, opción 4** | Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.                                                           | Nacional    | [Ministerio de Salud](https://www.minsalud.gov.co)                                                                                                                 | 2026-09-16 |
+| **123**           | Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                            | Nacional    | [Función Pública](https://www1.funcionpublica.gov.co/preguntas-frecuentes/-/asset_publisher/sqxafjubsrEu/content/linea-unica-de-emergencias-nacional-123/28585938) | 2026-10-06 |
+| **106**           | Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co. | Solo Bogotá | [Secretaría Distrital de Salud](https://literalmente.saludcapital.gov.co/salud-mental/que-tipo-de-ayuda-necesitas/lineas-de-atencion/)                             | 2026-10-06 |
+
+Las tres existían desde SCRUM-60 y no cambian. **Dos de ellas tienen una duda
+abierta**, que está más abajo en «Pendiente de verificación humana».
+
+### México (`America/Mexico_City` y las demás zonas de México)
+
+| Línea                | Texto                                                                                                                                                        | Cobertura | Fuente                                                                                                                                                      | Verificada |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **Línea de la Vida** | Orientación gratuita en salud mental de la Secretaría de Salud, las 24 horas, todos los días del año. Se marca 800 911 2000.                                 | Nacional  | [Secretaría de Salud](https://www.gob.mx/salud/prensa/239-linea-de-la-vida-celebra-25-anos-de-servicio-humano-para-poblacion-con-problemas-de-salud-mental) | 2026-10-06 |
+| **911**              | Línea única de emergencias, en todo el país, las 24 horas, todos los días del año. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien. | Nacional  | [Gobierno de México, 9-1-1](https://www.gob.mx/911/articulos/que-es-9-1-1-conoce-mas-de-911emergencias)                                                     | 2026-10-06 |
+
+### España (`Europe/Madrid`, `Atlantic/Canary`, `Africa/Ceuta`)
+
+| Línea   | Texto                                                                                                                                                                                     | Cobertura | Fuente                                                                | Verificada |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------- | ---------- |
+| **024** | Línea del Ministerio de Sanidad: gratuita, confidencial y las 24 horas, todos los días del año. Escucha a quien lo está pasando mal y también a su familia y sus allegados. Se marca 024. | Nacional  | [Ministerio de Sanidad](https://www.sanidad.gob.es/linea024/home.htm) | 2026-10-06 |
+| **112** | Teléfono de emergencias. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                        | Nacional  | [Ministerio de Sanidad](https://www.sanidad.gob.es/linea024/home.htm) | 2026-10-06 |
+
+### Estados Unidos (las zonas de EE. UU., incluidas Alaska y Hawái)
+
+| Línea   | Texto                                                                                                                                                                                                | Cobertura | Fuente                                                                                   | Verificada |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------- | ---------- |
+| **988** | Apoyo gratuito y confidencial por llamada, mensaje de texto o chat, las 24 horas, todos los días del año. Para hablar en español, marca 988 y presiona 2, o envía AYUDA por mensaje de texto al 988. | Nacional  | [988 Lifeline](https://988lifeline.org/get-help/)                                        | 2026-10-06 |
+| **911** | Número de emergencias, las 24 horas. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                       | Nacional  | [USAGov](https://www.usa.gov/features/the-988-lifeline-and-other-mental-health-services) | 2026-10-06 |
+
+### Cualquier otro lugar: el directorio internacional
+
+> **Directorio internacional de líneas de ayuda.** Todavía no tenemos verificadas
+> las líneas del lugar donde estás, y preferimos no darte un número que podría no
+> ser el tuyo. Este directorio, que recomienda la Asociación Internacional para
+> la Prevención del Suicidio, reúne líneas gratuitas de muchos países, por
+> teléfono, chat o mensaje. Si hay riesgo inmediato para la vida de alguien,
+> llama al número de emergencias del lugar donde estás.
+
+Enlaza a [Find A Helpline](https://findahelpline.com/), de ThroughLine. La
+[página de la IASP](https://www.iasp.info/crisis-centres-helplines/) (fuente,
+2026-10-06) lo recomienda para encontrar líneas verificadas por país.
+
+**No lleva ningún número de teléfono, a propósito**, y una prueba lo comprueba:
+darle a alguien un número, cualquiera, es el error que SCRUM-124 existe para
+evitar. Tampoco dice cuál es el número de emergencias del lugar: no se sabe
+cuál es, y en las páginas de los dos directorios no se pudo confirmar que lo
+muestren.
+
+Es lo que reciben también quienes estén en Perú, Chile, Ecuador, Venezuela o
+cualquier otro país que no esté arriba. **Esto no es un hueco: es el
+comportamiento esperado**, hasta que un país tenga sus líneas verificadas.
+
+### Cómo se deduce el país
+
+De la zona horaria de la cuenta, con una lista escrita a mano
+(`src/domain/model/PaisDeAyuda.ts`). **Misma hora no es mismo país**: Perú,
+Ecuador y Panamá comparten la hora de Bogotá y reciben el directorio, no el 192.
+Una zona desconocida o mal escrita tampoco tiene país, y no falla.
+
+### Pendiente de verificación humana
+
+Esto es lo que **no se pudo comprobar** y alguien del equipo debería mirar. Se
+deja por escrito para que no se confunda lo que se verificó con lo que no.
+
+1. **Colombia, Línea 192 opción 4.** La única fuente oficial que se pudo leer
+   describe una estrategia de teleorientación de la pandemia (2020-2021). La
+   página «Línea 106» del Ministerio de Salud y una nota de Señal Colombia de
+   octubre de 2025 sobre dónde pedir ayuda gratis **no la mencionan**. No se
+   pudo confirmar que siga activa. Lo que haría falta: llamar al 192, elegir la
+   opción 4, y si no atiende, corregirla con una migración nueva.
+2. **Colombia, Línea 106.** La página de la Secretaría Distrital de Salud la
+   describe como servicio de Bogotá, pero la página «Línea 106» del Ministerio
+   de Salud la presenta **sin límite a Bogotá** («marca 106 desde un teléfono
+   fijo o celular»). Hoy se enseña con cobertura «Solo Bogotá». Si es nacional,
+   quien esté fuera de Bogotá se está perdiendo una línea buena, no recibiendo
+   un número equivocado. Lo que haría falta: confirmarlo con el Ministerio o
+   llamando desde fuera de Bogotá.
+3. **Perú (Línea 113, opción 5, del Ministerio de Salud) y Chile (\*4141, del
+   Ministerio de Salud).** Las búsquedas las muestran en páginas oficiales
+   (`gob.pe`, `minsal.cl`, `gob.cl`), pero esas páginas **no se pudieron abrir**
+   (el servidor rechazó la lectura), así que no entran al catálogo. Una persona
+   puede abrirlas, y agregar el país es una migración y tres líneas de código:
+   ver el ADR 0015.
+4. **Sin el recurso de la universidad.** Ver el final de esta página.
 
 ## 5. Las frases que disparan las líneas de atención
 
@@ -175,6 +266,9 @@ dolor serio sin usar ninguna de estas frases. Por eso el asistente nunca es la
 5. **¿Alguna palabra de la charla puede ir pegada a algo serio?** Las de
    `RELLENO_DE_LA_CHARLA` son pocas a propósito: cada una que se añade es una
    que puede acompañar a una frase difícil sin que el asistente lo note.
+6. **¿Cada número del punto 4 sigue siendo cierto?** Abrir la fuente de cada
+   línea y comprobar número, horario y que sea gratuita. La fecha de
+   verificación dice cuánto hace de la última vez; nada la hace envejecer sola.
 
 ## Pendiente: el recurso de la universidad
 

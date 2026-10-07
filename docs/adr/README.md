@@ -22,6 +22,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) | Contrasena y Google en lugar del enlace magico       | Aceptada                                                                       |
 | [0013](0013-la-api-verifica-el-token-contra-el-jwks.md)        | La API verifica el token contra el JWKS de Supabase  | Aceptada                                                                       |
 | [0014](0014-cada-persona-tiene-su-zona-horaria.md)             | Cada persona tiene su zona horaria                   | Aceptada                                                                       |
+| [0015](0015-las-lineas-de-ayuda-segun-el-pais.md)              | Las lineas de ayuda se eligen por el pais de la zona | Aceptada                                                                       |
 
 ## Reglas
 

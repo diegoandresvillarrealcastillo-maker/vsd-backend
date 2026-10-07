@@ -60,6 +60,9 @@ export class AsistenteController {
     const respuesta = await this.asistente.responder({
       userId: cuenta.id.value,
       texto: dto.texto,
+      // El pais de las lineas de atencion sale de la zona de la cuenta, no de
+      // la ubicacion: nunca se pide GPS (SCRUM-124).
+      zonaHoraria: cuenta.zonaHoraria,
       // Solo para que "hola, Luma" se lea como un saludo. No se guarda.
       nombreDeLaMascota: cuenta.mascota?.nombre,
     });

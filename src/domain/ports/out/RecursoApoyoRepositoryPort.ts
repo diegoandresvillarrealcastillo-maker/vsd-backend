@@ -11,11 +11,20 @@ import type { RecursoApoyo } from '../../model/RecursoApoyo.js';
  */
 export interface RecursoApoyoRepositoryPort {
   /**
-   * Los telefonos y servicios a los que se puede acudir.
+   * Los telefonos y servicios a los que se puede acudir **en ese pais**.
+   *
+   * `pais` es el codigo ISO de dos letras que sale de la zona horaria de la
+   * persona (`paisDeLaZona`), o `undefined` si esa zona no es de ningun pais
+   * con lineas verificadas. En ese caso, y tambien si de un pais no hubiera
+   * ninguna fila, la respuesta es el directorio internacional: **nunca** el
+   * telefono de otro pais como si fuera suyo (SCRUM-124).
+   *
+   * El parametro es obligatorio a proposito: un `lineasDeAtencion()` sin pais
+   * que "devuelve todas" es justo la llamada que hay que impedir.
    *
    * Ordenados por alcance: lo que sirve en todo el pais va primero.
    */
-  lineasDeAtencion(): Promise<readonly RecursoApoyo[]>;
+  lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]>;
 
   /** Recursos sobre un tema concreto. Lista vacia si no hay ninguno. */
   porTema(tema: string): Promise<readonly RecursoApoyo[]>;

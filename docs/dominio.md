@@ -268,7 +268,10 @@ Es la entidad central. Hace cumplir tres reglas:
 1. El identificador de operacion del cliente es obligatorio.
 2. La fecha de realizacion no puede estar en el futuro. Importa en modo sin
    conexion: el reloj del dispositivo puede estar desajustado, y aceptar una
-   fecha futura desordenaria el historial.
+   fecha futura desordenaria el historial. **Con una tolerancia de cinco
+   minutos** (`ToleranciaDelReloj`, SCRUM-133): lo que se adelante hasta ese
+   margen se registra como "ahora", y lo que pase se rechaza. Ver "El reloj del
+   dispositivo" mas abajo.
 3. El puntaje, **si lo hay**, debe caer dentro del rango de la actividad, regla
    que delega en `OrientativeScore`.
 4. `metadata` no puede traer claves que ya sean campos propios.
@@ -342,6 +345,34 @@ para observar como ha cambiado alguien con el tiempo.
 El instante actual se recibe como parametro en lugar de leer el reloj del
 sistema, para que la regla de la fecha futura se pueda probar sin depender de
 la hora a la que se ejecuten las pruebas.
+
+## El reloj del dispositivo (SCRUM-133)
+
+Sin conexion, lo que una persona hace queda guardado en su dispositivo y viaja
+despues **con la hora de ese reloj**, que puede ir unos minutos adelantado (un
+celular sin sincronizar, un equipo compartido). Rechazar esa hora seria rechazar
+el resultado **para siempre**: no es un fallo que se arregle reintentando, y la
+persona perderia lo que hizo sin enterarse hasta mucho despues.
+
+`domain/model/ToleranciaDelReloj` fija la politica, en un solo sitio:
+
+- **Cinco minutos** de tolerancia (`TOLERANCIA_DEL_RELOJ_EN_MS`).
+- `ajustarAlReloj(fecha, ahora)`: lo anterior a `ahora` **se respeta** (lo hecho
+  sin conexion hace horas es asi de viejo); lo que se adelante hasta la
+  tolerancia se registra como `ahora`; lo que pase **se rechaza**
+  (`FECHA_EN_EL_FUTURO`).
+- `conTolerancia(ahora)`: `ahora` mas el margen, para decidir hasta que dia se
+  admite una anotacion.
+
+Se aplica en dos sitios, y en los dos **antes de calcular el dia**:
+
+- **Resultados:** la hora se ajusta y de ella sale el dia. Asi un resultado de las
+  23:58 con el reloj adelantado pasada la medianoche no cae en el dia siguiente.
+- **Diario:** el dia que manda el dispositivo se admite hasta el dia que seria
+  con la tolerancia, y no uno mas (`FutureJournalDayError` para el resto).
+
+Lo que **no** cambia: un dia de verdad en el futuro se sigue rechazando, y las
+reglas de edicion del diario (plazo de una hora, versiones) no se tocan.
 
 ## La regla de idempotencia
 
@@ -503,6 +534,12 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   recuerda nada; `null` deja de posponer.
 - La consulta trae los sin hacer y los hechos de los ultimos 7 dias.
 - Crear es idempotente por `clientOperationId`, por persona.
+- **Borrar tambien es idempotente** (SCRUM-133): borrar uno que ya no esta
+  responde 204, igual que la primera vez. Sin conexion, si se pierde la respuesta
+  del primer borrado, el reintento llegaria a un error que la cola de
+  sincronizacion no sabria distinguir de un fallo de verdad. No filtra nada: el
+  pendiente de otra persona responde igual y no se toca (ADR 0010). Editar uno
+  que no existe sigue respondiendo `PENDIENTE_NO_ENCONTRADO`.
 
 ## Los avisos por Web Push
 

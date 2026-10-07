@@ -221,7 +221,9 @@ describe('PendientesUseCaseImpl', () => {
     await expect(
       semaforo.editar({ userId: OTRA, pendienteId: suyo.id.value, hecho: true }),
     ).rejects.toThrow(TaskNotFoundError);
-    await expect(semaforo.borrar(OTRA, suyo.id.value)).rejects.toThrow(TaskNotFoundError);
+    // Borrar es idempotente (SCRUM-133): el de otra persona responde como uno
+    // que ya no esta, y, lo que importa, no se toca.
+    await expect(semaforo.borrar(OTRA, suyo.id.value)).resolves.toBeUndefined();
     expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(1);
   });
 
@@ -237,6 +239,29 @@ describe('PendientesUseCaseImpl', () => {
     await semaforo.borrar(PERSONA, pendiente.id.value);
 
     expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(0);
+  });
+
+  it('borrar dos veces el mismo no falla: la segunda es la respuesta perdida que se reintenta', async () => {
+    const { semaforo } = armar();
+    const pendiente = await semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto: 'Fuera dos veces',
+      nivel: 'urgente',
+    });
+
+    await semaforo.borrar(PERSONA, pendiente.id.value);
+
+    await expect(semaforo.borrar(PERSONA, pendiente.id.value)).resolves.toBeUndefined();
+    expect((await semaforo.consultar(PERSONA, ZONA)).pendientes).toHaveLength(0);
+  });
+
+  it('borrar uno que nunca existio tampoco falla', async () => {
+    const { semaforo } = armar();
+
+    await expect(
+      semaforo.borrar(PERSONA, '97979797-ffff-4fff-8fff-ffffffffffff'),
+    ).resolves.toBeUndefined();
   });
 
   it('un identificador mal formado se rechaza', async () => {

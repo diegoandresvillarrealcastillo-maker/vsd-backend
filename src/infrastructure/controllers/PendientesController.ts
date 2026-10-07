@@ -107,12 +107,12 @@ export class PendientesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Borrar un pendiente' })
-  @ApiResponse({ status: 204, description: 'Borrado.' })
-  @ApiResponse({
-    status: 404,
-    description: 'No existe o es de otra persona; las dos se responden igual.',
+  @ApiOperation({
+    summary: 'Borrar un pendiente',
+    description:
+      'Es idempotente: borrar uno que ya no esta responde igual que borrarlo la primera vez. Asi un reintento tras una respuesta perdida no atasca la sincronizacion sin conexion. Un pendiente de otra persona responde igual y no se toca.',
   })
+  @ApiResponse({ status: 204, description: 'Ya no esta: se borro, o no existia, o no era suyo.' })
   async borrar(@Param('id') id: string, @CuentaActual() cuenta: User): Promise<void> {
     await this.semaforo.borrar(cuenta.id.value, id);
   }

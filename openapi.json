@@ -864,6 +864,7 @@
         ]
       },
       "delete": {
+        "description": "Es idempotente: borrar uno que ya no esta responde igual que borrarlo la primera vez. Asi un reintento tras una respuesta perdida no atasca la sincronizacion sin conexion. Un pendiente de otra persona responde igual y no se toca.",
         "operationId": "PendientesController_borrar",
         "parameters": [
           {
@@ -877,10 +878,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Borrado."
-          },
-          "404": {
-            "description": "No existe o es de otra persona; las dos se responden igual."
+            "description": "Ya no esta: se borro, o no existia, o no era suyo."
           }
         },
         "security": [

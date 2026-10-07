@@ -5,6 +5,7 @@ import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/mo
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
+import { ajustarAlReloj } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
@@ -91,6 +92,15 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
       return existente;
     }
 
+    const ahora = this.reloj();
+
+    // La hora la pone el dispositivo, y sin conexion puede viajar horas despues.
+    // Un reloj adelantado unos minutos no es un error de la persona (ver
+    // ToleranciaDelReloj): se registra como "ahora". Se ajusta ANTES de calcular
+    // el dia, para que un resultado de las 23:58 con el reloj adelantado no
+    // caiga en el dia siguiente.
+    const completedAt = ajustarAlReloj(command.completedAt, ahora);
+
     const resultado = ActivityResult.create(
       {
         id: this.generarId(),
@@ -98,13 +108,13 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
         activityId,
         clientOperationId,
         score,
-        completedAt: command.completedAt,
+        completedAt,
         // El dia queda fijado aqui, en la zona que la persona tiene ahora. Si
         // despues viaja, este resultado sigue siendo de ese dia.
-        dia: Calendario.de(command.zonaHoraria).diaDe(command.completedAt),
+        dia: Calendario.de(command.zonaHoraria).diaDe(completedAt),
         metadata: command.metadata,
       },
-      this.reloj(),
+      ahora,
     );
 
     await this.repositorio.save(resultado);

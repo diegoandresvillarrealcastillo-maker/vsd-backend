@@ -100,6 +100,9 @@ export class CuentaController {
   }
 
   @Get()
+  // Nombre, correo y preferencias: no deben quedar en la cache del navegador,
+  // que no se borra al cerrar sesion (SCRUM-133).
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Consultar la cuenta propia',
     description:

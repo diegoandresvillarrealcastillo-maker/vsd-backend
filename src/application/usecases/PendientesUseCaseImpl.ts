@@ -110,10 +110,13 @@ export class PendientesUseCaseImpl implements PendientesUseCase {
   }
 
   async borrar(userId: string, pendienteId: string): Promise<void> {
-    const borrado = await this.pendientes.borrar(new UserId(userId), new PendienteId(pendienteId));
-
-    if (!borrado) {
-      throw new TaskNotFoundError();
-    }
+    // Borrar algo que ya no esta tiene el mismo resultado que borrarlo: que no
+    // quede. Responder error aqui atascaria la sincronizacion sin conexion: si
+    // la respuesta del primer borrado se pierde, el reintento llegaria a un
+    // 404 que la cola no sabria distinguir de un fallo de verdad.
+    //
+    // No filtra nada: un pendiente de otra persona responde igual que uno que
+    // no existe (ADR 0010), y tampoco se toca.
+    await this.pendientes.borrar(new UserId(userId), new PendienteId(pendienteId));
   }
 }

@@ -144,7 +144,11 @@ export function configurarAplicacion(
     // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
     // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
     // curl, y `headers.get` devuelve null en el navegador.
-    exposedHeaders: [CABECERA_DE_PETICION],
+    //
+    // ETag: la aplicacion guarda copias de lo publico para usarlo sin conexion
+    // (SCRUM-133) y con el puede preguntar "cambio?" sin descargarlo entero.
+    // Express ya lo calcula; solo faltaba dejarlo leer.
+    exposedHeaders: [CABECERA_DE_PETICION, 'ETag'],
   });
 
   app.useGlobalPipes(

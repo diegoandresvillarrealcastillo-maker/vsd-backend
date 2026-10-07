@@ -308,3 +308,73 @@ describe('La zona horaria por HTTP (SCRUM-123)', () => {
     expect(cuenta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
   });
 });
+
+describe('Lo que se guarda en el navegador y lo que no (SCRUM-133)', () => {
+  // Sin conexion, la aplicacion guarda sus propias copias (IndexedDB, cifradas,
+  // por persona). La cache HTTP del navegador es otra cosa: no se borra al
+  // cerrar sesion y, en un equipo compartido, la ve quien se sienta despues.
+  // Por eso lo privado no entra en ella, y lo publico se revalida en vez de
+  // descargarse entero cada vez.
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('la cuenta propia no se guarda en la cache del navegador', async () => {
+    await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO }).expect(200);
+
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(respuesta.headers['cache-control']).toBe('no-store');
+  });
+
+  it.each(['/api/catalogo', '/api/aviso'])(
+    '%s lleva ETag y responde 304 si no cambio, sin cuerpo',
+    async (ruta) => {
+      const primera = await request(app.getHttpServer()).get(ruta).expect(200);
+      const etag = primera.headers['etag'];
+
+      expect(etag).toBeTruthy();
+
+      const revalidada = await request(app.getHttpServer())
+        .get(ruta)
+        .set('If-None-Match', String(etag))
+        .expect(304);
+
+      expect(revalidada.text).toBe('');
+    },
+  );
+
+  it.each(['/api/catalogo', '/api/aviso'])(
+    '%s con un ETag viejo devuelve el contenido entero',
+    async (ruta) => {
+      const respuesta = await request(app.getHttpServer())
+        .get(ruta)
+        .set('If-None-Match', 'W/"una-version-anterior"')
+        .expect(200);
+
+      expect(respuesta.body).toBeTruthy();
+    },
+  );
+
+  it('la web puede leer el ETag desde su origen', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/aviso')
+      .set('Origin', 'http://localhost:5173')
+      .expect(200);
+
+    const expuestas = String(respuesta.headers['access-control-expose-headers']).toLowerCase();
+
+    expect(expuestas).toContain('etag');
+    // Y lo que ya se exponia no se perdio.
+    expect(expuestas).toContain('x-request-id');
+  });
+});

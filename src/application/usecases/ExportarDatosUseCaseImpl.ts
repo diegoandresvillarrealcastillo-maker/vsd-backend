@@ -1,10 +1,19 @@
-import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import {
+  AccountNotProvisionedError,
+  FileStorageUnavailableError,
+} from '../../domain/model/DomainError.js';
 import type { UserId } from '../../domain/model/Identifier.js';
+import type { User } from '../../domain/model/User.js';
 import type {
   DatosExportados,
   ExportarDatosUseCase,
 } from '../../domain/ports/in/ExportarDatosUseCase.js';
+import type { FotoLeida } from '../../domain/ports/in/FotoDePerfilUseCase.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type {
+  AlmacenPersonalPort,
+  ArchivoPersonal,
+} from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
@@ -27,6 +36,8 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly diario: DiarioRepositoryPort,
     private readonly pendientes: PendientesRepositoryPort,
     private readonly avisos: AvisosRepositoryPort,
+    private readonly fotos: AlmacenPersonalPort,
+    private readonly mascotas: AlmacenPersonalPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -37,15 +48,23 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       throw new AccountNotProvisionedError();
     }
 
-    const [resultados, entradasDeDiario, pendientes, preferencias, navegadores] = await Promise.all(
-      [
-        this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
-        this.diario.todasDe(id),
-        this.pendientes.todosDe(id),
-        this.avisos.preferenciasDe(id),
-        this.avisos.suscripcionesDe(id),
-      ],
-    );
+    const [
+      resultados,
+      entradasDeDiario,
+      pendientes,
+      preferencias,
+      navegadores,
+      foto,
+      mascotaPropia,
+    ] = await Promise.all([
+      this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
+      this.diario.todasDe(id),
+      this.pendientes.todosDe(id),
+      this.avisos.preferenciasDe(id),
+      this.avisos.suscripcionesDe(id),
+      this.archivoDe(this.fotos, cuenta, cuenta.fotoActualizadaEl),
+      this.archivoDe(this.mascotas, cuenta, cuenta.mascotaPropiaActualizadaEl),
+    ]);
 
     return {
       generadoEn: this.reloj(),
@@ -54,6 +73,38 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       entradasDeDiario,
       pendientes,
       avisos: { preferencias, navegadores: navegadores.length },
+      foto,
+      mascotaPropia,
     };
+  }
+
+  /**
+   * Un archivo de la persona, si tiene: su foto de perfil (SCRUM-120) o su
+   * mascota propia (SCRUM-122).
+   *
+   * Si el almacenamiento no responde, **la exportacion falla** en lugar de
+   * salir sin el archivo: entregar «todo lo tuyo» con una parte callada seria
+   * dar por cumplido el derecho de acceso sin haberlo cumplido.
+   */
+  private async archivoDe(
+    almacen: AlmacenPersonalPort,
+    cuenta: User,
+    actualizadaEl: Date | undefined,
+  ): Promise<FotoLeida | null> {
+    if (actualizadaEl === undefined) {
+      return null;
+    }
+
+    let archivo: ArchivoPersonal | undefined;
+
+    try {
+      archivo = await almacen.leer(cuenta.id);
+    } catch (error) {
+      throw new FileStorageUnavailableError(error);
+    }
+
+    return archivo === undefined
+      ? null
+      : { contenido: archivo.contenido, tipo: archivo.tipo, actualizadaEl };
   }
 }

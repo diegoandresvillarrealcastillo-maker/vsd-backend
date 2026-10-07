@@ -88,7 +88,17 @@ model Pendiente {
   /// Mientras no llegue, el pendiente no recuerda nada.
   posponerHasta DateTime? @map("posponer_hasta") @db.Timestamptz(3)
 
+  /// Dia limite, en el calendario de la persona (SCRUM-119). Es un dia y no un
+  /// instante: "el 12" es el 12 donde ella esta. Sin el, no vence un dia
+  /// concreto.
+  fechaLimite DateTime? @map("fecha_limite") @db.Date
+
   idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
+
+  /// Sube en uno con cada edicion (SCRUM-134). La API compara la que trae el
+  /// dispositivo con esta, dentro del propio UPDATE, para no pisar lo que otro
+  /// dispositivo cambio mientras uno estaba sin conexion.
+  version Int @default(1)
 
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
@@ -118,6 +128,15 @@ model Usuario {
   mascota                 Json?    @db.JsonB
   /// Si permite que el diario se lea para recomendarle. Apagado por defecto (SCRUM-108).
   diarioConRecomendaciones Boolean @default(false) @map("diario_con_recomendaciones")
+  /// Zona IANA de la persona, informada por su dispositivo (SCRUM-123). Decide
+  /// que dia es para ella. Las cuentas anteriores quedan en America/Bogota.
+  zonaHoraria String @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
+  /// Cuando se guardo la foto de perfil (SCRUM-120). NULL si no tiene. La foto en
+  /// si vive en Supabase Storage, no en la base.
+  fotoActualizadaEl DateTime? @map("foto_actualizada_el") @db.Timestamptz(3)
+  /// Cuando se guardo la mascota propia, un SVG (SCRUM-122). NULL si no tiene. El
+  /// archivo vive en Supabase Storage, no en la base.
+  mascotaPropiaActualizadaEl DateTime? @map("mascota_propia_actualizada_el") @db.Timestamptz(3)
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
@@ -150,15 +169,28 @@ model PreferenciaAviso {
   /// Null es apagado.
   minutoSemaforo      Int?      @map("minuto_semaforo") @db.SmallInt
   minutoRacha         Int?      @map("minuto_racha") @db.SmallInt
-  /// El ultimo dia, en hora de Colombia, en que se reviso cada aviso.
+  /// Los recordatorios de las 8:00 y las 20:00 (SCRUM-126). La hora no se
+  /// mueve: la aplicacion solo escribe 480 y 1200, o null para apagarlos.
+  minutoManana        Int?      @map("minuto_manana") @db.SmallInt
+  minutoNoche         Int?      @map("minuto_noche") @db.SmallInt
+  /// El ultimo dia, en la zona de la persona, en que se reviso cada aviso.
   ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
   ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
+  ultimoAvisoManana   DateTime? @map("ultimo_aviso_manana") @db.Date
+  ultimoAvisoNoche    DateTime? @map("ultimo_aviso_noche") @db.Date
+  /// La zona en que se leen los minutos de arriba. La copia la base desde
+  /// `usuario.zona_horaria` (disparadores de la migracion de SCRUM-123): la
+  /// tarea de avisos solo puede leer esta tabla y necesita saber en que zona
+  /// es cada hora. Nadie la escribe desde la aplicacion.
+  zonaHoraria         String    @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
   fechaEdicion        DateTime  @default(now()) @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
 
   @@index([minutoSemaforo])
   @@index([minutoRacha])
+  @@index([minutoManana])
+  @@index([minutoNoche])
   @@map("preferencia_aviso")
 }
 
@@ -238,6 +270,11 @@ model Resultado {
 
   fecha DateTime @default(now()) @db.Timestamptz(3)
 
+  /// El dia, en la zona de la persona, en que se completo (SCRUM-123). Se
+  /// guarda y no se deriva de `fecha` al leer: si cambiara con la zona de hoy,
+  /// viajar romperia las rachas ya ganadas.
+  dia DateTime @default(dbgenerated("((now() AT TIME ZONE 'America/Bogota'::text))::date")) @db.Date
+
   /// Al eliminar la cuenta se borran sus resultados. Es el RF12: la persona
   /// puede pedir que se elimine todo lo suyo.
   usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
@@ -246,6 +283,7 @@ model Resultado {
   @@unique([idUsuario, idOperacionCliente])
   /// El historial se consulta por persona y por fecha; de ahi el indice.
   @@index([idUsuario, fecha])
+  @@index([idUsuario, dia])
   @@index([idActividad])
   @@map("resultado")
 }
@@ -275,10 +313,27 @@ model RecursoApoyo {
   /// contesta, y en una situacion de riesgo eso no es un detalle.
   cobertura String? @db.VarChar(30)
 
+  /// El pais donde sirve, como codigo ISO 3166-1 de dos letras (`CO`).
+  ///
+  /// Se deduce de la zona horaria de la persona, nunca de su ubicacion
+  /// (SCRUM-124). Vacio cuando sirve en cualquier parte: las lecturas y el
+  /// directorio internacional, que es lo unico que recibe quien esta en un pais
+  /// sin lineas verificadas.
+  pais String? @db.VarChar(2)
+
+  /// De donde sale el dato: la pagina oficial donde se confirmo. Obligatoria en
+  /// los contactos (restriccion `recurso_apoyo_contacto_con_fuente`).
+  fuente String? @db.VarChar(255)
+
+  /// El dia en que una persona lo confirmo en esa fuente. Obligatorio en los
+  /// contactos, junto a la fuente.
+  verificadoEl DateTime? @map("verificado_el") @db.Date
+
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])
   @@index([tipo, tema])
+  @@index([tipo, pais])
   @@map("recurso_apoyo")
 }
 

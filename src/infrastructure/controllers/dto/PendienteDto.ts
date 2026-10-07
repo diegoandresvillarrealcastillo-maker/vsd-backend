@@ -4,16 +4,22 @@ import {
   IsBoolean,
   IsDate,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import type { Pendiente, Recordatorio } from '../../../domain/model/Pendiente.js';
 import type { SemaforoDePendientes } from '../../../domain/ports/in/PendientesUseCase.js';
 
 const NIVELES = ['urgente', 'prioridad', 'aplazable'] as const;
+
+/** Forma de un dia; que sea un dia real lo comprueba el dominio. */
+const FORMATO_DE_DIA = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Un pendiente, tal como sale por la API (SCRUM-97). */
 export class PendienteDto {
@@ -37,6 +43,24 @@ export class PendienteDto {
   })
   posponerHasta!: string | null;
 
+  @ApiProperty({
+    type: String,
+    format: 'date',
+    nullable: true,
+    example: '2026-10-12',
+    description:
+      'Día límite, en el calendario de la persona (SCRUM-119). Null: no vence un día concreto.',
+  })
+  fechaLimite!: string | null;
+
+  @ApiProperty({
+    type: 'integer',
+    minimum: 1,
+    description:
+      'Empieza en 1 y sube con cada edición. Hay que devolverla al editar: si otro dispositivo lo cambió entretanto, la edición se rechaza con 409 en vez de pisarlo.',
+  })
+  version!: number;
+
   @ApiProperty({ type: String, format: 'date-time' })
   creadoEn!: string;
 
@@ -51,6 +75,8 @@ export class PendienteDto {
     dto.nivel = pendiente.nivel;
     dto.hecho = pendiente.hecho;
     dto.posponerHasta = pendiente.posponerHasta?.toISOString() ?? null;
+    dto.fechaLimite = pendiente.fechaLimite ?? null;
+    dto.version = pendiente.version;
     dto.creadoEn = pendiente.creadoEn.toISOString();
     dto.editadoEn = pendiente.editadoEn.toISOString();
 
@@ -85,6 +111,15 @@ export class RecordatorioDto {
   })
   tono!: string;
 
+  @ApiProperty({
+    type: String,
+    format: 'date',
+    nullable: true,
+    description:
+      'El día límite que llegó, o null si el recordatorio es por los días de su color (SCRUM-119).',
+  })
+  fechaLimite!: string | null;
+
   static desde(recordatorio: Recordatorio): RecordatorioDto {
     const dto = new RecordatorioDto();
 
@@ -93,6 +128,7 @@ export class RecordatorioDto {
     dto.dias = recordatorio.dias;
     dto.nivelSugerido = recordatorio.nivelSugerido;
     dto.tono = recordatorio.tono;
+    dto.fechaLimite = recordatorio.fechaLimite;
 
     return dto;
   }
@@ -142,6 +178,17 @@ export class CrearPendienteDto {
   @ApiProperty({ enum: NIVELES })
   @IsIn(NIVELES)
   nivel!: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    example: '2026-10-12',
+    description:
+      'Día límite AAAA-MM-DD, en el calendario de la persona. Opcional: sin ella el pendiente no vence un día concreto.',
+  })
+  @IsOptional()
+  @Matches(FORMATO_DE_DIA, { message: 'fechaLimite debe tener el formato AAAA-MM-DD' })
+  fechaLimite?: string;
 }
 
 /**
@@ -149,6 +196,20 @@ export class CrearPendienteDto {
  * `posponerHasta: null` deja de posponer.
  */
 export class EditarPendienteDto {
+  @ApiPropertyOptional({
+    type: 'integer',
+    minimum: 1,
+    description:
+      'La versión que el dispositivo tenía del pendiente. Si ya no es la vigente, la edición se rechaza con 409, salvo que solo lo marque como hecho o que el pendiente ya esté como se pide. Sin ella no se comprueba nada.',
+  })
+  // No `@IsOptional()`: trata null como ausente, y un null llegaria al caso de uso
+  // como si fuera una version vieja. Aqui solo puede faltar (undefined); si viene,
+  // tiene que ser un entero positivo.
+  @ValidateIf((dto: EditarPendienteDto) => dto.version !== undefined)
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @ApiPropertyOptional({ maxLength: 280 })
   @IsOptional()
   @IsString()
@@ -179,4 +240,18 @@ export class EditarPendienteDto {
   @Type(() => Date)
   @IsDate()
   posponerHasta?: Date | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    nullable: true,
+    example: '2026-10-12',
+    description: 'Día límite AAAA-MM-DD, en el calendario de la persona. Null la quita.',
+  })
+  // Null tiene sentido propio (quitar la fecha): solo se valida si es un texto.
+  @ValidateIf(
+    (dto: EditarPendienteDto) => dto.fechaLimite !== null && dto.fechaLimite !== undefined,
+  )
+  @Matches(FORMATO_DE_DIA, { message: 'fechaLimite debe tener el formato AAAA-MM-DD' })
+  fechaLimite?: string | null;
 }

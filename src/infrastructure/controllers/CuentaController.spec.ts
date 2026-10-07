@@ -233,3 +233,148 @@ describe('Sin cuenta no se puede operar', () => {
       .expect(200);
   });
 });
+
+describe('La zona horaria por HTTP (SCRUM-123)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const cuerpo = { versionPolitica: VERSION_VIGENTE_DEL_AVISO };
+
+  it('una cuenta nueva nace en la zona del dispositivo y la devuelve', async () => {
+    const respuesta = await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Europe/Madrid' })
+      .expect(200);
+
+    expect(respuesta.body).toMatchObject({ zonaHoraria: 'Europe/Madrid' });
+  });
+
+  it('al entrar desde otra zona la cuenta la cambia, y GET /api/cuenta la ve', async () => {
+    await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Asia/Tokyo' })
+      .expect(200);
+
+    const cuenta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(cuenta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+
+  it('al entrar sin zona deja la que hay', async () => {
+    const respuesta = await alta(app, A).send(cuerpo).expect(200);
+
+    expect(respuesta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+
+  it('una zona que no existe responde 400 y no crea la cuenta', async () => {
+    const respuesta = await alta(app, B)
+      .send({ ...cuerpo, zonaHoraria: 'Marte/Olympus' })
+      .expect(400);
+
+    expect(respuesta.body).toMatchObject({ codigo: 'ZONA_HORARIA_INVALIDA' });
+
+    await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(B))
+      .expect(403);
+  });
+
+  it('una zona demasiado larga se rechaza antes de llegar al dominio', async () => {
+    const respuesta = await alta(app, B)
+      .send({ ...cuerpo, zonaHoraria: 'A'.repeat(65) })
+      .expect(400);
+
+    expect(JSON.stringify(respuesta.body)).toContain('zonaHoraria');
+  });
+
+  it('al entrar con una zona invalida la cuenta que ya existe no cambia', async () => {
+    await alta(app, A)
+      .send({ ...cuerpo, zonaHoraria: 'Marte/Olympus' })
+      .expect(400);
+
+    const cuenta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(cuenta.body).toMatchObject({ zonaHoraria: 'Asia/Tokyo' });
+  });
+});
+
+describe('Lo que se guarda en el navegador y lo que no (SCRUM-133)', () => {
+  // Sin conexion, la aplicacion guarda sus propias copias (IndexedDB, cifradas,
+  // por persona). La cache HTTP del navegador es otra cosa: no se borra al
+  // cerrar sesion y, en un equipo compartido, la ve quien se sienta despues.
+  // Por eso lo privado no entra en ella, y lo publico se revalida en vez de
+  // descargarse entero cada vez.
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('la cuenta propia no se guarda en la cache del navegador', async () => {
+    await alta(app, A).send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO }).expect(200);
+
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(respuesta.headers['cache-control']).toBe('no-store');
+  });
+
+  it.each(['/api/catalogo', '/api/aviso'])(
+    '%s lleva ETag y responde 304 si no cambio, sin cuerpo',
+    async (ruta) => {
+      const primera = await request(app.getHttpServer()).get(ruta).expect(200);
+      const etag = primera.headers['etag'];
+
+      expect(etag).toBeTruthy();
+
+      const revalidada = await request(app.getHttpServer())
+        .get(ruta)
+        .set('If-None-Match', String(etag))
+        .expect(304);
+
+      expect(revalidada.text).toBe('');
+    },
+  );
+
+  it.each(['/api/catalogo', '/api/aviso'])(
+    '%s con un ETag viejo devuelve el contenido entero',
+    async (ruta) => {
+      const respuesta = await request(app.getHttpServer())
+        .get(ruta)
+        .set('If-None-Match', 'W/"una-version-anterior"')
+        .expect(200);
+
+      expect(respuesta.body).toBeTruthy();
+    },
+  );
+
+  it('la web puede leer el ETag desde su origen', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/aviso')
+      .set('Origin', 'http://localhost:5173')
+      .expect(200);
+
+    const expuestas = String(respuesta.headers['access-control-expose-headers']).toLowerCase();
+
+    expect(expuestas).toContain('etag');
+    // Y lo que ya se exponia no se perdio.
+    expect(expuestas).toContain('x-request-id');
+  });
+});

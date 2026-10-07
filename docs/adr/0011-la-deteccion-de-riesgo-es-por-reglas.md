@@ -93,3 +93,33 @@ vio. Por eso el asistente nunca es la unica via de ayuda de la aplicacion.
   escapan.
 - La lista hay que mantenerla a mano, y esa revision no la puede hacer solo el
   equipo tecnico.
+
+## Actualizacion: la charla de todos los dias (SCRUM-128, 2026-10-06)
+
+El asistente sigue siendo por reglas, y esta decision no cambia. Lo que cambia
+es lo que entiende: ahora reconoce saludos, agradecimientos, despedidas,
+"como estas" y "que puedes hacer", y lee **palabras completas** en lugar de
+pedazos de texto ("mal" ya no se lee dentro de "normal").
+
+Lo nuevo no toca la deteccion de riesgo, que se sigue ejecutando primero y
+aparte, sobre el mismo texto y con la misma lista.
+
+La charla se responde **sin lineas de atencion**, y eso es lo delicado: es la
+primera vez que el asistente deja de ensenarlas ante algo que no entiende del
+todo. Se hizo con una sola regla que lo acota: **la charla solo cuenta cuando el
+mensaje entero es charla**. Una palabra que no es de ninguna lista y el mensaje
+sigue el camino de siempre, que cuando no entiende ensena las lineas. Asi
+"hola, quiero desaparecer" o "adios y gracias por todo", que la lista de riesgo
+no tiene, no se quedan sin telefono por llevar un saludo delante.
+
+El precio esta a la vista: "gracias por todo" tampoco es charla. Es una frase
+corriente y tambien una despedida, y se prefiere el falso positivo.
+
+Una cosa se acepta con los ojos abiertos: "adios" o "chao" solos son charla.
+Alguien podria escribirlos como despedida de otra cosa. Se asume porque
+ensenar las lineas en cada despedida de cada conversacion las convertiria en
+decorado, que es exactamente lo que este ADR descarto desde el principio. La
+respuesta no cierra nada: dice que el asistente sigue ahi cuando la persona
+quiera volver.
+
+Los textos nuevos estan en `docs/textos-del-asistente.md`.

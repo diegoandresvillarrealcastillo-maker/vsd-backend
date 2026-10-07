@@ -296,6 +296,258 @@
         ]
       }
     },
+    "/api/cuenta/foto": {
+      "put": {
+        "description": "El cuerpo es la imagen misma, como `image/jpeg` o `image/png`, de menos de 50 KB y de no más de 1024 píxeles por lado. Reemplaza la que hubiera. El servidor comprueba el tipo, el peso, que el contenido sea de verdad lo que dice ser y su tamaño en píxeles: no se fía de lo que haya hecho el navegador.",
+        "operationId": "FotoDePerfilController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "FOTO_NO_ES_UNA_IMAGEN o FOTO_DEMASIADO_GRANDE (más de 1024 píxeles por lado)."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "FOTO_DEMASIADO_PESADA, o CUERPO_DEMASIADO_GRANDE si pasa de 60 KB."
+          },
+          "415": {
+            "description": "FOTO_TIPO_NO_PERMITIDO: solo .jpg y .png."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve la imagen. Solo la de quien firma el token. Va por la API y no por un enlace directo a Storage, para que cada petición lleve la sesión.",
+        "operationId": "FotoDePerfilController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La imagen."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "FOTO_NO_ENCONTRADA: no tiene foto."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la foto de perfil propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo y deja la cuenta sin foto. Quitar la que no existe no es un error.",
+        "operationId": "FotoDePerfilController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/mascota-propia": {
+      "put": {
+        "description": "El cuerpo es el SVG mismo, como `image/svg+xml`, de menos de 100 KB. Reemplaza el que hubiera. El servidor **no guarda lo que llega: lo reescribe** desde una lista blanca de elementos y atributos. Rechaza lo peligroso (scripts, manejadores de eventos, enlaces y referencias fuera del archivo, animaciones, DOCTYPE y entidades) y lo que no admite todavía (textos, imágenes, filtros, estilos). No la elige como mascota: eso se hace con las preferencias, poniendo la forma `propia`.",
+        "operationId": "MascotaPropiaController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/svg+xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MASCOTA_SVG_NO_ES_UN_SVG, MASCOTA_SVG_PELIGROSO, MASCOTA_SVG_NO_ADMITIDO o MASCOTA_SVG_DEMASIADO_COMPLEJO."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "MASCOTA_SVG_DEMASIADO_PESADO, o CUERPO_DEMASIADO_GRANDE si pasa de 120 KB."
+          },
+          "415": {
+            "description": "MASCOTA_SVG_TIPO_NO_PERMITIDO: solo .svg."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve el SVG ya saneado. Solo el de quien firma el token. La aplicación lo muestra siempre como `<img>`, nunca incrustado en la página.",
+        "operationId": "MascotaPropiaController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "El SVG."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "MASCOTA_PROPIA_NO_ENCONTRADA: no tiene."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo. Si era la mascota elegida, la persona vuelve al personaje de siempre, con el nombre que le había puesto. Quitar la que no existe no es un error.",
+        "operationId": "MascotaPropiaController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/aviso": {
       "get": {
         "description": "Devuelve la version que hay que aceptar al dar de alta una cuenta. Es la unica fuente de ese valor: ni el frontend ni las pruebas llevan una copia propia.",
@@ -321,7 +573,7 @@
     },
     "/api/diario": {
       "get": {
-        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en Colombia. Como mucho 366 días por consulta.",
+        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en la zona horaria de la persona. Como mucho 366 días por consulta.",
         "operationId": "DiarioController_consultar",
         "parameters": [
           {
@@ -339,7 +591,7 @@
             "name": "hasta",
             "required": false,
             "in": "query",
-            "description": "Último día del rango, incluido. Si no viene, hoy en Colombia.",
+            "description": "Último día del rango, incluido. Si no viene, hoy en la zona de la persona.",
             "schema": {
               "format": "date",
               "example": "2026-10-03",
@@ -488,7 +740,7 @@
     },
     "/api/pendientes": {
       "get": {
-        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho: cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave), salvo que esté pospuesto. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
+        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho. Sin fecha límite, cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave). Con fecha límite, desde ese día, que se cuenta en la zona horaria de la persona. Un pendiente pospuesto no recuerda nada. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
         "operationId": "PendientesController_consultar",
         "parameters": [],
         "responses": {
@@ -545,7 +797,7 @@
             }
           },
           "400": {
-            "description": "Texto vacío, de más de 280 caracteres o nivel desconocido."
+            "description": "Texto vacío, de más de 280 caracteres, nivel desconocido o fecha límite que no es un día real."
           }
         },
         "security": [
@@ -561,7 +813,7 @@
     },
     "/api/pendientes/{id}": {
       "patch": {
-        "description": "Texto, nivel, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer.",
+        "description": "Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita. Con version, detecta que otro dispositivo lo cambió: si ya no es la vigente, responde 409 sin tocar nada, salvo que la edición solo lo marque como hecho (se aplica) o que el pendiente ya esté como se pide (se devuelve tal cual, así un reintento tras una respuesta perdida no choca consigo mismo).",
         "operationId": "PendientesController_editar",
         "parameters": [
           {
@@ -599,6 +851,9 @@
           },
           "404": {
             "description": "No existe o es de otra persona; las dos se responden igual."
+          },
+          "409": {
+            "description": "VERSION_DESACTUALIZADA: otro dispositivo lo cambió. No se tocó nada; consulta GET /api/pendientes para ver cómo quedó."
           }
         },
         "security": [
@@ -612,6 +867,7 @@
         ]
       },
       "delete": {
+        "description": "Es idempotente: borrar uno que ya no esta responde igual que borrarlo la primera vez. Asi un reintento tras una respuesta perdida no atasca la sincronizacion sin conexion. Un pendiente de otra persona responde igual y no se toca.",
         "operationId": "PendientesController_borrar",
         "parameters": [
           {
@@ -625,10 +881,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Borrado."
-          },
-          "404": {
-            "description": "No existe o es de otra persona; las dos se responden igual."
+            "description": "Ya no esta: se borro, o no existia, o no era suyo."
           }
         },
         "security": [
@@ -678,7 +931,7 @@
     },
     "/api/notificaciones/horas": {
       "patch": {
-        "description": "HH:MM en hora de Colombia. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
+        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
         "operationId": "NotificacionesController_cambiarHoras",
         "parameters": [],
         "requestBody": {
@@ -712,6 +965,47 @@
           }
         ],
         "summary": "Elegir la hora de cada aviso",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/recordatorios": {
+      "patch": {
+        "description": "A las 8:00 y a las 20:00 de la zona horaria de la persona, que no se pueden mover. El de la noche solo sale si ese día no hizo ninguna actividad. Lo que no viene se queda.",
+        "operationId": "NotificacionesController_cambiarRecordatorios",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarRecordatoriosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un valor no es verdadero ni falso."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Encender o apagar los recordatorios de las 8:00 y las 20:00",
         "tags": [
           "Notificaciones"
         ]
@@ -782,7 +1076,7 @@
     },
     "/api/progreso": {
       "get": {
-        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en hora de Colombia. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
+        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
         "operationId": "ProgresoController_consultar",
         "parameters": [],
         "responses": {
@@ -970,7 +1264,7 @@
           },
           "cobertura": {
             "type": "string",
-            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
+            "description": "Donde sirve el recurso: nacional, bogota, universidad o internacional (el directorio que recibe quien esta en un lugar sin lineas verificadas). La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
             "example": "nacional"
           },
           "enlace": {
@@ -1106,6 +1400,12 @@
             "description": "Nombre con el que la persona quiere que la llamen.",
             "example": "Diego",
             "maxLength": 100
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.",
+            "example": "America/Bogota",
+            "maxLength": 64
           }
         },
         "required": [
@@ -1136,7 +1436,7 @@
         "properties": {
           "forma": {
             "type": "string",
-            "description": "El personaje: fungito, sparky, ori, gato, obsidian o trama. Una clave que el frontend no conozca se dibuja como la mascota de siempre.",
+            "description": "El personaje: fungito, sparky, ori, gato u obsidian. Una clave que el frontend no conozca se dibuja como la mascota de siempre.",
             "example": "fungito",
             "maxLength": 30
           },
@@ -1162,6 +1462,32 @@
         "required": [
           "forma",
           "nombre"
+        ]
+      },
+      "FotoDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
+        ]
+      },
+      "MascotaPropiaDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
         ]
       },
       "CuentaRespuestaDto": {
@@ -1227,6 +1553,31 @@
           "diarioConRecomendaciones": {
             "type": "boolean",
             "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).",
+            "example": "America/Bogota"
+          },
+          "foto": {
+            "description": "La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoDeLaCuentaDto"
+              }
+            ]
+          },
+          "mascotaPropia": {
+            "description": "La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaDeLaCuentaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1237,7 +1588,10 @@
           "registradoEn",
           "modulosActivos",
           "mascota",
-          "diarioConRecomendaciones"
+          "diarioConRecomendaciones",
+          "zonaHoraria",
+          "foto",
+          "mascotaPropia"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1289,7 +1643,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "description": "El día al que pertenece, en el calendario de la persona.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1398,6 +1752,18 @@
             "nullable": true,
             "description": "Mientras no llegue, no recuerda nada."
           },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite, en el calendario de la persona (SCRUM-119). Null: no vence un día concreto."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Empieza en 1 y sube con cada edición. Hay que devolverla al editar: si otro dispositivo lo cambió entretanto, la edición se rechaza con 409 en vez de pisarlo."
+          },
           "creadoEn": {
             "type": "string",
             "format": "date-time"
@@ -1413,6 +1779,8 @@
           "nivel",
           "hecho",
           "posponerHasta",
+          "fechaLimite",
+          "version",
           "creadoEn",
           "editadoEn"
         ]
@@ -1430,6 +1798,14 @@
             "nullable": true,
             "example": "19:30"
           },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00 (SCRUM-126)."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00 (SCRUM-126)."
+          },
           "navegadores": {
             "type": "number",
             "description": "En cuántos navegadores recibe avisos."
@@ -1438,7 +1814,56 @@
         "required": [
           "horaSemaforo",
           "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche",
           "navegadores"
+        ]
+      },
+      "FotoExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenidoBase64": {
+            "type": "string",
+            "description": "El archivo, en base64. Es la imagen tal como se guardó.",
+            "format": "byte"
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenidoBase64"
+        ]
+      },
+      "MascotaPropiaExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/svg+xml"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenido": {
+            "type": "string",
+            "description": "El SVG, como texto. Es el que guarda VSD Health, no el que subió la persona: se reescribió sin lo que no se admite."
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenido"
         ]
       },
       "ExportacionDto": {
@@ -1473,6 +1898,26 @@
           },
           "avisos": {
             "$ref": "#/components/schemas/AvisosExportadosDto"
+          },
+          "foto": {
+            "nullable": true,
+            "description": "La foto de perfil, si tiene (SCRUM-120).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoExportadaDto"
+              }
+            ]
+          },
+          "mascotaPropia": {
+            "nullable": true,
+            "description": "La mascota propia, si tiene (SCRUM-122).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaExportadaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1481,7 +1926,9 @@
           "resultados",
           "entradasDeDiario",
           "pendientes",
-          "avisos"
+          "avisos",
+          "foto",
+          "mascotaPropia"
         ]
       },
       "BorrarCuentaDto": {
@@ -1520,7 +1967,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
+            "description": "El día al que pertenece, en el calendario de la persona. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1556,7 +2003,7 @@
           },
           "dia": {
             "type": "string",
-            "description": "El día al que pertenece, en el calendario de Colombia.",
+            "description": "El día al que pertenece, en el calendario de la persona.",
             "example": "2026-10-03",
             "format": "date"
           },
@@ -1717,6 +2164,12 @@
               "suave"
             ],
             "description": "Cómo suena. plazo: se acabó el tiempo que se le dio (urgente, prioridad). suave: no es urgente, pero que no se acumule (aplazable)."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "El día límite que llegó, o null si el recordatorio es por los días de su color (SCRUM-119)."
           }
         },
         "required": [
@@ -1724,7 +2177,8 @@
           "nivel",
           "dias",
           "nivelSugerido",
-          "tono"
+          "tono",
+          "fechaLimite"
         ]
       },
       "SemaforoDto": {
@@ -1772,6 +2226,12 @@
               "prioridad",
               "aplazable"
             ]
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Opcional: sin ella el pendiente no vence un día concreto."
           }
         },
         "required": [
@@ -1783,6 +2243,11 @@
       "EditarPendienteDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "La versión que el dispositivo tenía del pendiente. Si ya no es la vigente, la edición se rechaza con 409, salvo que solo lo marque como hecho o que el pendiente ya esté como se pide. Sin ella no se comprueba nada."
+          },
           "texto": {
             "type": "string",
             "maxLength": 280
@@ -1803,6 +2268,13 @@
             "format": "date-time",
             "nullable": true,
             "description": "Hasta cuándo no recuerda nada. Futura y como mucho a 90 días. Null deja de posponer."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Null la quita."
           }
         }
       },
@@ -1822,20 +2294,30 @@
             "type": "string",
             "nullable": true,
             "example": "08:00",
-            "description": "Hora del aviso del semáforo, en hora de Colombia. Null: apagado."
+            "description": "Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado."
           },
           "horaRacha": {
             "type": "string",
             "nullable": true,
             "example": "19:30",
-            "description": "Hora del recordatorio de la racha, en hora de Colombia. Null: apagado."
+            "description": "Hora del recordatorio de la racha, en la zona horaria de la persona. Null: apagado."
+          },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00, en la zona horaria de la persona. La hora no se mueve: se enciende o se apaga."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00, en la zona horaria de la persona. Solo sale si ese día no hizo ninguna actividad."
           }
         },
         "required": [
           "disponible",
           "clavePublica",
           "horaSemaforo",
-          "horaRacha"
+          "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche"
         ]
       },
       "CambiarHorasDto": {
@@ -1850,6 +2332,19 @@
             "type": "string",
             "nullable": true,
             "example": "19:30"
+          }
+        }
+      },
+      "CambiarRecordatoriosDto": {
+        "type": "object",
+        "properties": {
+          "manana": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 8:00."
+          },
+          "noche": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 20:00."
           }
         }
       },
@@ -2045,7 +2540,7 @@
         "properties": {
           "intencion": {
             "type": "string",
-            "description": "Que se entendio de la pregunta.",
+            "description": "Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) responde sin recursos ni lineas de atencion.",
             "example": "como_duermo_mejor"
           },
           "mensaje": {

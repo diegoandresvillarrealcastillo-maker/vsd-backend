@@ -17,6 +17,7 @@ import { CuentaActual } from '../auth/CuentaActual.js';
 import { AVISOS } from '../config/tokens.js';
 import {
   CambiarHorasDto,
+  CambiarRecordatoriosDto,
   DesuscribirDto,
   EstadoDeLosAvisosDto,
   SuscribirDto,
@@ -54,7 +55,7 @@ export class NotificacionesController {
   @ApiOperation({
     summary: 'Elegir la hora de cada aviso',
     description:
-      'HH:MM en hora de Colombia. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.',
+      'HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.',
   })
   @ApiResponse({ status: 200, type: EstadoDeLosAvisosDto })
   @ApiResponse({ status: 400, description: 'Una hora no tiene el formato HH:MM.' })
@@ -65,8 +66,33 @@ export class NotificacionesController {
     return EstadoDeLosAvisosDto.desde(
       await this.avisos.cambiarHoras({
         userId: cuenta.id.value,
+        zonaHoraria: cuenta.zonaHoraria,
         horaSemaforo: dto.horaSemaforo,
         horaRacha: dto.horaRacha,
+      }),
+    );
+  }
+
+  @Patch('recordatorios')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Encender o apagar los recordatorios de las 8:00 y las 20:00',
+    description:
+      'A las 8:00 y a las 20:00 de la zona horaria de la persona, que no se pueden mover. ' +
+      'El de la noche solo sale si ese día no hizo ninguna actividad. Lo que no viene se queda.',
+  })
+  @ApiResponse({ status: 200, type: EstadoDeLosAvisosDto })
+  @ApiResponse({ status: 400, description: 'Un valor no es verdadero ni falso.' })
+  async cambiarRecordatorios(
+    @Body() dto: CambiarRecordatoriosDto,
+    @CuentaActual() cuenta: User,
+  ): Promise<EstadoDeLosAvisosDto> {
+    return EstadoDeLosAvisosDto.desde(
+      await this.avisos.cambiarRecordatorios({
+        userId: cuenta.id.value,
+        zonaHoraria: cuenta.zonaHoraria,
+        manana: dto.manana,
+        noche: dto.noche,
       }),
     );
   }

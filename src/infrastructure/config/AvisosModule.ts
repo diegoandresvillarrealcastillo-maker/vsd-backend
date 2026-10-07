@@ -1,7 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { AvisosUseCaseImpl } from '../../application/usecases/AvisosUseCaseImpl.js';
 import { RevisarAvisosUseCaseImpl } from '../../application/usecases/RevisarAvisosUseCaseImpl.js';
-import type { Calendario } from '../../domain/model/Calendario.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { EnviadorDePushPort } from '../../domain/ports/out/EnviadorDePushPort.js';
@@ -19,7 +18,6 @@ import {
   ACTIVITY_RESULT_REPOSITORY,
   AVISOS,
   AVISOS_REPOSITORY,
-  CALENDARIO,
   CONFIGURACION,
   ENVIADOR_PUSH,
   PENDIENTES_REPOSITORY,
@@ -69,11 +67,10 @@ import {
         enviador: EnviadorDePushPort,
         pendientes: PendientesRepositoryPort,
         resultados: ActivityResultRepositoryPort,
-        calendario: Calendario,
       ) => {
         const registro = new Logger('Avisos');
 
-        return new RevisarAvisosUseCaseImpl(avisos, enviador, pendientes, resultados, calendario, {
+        return new RevisarAvisosUseCaseImpl(avisos, enviador, pendientes, resultados, {
           // Que fallo y de que clase de aviso; nunca de quien.
           fallo: (tipo, error) =>
             registro.warn(
@@ -81,13 +78,7 @@ import {
             ),
         });
       },
-      inject: [
-        AVISOS_REPOSITORY,
-        ENVIADOR_PUSH,
-        PENDIENTES_REPOSITORY,
-        ACTIVITY_RESULT_REPOSITORY,
-        CALENDARIO,
-      ],
+      inject: [AVISOS_REPOSITORY, ENVIADOR_PUSH, PENDIENTES_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
     },
     RelojDeAvisos,
   ],

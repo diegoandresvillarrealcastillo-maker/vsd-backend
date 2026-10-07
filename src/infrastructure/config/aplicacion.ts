@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { json, type NextFunction, type Request, type Response } from 'express';
+import { json, raw, type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import {
@@ -21,6 +21,23 @@ export const VENTANA_DEL_LIMITE_MS = 60_000;
  * los limites finos de cada parte.
  */
 export const LIMITE_DEL_CUERPO_DEL_DIARIO = '1mb';
+
+/**
+ * Tamano maximo del cuerpo de la foto de perfil (SCRUM-120).
+ *
+ * Un poco mas que los 50 KB que permite el dominio, a proposito: una foto de
+ * 55 KB llega hasta el dominio y recibe su mensaje claro (`FOTO_DEMASIADO_PESADA`)
+ * en lugar del generico de cuerpo demasiado grande. Lo que pase de aqui se
+ * corta sin leerlo entero.
+ */
+export const LIMITE_DEL_CUERPO_DE_LA_FOTO = '60kb';
+
+/**
+ * Tamano maximo del cuerpo de la mascota propia (SCRUM-122): un poco mas que
+ * los 100 KB que permite el dominio, por lo mismo que la foto. Un SVG de 110 KB
+ * llega hasta el dominio y recibe su mensaje claro.
+ */
+export const LIMITE_DEL_CUERPO_DE_LA_MASCOTA = '120kb';
 
 /**
  * Aplica a la aplicacion todo lo que no son rutas: protecciones, validacion
@@ -84,6 +101,40 @@ export function configurarAplicacion(
     },
   );
 
+  // La foto de perfil llega como bytes de imagen, no como JSON: este lector
+  // solo atiende esos dos tipos, y con otro (un JSON, un HTML) deja el cuerpo
+  // sin tocar y el dominio rechaza el tipo. Con nombre propio por la misma
+  // razon que el del diario.
+  const lectorDeLaFoto = raw({
+    type: ['image/jpeg', 'image/png'],
+    limit: LIMITE_DEL_CUERPO_DE_LA_FOTO,
+  });
+
+  app.use(
+    '/api/cuenta/foto',
+    function leerCuerpoDeLaFoto(peticion: Request, respuesta: Response, siguiente: NextFunction) {
+      lectorDeLaFoto(peticion, respuesta, siguiente);
+    },
+  );
+
+  // La mascota propia llega como el SVG mismo, no como JSON. Solo este tipo; con
+  // otro, el cuerpo se queda sin leer y el dominio rechaza el tipo.
+  const lectorDeLaMascota = raw({
+    type: 'image/svg+xml',
+    limit: LIMITE_DEL_CUERPO_DE_LA_MASCOTA,
+  });
+
+  app.use(
+    '/api/cuenta/mascota-propia',
+    function leerCuerpoDeLaMascota(
+      peticion: Request,
+      respuesta: Response,
+      siguiente: NextFunction,
+    ) {
+      lectorDeLaMascota(peticion, respuesta, siguiente);
+    },
+  );
+
   app.enableCors({
     // Se copia porque enableCors espera un arreglo mutable.
     origin: [...configuracion.origenesAutorizados],
@@ -93,7 +144,11 @@ export function configurarAplicacion(
     // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
     // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
     // curl, y `headers.get` devuelve null en el navegador.
-    exposedHeaders: [CABECERA_DE_PETICION],
+    //
+    // ETag: la aplicacion guarda copias de lo publico para usarlo sin conexion
+    // (SCRUM-133) y con el puede preguntar "cambio?" sin descargarlo entero.
+    // Express ya lo calcula; solo faltaba dejarlo leer.
+    exposedHeaders: [CABECERA_DE_PETICION, 'ETag'],
   });
 
   app.useGlobalPipes(

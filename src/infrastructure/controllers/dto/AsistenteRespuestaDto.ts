@@ -11,7 +11,8 @@ import { RecursoDto } from './RecursoDto.js';
  */
 export class AsistenteRespuestaDto {
   @ApiProperty({
-    description: 'Que se entendio de la pregunta.',
+    description:
+      'Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) responde sin recursos ni lineas de atencion.',
     example: 'como_duermo_mejor',
   })
   intencion!: string;

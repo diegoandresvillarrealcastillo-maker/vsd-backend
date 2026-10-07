@@ -264,21 +264,3 @@ describe('La clave de servicio es obligatoria fuera de local', () => {
     }
   });
 });
-
-describe('La zona horaria decide que dia es', () => {
-  it('por defecto es la de Colombia', () => {
-    expect(validarConfiguracion(VALIDA).zonaHoraria).toBe('America/Bogota');
-  });
-
-  it('acepta otra zona IANA', () => {
-    expect(validarConfiguracion({ ...VALIDA, ZONA_HORARIA: 'UTC' }).zonaHoraria).toBe('UTC');
-  });
-
-  it('no arranca con una zona mal escrita', () => {
-    // Con una zona invalida los dias saldrian corridos sin ningun error
-    // visible. Mejor que el servicio no arranque y diga por que.
-    expect(() => validarConfiguracion({ ...VALIDA, ZONA_HORARIA: 'Bogota' })).toThrow(
-      /ZONA_HORARIA/,
-    );
-  });
-});

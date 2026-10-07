@@ -6,7 +6,7 @@ import type {
   SuscripcionPush,
 } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
-import { Calendario, type Dia } from '../../domain/model/Calendario.js';
+import type { Dia } from '../../domain/model/Calendario.js';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -22,14 +22,46 @@ const BETO = '22222222-2222-4222-9222-222222222222';
 const OCHO = new Date('2026-10-05T13:00:00.000Z');
 const minutos = (cuantos: number) => new Date(OCHO.getTime() + cuantos * 60_000);
 
+/** Las 20:00 del 5 de octubre en Bogota (01:00 UTC del 6). */
+const VEINTE = new Date('2026-10-06T01:00:00.000Z');
+
+interface Horas {
+  semaforo: number | null;
+  racha: number | null;
+  manana: number | null;
+  noche: number | null;
+  zona: string;
+}
+
 /** Las horas y las suscripciones de cada persona, como las guardaria la base. */
 class AvisosDePrueba implements AvisosRepositoryPort {
-  readonly horas = new Map<string, { semaforo: number | null; racha: number | null }>();
+  readonly horas = new Map<string, Horas>();
   readonly revisados = new Map<string, Dia>();
   suscripciones = new Map<string, SuscripcionPush[]>();
 
-  elegir(persona: string, semaforo: number | null, racha: number | null) {
-    this.horas.set(persona, { semaforo, racha });
+  elegir(persona: string, semaforo: number | null, racha: number | null, zona = 'America/Bogota') {
+    this.poner(persona, { semaforo, racha, zona });
+  }
+
+  /** Los recordatorios de las 8:00 y las 20:00 (SCRUM-126); lo demas queda apagado. */
+  recordatorios(
+    persona: string,
+    manana: number | null,
+    noche: number | null,
+    zona = 'America/Bogota',
+  ) {
+    this.poner(persona, { manana, noche, zona });
+  }
+
+  private poner(persona: string, cambios: Partial<Horas>) {
+    this.horas.set(persona, {
+      semaforo: null,
+      racha: null,
+      manana: null,
+      noche: null,
+      zona: 'America/Bogota',
+      ...cambios,
+    });
     this.suscripciones.set(persona, [
       { endpoint: `https://push.example.com/${persona}`, p256dh: 'p', auth: 'a' },
     ]);
@@ -42,6 +74,9 @@ class AvisosDePrueba implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: horas?.semaforo ?? null,
       minutoRacha: horas?.racha ?? null,
+      minutoManana: horas?.manana ?? null,
+      minutoNoche: horas?.noche ?? null,
+      zonaHoraria: horas?.zona ?? 'America/Bogota',
     });
   }
 
@@ -66,13 +101,23 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve(this.suscripciones.get(userId.value) ?? []);
   }
 
-  aQuienLeToca(tipo: TipoDeAviso, desde: number, hasta: number, dia: Dia) {
+  zonasEnUso() {
+    return Promise.resolve([...new Set([...this.horas.values()].map((horas) => horas.zona))]);
+  }
+
+  aQuienLeToca(tipo: TipoDeAviso, zona: string, desde: number, hasta: number, dia: Dia) {
     return Promise.resolve(
       [...this.horas.entries()]
         .filter(([persona, horas]) => {
-          const minuto = tipo === TipoDeAviso.SEMAFORO ? horas.semaforo : horas.racha;
+          const minuto = {
+            [TipoDeAviso.SEMAFORO]: horas.semaforo,
+            [TipoDeAviso.RACHA]: horas.racha,
+            [TipoDeAviso.MANANA]: horas.manana,
+            [TipoDeAviso.NOCHE]: horas.noche,
+          }[tipo];
 
           return (
+            horas.zona === zona &&
             minuto !== null &&
             minuto >= desde &&
             minuto <= hasta &&
@@ -167,7 +212,6 @@ function armar({
     enviador,
     pendientes(conPendientes),
     resultados(conActividadHoy),
-    new Calendario(),
     { fallo: (_tipo, error) => fallos.push(error) },
   );
 
@@ -175,6 +219,39 @@ function armar({
 }
 
 describe('la revision de cada minuto', () => {
+  it('cada persona recibe su aviso a las 8:00 de su zona, no de la de otra (SCRUM-123)', async () => {
+    const { avisos, enviador, revision } = armar({
+      conPendientes: { [ANA]: ['Pagar la matrícula'], [BETO]: ['Pedir cita'] },
+    });
+
+    // Las dos eligieron las 8:00. Ana esta en Bogota (13:00 UTC) y Beto en
+    // Madrid, donde las 8:00 de ese dia son las 6:00 UTC.
+    avisos.elegir(ANA, 480, null, 'America/Bogota');
+    avisos.elegir(BETO, 480, null, 'Europe/Madrid');
+
+    // 6:00 UTC: es la hora de Beto y todavia no la de Ana.
+    await revision.revisar(new Date('2026-10-05T06:00:00.000Z'));
+    expect(enviador.para(BETO)).toHaveLength(1);
+    expect(enviador.para(ANA)).toHaveLength(0);
+
+    // 13:00 UTC: ahora es la de Ana, y Beto no recibe un segundo aviso.
+    await revision.revisar(OCHO);
+    expect(enviador.para(ANA)).toHaveLength(1);
+    expect(enviador.para(BETO)).toHaveLength(1);
+  });
+
+  it('una zona que el servidor no conoce no detiene a las demas', async () => {
+    const { avisos, enviador, revision, fallos } = armar();
+
+    avisos.elegir(BETO, 480, null, 'Marte/Olympus');
+    avisos.elegir(ANA, 480, null);
+
+    await revision.revisar(OCHO);
+
+    expect(enviador.para(ANA)).toHaveLength(1);
+    expect(fallos).toHaveLength(1);
+  });
+
   it('a la hora elegida manda el semaforo con los pendientes', async () => {
     const { avisos, enviador, revision } = armar();
 
@@ -225,7 +302,7 @@ describe('la revision de cada minuto', () => {
     const { avisos, enviador, revision } = armar();
 
     avisos.elegir(ANA, 480, null);
-    avisos.horas.set(ANA, { semaforo: 540, racha: null });
+    avisos.elegir(ANA, 540, null);
 
     await revision.revisar(OCHO);
     expect(enviador.para(ANA)).toEqual([]);
@@ -263,6 +340,154 @@ describe('la revision de cada minuto', () => {
 
       expect(enviador.entregados).toEqual([]);
     });
+  });
+
+  describe('el recordatorio de la manana, a las 8:00 (SCRUM-126)', () => {
+    it('sale a las 8:00, con una invitacion para empezar el dia', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, 480, null);
+
+      expect(await revision.revisar(minutos(-1))).toEqual({ entregados: 0, caducadas: 0 });
+      expect(await revision.revisar(OCHO)).toEqual({ entregados: 1, caducadas: 0 });
+      expect(enviador.para(ANA)).toEqual([
+        expect.objectContaining({ tipo: 'manana', ruta: '/panel' }),
+      ]);
+    });
+
+    it('sale aunque no haya pendientes ni nada hecho: no depende de lo que la persona haya hecho', async () => {
+      const { avisos, enviador, revision } = armar({ conPendientes: {}, conActividadHoy: [ANA] });
+
+      avisos.recordatorios(ANA, 480, null);
+      await revision.revisar(OCHO);
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('sale una sola vez al dia', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, 480, null);
+
+      await revision.revisar(OCHO);
+      await revision.revisar(minutos(1));
+      await revision.revisar(minutos(20));
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('cada dia dice algo distinto, sin repetir el de ayer', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, 480, null);
+
+      await revision.revisar(OCHO);
+      await revision.revisar(new Date(OCHO.getTime() + 24 * 60 * 60_000));
+      await revision.revisar(new Date(OCHO.getTime() + 48 * 60 * 60_000));
+
+      const titulos = enviador.para(ANA).map((mensaje) => mensaje.titulo);
+
+      expect(titulos).toHaveLength(3);
+      expect(titulos[1]).not.toBe(titulos[0]);
+      expect(titulos[2]).not.toBe(titulos[1]);
+    });
+
+    it('cada persona lo recibe a las 8:00 de su zona', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, 480, null, 'America/Bogota');
+      avisos.recordatorios(BETO, 480, null, 'Europe/Madrid');
+
+      await revision.revisar(new Date('2026-10-05T06:00:00.000Z'));
+      expect(enviador.para(BETO)).toHaveLength(1);
+      expect(enviador.para(ANA)).toHaveLength(0);
+
+      await revision.revisar(OCHO);
+      expect(enviador.para(ANA)).toHaveLength(1);
+      expect(enviador.para(BETO)).toHaveLength(1);
+    });
+
+    it('quien lo tiene apagado no recibe nada', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, null, 1200);
+      await revision.revisar(OCHO);
+
+      expect(enviador.entregados).toEqual([]);
+    });
+  });
+
+  describe('el recordatorio de la noche, a las 20:00 (SCRUM-126)', () => {
+    it('sale a las 20:00 a quien hoy no hizo ninguna actividad', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, null, 1200);
+
+      expect(await revision.revisar(new Date(VEINTE.getTime() - 60_000))).toEqual({
+        entregados: 0,
+        caducadas: 0,
+      });
+      expect(await revision.revisar(VEINTE)).toEqual({ entregados: 1, caducadas: 0 });
+      expect(enviador.para(ANA)).toEqual([
+        expect.objectContaining({ tipo: 'noche', ruta: '/panel' }),
+      ]);
+    });
+
+    it('quien ya hizo una actividad hoy no recibe nada', async () => {
+      const { avisos, enviador, revision } = armar({ conActividadHoy: [ANA] });
+
+      avisos.recordatorios(ANA, null, 1200);
+      await revision.revisar(VEINTE);
+
+      expect(enviador.entregados).toEqual([]);
+    });
+
+    it('con la actividad hecha igual se marca revisado: no se reintenta cada minuto', async () => {
+      const { avisos, revision } = armar({ conActividadHoy: [ANA] });
+
+      avisos.recordatorios(ANA, null, 1200);
+      await revision.revisar(VEINTE);
+
+      expect(avisos.revisados.get(`${ANA}:noche`)).toBe('2026-10-05');
+    });
+
+    it('sale una sola vez al dia', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, null, 1200);
+
+      await revision.revisar(VEINTE);
+      await revision.revisar(new Date(VEINTE.getTime() + 60_000));
+      await revision.revisar(new Date(VEINTE.getTime() + 25 * 60_000));
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('a las 20:00 de cada zona', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.recordatorios(ANA, null, 1200, 'America/Bogota');
+      avisos.recordatorios(BETO, null, 1200, 'Asia/Tokyo');
+
+      // 20:00 en Tokio son las 11:00 UTC del 5; en Bogota todavia son las 6:00.
+      await revision.revisar(new Date('2026-10-05T11:00:00.000Z'));
+      expect(enviador.para(BETO)).toHaveLength(1);
+      expect(enviador.para(ANA)).toHaveLength(0);
+
+      await revision.revisar(VEINTE);
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+  });
+
+  it('la manana y la noche de la misma persona salen cada una a su hora', async () => {
+    const { avisos, enviador, revision } = armar();
+
+    avisos.recordatorios(ANA, 480, 1200);
+
+    await revision.revisar(OCHO);
+    await revision.revisar(VEINTE);
+
+    expect(enviador.para(ANA).map((mensaje) => mensaje.tipo)).toEqual(['manana', 'noche']);
   });
 
   it('apagar un aviso no apaga el otro', async () => {

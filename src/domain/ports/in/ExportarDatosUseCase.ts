@@ -4,6 +4,8 @@ import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { Pendiente } from '../../model/Pendiente.js';
 import type { User } from '../../model/User.js';
+import type { FotoLeida } from './FotoDePerfilUseCase.js';
+import type { MascotaPropiaLeida } from './MascotaPropiaUseCase.js';
 
 /** Todo lo que VSD Health guarda de una persona. */
 export interface DatosExportados {
@@ -22,6 +24,10 @@ export interface DatosExportados {
     readonly preferencias: PreferenciasDeAviso;
     readonly navegadores: number;
   };
+  /** La foto de perfil, si tiene (SCRUM-120). Es un dato personal como cualquiera. */
+  readonly foto: FotoLeida | null;
+  /** La mascota propia, el SVG ya saneado, si tiene (SCRUM-122). */
+  readonly mascotaPropia: MascotaPropiaLeida | null;
 }
 
 /**

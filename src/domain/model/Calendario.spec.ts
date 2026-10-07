@@ -135,3 +135,46 @@ describe('minutoDelDia (SCRUM-102)', () => {
     expect(calendario.minutoDelDia(new Date('2026-10-06T05:00:00Z'))).toBe(0);
   });
 });
+
+describe('una zona por persona (SCRUM-123)', () => {
+  // El mismo instante, visto desde tres lugares: 9 p. m. del 2 de octubre en
+  // Bogota, 4 a. m. del 3 en Madrid y 11 a. m. del 3 en Tokio.
+  const INSTANTE = new Date('2026-10-03T02:00:00.000Z');
+
+  it('el mismo instante es un dia distinto segun la zona', () => {
+    expect(Calendario.de('America/Bogota').diaDe(INSTANTE)).toBe('2026-10-02');
+    expect(Calendario.de('Europe/Madrid').diaDe(INSTANTE)).toBe('2026-10-03');
+    expect(Calendario.de('Asia/Tokyo').diaDe(INSTANTE)).toBe('2026-10-03');
+  });
+
+  it('la hora de cada aviso es la del reloj de pared de cada zona', () => {
+    // 13:00 UTC: las 8:00 en Bogota, las 15:00 en Madrid.
+    const ahora = new Date('2026-10-05T13:00:00.000Z');
+
+    expect(Calendario.de('America/Bogota').minutoDelDia(ahora)).toBe(480);
+    expect(Calendario.de('Europe/Madrid').minutoDelDia(ahora)).toBe(900);
+  });
+
+  it('respeta el horario de verano de cada zona', () => {
+    // Madrid va a UTC+2 en octubre y a UTC+1 en diciembre; Bogota no cambia.
+    expect(Calendario.de('Europe/Madrid').minutoDelDia(new Date('2026-10-05T10:00:00Z'))).toBe(720);
+    expect(Calendario.de('Europe/Madrid').minutoDelDia(new Date('2026-12-05T10:00:00Z'))).toBe(660);
+    expect(Calendario.de('America/Bogota').minutoDelDia(new Date('2026-12-05T10:00:00Z'))).toBe(
+      300,
+    );
+  });
+
+  it('el mismo nombre devuelve el mismo calendario, sin construirlo otra vez', () => {
+    expect(Calendario.de('Europe/Madrid')).toBe(Calendario.de('Europe/Madrid'));
+  });
+
+  it('el nombre en otras mayusculas es la misma zona', () => {
+    expect(Calendario.canonica('america/bogota')).toBe('America/Bogota');
+    expect(Calendario.de('america/bogota')).toBe(Calendario.de('America/Bogota'));
+  });
+
+  it('rechaza una zona que no existe en lugar de inventarse un dia', () => {
+    expect(() => Calendario.de('Marte/Olympus')).toThrow(RangeError);
+    expect(() => Calendario.canonica('')).toThrow(RangeError);
+  });
+});

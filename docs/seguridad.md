@@ -190,6 +190,22 @@ El funcionamiento sin conexion usa **IndexedDB** a traves de un
 adaptador. `localStorage` queda reservado para preferencias no sensibles
 como el tema visual o el idioma.
 
+### La cache HTTP del navegador es otra cosa (SCRUM-133)
+
+Las copias propias de la aplicacion viven en IndexedDB, por persona, y se borran
+al cerrar sesion. La **cache HTTP** del navegador no: sobrevive al cierre de
+sesion y, en un equipo compartido (las salas de computo), la ve quien se sienta
+despues. Por eso:
+
+- **Toda lectura (`GET`) de algo de una persona responde `Cache-Control:
+no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
+  foto, la mascota y la exportacion. Las demas operaciones (`POST`, `PATCH`,
+  `PUT`, `DELETE`) no las guarda el navegador. Cada lectura tiene su prueba.
+- **Lo publico** (el catalogo y la version del aviso) no lleva nada de nadie, asi
+  que se deja guardar y se **revalida**: Express calcula el `ETag` y responde 304
+  sin cuerpo si no cambio. El `ETag` se expone por CORS para que la aplicacion
+  pueda leerlo.
+
 ---
 
 ## 5. Datos personales
@@ -200,15 +216,36 @@ como el tema visual o el idioma.
 - El usuario puede exportar y eliminar su informacion:
   - `GET /api/cuenta/exportacion` devuelve en JSON todo lo que se guarda
     de quien firma el token: la cuenta, los resultados, el diario, los
-    pendientes y la hora de cada aviso. De los navegadores suscritos solo dice
-    cuántos son: sus direcciones y claves sirven para mandarle avisos a ese
-    equipo, no para leerlas.
+    pendientes, la hora de cada aviso y la foto de perfil, si tiene (en
+    base64). De los navegadores suscritos solo dice cuántos son: sus
+    direcciones y claves sirven para mandarle avisos a ese equipo, no para
+    leerlas.
   - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, borra la cuenta
-    con todo lo suyo y su identidad en Supabase Auth. Es todo o nada: si
-    Supabase no responde, la transaccion se deshace y no se borra nada.
-  - La identidad se borra con `SUPABASE_SERVICE_ROLE_KEY`, que el backend
-    usa **solo** para eso. Nunca para leer ni escribir datos, que siguen
-    pasando por `vsd_app` y sus politicas.
+    con todo lo suyo, sus archivos en Storage y su identidad en Supabase
+    Auth. Es todo o nada: si Supabase no responde, la transaccion se deshace
+    y no se borra nada. Los archivos se borran antes que la identidad: lo
+    irreversible va al final.
+  - `SUPABASE_SERVICE_ROLE_KEY` el backend la usa para **dos** cosas: borrar
+    la identidad y guardar, leer y borrar los archivos de las personas en
+    Supabase Storage (ADR 0016). Nunca para leer ni escribir datos de la
+    base, que siguen pasando por `vsd_app` y sus politicas.
+  - **La foto de perfil** (SCRUM-120). El navegador nunca habla con Storage:
+    solo con la API. El bucket es privado y no tiene politicas, asi que ni la
+    clave publica ni la sesion de otra persona abren nada. Ninguna ruta de la
+    foto lleva un identificador: es siempre la de quien firma el token. La API
+    no se fia del navegador y comprueba el tipo, el peso (menos de 50 KB), que
+    el contenido sea lo que dice ser y su tamano en pixeles (hasta 1024 por
+    lado). Se sirve con `Cache-Control: no-store`.
+  - **La mascota propia, un SVG** (SCRUM-122, ADR 0017). Un SVG es un documento
+    que puede llevar scripts, enlaces y entidades, asi que **no se guarda lo que
+    llega: se reconstruye** desde una lista blanca de elementos y atributos, con
+    un lector estricto (sin DOCTYPE, entidades, CDATA ni instrucciones de
+    procesamiento) y cada valor validado contra su tipo. Lo peligroso se rechaza
+    entero, con un motivo. Se muestra solo como `<img>`, y al devolverlo lleva una
+    politica (`Content-Security-Policy: default-src 'none'; sandbox`) que lo deja
+    inerte si alguien lo abre suelto. Va en su propio bucket privado y entra en la
+    exportacion y en el borrado de la cuenta. **Es un saneador escrito a mano y no
+    lo ha revisado nadie de fuera.**
   - Toda tabla nueva que guarde algo de una persona debe declarar su clave
     hacia `usuario` con `ON DELETE CASCADE`. La prueba
     `borradoDeCuenta.integracion.spec.ts` recorre cada tabla con columna

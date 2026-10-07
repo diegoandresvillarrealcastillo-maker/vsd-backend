@@ -29,7 +29,7 @@ export class EscribirEnElDiarioDto {
 
   @ApiPropertyOptional({
     description:
-      'El día al que pertenece, en el calendario de Colombia. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.',
+      'El día al que pertenece, en el calendario de la persona. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.',
     example: '2026-10-03',
     format: 'date',
   })

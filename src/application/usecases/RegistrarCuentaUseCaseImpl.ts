@@ -38,7 +38,21 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
       // Tampoco se vuelve a pedir el consentimiento ni se actualiza el que
       // hay: la fecha y la version guardadas son la prueba de lo que acepto
       // esa persona ese dia, y sobrescribirlas borraria esa prueba.
-      return existente;
+      //
+      // Lo unico que se actualiza es la zona horaria, y solo si es otra: es
+      // lo que el dispositivo informa en cada entrada, y lo que permite que
+      // viajar no obligue a configurar nada (SCRUM-123).
+      if (command.zonaHoraria === undefined) {
+        return existente;
+      }
+
+      const enSuZona = existente.conZonaHoraria(command.zonaHoraria);
+
+      if (enSuZona !== existente) {
+        await this.cuentas.save(enSuZona);
+      }
+
+      return enSuZona;
     }
 
     if (command.versionPolitica.trim() === '') {
@@ -78,6 +92,7 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
         ...(command.nombre === undefined || command.nombre.trim() === ''
           ? {}
           : { nombre: command.nombre.trim() }),
+        ...(command.zonaHoraria === undefined ? {} : { zonaHoraria: command.zonaHoraria }),
       },
       ahora,
     );

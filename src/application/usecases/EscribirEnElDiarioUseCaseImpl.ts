@@ -1,7 +1,9 @@
-import type { Calendario } from '../../domain/model/Calendario.js';
+import { Calendario } from '../../domain/model/Calendario.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
+import { conTolerancia } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
   AnotacionGuardada,
   EscribirEnElDiarioCommand,
@@ -22,7 +24,6 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
   constructor(
     private readonly diario: DiarioRepositoryPort,
     private readonly recursos: RecursoApoyoRepositoryPort,
-    private readonly calendario: Calendario,
     private readonly generarId: () => EntradaId = () =>
       new EntradaId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
@@ -37,11 +38,23 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     const existente = await this.diario.porOperacion(userId, clientOperationId);
 
     if (existente !== null) {
-      return acompanarAnotacion(existente, this.recursos, command.conRecomendaciones);
+      return acompanarAnotacion(
+        existente,
+        this.recursos,
+        command.conRecomendaciones,
+        paisDeLaZona(command.zonaHoraria),
+      );
     }
 
     const ahora = this.reloj();
-    const hoy = this.calendario.diaDe(ahora);
+    const calendario = Calendario.de(command.zonaHoraria);
+    const hoy = calendario.diaDe(ahora);
+
+    // El dia lo elige el dispositivo, con su reloj. Un reloj adelantado unos
+    // minutos, pasada la medianoche, diria que ya es "manana" (ver
+    // ToleranciaDelReloj): se admite hasta el dia que seria con esa tolerancia,
+    // y no un dia mas.
+    const ultimoDiaAdmitido = calendario.diaDe(conTolerancia(ahora));
 
     const entrada = EntradaDeDiario.nueva(
       {
@@ -53,7 +66,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
         documento: DocumentoDelDiario.desde(command.contenido),
         adjuntos: adjuntosDesde(command.adjuntos),
       },
-      hoy,
+      ultimoDiaAdmitido,
       ahora,
     );
 
@@ -61,6 +74,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
       await this.diario.guardarNueva(entrada),
       this.recursos,
       command.conRecomendaciones,
+      paisDeLaZona(command.zonaHoraria),
     );
   }
 }

@@ -18,6 +18,11 @@ function esOperacionRepetida(error: unknown): boolean {
   return posible.code === 'P2002' && /operacion_?cliente/i.test(JSON.stringify(posible.meta ?? {}));
 }
 
+/** Un dia AAAA-MM-DD como valor de una columna DATE, o `null` si no hay. */
+function aFecha(dia: string | undefined): Date | null {
+  return dia === undefined ? null : new Date(`${dia}T00:00:00.000Z`);
+}
+
 /**
  * El semaforo contra PostgreSQL, siempre en nombre de la persona: la politica
  * de la base solo deja ver y tocar sus filas. Los filtros por `idUsuario` son
@@ -87,6 +92,7 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
             texto: pendiente.texto,
             nivel: pendiente.nivel,
             hecho: pendiente.hecho,
+            fechaLimite: aFecha(pendiente.fechaLimite),
             fechaCreacion: pendiente.creadoEn,
           },
         }),
@@ -107,15 +113,24 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
     }
   }
 
-  async actualizar(pendiente: Pendiente): Promise<Pendiente | null> {
+  async actualizar(pendiente: Pendiente, versionAnterior: number): Promise<Pendiente | null> {
     return this.prisma.comoUsuario(pendiente.userId.value, async (cliente) => {
       const { count } = await cliente.pendiente.updateMany({
-        where: { id: pendiente.id.value, idUsuario: pendiente.userId.value },
+        // La version va en el WHERE: la comprueba la base, en el mismo UPDATE.
+        // Comprobarla antes en el codigo dejaria una ventana entre leer y
+        // escribir por la que se colaria el cambio del otro dispositivo.
+        where: {
+          id: pendiente.id.value,
+          idUsuario: pendiente.userId.value,
+          version: versionAnterior,
+        },
         data: {
           texto: pendiente.texto,
           nivel: pendiente.nivel,
           hecho: pendiente.hecho,
           posponerHasta: pendiente.posponerHasta ?? null,
+          fechaLimite: aFecha(pendiente.fechaLimite),
+          version: { increment: 1 },
         },
       });
 
@@ -146,6 +161,8 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
       nivel: fila.nivel,
       hecho: fila.hecho,
       posponerHasta: fila.posponerHasta ?? undefined,
+      fechaLimite: fila.fechaLimite?.toISOString().slice(0, 10),
+      version: fila.version,
       creadoEn: fila.fechaCreacion,
       editadoEn: fila.fechaEdicion,
     });

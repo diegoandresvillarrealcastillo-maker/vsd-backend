@@ -59,10 +59,11 @@ export function elegirModulos(elegidos: readonly string[]): readonly Modulo[] {
 /**
  * Como es la mascota de la persona.
  *
- * La forma es el personaje: `fungito`, `sparky`, `ori`, `gato`, `obsidian` o
- * `trama` (SCRUM-99). Se valida por formato y no contra esa lista: cada
- * personaje nuevo exigiria desplegar el backend, y es el frontend quien sabe
- * dibujarlos. Si recibe una forma que no conoce, usa la de siempre.
+ * La forma es el personaje: `fungito`, `sparky`, `ori`, `gato` u `obsidian`
+ * (SCRUM-99; `trama` se retiro en SCRUM-121). Se valida por formato y no contra
+ * esa lista: cada personaje nuevo exigiria desplegar el backend, y es el
+ * frontend quien sabe dibujarlos. Si recibe una forma que no conoce, usa la de
+ * siempre.
  *
  * Color y accesorio son opcionales. Los personajes definitivos no los usan —cada
  * uno tiene su propio dibujo—, pero se aceptan para no invalidar lo que se
@@ -74,6 +75,16 @@ export interface Mascota {
   readonly color?: string;
   readonly accesorio?: string;
 }
+
+/**
+ * La forma que significa «mi mascota propia» (SCRUM-122): el dibujo no es de un
+ * personaje de la aplicacion sino un SVG que subio la persona, y vive en el
+ * almacenamiento de archivos. Elegirla exige haberlo subido.
+ */
+export const FORMA_DE_LA_MASCOTA_PROPIA = 'propia';
+
+/** El personaje de siempre: al que se vuelve cuando se quita la mascota propia. */
+export const FORMA_POR_DEFECTO_DE_LA_MASCOTA = 'fungito';
 
 /** Una clave corta en minusculas: `fungito`, `gato`, `bufanda-roja`. */
 const CLAVE = /^[a-z][a-z0-9-]{0,29}$/;

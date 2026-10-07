@@ -4,6 +4,7 @@ import {
   InvalidNameError,
   InvalidPetError,
   InvalidRoleError,
+  InvalidTimeZoneError,
   MissingConsentError,
   NoActiveModulesError,
   UnknownModuleError,
@@ -211,5 +212,325 @@ describe('Las preferencias de la cuenta', () => {
     expect(() => User.create(datos({ modulosActivos: ['finanzas'] }), AHORA)).toThrow(
       UnknownModuleError,
     );
+  });
+});
+
+describe('La zona horaria de la cuenta (SCRUM-123)', () => {
+  it('sin zona, es la de Colombia: es la de todas las cuentas anteriores', () => {
+    expect(User.create(datos(), AHORA).zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('guarda la zona que informa el dispositivo', () => {
+    expect(User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA).zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+  });
+
+  it('la guarda con la forma de IANA, aunque llegue en otras mayusculas', () => {
+    expect(User.create(datos({ zonaHoraria: 'europe/madrid' }), AHORA).zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+  });
+
+  it.each(['Marte/Olympus', '', '   ', 'Bogota'])('rechaza la zona "%s"', (zona) => {
+    expect(() => User.create(datos({ zonaHoraria: zona }), AHORA)).toThrow(InvalidTimeZoneError);
+  });
+
+  it('conZonaHoraria devuelve otra cuenta con la zona nueva y todo lo demas igual', () => {
+    const antes = User.create(
+      datos({ nombre: 'Ana', modulosActivos: ['cognicion'], diarioConRecomendaciones: true }),
+      AHORA,
+    );
+
+    const despues = antes.conZonaHoraria('Asia/Tokyo');
+
+    expect(despues).not.toBe(antes);
+    expect(despues.zonaHoraria).toBe('Asia/Tokyo');
+    expect(despues.id.value).toBe(antes.id.value);
+    expect(despues.nombre).toBe('Ana');
+    expect(despues.modulosActivos).toEqual(['cognicion']);
+    expect(despues.diarioConRecomendaciones).toBe(true);
+    // La cuenta original no cambia.
+    expect(antes.zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('conZonaHoraria devuelve esta misma cuenta si la zona ya es esa', () => {
+    const cuenta = User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA);
+
+    expect(cuenta.conZonaHoraria('europe/madrid')).toBe(cuenta);
+  });
+
+  it('conZonaHoraria rechaza una zona que no existe', () => {
+    expect(() => User.create(datos(), AHORA).conZonaHoraria('Marte/Olympus')).toThrow(
+      InvalidTimeZoneError,
+    );
+  });
+
+  it('cambiar las preferencias no cambia la zona', () => {
+    const cuenta = User.create(datos({ zonaHoraria: 'Europe/Madrid' }), AHORA);
+
+    expect(cuenta.conPreferencias({ nombre: 'Ana' }).zonaHoraria).toBe('Europe/Madrid');
+  });
+});
+
+describe('User: la foto de perfil (SCRUM-120)', () => {
+  const GUARDADA_EL = new Date('2026-10-09T15:30:00.123Z');
+
+  it('una cuenta nueva no tiene foto', () => {
+    expect(User.create(datos(), AHORA).fotoActualizadaEl).toBeUndefined();
+  });
+
+  it('conFoto devuelve otra cuenta con la fecha, y la original no cambia', () => {
+    const antes = User.create(datos(), AHORA);
+    const despues = antes.conFoto(GUARDADA_EL);
+
+    expect(despues).not.toBe(antes);
+    expect(despues.fotoActualizadaEl).toEqual(GUARDADA_EL);
+    expect(antes.fotoActualizadaEl).toBeUndefined();
+  });
+
+  it('conFoto no toca nada mas de la cuenta', () => {
+    const antes = User.create(
+      datos({
+        nombre: 'Ana',
+        modulosActivos: ['cognicion'],
+        mascota: { forma: 'sparky', nombre: 'Chispa' },
+        diarioConRecomendaciones: true,
+        zonaHoraria: 'Europe/Madrid',
+      }),
+      AHORA,
+    );
+    const despues = antes.conFoto(GUARDADA_EL);
+
+    expect(despues.id.value).toBe(antes.id.value);
+    expect(despues.correo).toBe(antes.correo);
+    expect(despues.idProveedorAuth).toBe(antes.idProveedorAuth);
+    expect(despues.rol).toBe(antes.rol);
+    expect(despues.consentimiento).toEqual(antes.consentimiento);
+    expect(despues.registradoEn).toEqual(antes.registradoEn);
+    expect(despues.nombre).toBe('Ana');
+    expect(despues.modulosActivos).toEqual(['cognicion']);
+    expect(despues.mascota).toEqual({ forma: 'sparky', nombre: 'Chispa' });
+    expect(despues.diarioConRecomendaciones).toBe(true);
+    expect(despues.zonaHoraria).toBe('Europe/Madrid');
+  });
+
+  it('copia la fecha, para que no se pueda mutar desde fuera', () => {
+    const fecha = new Date(GUARDADA_EL.getTime());
+    const cuenta = User.create(datos(), AHORA).conFoto(fecha);
+
+    fecha.setFullYear(1990);
+
+    expect(cuenta.fotoActualizadaEl?.getUTCFullYear()).toBe(2026);
+  });
+
+  it('sinFoto la quita', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.sinFoto().fotoActualizadaEl).toBeUndefined();
+    expect(cuenta.fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('sinFoto en una cuenta sin foto devuelve esta misma cuenta', () => {
+    const cuenta = User.create(datos(), AHORA);
+
+    expect(cuenta.sinFoto()).toBe(cuenta);
+  });
+
+  // Estas dos son las que importan: `conPreferencias` y `conZonaHoraria`
+  // reconstruyen la cuenta campo por campo, y si no arrastraran la foto,
+  // guardar el nombre o la zona borraria la foto sin que nadie lo pidiera.
+  it('cambiar las preferencias no quita la foto', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.conPreferencias({ nombre: 'Ana' }).fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('cambiar la zona horaria no quita la foto', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.conZonaHoraria('Asia/Tokyo').fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('la foto no se puede poner por conPreferencias', () => {
+    // El cuerpo de PATCH /api/cuenta/preferencias no tiene donde ponerla; aqui se
+    // comprueba que el tipo tampoco: la foto solo entra por su propia ruta.
+    // @ts-expect-error `fotoActualizadaEl` no es una preferencia.
+    const cuenta = User.create(datos(), AHORA).conPreferencias({ fotoActualizadaEl: GUARDADA_EL });
+
+    expect(cuenta.fotoActualizadaEl).toBeUndefined();
+  });
+});
+
+describe('User: la mascota propia (SCRUM-122)', () => {
+  const GUARDADA_EL = new Date('2026-10-12T09:00:00.000Z');
+  const CON_FOTO = new Date('2026-10-09T15:30:00.123Z');
+
+  it('una cuenta nueva no tiene mascota propia', () => {
+    expect(User.create(datos(), AHORA).mascotaPropiaActualizadaEl).toBeUndefined();
+  });
+
+  it('conMascotaPropia devuelve otra cuenta con la fecha, y la original no cambia', () => {
+    const antes = User.create(datos(), AHORA);
+    const despues = antes.conMascotaPropia(GUARDADA_EL);
+
+    expect(despues).not.toBe(antes);
+    expect(despues.mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+    expect(antes.mascotaPropiaActualizadaEl).toBeUndefined();
+  });
+
+  it('conMascotaPropia copia la fecha, para que no se pueda mutar desde fuera', () => {
+    const fecha = new Date(GUARDADA_EL.getTime());
+    const cuenta = User.create(datos(), AHORA).conMascotaPropia(fecha);
+
+    fecha.setFullYear(1990);
+
+    expect(cuenta.mascotaPropiaActualizadaEl?.getUTCFullYear()).toBe(2026);
+  });
+
+  it('no elige la mascota propia: solo anota que existe', () => {
+    const cuenta = User.create(datos({ mascota: { forma: 'sparky', nombre: 'Chispa' } }), AHORA);
+
+    expect(cuenta.conMascotaPropia(GUARDADA_EL).mascota).toEqual({
+      forma: 'sparky',
+      nombre: 'Chispa',
+    });
+  });
+
+  it('la foto y la mascota propia son independientes: una no toca a la otra', () => {
+    const conAmbas = User.create(datos({ fotoActualizadaEl: CON_FOTO }), AHORA).conMascotaPropia(
+      GUARDADA_EL,
+    );
+
+    expect(conAmbas.fotoActualizadaEl).toEqual(CON_FOTO);
+    expect(conAmbas.sinFoto().mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+    expect(conAmbas.sinMascotaPropia().fotoActualizadaEl).toEqual(CON_FOTO);
+  });
+
+  describe('lo que se conserva al cambiar otra cosa', () => {
+    const cuenta = User.create(datos({ mascotaPropiaActualizadaEl: GUARDADA_EL }), AHORA);
+
+    it('las preferencias', () => {
+      expect(cuenta.conPreferencias({ nombre: 'Ana' }).mascotaPropiaActualizadaEl).toEqual(
+        GUARDADA_EL,
+      );
+    });
+
+    it('la zona horaria', () => {
+      expect(cuenta.conZonaHoraria('Asia/Tokyo').mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+    });
+
+    it('la foto', () => {
+      expect(cuenta.conFoto(CON_FOTO).mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+      expect(cuenta.conFoto(CON_FOTO).sinFoto().mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+    });
+
+    it('conMascotaPropia no toca nada mas de la cuenta', () => {
+      const antes = User.create(
+        datos({
+          nombre: 'Ana',
+          modulosActivos: ['cognicion'],
+          mascota: { forma: 'ori', nombre: 'Papel' },
+          diarioConRecomendaciones: true,
+          zonaHoraria: 'Europe/Madrid',
+          fotoActualizadaEl: CON_FOTO,
+        }),
+        AHORA,
+      );
+      const despues = antes.conMascotaPropia(GUARDADA_EL);
+
+      expect(despues.id.value).toBe(antes.id.value);
+      expect(despues.correo).toBe(antes.correo);
+      expect(despues.nombre).toBe('Ana');
+      expect(despues.modulosActivos).toEqual(['cognicion']);
+      expect(despues.mascota).toEqual({ forma: 'ori', nombre: 'Papel' });
+      expect(despues.diarioConRecomendaciones).toBe(true);
+      expect(despues.zonaHoraria).toBe('Europe/Madrid');
+      expect(despues.fotoActualizadaEl).toEqual(CON_FOTO);
+    });
+  });
+
+  describe('elegirla como mascota', () => {
+    it('sin haberla subido, no se puede: no hay dibujo', () => {
+      const cuenta = User.create(datos(), AHORA);
+
+      expect(() => cuenta.conPreferencias({ mascota: { forma: 'propia', nombre: 'Mia' } })).toThrow(
+        InvalidPetError,
+      );
+    });
+
+    it('subida, si se puede, con el nombre que se le ponga', () => {
+      const cuenta = User.create(datos({ mascotaPropiaActualizadaEl: GUARDADA_EL }), AHORA);
+
+      expect(
+        cuenta.conPreferencias({ mascota: { forma: 'propia', nombre: 'Mia' } }).mascota,
+      ).toEqual({ forma: 'propia', nombre: 'Mia' });
+    });
+
+    it('cambiar otra cosa de una cuenta cuya mascota es la propia no se bloquea, aunque falte el archivo', () => {
+      // Un estado incoherente (forma propia sin marca) no puede dejar a la
+      // persona sin poder cambiar su nombre.
+      const cuenta = User.create(datos({ mascota: { forma: 'propia', nombre: 'Mia' } }), AHORA);
+
+      expect(cuenta.conPreferencias({ nombre: 'Ana' }).nombre).toBe('Ana');
+    });
+
+    it('una cuenta con forma propia y sin marca se puede leer de la base', () => {
+      expect(() =>
+        User.create(datos({ mascota: { forma: 'propia', nombre: 'Mia' } }), AHORA),
+      ).not.toThrow();
+    });
+  });
+
+  describe('sinMascotaPropia', () => {
+    it('la quita', () => {
+      const cuenta = User.create(datos({ mascotaPropiaActualizadaEl: GUARDADA_EL }), AHORA);
+
+      expect(cuenta.sinMascotaPropia().mascotaPropiaActualizadaEl).toBeUndefined();
+      expect(cuenta.mascotaPropiaActualizadaEl).toEqual(GUARDADA_EL);
+    });
+
+    it('quitar la que no hay, y no estar elegida, devuelve esta misma cuenta', () => {
+      const cuenta = User.create(datos(), AHORA);
+
+      expect(cuenta.sinMascotaPropia()).toBe(cuenta);
+    });
+
+    it('si era la mascota elegida, vuelve al personaje de siempre y conserva el nombre', () => {
+      const cuenta = User.create(
+        datos({
+          mascotaPropiaActualizadaEl: GUARDADA_EL,
+          mascota: { forma: 'propia', nombre: 'Luma', color: '#a2d9b6', accesorio: 'bufanda' },
+        }),
+        AHORA,
+      );
+
+      expect(cuenta.sinMascotaPropia().mascota).toEqual({
+        forma: 'fungito',
+        nombre: 'Luma',
+        color: '#a2d9b6',
+        accesorio: 'bufanda',
+      });
+    });
+
+    it('si la mascota elegida es otra, no se toca', () => {
+      const cuenta = User.create(
+        datos({
+          mascotaPropiaActualizadaEl: GUARDADA_EL,
+          mascota: { forma: 'sparky', nombre: 'Chispa' },
+        }),
+        AHORA,
+      );
+
+      expect(cuenta.sinMascotaPropia().mascota).toEqual({ forma: 'sparky', nombre: 'Chispa' });
+    });
+
+    it('con la forma propia pero sin marca (un estado incoherente), tambien se arregla', () => {
+      const cuenta = User.create(datos({ mascota: { forma: 'propia', nombre: 'Mia' } }), AHORA);
+      const arreglada = cuenta.sinMascotaPropia();
+
+      expect(arreglada).not.toBe(cuenta);
+      expect(arreglada.mascota).toEqual({ forma: 'fungito', nombre: 'Mia' });
+    });
   });
 });

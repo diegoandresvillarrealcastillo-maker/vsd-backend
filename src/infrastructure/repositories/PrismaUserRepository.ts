@@ -129,6 +129,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
       // columna", y quien no tiene mascota guardada debe quedar en NULL.
       mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota },
       diarioConRecomendaciones: user.diarioConRecomendaciones,
+      zonaHoraria: user.zonaHoraria,
+      // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la
+      // columna vacia y no como estaba.
+      fotoActualizadaEl: user.fotoActualizadaEl ?? null,
+      mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null,
     };
 
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
@@ -206,6 +211,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
         modulosActivos: fila.modulosActivos,
         ...(fila.mascota === null ? {} : { mascota: mascotaDesde(fila.mascota) }),
         diarioConRecomendaciones: fila.diarioConRecomendaciones,
+        zonaHoraria: fila.zonaHoraria,
+        ...(fila.fotoActualizadaEl === null ? {} : { fotoActualizadaEl: fila.fotoActualizadaEl }),
+        ...(fila.mascotaPropiaActualizadaEl === null
+          ? {}
+          : { mascotaPropiaActualizadaEl: fila.mascotaPropiaActualizadaEl }),
       },
       fila.fechaAceptacionPolitica,
     );

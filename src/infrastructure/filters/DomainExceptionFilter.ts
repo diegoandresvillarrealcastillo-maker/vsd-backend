@@ -61,6 +61,7 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   SIN_MODULOS_ACTIVOS: HttpStatus.BAD_REQUEST,
   MASCOTA_INVALIDA: HttpStatus.BAD_REQUEST,
   NOMBRE_INVALIDO: HttpStatus.BAD_REQUEST,
+  ZONA_HORARIA_INVALIDA: HttpStatus.BAD_REQUEST,
 
   // Diario (SCRUM-95).
   ANOTACION_INVALIDA: HttpStatus.BAD_REQUEST,
@@ -81,6 +82,28 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // Los avisos por Web Push (SCRUM-102): una hora o una suscripcion mal
   // formada.
   AVISO_INVALIDO: HttpStatus.BAD_REQUEST,
+
+  // La foto de perfil (SCRUM-120). Cada motivo con el estado que le toca: el
+  // tipo (415), el peso (413) y lo demas, que es un archivo que no vale (400).
+  FOTO_TIPO_NO_PERMITIDO: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+  FOTO_DEMASIADO_PESADA: HttpStatus.PAYLOAD_TOO_LARGE,
+  FOTO_DEMASIADO_GRANDE: HttpStatus.BAD_REQUEST,
+  FOTO_NO_ES_UNA_IMAGEN: HttpStatus.BAD_REQUEST,
+  FOTO_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+
+  // La mascota propia, un SVG (SCRUM-122). El tipo es 415 y el peso 413, como
+  // en la foto; todo lo demas es un archivo que no vale (400): no es un SVG,
+  // trae algo peligroso, usa algo que no se admite o es demasiado complejo.
+  MASCOTA_SVG_TIPO_NO_PERMITIDO: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+  MASCOTA_SVG_DEMASIADO_PESADO: HttpStatus.PAYLOAD_TOO_LARGE,
+  MASCOTA_SVG_NO_ES_UN_SVG: HttpStatus.BAD_REQUEST,
+  MASCOTA_SVG_PELIGROSO: HttpStatus.BAD_REQUEST,
+  MASCOTA_SVG_NO_ADMITIDO: HttpStatus.BAD_REQUEST,
+  MASCOTA_SVG_DEMASIADO_COMPLEJO: HttpStatus.BAD_REQUEST,
+  MASCOTA_PROPIA_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+  // 503 como el borrado: el almacenamiento es de fuera, y reintentar en un
+  // momento es lo que tiene que hacer quien llama.
+  ALMACENAMIENTO_NO_DISPONIBLE: HttpStatus.SERVICE_UNAVAILABLE,
 
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un

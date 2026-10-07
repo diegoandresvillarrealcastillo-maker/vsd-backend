@@ -147,6 +147,92 @@ describe('/api/pendientes', () => {
     expect(cuerpoDe(hecho)).toMatchObject({ hecho: true, posponerHasta: null });
   });
 
+  describe('la fecha limite, opcional (SCRUM-119)', () => {
+    it('sale como null cuando no se puso', async () => {
+      const id = await nuevo();
+
+      const { pendientes } = cuerpoDe(await consultar(A).expect(200)) as {
+        pendientes: Record<string, unknown>[];
+      };
+
+      expect(pendientes.find((uno) => uno['id'] === id)).toMatchObject({ fechaLimite: null });
+    });
+
+    it('se anota con fecha y sale tal cual', async () => {
+      const respuesta = await crear(A, {
+        clientOperationId: operacion(),
+        texto: 'Entregar el informe',
+        nivel: 'prioridad',
+        fechaLimite: '2026-10-12',
+      }).expect(201);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({ fechaLimite: '2026-10-12' });
+    });
+
+    it('se puede poner, cambiar y quitar', async () => {
+      const id = await nuevo();
+
+      expect(
+        cuerpoDe(await editar(A, id, { fechaLimite: '2026-10-12' }).expect(200)),
+      ).toMatchObject({
+        fechaLimite: '2026-10-12',
+      });
+      expect(cuerpoDe(await editar(A, id, { texto: 'otro' }).expect(200))).toMatchObject({
+        fechaLimite: '2026-10-12',
+      });
+      expect(cuerpoDe(await editar(A, id, { fechaLimite: null }).expect(200))).toMatchObject({
+        fechaLimite: null,
+      });
+    });
+
+    it.each(['12/10/2026', '2026-10-12T10:00:00Z', 'pronto'])(
+      'rechaza "%s" por el formato, antes de llegar al dominio',
+      async (fecha) => {
+        await crear(A, {
+          clientOperationId: operacion(),
+          texto: 'x',
+          nivel: 'urgente',
+          fechaLimite: fecha,
+        }).expect(400);
+      },
+    );
+
+    it('un dia que no existe responde 400 PENDIENTE_INVALIDO', async () => {
+      const respuesta = await crear(A, {
+        clientOperationId: operacion(),
+        texto: 'x',
+        nivel: 'urgente',
+        fechaLimite: '2026-02-30',
+      }).expect(400);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({ codigo: 'PENDIENTE_INVALIDO' });
+    });
+
+    it('el recordatorio llega el dia limite y dice cual era', async () => {
+      const id = String(
+        cuerpoDe(
+          await crear(B, {
+            clientOperationId: operacion(),
+            texto: 'Entregar hoy',
+            nivel: 'aplazable',
+            fechaLimite: '2020-01-01',
+          }).expect(201),
+        )['id'],
+      );
+
+      const respuesta = await consultar(B).expect(200);
+
+      expect(cuerpoDe(respuesta)['recordatorio']).toMatchObject({
+        pendienteId: id,
+        fechaLimite: '2020-01-01',
+        tono: 'plazo',
+      });
+
+      // Se tacha para no dejarle un recordatorio a las pruebas que siguen.
+      await editar(B, id, { hecho: true }).expect(200);
+    });
+  });
+
   it('posponer hacia el pasado se rechaza', async () => {
     const id = await nuevo();
 
@@ -191,14 +277,43 @@ describe('/api/pendientes', () => {
     expect(cuerpoDe(ajeno)).toEqual(cuerpoDe(inexistente));
     expect(cuerpoDe(ajeno)).toMatchObject({ codigo: 'PENDIENTE_NO_ENCONTRADO' });
 
+    // Borrar es idempotente (SCRUM-133): para B el de A responde 204, igual que
+    // uno que no existe, sin confirmar que existe. Y lo que importa: no se toca.
     await request(app.getHttpServer())
       .delete(`/api/pendientes/${id}`)
       .set(...comoUsuario(B))
-      .expect(404);
+      .expect(204);
 
     const deB = cuerpoDe(await consultar(B).expect(200)) as { pendientes: { id: string }[] };
+    const deA = cuerpoDe(await consultar(A).expect(200)) as { pendientes: { id: string }[] };
 
     expect(deB.pendientes.some((uno) => uno.id === id)).toBe(false);
+    expect(deA.pendientes.some((uno) => uno.id === id)).toBe(true);
+  });
+
+  it('borrar dos veces responde 204 las dos: un reintento no atasca la cola sin conexion', async () => {
+    const id = await nuevo(A);
+
+    for (let vez = 0; vez < 2; vez += 1) {
+      await request(app.getHttpServer())
+        .delete(`/api/pendientes/${id}`)
+        .set(...comoUsuario(A))
+        .expect(204);
+    }
+  });
+
+  it('borrar uno que nunca existio responde 204', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/pendientes/97979797-ffff-4fff-8fff-ffffffffffff')
+      .set(...comoUsuario(A))
+      .expect(204);
+  });
+
+  it('borrar con un identificador mal formado sigue siendo un error de la peticion', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/pendientes/no-es-un-uuid')
+      .set(...comoUsuario(A))
+      .expect(400);
   });
 
   it('borrar responde 204 y lo quita', async () => {
@@ -212,6 +327,118 @@ describe('/api/pendientes', () => {
     const deA = cuerpoDe(await consultar(A).expect(200)) as { pendientes: { id: string }[] };
 
     expect(deA.pendientes.some((uno) => uno.id === id)).toBe(false);
+  });
+
+  describe('la version (SCRUM-134)', () => {
+    async function leerUno(token: string, id: string): Promise<Record<string, unknown>> {
+      const { pendientes } = cuerpoDe(await consultar(token).expect(200)) as {
+        pendientes: Record<string, unknown>[];
+      };
+      const encontrado = pendientes.find((uno) => uno['id'] === id);
+
+      if (encontrado === undefined) {
+        throw new Error('el pendiente de la prueba no esta');
+      }
+
+      return encontrado;
+    }
+
+    it('un pendiente trae su version, que sube con cada edicion', async () => {
+      const id = await nuevo(A);
+
+      expect((await leerUno(A, id))['version']).toBe(1);
+
+      const editado = await editar(A, id, { texto: 'Otro texto', version: 1 }).expect(200);
+
+      expect(cuerpoDe(editado)['version']).toBe(2);
+      expect((await leerUno(A, id))['version']).toBe(2);
+    });
+
+    it('con una version vieja responde 409 VERSION_DESACTUALIZADA y no cambia nada', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Lo cambio el otro', version: 1 }).expect(200);
+
+      const conflicto = await editar(A, id, { nivel: 'aplazable', version: 1 }).expect(409);
+
+      expect(cuerpoDe(conflicto)).toMatchObject({ codigo: 'VERSION_DESACTUALIZADA' });
+      expect(await leerUno(A, id)).toMatchObject({
+        texto: 'Lo cambio el otro',
+        nivel: 'urgente',
+        version: 2,
+      });
+    });
+
+    it('el 409 no repite lo escrito', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Algo muy personal', version: 1 }).expect(200);
+
+      const conflicto = await editar(A, id, { texto: 'Otra cosa privada', version: 1 }).expect(409);
+
+      expect(JSON.stringify(cuerpoDe(conflicto))).not.toContain('personal');
+      expect(JSON.stringify(cuerpoDe(conflicto))).not.toContain('privada');
+    });
+
+    it('marcarlo como hecho con una version vieja se aplica, y conserva el texto del otro dispositivo', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Lo cambio el otro', version: 1 }).expect(200);
+
+      const hecho = await editar(A, id, { hecho: true, version: 1 }).expect(200);
+
+      expect(cuerpoDe(hecho)).toMatchObject({
+        hecho: true,
+        texto: 'Lo cambio el otro',
+        version: 3,
+      });
+    });
+
+    it('repetir una edicion cuya respuesta se perdio responde 200 y no sube la version', async () => {
+      const id = await nuevo(A);
+
+      const primera = await editar(A, id, { texto: 'Solo una vez', version: 1 }).expect(200);
+      const reintento = await editar(A, id, { texto: 'Solo una vez', version: 1 }).expect(200);
+
+      expect(cuerpoDe(primera)['version']).toBe(2);
+      expect(cuerpoDe(reintento)).toMatchObject({ texto: 'Solo una vez', version: 2 });
+    });
+
+    it('sin version funciona como antes', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Primero' }).expect(200);
+      const segunda = await editar(A, id, { nivel: 'prioridad' }).expect(200);
+
+      expect(cuerpoDe(segunda)).toMatchObject({ texto: 'Primero', nivel: 'prioridad', version: 3 });
+    });
+
+    it.each([
+      ['cero', 0],
+      ['negativa', -1],
+      ['con decimales', 1.5],
+      ['texto', 'uno'],
+      ['nula', null],
+    ])('una version %s es un error de la peticion', async (_nombre, version) => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Algo', version }).expect(400);
+      expect((await leerUno(A, id))['version']).toBe(1);
+    });
+
+    it('otra persona no lo alcanza ni acertando la version: 404 y no se toca', async () => {
+      const id = await nuevo(A);
+
+      await editar(B, id, { hecho: true, version: 1 }).expect(404);
+
+      expect(await leerUno(A, id)).toMatchObject({ hecho: false, version: 1 });
+    });
+
+    it('una edicion vacia sigue siendo 400 aunque traiga la version', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { version: 1 }).expect(400);
+    });
   });
 
   it('el texto no sale por el registro', async () => {

@@ -2,7 +2,6 @@ import { Logger, Module } from '@nestjs/common';
 import { ConsultarDiarioUseCaseImpl } from '../../application/usecases/ConsultarDiarioUseCaseImpl.js';
 import { EditarAnotacionUseCaseImpl } from '../../application/usecases/EditarAnotacionUseCaseImpl.js';
 import { EscribirEnElDiarioUseCaseImpl } from '../../application/usecases/EscribirEnElDiarioUseCaseImpl.js';
-import type { Calendario } from '../../domain/model/Calendario.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { DiarioController } from '../controllers/DiarioController.js';
@@ -11,7 +10,6 @@ import { InMemoryDiarioRepository } from '../repositories/InMemoryDiarioReposito
 import { PrismaDiarioRepository } from '../repositories/PrismaDiarioRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
 import {
-  CALENDARIO,
   CONSULTAR_DIARIO,
   DIARIO_REPOSITORY,
   EDITAR_ANOTACION,
@@ -53,18 +51,14 @@ import {
     },
     {
       provide: CONSULTAR_DIARIO,
-      useFactory: (diario: DiarioRepositoryPort, calendario: Calendario) =>
-        new ConsultarDiarioUseCaseImpl(diario, calendario),
-      inject: [DIARIO_REPOSITORY, CALENDARIO],
+      useFactory: (diario: DiarioRepositoryPort) => new ConsultarDiarioUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
     },
     {
       provide: ESCRIBIR_EN_EL_DIARIO,
-      useFactory: (
-        diario: DiarioRepositoryPort,
-        recursos: RecursoApoyoRepositoryPort,
-        calendario: Calendario,
-      ) => new EscribirEnElDiarioUseCaseImpl(diario, recursos, calendario),
-      inject: [DIARIO_REPOSITORY, RECURSO_APOYO_REPOSITORY, CALENDARIO],
+      useFactory: (diario: DiarioRepositoryPort, recursos: RecursoApoyoRepositoryPort) =>
+        new EscribirEnElDiarioUseCaseImpl(diario, recursos),
+      inject: [DIARIO_REPOSITORY, RECURSO_APOYO_REPOSITORY],
     },
     {
       provide: EDITAR_ANOTACION,

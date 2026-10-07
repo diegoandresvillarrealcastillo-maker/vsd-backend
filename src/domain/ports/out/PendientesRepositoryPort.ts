@@ -21,8 +21,17 @@ export interface PendientesRepositoryPort {
   /** Guarda uno nuevo y devuelve lo guardado. */
   guardarNuevo(pendiente: Pendiente): Promise<Pendiente>;
 
-  /** Guarda una edicion. `null` si ya no existe. */
-  actualizar(pendiente: Pendiente): Promise<Pendiente | null>;
+  /**
+   * Guarda una edicion, solo si el pendiente sigue en `versionAnterior`.
+   *
+   * La comparacion la hace la propia base dentro del UPDATE y no el codigo que
+   * llama: dos ediciones que lleguen a la vez no se pisan, una gana y la otra
+   * recibe `null` (SCRUM-134).
+   *
+   * `null` no dice por que (ya no existe, o lo cambio otro dispositivo): quien
+   * llama vuelve a leer y lo averigua.
+   */
+  actualizar(pendiente: Pendiente, versionAnterior: number): Promise<Pendiente | null>;
 
   /** `false` si no habia nada que borrar. */
   borrar(userId: UserId, id: PendienteId): Promise<boolean>;

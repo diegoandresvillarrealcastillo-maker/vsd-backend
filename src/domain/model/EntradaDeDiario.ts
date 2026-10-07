@@ -80,7 +80,7 @@ function tituloLimpio(titulo: string | null | undefined): string | undefined {
  *
  * ## El dia
  *
- * El de la persona, en hora de Colombia, no el de UTC. Se puede escribir en un
+ * El de la persona, en su zona horaria, no el de UTC. Se puede escribir en un
  * dia pasado, y la anotacion conserva igual la hora real en que se escribio.
  * En un dia que todavia no llego, no.
  */
@@ -112,13 +112,15 @@ export class EntradaDeDiario {
   /**
    * Una anotacion recien escrita.
    *
-   * `hoy` es el dia de hoy en el calendario de la persona. Lo pasa quien
-   * llama, para que la regla del dia futuro se pueda probar sin depender de
-   * cuando se ejecuten las pruebas.
+   * `ultimoDiaAdmitido` es el dia mas tardio que se acepta, en el calendario
+   * de la persona: hoy, o el siguiente si el reloj del dispositivo, adelantado
+   * dentro de la tolerancia, ya paso la medianoche (ver ToleranciaDelReloj).
+   * Lo pasa quien llama, para que la regla del dia futuro se pueda probar sin
+   * depender de cuando se ejecuten las pruebas.
    */
   static nueva(
     datos: Omit<DatosDeEntrada, 'version' | 'creadaEn' | 'editadaEn'>,
-    hoy: Dia,
+    ultimoDiaAdmitido: Dia,
     ahora: Date,
   ): EntradaDeDiario {
     if (!Calendario.esDia(datos.dia)) {
@@ -129,7 +131,7 @@ export class EntradaDeDiario {
 
     // Las dos fechas son AAAA-MM-DD, asi que compararlas como texto es
     // compararlas como fechas.
-    if (datos.dia > hoy) {
+    if (datos.dia > ultimoDiaAdmitido) {
       throw new FutureJournalDayError(datos.dia);
     }
 

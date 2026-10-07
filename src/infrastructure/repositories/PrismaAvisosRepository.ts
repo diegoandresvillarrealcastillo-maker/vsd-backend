@@ -1,6 +1,7 @@
+import type { Prisma } from '@prisma/client';
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
-import type { Dia } from '../../domain/model/Calendario.js';
+import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
@@ -8,6 +9,43 @@ import type { PrismaService } from '../persistence/PrismaService.js';
 /** Un dia AAAA-MM-DD como valor de una columna DATE. */
 function fechaDelDia(dia: Dia): Date {
   return new Date(`${dia}T00:00:00.000Z`);
+}
+
+/** A quien le toca `tipo`: su zona, su hora en la ventana y ese aviso sin revisar hoy. */
+function criterioDeQuienLeToca(
+  tipo: TipoDeAviso,
+  zona: string,
+  desde: number,
+  hasta: number,
+  hoy: Date,
+): Prisma.PreferenciaAvisoWhereInput {
+  const ventana = { gte: desde, lte: hasta };
+  // El mismo aviso ya se reviso hoy, o no.
+  const semaforoSinRevisar = [{ ultimoAvisoSemaforo: null }, { ultimoAvisoSemaforo: { lt: hoy } }];
+  const mananaSinRevisar = [{ ultimoAvisoManana: null }, { ultimoAvisoManana: { lt: hoy } }];
+  const rachaSinRevisar = [{ ultimoAvisoRacha: null }, { ultimoAvisoRacha: { lt: hoy } }];
+  const nocheSinRevisar = [{ ultimoAvisoNoche: null }, { ultimoAvisoNoche: { lt: hoy } }];
+
+  switch (tipo) {
+    case TipoDeAviso.SEMAFORO:
+      return { zonaHoraria: zona, minutoSemaforo: ventana, OR: semaforoSinRevisar };
+    case TipoDeAviso.MANANA:
+      return { zonaHoraria: zona, minutoManana: ventana, OR: mananaSinRevisar };
+    // La racha y la noche invitan a lo mismo: una sola por dia, la primera
+    // que llegue. Si la otra ya se reviso hoy, esta no le toca.
+    case TipoDeAviso.RACHA:
+      return {
+        zonaHoraria: zona,
+        minutoRacha: ventana,
+        AND: [{ OR: rachaSinRevisar }, { OR: nocheSinRevisar }],
+      };
+    case TipoDeAviso.NOCHE:
+      return {
+        zonaHoraria: zona,
+        minutoNoche: ventana,
+        AND: [{ OR: nocheSinRevisar }, { OR: rachaSinRevisar }],
+      };
+  }
 }
 
 /**
@@ -28,17 +66,23 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
       userId,
       minutoSemaforo: fila?.minutoSemaforo ?? null,
       minutoRacha: fila?.minutoRacha ?? null,
+      minutoManana: fila?.minutoManana ?? null,
+      minutoNoche: fila?.minutoNoche ?? null,
+      zonaHoraria: fila?.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO,
     };
   }
 
   async guardarPreferencias(preferencias: PreferenciasDeAviso): Promise<PreferenciasDeAviso> {
-    const { userId, minutoSemaforo, minutoRacha } = preferencias;
+    // La zona no se escribe: la copia la base desde la cuenta, con los
+    // disparadores de la migracion de SCRUM-123. Tener un solo camino evita
+    // que las dos queden distintas.
+    const { userId, minutoSemaforo, minutoRacha, minutoManana, minutoNoche } = preferencias;
 
     await this.prisma.comoUsuario(userId.value, (cliente) =>
       cliente.preferenciaAviso.upsert({
         where: { idUsuario: userId.value },
-        create: { idUsuario: userId.value, minutoSemaforo, minutoRacha },
-        update: { minutoSemaforo, minutoRacha },
+        create: { idUsuario: userId.value, minutoSemaforo, minutoRacha, minutoManana, minutoNoche },
+        update: { minutoSemaforo, minutoRacha, minutoManana, minutoNoche },
       }),
     );
 
@@ -83,27 +127,35 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
     }));
   }
 
+  async zonasEnUso(): Promise<readonly string[]> {
+    const filas = await this.prisma.comoTareaDeAvisos((cliente) =>
+      cliente.preferenciaAviso.findMany({
+        where: {
+          OR: [
+            { minutoSemaforo: { not: null } },
+            { minutoRacha: { not: null } },
+            { minutoManana: { not: null } },
+            { minutoNoche: { not: null } },
+          ],
+        },
+        distinct: ['zonaHoraria'],
+        select: { zonaHoraria: true },
+      }),
+    );
+
+    return filas.map((fila) => fila.zonaHoraria);
+  }
+
   async aQuienLeToca(
     tipo: TipoDeAviso,
+    zona: string,
     desde: number,
     hasta: number,
     dia: Dia,
   ): Promise<readonly UserId[]> {
-    const hoy = fechaDelDia(dia);
+    const where = criterioDeQuienLeToca(tipo, zona, desde, hasta, fechaDelDia(dia));
     const filas = await this.prisma.comoTareaDeAvisos((cliente) =>
-      cliente.preferenciaAviso.findMany({
-        where:
-          tipo === TipoDeAviso.SEMAFORO
-            ? {
-                minutoSemaforo: { gte: desde, lte: hasta },
-                OR: [{ ultimoAvisoSemaforo: null }, { ultimoAvisoSemaforo: { lt: hoy } }],
-              }
-            : {
-                minutoRacha: { gte: desde, lte: hasta },
-                OR: [{ ultimoAvisoRacha: null }, { ultimoAvisoRacha: { lt: hoy } }],
-              },
-        select: { idUsuario: true },
-      }),
+      cliente.preferenciaAviso.findMany({ where, select: { idUsuario: true } }),
     );
 
     return filas.map((fila) => new UserId(fila.idUsuario));
@@ -115,8 +167,12 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
     await this.prisma.comoUsuario(userId.value, (cliente) =>
       cliente.preferenciaAviso.updateMany({
         where: { idUsuario: userId.value },
-        data:
-          tipo === TipoDeAviso.SEMAFORO ? { ultimoAvisoSemaforo: hoy } : { ultimoAvisoRacha: hoy },
+        data: {
+          [TipoDeAviso.SEMAFORO]: { ultimoAvisoSemaforo: hoy },
+          [TipoDeAviso.RACHA]: { ultimoAvisoRacha: hoy },
+          [TipoDeAviso.MANANA]: { ultimoAvisoManana: hoy },
+          [TipoDeAviso.NOCHE]: { ultimoAvisoNoche: hoy },
+        }[tipo],
       }),
     );
   }

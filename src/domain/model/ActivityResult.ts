@@ -1,3 +1,4 @@
+import type { Dia } from './Calendario.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
@@ -54,6 +55,15 @@ export interface DatosDeResultado {
    */
   readonly score?: OrientativeScore | undefined;
   readonly completedAt: Date;
+  /**
+   * El dia, en la zona de la persona, en que se completo (SCRUM-123).
+   *
+   * Se guarda y no se recalcula al leer: si cada vez se derivara de
+   * `completedAt` con la zona de hoy, viajar moveria hacia atras o hacia
+   * adelante los resultados de otras epocas y romperia rachas ya ganadas. Un
+   * dia que ocurrio no cambia porque la persona cambie de lugar.
+   */
+  readonly dia: Dia;
   readonly metadata?: Metadata | undefined;
 }
 
@@ -75,6 +85,7 @@ export class ActivityResult {
   readonly clientOperationId: ClientOperationId;
   readonly score: OrientativeScore | undefined;
   readonly completedAt: Date;
+  readonly dia: Dia;
   readonly metadata: Metadata;
 
   private constructor(datos: DatosDeResultado) {
@@ -85,6 +96,7 @@ export class ActivityResult {
     this.score = datos.score;
     // Se copia la fecha para que quien la paso no pueda mutarla despues.
     this.completedAt = new Date(datos.completedAt.getTime());
+    this.dia = datos.dia;
     this.metadata = Object.freeze({ ...datos.metadata });
   }
 

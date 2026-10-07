@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { VERSION_VIGENTE_DEL_AVISO } from '../../domain/model/AvisoDePrivacidad.js';
-import { MissingConsentError, OutdatedPrivacyNoticeError } from '../../domain/model/DomainError.js';
+import {
+  InvalidTimeZoneError,
+  MissingConsentError,
+  OutdatedPrivacyNoticeError,
+} from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { Rol, User } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -224,5 +228,98 @@ describe('El alta no concede privilegios', () => {
 
     expect(cuenta.puedeLeerDatosDe(cuenta.id)).toBe(true);
     expect(cuenta.puedeLeerDatosDe(new UserId('22222222-2222-4222-9222-222222222222'))).toBe(false);
+  });
+});
+
+describe('La zona horaria en el alta y en cada entrada (SCRUM-123)', () => {
+  const orden = {
+    idProveedorAuth: 'proveedor-zona',
+    correo: 'zona@ejemplo.test',
+    versionPolitica: VERSION_VIGENTE_DEL_AVISO,
+  };
+
+  it('una cuenta nueva nace en la zona del dispositivo', async () => {
+    const { caso } = crearCasoDeUso();
+
+    const cuenta = await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect(cuenta.zonaHoraria).toBe('Europe/Madrid');
+  });
+
+  it('sin zona, nace en la de Colombia', async () => {
+    const { caso } = crearCasoDeUso();
+
+    expect((await caso.execute(orden)).zonaHoraria).toBe('America/Bogota');
+  });
+
+  it('una zona que no existe impide el alta y no crea nada', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+
+    await expect(caso.execute({ ...orden, zonaHoraria: 'Marte/Olympus' })).rejects.toThrow(
+      InvalidTimeZoneError,
+    );
+    expect(cuentas.cantidad).toBe(0);
+  });
+
+  it('al entrar desde otra zona, la cuenta pasa a esa zona y se guarda', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+    await caso.execute({ ...orden, zonaHoraria: 'America/Bogota' });
+
+    const viajera = await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect(viajera.zonaHoraria).toBe('Europe/Madrid');
+    expect((await cuentas.findByIdProveedorAuth('proveedor-zona'))?.zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+    expect(cuentas.cantidad).toBe(1);
+  });
+
+  it('al entrar desde la misma zona no guarda nada de mas', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+    await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+    let guardados = 0;
+    const guardar = cuentas.save.bind(cuentas);
+    cuentas.save = (user) => {
+      guardados += 1;
+
+      return guardar(user);
+    };
+
+    await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect(guardados).toBe(0);
+  });
+
+  it('al entrar sin zona deja la que hay', async () => {
+    const { caso } = crearCasoDeUso();
+    await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect((await caso.execute(orden)).zonaHoraria).toBe('Europe/Madrid');
+  });
+
+  it('una zona invalida al entrar se rechaza y deja la cuenta como estaba', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+    await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    await expect(caso.execute({ ...orden, zonaHoraria: 'Marte/Olympus' })).rejects.toThrow(
+      InvalidTimeZoneError,
+    );
+    expect((await cuentas.findByIdProveedorAuth('proveedor-zona'))?.zonaHoraria).toBe(
+      'Europe/Madrid',
+    );
+  });
+
+  it('cambiar de zona no pide otra vez el consentimiento ni lo reescribe', async () => {
+    const { caso } = crearCasoDeUso();
+    const primera = await caso.execute({ ...orden, zonaHoraria: 'America/Bogota' });
+
+    // Otra version del aviso: a quien ya tiene cuenta no se le exige.
+    const viajera = await caso.execute({
+      ...orden,
+      versionPolitica: '0.1',
+      zonaHoraria: 'Europe/Madrid',
+    });
+
+    expect(viajera.consentimiento).toEqual(primera.consentimiento);
   });
 });

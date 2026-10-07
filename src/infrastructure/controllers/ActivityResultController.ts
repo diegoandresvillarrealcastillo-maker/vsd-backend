@@ -65,6 +65,7 @@ export class ActivityResultController {
       // rechace la fila en cuanto existe una persona real, que es un fallo que
       // ninguna prueba unitaria puede ver.
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       activityId: dto.activityId,
       clientOperationId: dto.clientOperationId,
       score: dto.score,

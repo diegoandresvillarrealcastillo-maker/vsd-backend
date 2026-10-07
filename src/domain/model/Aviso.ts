@@ -1,14 +1,33 @@
+import type { Dia } from './Calendario.js';
 import { InvalidNotificationSettingError } from './DomainError.js';
 import type { UserId } from './Identifier.js';
+import {
+  TEXTOS_DE_LA_MANANA,
+  TEXTOS_DE_LA_NOCHE,
+  type TextoDeAviso,
+} from './TextosDeLosRecordatorios.js';
 
 /**
  * Los avisos que la aplicacion manda aunque no este abierta (SCRUM-102).
  *
- * Dos clases, y cada una se enciende, se cambia de hora y se apaga por
- * separado:
+ * Cuatro clases, y cada una se enciende y se apaga por separado:
  *
  * - **semaforo**: los pendientes sin hacer, a la hora que la persona elija;
- * - **racha**: una vez al dia, si ese dia todavia no hizo ninguna actividad.
+ * - **racha**: una vez al dia, si ese dia todavia no hizo ninguna actividad,
+ *   a la hora que la persona elija;
+ * - **manana** (SCRUM-126): a las 8:00 de su zona, una invitacion a empezar el
+ *   dia;
+ * - **noche** (SCRUM-126): a las 20:00 de su zona, solo si ese dia no hizo
+ *   ninguna actividad.
+ *
+ * La manana y la noche tienen la hora fija: se encienden o se apagan, no se
+ * mueven. Las horas del semaforo y de la racha las elige cada persona.
+ *
+ * ## Una sola invitacion al dia
+ *
+ * La racha y la noche dicen lo mismo con otras palabras ("tus actividades de
+ * hoy te esperan"). Si la persona tiene las dos encendidas, la que llegue
+ * primero es la unica de ese dia: ver `AvisosRepositoryPort.aQuienLeToca`.
  *
  * ## Nada de salud
  *
@@ -21,11 +40,19 @@ import type { UserId } from './Identifier.js';
 export const TipoDeAviso = {
   SEMAFORO: 'semaforo',
   RACHA: 'racha',
+  MANANA: 'manana',
+  NOCHE: 'noche',
 } as const;
 
 export type TipoDeAviso = (typeof TipoDeAviso)[keyof typeof TipoDeAviso];
 
 export const MINUTOS_DEL_DIA = 24 * 60;
+
+/** Las 8:00, en minutos desde la medianoche de la persona. */
+export const MINUTO_DE_LA_MANANA = 8 * 60;
+
+/** Las 20:00, en minutos desde la medianoche de la persona. */
+export const MINUTO_DE_LA_NOCHE = 20 * 60;
 
 const HORA = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -53,9 +80,18 @@ export function horaDeMinuto(minuto: number): string {
 /** A que hora quiere cada aviso. `null` es apagado. */
 export interface PreferenciasDeAviso {
   readonly userId: UserId;
-  /** Minutos desde la medianoche, en hora de Colombia. */
+  /** Minutos desde la medianoche, en la zona horaria de la persona. */
   readonly minutoSemaforo: number | null;
   readonly minutoRacha: number | null;
+  /** Encendido es `MINUTO_DE_LA_MANANA`; la hora no se mueve (SCRUM-126). */
+  readonly minutoManana: number | null;
+  /** Encendido es `MINUTO_DE_LA_NOCHE`; la hora no se mueve (SCRUM-126). */
+  readonly minutoNoche: number | null;
+  /**
+   * La zona en que se leen esas horas (SCRUM-123): las 8:00 de Bogota no son
+   * las 8:00 de Madrid. Es la de la cuenta; en PostgreSQL la copia la base.
+   */
+  readonly zonaHoraria: string;
 }
 
 /**
@@ -140,4 +176,44 @@ export function mensajeDeLaRacha(): MensajeDeAviso {
     cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
     ruta: '/panel',
   };
+}
+
+const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Un numero que cambia cada dia y es distinto para cada persona, para elegir
+ * cual de los textos le toca (SCRUM-126).
+ *
+ * Sin azar y sin estado: la misma persona el mismo dia siempre tiene el mismo
+ * texto, y dos dias seguidos nunca se repite. Asi las pruebas no dependen de
+ * la suerte y no hay nada que guardar. El desfase por persona evita que todas
+ * reciban la misma frase el mismo dia.
+ */
+export function semillaDelAviso(userId: UserId, dia: Dia): number {
+  const dias = Math.floor(Date.parse(`${dia}T00:00:00.000Z`) / UN_DIA_EN_MS);
+  let desfase = 0;
+
+  for (const caracter of userId.value) {
+    desfase = (desfase * 31 + caracter.charCodeAt(0)) % 1000;
+  }
+
+  return dias + desfase;
+}
+
+function elegir(textos: readonly TextoDeAviso[], semilla: number): TextoDeAviso {
+  // `semilla` es un entero no negativo para cualquier dia posterior a 1970; el
+  // doble modulo cubre un valor negativo sin salirse del arreglo.
+  const posicion = ((semilla % textos.length) + textos.length) % textos.length;
+
+  return textos[posicion] as TextoDeAviso;
+}
+
+/** El de las 8:00: invita a empezar el dia. Sale siempre. */
+export function mensajeDeLaManana(semilla: number): MensajeDeAviso {
+  return { tipo: TipoDeAviso.MANANA, ...elegir(TEXTOS_DE_LA_MANANA, semilla), ruta: '/panel' };
+}
+
+/** El de las 20:00: solo se manda si ese dia no hubo ninguna actividad. */
+export function mensajeDeLaNoche(semilla: number): MensajeDeAviso {
+  return { tipo: TipoDeAviso.NOCHE, ...elegir(TEXTOS_DE_LA_NOCHE, semilla), ruta: '/panel' };
 }

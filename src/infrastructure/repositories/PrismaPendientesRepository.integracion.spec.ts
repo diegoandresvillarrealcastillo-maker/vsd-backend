@@ -36,7 +36,12 @@ function nuevoId(): string {
   return '97979797-1111-4111-8111-' + String(contador).padStart(12, '0');
 }
 
-function pendiente(persona: string, texto: string, operacion = nuevoId()): Pendiente {
+function pendiente(
+  persona: string,
+  texto: string,
+  operacion = nuevoId(),
+  fechaLimite?: string,
+): Pendiente {
   return Pendiente.nuevo(
     {
       id: new PendienteId(nuevoId()),
@@ -44,6 +49,7 @@ function pendiente(persona: string, texto: string, operacion = nuevoId()): Pendi
       clientOperationId: new ClientOperationId(operacion),
       texto,
       nivel: 'urgente',
+      fechaLimite,
     },
     new Date(),
   );
@@ -138,6 +144,57 @@ describe.skipIf(URL_DUENO === undefined)('El semaforo en PostgreSQL', () => {
     }
   });
 
+  describe('la fecha limite (SCRUM-119)', () => {
+    it('un pendiente sin fecha vuelve sin fecha', async () => {
+      const guardado = await pendientes.guardarNuevo(pendiente(PERSONA, 'General'));
+
+      expect(guardado.fechaLimite).toBeUndefined();
+      expect((await pendientes.porId(guardado.userId, guardado.id))?.fechaLimite).toBeUndefined();
+    });
+
+    it('guarda el dia tal cual, sin moverlo por la zona del servidor', async () => {
+      const nuevo = pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12');
+
+      const guardado = await pendientes.guardarNuevo(nuevo);
+      const leido = await pendientes.porId(nuevo.userId, nuevo.id);
+
+      expect(guardado.fechaLimite).toBe('2026-10-12');
+      expect(leido?.fechaLimite).toBe('2026-10-12');
+    });
+
+    it('se puede cambiar y quitar, y llega a la base', async () => {
+      const guardado = await pendientes.guardarNuevo(
+        pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12'),
+      );
+
+      const cambiada = await pendientes.actualizar(
+        guardado.editar({ fechaLimite: '2026-11-03' }, new Date()),
+        guardado.version,
+      );
+
+      expect(cambiada?.fechaLimite).toBe('2026-11-03');
+
+      // Cada edicion parte de lo ultimo que se guardo: la version lo exige.
+      const quitada = await pendientes.actualizar(
+        cambiada!.editar({ fechaLimite: null }, new Date()),
+        cambiada!.version,
+      );
+
+      expect(quitada?.fechaLimite).toBeUndefined();
+    });
+
+    it('la columna es un DATE: no guarda la hora', async () => {
+      await pendientes.guardarNuevo(pendiente(PERSONA, 'Entregar', nuevoId(), '2026-10-12'));
+
+      const { rows } = await dueno.query<{ tipo: string }>(
+        `SELECT data_type AS tipo FROM information_schema.columns
+          WHERE table_name = 'pendiente' AND column_name = 'fecha_limite'`,
+      );
+
+      expect(rows[0]?.tipo).toBe('date');
+    });
+  });
+
   it('posponer y marcar hecho llegan a la base', async () => {
     const guardado = await pendientes.guardarNuevo(pendiente(PERSONA, 'Llamar'));
     const ahora = new Date();
@@ -145,12 +202,14 @@ describe.skipIf(URL_DUENO === undefined)('El semaforo en PostgreSQL', () => {
 
     const pospuesto = await pendientes.actualizar(
       guardado.editar({ posponerHasta: enUnaSemana }, ahora),
+      guardado.version,
     );
 
     expect(pospuesto?.posponerHasta).toEqual(enUnaSemana);
 
     const hecho = await pendientes.actualizar(
-      guardado.editar({ hecho: true, posponerHasta: null }, ahora),
+      pospuesto!.editar({ hecho: true, posponerHasta: null }, ahora),
+      pospuesto!.version,
     );
 
     expect(hecho).toMatchObject({ hecho: true, posponerHasta: undefined });
@@ -172,6 +231,114 @@ describe.skipIf(URL_DUENO === undefined)('El semaforo en PostgreSQL', () => {
     );
 
     expect(rows[0]).toEqual({ n: 1 });
+  });
+
+  describe('La version (SCRUM-134)', () => {
+    async function versionEnLaBase(id: PendienteId): Promise<number> {
+      const { rows } = await dueno.query<{ version: number }>(
+        'SELECT version FROM pendiente WHERE id_pendiente = $1',
+        [id.value],
+      );
+
+      return rows[0]?.version ?? -1;
+    }
+
+    it('un pendiente nuevo nace en 1, y la columna lo garantiza por si misma', async () => {
+      const guardado = await pendientes.guardarNuevo(pendiente(PERSONA, 'Nacer'));
+
+      expect(guardado.version).toBe(1);
+
+      // Una fila insertada sin decir la version (como las que ya existian al
+      // migrar) queda en 1: el valor por defecto de la columna, no del codigo.
+      const id = nuevoId();
+
+      await dueno.query('BEGIN');
+      await dueno.query("SELECT set_config('vsd.usuario_actual', $1, true)", [PERSONA]);
+      await dueno.query(
+        `INSERT INTO pendiente (id_pendiente, id_usuario, texto, nivel, id_operacion_cliente, fecha_edicion)
+         VALUES ($1, $2, 'Antigua', 'urgente', $3, now())`,
+        [id, PERSONA, nuevoId()],
+      );
+      await dueno.query('COMMIT');
+
+      expect(await versionEnLaBase(new PendienteId(id))).toBe(1);
+    });
+
+    it('cada edicion la sube en uno, en la base', async () => {
+      const uno = await pendientes.guardarNuevo(pendiente(PERSONA, 'Subir'));
+      const dos = await pendientes.actualizar(
+        uno.editar({ texto: 'Dos' }, new Date()),
+        uno.version,
+      );
+      const tres = await pendientes.actualizar(
+        dos!.editar({ texto: 'Tres' }, new Date()),
+        dos!.version,
+      );
+
+      expect([dos?.version, tres?.version]).toEqual([2, 3]);
+      expect(await versionEnLaBase(uno.id)).toBe(3);
+    });
+
+    it('con una version vieja no escribe nada y devuelve null', async () => {
+      const uno = await pendientes.guardarNuevo(pendiente(PERSONA, 'Original'));
+
+      await pendientes.actualizar(uno.editar({ texto: 'Del otro dispositivo' }, new Date()), 1);
+
+      const rechazada = await pendientes.actualizar(
+        uno.editar({ texto: 'Pisaria al otro', nivel: 'aplazable' }, new Date()),
+        1,
+      );
+
+      expect(rechazada).toBeNull();
+
+      const { rows } = await dueno.query<{ texto: string; nivel: string }>(
+        'SELECT texto, nivel FROM pendiente WHERE id_pendiente = $1',
+        [uno.id.value],
+      );
+
+      expect(rows).toEqual([{ texto: 'Del otro dispositivo', nivel: 'urgente' }]);
+      expect(await versionEnLaBase(uno.id)).toBe(2);
+    });
+
+    it('dos ediciones a la vez con la misma version: una gana y la otra no pisa a nadie', async () => {
+      const uno = await pendientes.guardarNuevo(pendiente(PERSONA, 'Carrera'));
+
+      const resultados = await Promise.all([
+        pendientes.actualizar(uno.editar({ texto: 'Gana A' }, new Date()), uno.version),
+        pendientes.actualizar(uno.editar({ texto: 'Gana B' }, new Date()), uno.version),
+      ]);
+
+      expect(resultados.filter((r) => r !== null)).toHaveLength(1);
+      expect(resultados.filter((r) => r === null)).toHaveLength(1);
+      expect(await versionEnLaBase(uno.id)).toBe(2);
+    });
+
+    it('otra persona no lo actualiza ni acertando la version', async () => {
+      const suyo = await pendientes.guardarNuevo(pendiente(PERSONA, 'Solo mío'));
+      // Lo que mandaria alguien que conoce el identificador y la version.
+      const ajeno = Pendiente.guardado({
+        ...suyo,
+        userId: new UserId(OTRA),
+        texto: 'Suplantacion',
+      }).editar({ hecho: true }, new Date());
+
+      expect(await pendientes.actualizar(ajeno, suyo.version)).toBeNull();
+
+      const { rows } = await dueno.query<{ texto: string; hecho: boolean; version: number }>(
+        'SELECT texto, hecho, version FROM pendiente WHERE id_pendiente = $1',
+        [suyo.id.value],
+      );
+
+      expect(rows).toEqual([{ texto: 'Solo mío', hecho: false, version: 1 }]);
+    });
+
+    it('un pendiente que ya no existe devuelve null', async () => {
+      const uno = await pendientes.guardarNuevo(pendiente(PERSONA, 'Efimero'));
+
+      await pendientes.borrar(uno.userId, uno.id);
+
+      expect(await pendientes.actualizar(uno.editar({ hecho: true }, new Date()), 1)).toBeNull();
+    });
   });
 
   describe('Nadie mas', () => {

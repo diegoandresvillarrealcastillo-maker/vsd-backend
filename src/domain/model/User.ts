@@ -1,11 +1,21 @@
+import { Calendario, ZONA_HORARIA_POR_DEFECTO } from './Calendario.js';
 import {
   FutureConsentDateError,
   InvalidNameError,
+  InvalidPetError,
   InvalidRoleError,
+  InvalidTimeZoneError,
   MissingConsentError,
 } from './DomainError.js';
 import { UserId } from './Identifier.js';
-import { crearMascota, elegirModulos, type Mascota, type Modulo } from './Preferencias.js';
+import {
+  crearMascota,
+  elegirModulos,
+  FORMA_DE_LA_MASCOTA_PROPIA,
+  FORMA_POR_DEFECTO_DE_LA_MASCOTA,
+  type Mascota,
+  type Modulo,
+} from './Preferencias.js';
 
 /**
  * Rol de la cuenta.
@@ -58,6 +68,26 @@ export interface DatosDeUsuario {
   readonly mascota?: Mascota | undefined;
   /** Si la persona permite que lo que escribe en el diario se lea para recomendarle. Por defecto, no. */
   readonly diarioConRecomendaciones?: boolean | undefined;
+  /** Zona IANA de la persona (SCRUM-123). Sin ella, `America/Bogota`. */
+  readonly zonaHoraria?: string | undefined;
+  /** Cuando se guardo su foto de perfil (SCRUM-120). Sin ella, no tiene foto. */
+  readonly fotoActualizadaEl?: Date | undefined;
+  /** Cuando se guardo su mascota propia (SCRUM-122). Sin ella, no tiene. */
+  readonly mascotaPropiaActualizadaEl?: Date | undefined;
+}
+
+/**
+ * Lo que `copiaCon` puede cambiar de una cuenta. Un campo que no viene se queda
+ * como estaba; uno que viene como `undefined` se vacia.
+ */
+interface Cambios {
+  readonly nombre?: string | undefined;
+  readonly modulosActivos?: readonly Modulo[] | undefined;
+  readonly mascota?: Mascota | undefined;
+  readonly diarioConRecomendaciones?: boolean | undefined;
+  readonly zonaHoraria?: string | undefined;
+  readonly fotoActualizadaEl?: Date | undefined;
+  readonly mascotaPropiaActualizadaEl?: Date | undefined;
 }
 
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
@@ -70,6 +100,15 @@ export interface CambiosDePreferencias {
 }
 
 const LARGO_MAXIMO_DEL_NOMBRE = 100;
+
+/** La zona como la escribe IANA, o falla: una zona que el servidor no conoce no se guarda. */
+function validarZona(zona: string): string {
+  if (!Calendario.esZonaValida(zona)) {
+    throw new InvalidTimeZoneError();
+  }
+
+  return Calendario.canonica(zona);
+}
 
 // Un nombre se pinta en el saludo; un salto de linea o un caracter invisible
 // ahi no es un nombre.
@@ -122,6 +161,34 @@ export class User {
    */
   readonly diarioConRecomendaciones: boolean;
 
+  /**
+   * Donde esta la persona, como zona IANA (SCRUM-123, ADR 0014).
+   *
+   * Es lo que decide que dia es para ella: sus actividades, su sendero, su
+   * diario, su semaforo y la hora de sus avisos. El dispositivo la informa al
+   * entrar, de modo que viajar no obliga a configurar nada.
+   */
+  readonly zonaHoraria: string;
+
+  /**
+   * Cuando se guardo la foto de perfil, o `undefined` si no tiene (SCRUM-120).
+   *
+   * La foto en si no vive en la cuenta: esta en el almacenamiento de archivos.
+   * Aqui solo queda **si hay** y **desde cuando**, que es lo que la pantalla
+   * necesita para pedirla y para saber cuando dejo de ser la que tenia
+   * guardada.
+   */
+  readonly fotoActualizadaEl: Date | undefined;
+
+  /**
+   * Cuando se guardo la mascota propia, o `undefined` si no tiene (SCRUM-122).
+   *
+   * Como la foto, el archivo (un SVG) esta en el almacenamiento y aqui solo
+   * queda **si hay** y **desde cuando**. Elegirla como mascota
+   * (`mascota.forma === 'propia'`) exige que haya.
+   */
+  readonly mascotaPropiaActualizadaEl: Date | undefined;
+
   private constructor(datos: DatosDeUsuario & { readonly modulosActivos: readonly Modulo[] }) {
     this.id = datos.id;
     this.correo = datos.correo;
@@ -133,6 +200,15 @@ export class User {
     this.modulosActivos = [...datos.modulosActivos];
     this.mascota = datos.mascota;
     this.diarioConRecomendaciones = datos.diarioConRecomendaciones ?? false;
+    this.zonaHoraria = datos.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO;
+    this.fotoActualizadaEl =
+      datos.fotoActualizadaEl === undefined
+        ? undefined
+        : new Date(datos.fotoActualizadaEl.getTime());
+    this.mascotaPropiaActualizadaEl =
+      datos.mascotaPropiaActualizadaEl === undefined
+        ? undefined
+        : new Date(datos.mascotaPropiaActualizadaEl.getTime());
   }
 
   static create(datos: DatosDeUsuario, ahora: Date = new Date()): User {
@@ -162,6 +238,7 @@ export class User {
       ...datos,
       modulosActivos,
       mascota: datos.mascota === undefined ? undefined : crearMascota(datos.mascota),
+      zonaHoraria: datos.zonaHoraria === undefined ? undefined : validarZona(datos.zonaHoraria),
     });
   }
 
@@ -183,6 +260,104 @@ export class User {
    * se cambian por aqui, y no hay forma de pasarlos.
    */
   conPreferencias(cambios: CambiosDePreferencias): User {
+    const mascota = cambios.mascota === undefined ? undefined : crearMascota(cambios.mascota);
+
+    // Elegir la mascota propia sin haberla subido dejaria a la persona con un
+    // dibujo que no existe.
+    if (
+      mascota?.forma === FORMA_DE_LA_MASCOTA_PROPIA &&
+      this.mascotaPropiaActualizadaEl === undefined
+    ) {
+      throw new InvalidPetError('primero hay que subir tu mascota propia');
+    }
+
+    return this.copiaCon({
+      nombre: cambios.nombre === undefined ? this.nombre : validarNombre(cambios.nombre),
+      modulosActivos:
+        cambios.modulosActivos === undefined
+          ? this.modulosActivos
+          : elegirModulos(cambios.modulosActivos),
+      mascota: mascota ?? this.mascota,
+      diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
+    });
+  }
+
+  /**
+   * La misma cuenta en otra zona horaria.
+   *
+   * Aparte de `conPreferencias` a proposito: no es algo que la persona elija en
+   * una pantalla, sino lo que informa su dispositivo. Devuelve esta misma
+   * cuenta si la zona es la que ya tiene, para que quien la llame pueda
+   * comparar y no guardar de mas.
+   */
+  conZonaHoraria(zona: string): User {
+    const nueva = validarZona(zona);
+
+    return nueva === this.zonaHoraria ? this : this.copiaCon({ zonaHoraria: nueva });
+  }
+
+  /**
+   * La misma cuenta con una foto de perfil guardada ahora (SCRUM-120).
+   *
+   * Aparte de `conPreferencias` a proposito: la foto no entra por el cuerpo de
+   * `PATCH /api/cuenta/preferencias`, que solo acepta lo que la persona escribe.
+   * Se sube con su propia ruta, que es la que valida el archivo.
+   */
+  conFoto(guardadaEl: Date): User {
+    return this.copiaCon({ fotoActualizadaEl: guardadaEl });
+  }
+
+  /** La misma cuenta sin foto de perfil. Quitar la que no hay deja todo igual. */
+  sinFoto(): User {
+    return this.fotoActualizadaEl === undefined
+      ? this
+      : this.copiaCon({ fotoActualizadaEl: undefined });
+  }
+
+  /**
+   * La misma cuenta con una mascota propia guardada ahora (SCRUM-122). No la
+   * elige como mascota: eso lo hace `conPreferencias`, y exige que exista.
+   */
+  conMascotaPropia(guardadaEl: Date): User {
+    return this.copiaCon({ mascotaPropiaActualizadaEl: guardadaEl });
+  }
+
+  /**
+   * La misma cuenta sin mascota propia.
+   *
+   * Si era la mascota elegida, la persona vuelve al personaje de siempre y
+   * **conserva el nombre** que le habia puesto: no se queda con una mascota que
+   * ya no tiene dibujo. Quitar la que no hay, y no estar elegida, deja todo
+   * igual.
+   */
+  sinMascotaPropia(): User {
+    const eraLaElegida = this.mascota?.forma === FORMA_DE_LA_MASCOTA_PROPIA;
+
+    if (this.mascotaPropiaActualizadaEl === undefined && !eraLaElegida) {
+      return this;
+    }
+
+    return this.copiaCon({
+      mascotaPropiaActualizadaEl: undefined,
+      mascota:
+        eraLaElegida && this.mascota !== undefined
+          ? { ...this.mascota, forma: FORMA_POR_DEFECTO_DE_LA_MASCOTA }
+          : this.mascota,
+    });
+  }
+
+  /**
+   * La misma cuenta con lo que se diga cambiado, y **todo lo demas igual**.
+   *
+   * Es el unico sitio donde se reconstruye una cuenta a partir de otra, a
+   * proposito. Antes cada metodo copiaba campo por campo, y cada campo nuevo
+   * obligaba a acordarse de sumarlo a todos: quien se olvidaba hacia que, por
+   * ejemplo, guardar el nombre borrara la foto. Aqui un campo nuevo se
+   * conserva solo y hay que decidir expresamente cambiarlo.
+   */
+  private copiaCon(cambios: Cambios): User {
+    const cambia = (clave: keyof Cambios): boolean => Object.hasOwn(cambios, clave);
+
     return new User({
       id: this.id,
       correo: this.correo,
@@ -190,13 +365,21 @@ export class User {
       rol: this.rol,
       consentimiento: this.consentimiento,
       registradoEn: this.registradoEn,
-      nombre: cambios.nombre === undefined ? this.nombre : validarNombre(cambios.nombre),
-      modulosActivos:
-        cambios.modulosActivos === undefined
-          ? this.modulosActivos
-          : elegirModulos(cambios.modulosActivos),
-      mascota: cambios.mascota === undefined ? this.mascota : crearMascota(cambios.mascota),
-      diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
+      nombre: cambia('nombre') ? cambios.nombre : this.nombre,
+      modulosActivos: cambia('modulosActivos')
+        ? (cambios.modulosActivos ?? [])
+        : this.modulosActivos,
+      mascota: cambia('mascota') ? cambios.mascota : this.mascota,
+      diarioConRecomendaciones: cambia('diarioConRecomendaciones')
+        ? cambios.diarioConRecomendaciones
+        : this.diarioConRecomendaciones,
+      zonaHoraria: cambia('zonaHoraria') ? cambios.zonaHoraria : this.zonaHoraria,
+      fotoActualizadaEl: cambia('fotoActualizadaEl')
+        ? cambios.fotoActualizadaEl
+        : this.fotoActualizadaEl,
+      mascotaPropiaActualizadaEl: cambia('mascotaPropiaActualizadaEl')
+        ? cambios.mascotaPropiaActualizadaEl
+        : this.mascotaPropiaActualizadaEl,
     });
   }
 

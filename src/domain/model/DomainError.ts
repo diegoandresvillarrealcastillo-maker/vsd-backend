@@ -248,6 +248,15 @@ export class NoActiveModulesError extends DomainError {
   }
 }
 
+/** La zona horaria que llego no es una zona IANA que el servidor conozca (SCRUM-123). */
+export class InvalidTimeZoneError extends DomainError {
+  readonly code = 'ZONA_HORARIA_INVALIDA';
+
+  constructor() {
+    super('La zona horaria no es válida. Usa un nombre como America/Bogota.');
+  }
+}
+
 /** El nombre con el que la persona quiere que la llamen no se puede guardar. */
 export class InvalidNameError extends DomainError {
   readonly code = 'NOMBRE_INVALIDO';
@@ -282,6 +291,128 @@ export class InvalidPetError extends DomainError {
 
   constructor(motivo: string) {
     super(`No se pudo guardar la mascota: ${motivo}.`);
+  }
+}
+
+/** Por que una foto de perfil no se acepta. Cada motivo tiene su propio codigo. */
+export type MotivoDeFotoInvalida = 'tipo' | 'peso' | 'lado' | 'imagen';
+
+const FOTO_INVALIDA: Readonly<Record<MotivoDeFotoInvalida, { code: string; message: string }>> = {
+  tipo: {
+    code: 'FOTO_TIPO_NO_PERMITIDO',
+    message: 'La foto tiene que ser un archivo .jpg o .png.',
+  },
+  peso: {
+    code: 'FOTO_DEMASIADO_PESADA',
+    message: 'La foto pesa demasiado: tiene que ser de menos de 50 KB.',
+  },
+  lado: {
+    code: 'FOTO_DEMASIADO_GRANDE',
+    message: 'La foto es demasiado grande: no puede pasar de 1024 píxeles de ancho ni de alto.',
+  },
+  imagen: {
+    code: 'FOTO_NO_ES_UNA_IMAGEN',
+    message: 'El archivo no es una imagen .jpg o .png válida.',
+  },
+};
+
+/**
+ * La foto de perfil no se puede guardar (SCRUM-120).
+ *
+ * Lleva un codigo distinto por motivo para que la pantalla pueda decirle a la
+ * persona **que** esta mal en lugar de un «no se pudo». El mensaje nunca dice
+ * que traia el archivo.
+ */
+export class InvalidPhotoError extends DomainError {
+  readonly code: string;
+
+  constructor(readonly motivo: MotivoDeFotoInvalida) {
+    super(FOTO_INVALIDA[motivo].message);
+    this.code = FOTO_INVALIDA[motivo].code;
+  }
+}
+
+/** Por que un SVG de mascota propia no se acepta. Cada motivo tiene su propio codigo. */
+export type MotivoDeSvgInvalido =
+  'tipo' | 'peso' | 'no-es-svg' | 'peligroso' | 'no-admitido' | 'demasiado-complejo';
+
+const SVG_INVALIDO: Readonly<Record<MotivoDeSvgInvalido, { code: string; message: string }>> = {
+  tipo: {
+    code: 'MASCOTA_SVG_TIPO_NO_PERMITIDO',
+    message: 'El archivo de la mascota tiene que ser un .svg.',
+  },
+  peso: {
+    code: 'MASCOTA_SVG_DEMASIADO_PESADO',
+    message: 'El SVG pesa demasiado: tiene que ser de menos de 100 KB.',
+  },
+  'no-es-svg': {
+    code: 'MASCOTA_SVG_NO_ES_UN_SVG',
+    message: 'El archivo no es un SVG válido.',
+  },
+  peligroso: {
+    code: 'MASCOTA_SVG_PELIGROSO',
+    message:
+      'El SVG trae algo que no se puede aceptar por seguridad: scripts, enlaces a otros sitios o contenido que se ejecuta.',
+  },
+  'no-admitido': {
+    code: 'MASCOTA_SVG_NO_ADMITIDO',
+    message:
+      'El SVG usa algo que no se admite: textos, imágenes, filtros, estilos o animaciones. Mira la guía para prepararlo.',
+  },
+  'demasiado-complejo': {
+    code: 'MASCOTA_SVG_DEMASIADO_COMPLEJO',
+    message: 'El SVG es demasiado complejo. Simplifica los trazos y las capas.',
+  },
+};
+
+/**
+ * El SVG de la mascota propia no se puede guardar (SCRUM-122).
+ *
+ * Lleva un codigo distinto por motivo para que la pantalla diga **que** esta
+ * mal. El mensaje nunca repite lo que traia el archivo: ni un nombre de
+ * elemento ni un trozo de contenido.
+ */
+export class InvalidPetSvgError extends DomainError {
+  readonly code: string;
+
+  constructor(readonly motivo: MotivoDeSvgInvalido) {
+    super(SVG_INVALIDO[motivo].message);
+    this.code = SVG_INVALIDO[motivo].code;
+  }
+}
+
+/** No hay mascota propia que devolver. */
+export class OwnPetNotFoundError extends DomainError {
+  readonly code = 'MASCOTA_PROPIA_NO_ENCONTRADA';
+
+  constructor() {
+    super('No tienes una mascota propia.');
+  }
+}
+
+/** No hay foto de perfil que devolver. */
+export class PhotoNotFoundError extends DomainError {
+  readonly code = 'FOTO_NO_ENCONTRADA';
+
+  constructor() {
+    super('No tienes una foto de perfil.');
+  }
+}
+
+/**
+ * El almacenamiento de archivos no respondio (SCRUM-120).
+ *
+ * No es culpa de quien llama: reintentar en un momento es lo correcto. El
+ * fallo tecnico va como `causa` al registro, no en la respuesta.
+ */
+export class FileStorageUnavailableError extends DomainError {
+  readonly code = 'ALMACENAMIENTO_NO_DISPONIBLE';
+
+  constructor(causa?: unknown) {
+    super(
+      'No se pudo guardar o leer el archivo en este momento. Inténtalo de nuevo en unos minutos.',
+      causa,
+    );
   }
 }
 
@@ -381,6 +512,25 @@ export class TaskNotFoundError extends DomainError {
 
   constructor() {
     super('Ese pendiente no existe.');
+  }
+}
+
+/**
+ * El pendiente cambio desde otro dispositivo (SCRUM-134).
+ *
+ * Mismo codigo que el del diario (`VERSION_DESACTUALIZADA`, ADR 0009) a
+ * proposito: para quien lo recibe es el mismo hecho, "esto ya no es lo que
+ * viste", y el cliente lo trata igual sea cual sea el dato. La respuesta no
+ * trae el estado actual: el cliente lo consulta, que es una lectura y esta
+ * permitida tambien sin repetir la regla aqui.
+ */
+export class StaleTaskError extends DomainError {
+  readonly code = 'VERSION_DESACTUALIZADA';
+
+  constructor() {
+    super(
+      'Este pendiente cambió desde otro dispositivo. Revisa cómo quedó antes de volver a cambiarlo.',
+    );
   }
 }
 

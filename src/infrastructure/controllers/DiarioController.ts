@@ -48,7 +48,7 @@ export class DiarioController {
   @ApiOperation({
     summary: 'Consultar las anotaciones de un rango de días',
     description:
-      'Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en Colombia. Como mucho 366 días por consulta.',
+      'Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en la zona horaria de la persona. Como mucho 366 días por consulta.',
   })
   @ApiResponse({ status: 200, type: [EntradaDelDiarioDto] })
   @ApiResponse({ status: 400, description: 'Un día mal escrito o un rango no válido.' })
@@ -60,6 +60,7 @@ export class DiarioController {
   ): Promise<EntradaDelDiarioDto[]> {
     const entradas = await this.consultarDiario.execute({
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       desde: consulta.desde,
       hasta: consulta.hasta,
     });
@@ -89,6 +90,7 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.escribirEnElDiario.execute({
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       // El permiso es de la cuenta y lo cambia solo ella, desde su perfil.
       conRecomendaciones: cuenta.diarioConRecomendaciones,
       clientOperationId: dto.clientOperationId,
@@ -125,6 +127,7 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.editarAnotacion.execute({
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       conRecomendaciones: cuenta.diarioConRecomendaciones,
       entradaId: id,
       version: dto.version,

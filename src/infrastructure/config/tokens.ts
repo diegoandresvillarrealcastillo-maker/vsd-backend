@@ -15,9 +15,6 @@ export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');
 
-/** Que dia es, en la zona horaria configurada. Ver `Calendario`. */
-export const CALENDARIO = Symbol('Calendario');
-
 /** Las cuentas de VSD Health. */
 export const USER_REPOSITORY = Symbol('UserRepositoryPort');
 
@@ -44,6 +41,14 @@ export const AVISOS_REPOSITORY = Symbol('AvisosRepositoryPort');
 export const ENVIADOR_PUSH = Symbol('EnviadorDePushPort');
 export const AVISOS = Symbol('AvisosUseCase');
 export const REVISAR_AVISOS = Symbol('RevisarAvisosUseCase');
+
+/** La foto de perfil (SCRUM-120): su caso de uso y el almacen donde viven los archivos. */
+export const FOTO_DE_PERFIL = Symbol('FotoDePerfilUseCase');
+export const ALMACEN_DE_FOTOS = Symbol('AlmacenDeFotos');
+
+/** La mascota propia, un SVG (SCRUM-122): su caso de uso y su almacen. */
+export const MASCOTA_PROPIA = Symbol('MascotaPropiaUseCase');
+export const ALMACEN_DE_MASCOTAS = Symbol('AlmacenDeMascotas');
 
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');

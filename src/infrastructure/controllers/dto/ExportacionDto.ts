@@ -14,8 +14,46 @@ export class AvisosExportadosDto {
   @ApiProperty({ type: String, nullable: true, example: '19:30' })
   horaRacha!: string | null;
 
+  @ApiProperty({ description: 'Recordatorio de las 8:00 (SCRUM-126).' })
+  recordatorioManana!: boolean;
+
+  @ApiProperty({ description: 'Recordatorio de las 20:00 (SCRUM-126).' })
+  recordatorioNoche!: boolean;
+
   @ApiProperty({ description: 'En cuántos navegadores recibe avisos.' })
   navegadores!: number;
+}
+
+/** La foto de perfil, en la exportacion: el archivo mismo, para poder llevarselo (SCRUM-120). */
+export class FotoExportadaDto {
+  @ApiProperty({ example: 'image/jpeg' })
+  tipo!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', description: 'Cuándo se guardó.' })
+  actualizadaEl!: string;
+
+  @ApiProperty({
+    description: 'El archivo, en base64. Es la imagen tal como se guardó.',
+    type: String,
+    format: 'byte',
+  })
+  contenidoBase64!: string;
+}
+
+/** La mascota propia, en la exportacion: el SVG tal como se guardo, ya saneado (SCRUM-122). */
+export class MascotaPropiaExportadaDto {
+  @ApiProperty({ example: 'image/svg+xml' })
+  tipo!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', description: 'Cuándo se guardó.' })
+  actualizadaEl!: string;
+
+  @ApiProperty({
+    description:
+      'El SVG, como texto. Es el que guarda VSD Health, no el que subió la persona: se reescribió sin lo que no se admite.',
+    type: String,
+  })
+  contenido!: string;
 }
 
 /**
@@ -47,6 +85,20 @@ export class ExportacionDto {
   @ApiProperty({ type: AvisosExportadosDto })
   avisos!: AvisosExportadosDto;
 
+  @ApiProperty({
+    type: FotoExportadaDto,
+    nullable: true,
+    description: 'La foto de perfil, si tiene (SCRUM-120).',
+  })
+  foto!: FotoExportadaDto | null;
+
+  @ApiProperty({
+    type: MascotaPropiaExportadaDto,
+    nullable: true,
+    description: 'La mascota propia, si tiene (SCRUM-122).',
+  })
+  mascotaPropia!: MascotaPropiaExportadaDto | null;
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -64,8 +116,28 @@ export class ExportacionDto {
       horaSemaforo:
         preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
       horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
+      recordatorioManana: preferencias.minutoManana !== null,
+      recordatorioNoche: preferencias.minutoNoche !== null,
       navegadores,
     };
+
+    dto.foto =
+      datos.foto === null
+        ? null
+        : {
+            tipo: datos.foto.tipo,
+            actualizadaEl: datos.foto.actualizadaEl.toISOString(),
+            contenidoBase64: Buffer.from(datos.foto.contenido).toString('base64'),
+          };
+
+    dto.mascotaPropia =
+      datos.mascotaPropia === null
+        ? null
+        : {
+            tipo: datos.mascotaPropia.tipo,
+            actualizadaEl: datos.mascotaPropia.actualizadaEl.toISOString(),
+            contenido: new TextDecoder().decode(datos.mascotaPropia.contenido),
+          };
 
     return dto;
   }

@@ -93,12 +93,16 @@ export class CuentaController {
       correo: identidad.correo ?? '',
       versionPolitica: dto.versionPolitica,
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
+      ...(dto.zonaHoraria === undefined ? {} : { zonaHoraria: dto.zonaHoraria }),
     });
 
     return CuentaRespuestaDto.desde(cuenta);
   }
 
   @Get()
+  // Nombre, correo y preferencias: no deben quedar en la cache del navegador,
+  // que no se borra al cerrar sesion (SCRUM-133).
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Consultar la cuenta propia',
     description:

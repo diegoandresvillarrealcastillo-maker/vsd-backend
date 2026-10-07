@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InvalidIdentifierError, ScoreOutOfRangeError } from '../../domain/model/DomainError.js';
+import {
+  FutureCompletionDateError,
+  InvalidIdentifierError,
+  ScoreOutOfRangeError,
+} from '../../domain/model/DomainError.js';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Categoria } from '../../domain/model/Categoria.js';
@@ -95,19 +99,28 @@ class CatalogoFalso implements ActivityRepositoryPort {
  * comprobar que salen ordenadas por alcance.
  */
 class RecursosFalsos implements RecursoApoyoRepositoryPort {
-  lineasDeAtencion(): Promise<readonly RecursoApoyo[]> {
+  /** El pais con el que se pidieron las lineas, en el orden en que se pidieron. */
+  paises: (string | undefined)[] = [];
+
+  lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]> {
+    this.paises.push(pais);
+
     return Promise.resolve([
       RecursoApoyo.create({
         id: 'linea-106',
         titulo: 'Línea 106',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.BOGOTA,
+        fuente: 'https://pruebas.test/106',
+        verificadoEl: '2026-10-06',
       }),
       RecursoApoyo.create({
         id: 'linea-192',
         titulo: 'Línea 192, opción 4',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.NACIONAL,
+        fuente: 'https://pruebas.test/192',
+        verificadoEl: '2026-10-06',
       }),
     ]);
   }
@@ -144,12 +157,14 @@ function comando(sobrescribir: Partial<RegistrarResultadoCommand> = {}): Registr
     clientOperationId: OPERACION,
     score: 8,
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    zonaHoraria: 'America/Bogota',
     ...sobrescribir,
   };
 }
 
 describe('RegisterActivityResultUseCaseImpl', () => {
   let repositorio: RepositorioFalso;
+  let recursos: RecursosFalsos;
   let casoDeUso: RegisterActivityResultUseCaseImpl;
 
   /** Lo registrado, para las pruebas que no miran las lineas de atencion. */
@@ -159,10 +174,11 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
   beforeEach(() => {
     repositorio = new RepositorioFalso();
+    recursos = new RecursosFalsos();
     casoDeUso = new RegisterActivityResultUseCaseImpl(
       repositorio,
       new CatalogoFalso([actividad(), bitacora()]),
-      new RecursosFalsos(),
+      recursos,
       () => new ResultId(RESULTADO),
       () => AHORA,
     );
@@ -193,6 +209,33 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
       expect(resultado.tienePuntaje()).toBe(false);
       expect(lineasDeAtencion).toHaveLength(2);
+    });
+
+    it.each([
+      ['America/Bogota', 'CO'],
+      ['America/Mexico_City', 'MX'],
+      ['Europe/Madrid', 'ES'],
+      ['America/New_York', 'US'],
+    ])(
+      'se piden con el pais de la zona de la cuenta: %s es %s (SCRUM-124)',
+      async (zonaHoraria, pais) => {
+        await casoDeUso.execute(comando({ score: 1, zonaHoraria }));
+
+        expect(recursos.paises).toEqual([pais]);
+      },
+    );
+
+    it('una zona sin pais con lineas verificadas las pide sin pais, y nunca como Colombia', async () => {
+      // Lima comparte hora con Bogota. Pedirlas como Colombia le daria el 192.
+      await casoDeUso.execute(comando({ score: 1, zonaHoraria: 'America/Lima' }));
+
+      expect(recursos.paises).toEqual([undefined]);
+    });
+
+    it('un resultado que no sugiere acompanamiento no pide ninguna linea', async () => {
+      await casoDeUso.execute(comando({ score: 8, zonaHoraria: 'Europe/Madrid' }));
+
+      expect(recursos.paises).toEqual([]);
     });
 
     it('un reintento vuelve a traerlas: quien repite ve lo mismo que la primera vez', async () => {
@@ -306,5 +349,83 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     // haber tocado la persistencia.
     await expect(registrar(comando({ userId: 'roto' }))).rejects.toThrow();
     expect(repositorio.cantidad).toBe(0);
+  });
+  describe('el reloj del dispositivo (SCRUM-133)', () => {
+    // Sin conexion, el resultado viaja despues con la hora del reloj del
+    // dispositivo. Ese reloj puede ir unos minutos adelantado y eso no puede
+    // dejar el resultado rechazado para siempre.
+    const MINUTO = 60 * 1000;
+
+    it('un resultado hecho sin conexion hace horas se registra con su hora, no con la de ahora', async () => {
+      const haceTresHoras = new Date(AHORA.getTime() - 3 * 60 * MINUTO);
+
+      const resultado = await registrar(comando({ completedAt: haceTresHoras }));
+
+      expect(resultado.completedAt.toISOString()).toBe(haceTresHoras.toISOString());
+    });
+
+    it('un reloj adelantado unos minutos se registra como ahora', async () => {
+      const resultado = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 4 * MINUTO) }),
+      );
+
+      expect(resultado.completedAt.toISOString()).toBe(AHORA.toISOString());
+    });
+
+    it('acepta justo en el limite de la tolerancia y rechaza un milisegundo despues', async () => {
+      const enElLimite = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 5 * MINUTO) }),
+      );
+
+      expect(enElLimite.completedAt.toISOString()).toBe(AHORA.toISOString());
+
+      await expect(
+        registrar(
+          comando({
+            clientOperationId: OTRA_OPERACION,
+            completedAt: new Date(AHORA.getTime() + 5 * MINUTO + 1),
+          }),
+        ),
+      ).rejects.toThrow(FutureCompletionDateError);
+      expect(repositorio.cantidad).toBe(1);
+    });
+
+    it('un dia en el futuro se sigue rechazando y no guarda nada', async () => {
+      await expect(
+        registrar(comando({ completedAt: new Date(AHORA.getTime() + 24 * 60 * MINUTO) })),
+      ).rejects.toThrow(FutureCompletionDateError);
+      expect(repositorio.cantidad).toBe(0);
+    });
+
+    it('con el reloj adelantado pasada la medianoche, el resultado no cae en el dia siguiente', async () => {
+      // 23:58 del 14 en Bogota (UTC-5) es 04:58 del 15 en UTC. El dispositivo,
+      // adelantado, dice 00:01 del 15 en Bogota.
+      const alFinalDelDia = new RegisterActivityResultUseCaseImpl(
+        repositorio,
+        new CatalogoFalso([actividad(), bitacora()]),
+        recursos,
+        () => new ResultId(RESULTADO),
+        () => new Date('2026-09-15T04:58:00.000Z'),
+      );
+
+      const { resultado } = await alFinalDelDia.execute(
+        comando({ completedAt: new Date('2026-09-15T05:01:00.000Z') }),
+      );
+
+      expect(resultado.dia).toBe('2026-09-14');
+      expect(resultado.completedAt.toISOString()).toBe('2026-09-15T04:58:00.000Z');
+    });
+
+    it('un reintento con la misma operacion sigue devolviendo lo ya registrado', async () => {
+      const primero = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 3 * MINUTO) }),
+      );
+      const reintento = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 3 * MINUTO) }),
+      );
+
+      expect(reintento.id.value).toBe(primero.id.value);
+      expect(repositorio.cantidad).toBe(1);
+    });
   });
 });

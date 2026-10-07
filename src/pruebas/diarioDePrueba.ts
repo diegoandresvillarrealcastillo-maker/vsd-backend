@@ -95,9 +95,12 @@ export function documentoCon(...parrafos: string[]): Record<string, unknown> {
  */
 export class LineasDePrueba implements RecursoApoyoRepositoryPort {
   consultas = 0;
+  /** El pais con el que se pidieron las lineas, en el orden en que se pidieron. */
+  paises: (string | undefined)[] = [];
 
-  lineasDeAtencion(): Promise<readonly RecursoApoyo[]> {
+  lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]> {
     this.consultas += 1;
+    this.paises.push(pais);
 
     return Promise.resolve([
       RecursoApoyo.create({
@@ -105,12 +108,16 @@ export class LineasDePrueba implements RecursoApoyoRepositoryPort {
         titulo: 'Línea 106',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.BOGOTA,
+        fuente: 'https://pruebas.test/106',
+        verificadoEl: '2026-10-06',
       }),
       RecursoApoyo.create({
         id: 'linea-192',
         titulo: 'Línea 192, opción 4',
         tipo: TipoDeRecurso.CONTACTO,
         cobertura: Cobertura.NACIONAL,
+        fuente: 'https://pruebas.test/192',
+        verificadoEl: '2026-10-06',
       }),
     ]);
   }

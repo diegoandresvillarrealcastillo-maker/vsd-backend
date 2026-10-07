@@ -11,6 +11,28 @@ export class ConsentimientoDto {
   aceptadoEn!: Date;
 }
 
+/** La foto de perfil, tal como la ve la cuenta: que hay y desde cuando, no los bytes. */
+export class FotoDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
+}
+
+/** La mascota propia, vista desde la cuenta: que hay y desde cuando, no el dibujo. */
+export class MascotaPropiaDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
+}
+
 /**
  * La cuenta, tal como sale por la API.
  *
@@ -58,6 +80,29 @@ export class CuentaRespuestaDto {
   })
   diarioConRecomendaciones!: boolean;
 
+  @ApiProperty({
+    description:
+      'Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).',
+    example: 'America/Bogota',
+  })
+  zonaHoraria!: string;
+
+  @ApiProperty({
+    description:
+      'La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.',
+    type: FotoDeLaCuentaDto,
+    nullable: true,
+  })
+  foto!: FotoDeLaCuentaDto | null;
+
+  @ApiProperty({
+    description:
+      'La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.',
+    type: MascotaPropiaDeLaCuentaDto,
+    nullable: true,
+  })
+  mascotaPropia!: MascotaPropiaDeLaCuentaDto | null;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -68,6 +113,13 @@ export class CuentaRespuestaDto {
     dto.modulosActivos = [...cuenta.modulosActivos];
     dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
     dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
+    dto.zonaHoraria = cuenta.zonaHoraria;
+    dto.foto =
+      cuenta.fotoActualizadaEl === undefined ? null : { actualizadaEl: cuenta.fotoActualizadaEl };
+    dto.mascotaPropia =
+      cuenta.mascotaPropiaActualizadaEl === undefined
+        ? null
+        : { actualizadaEl: cuenta.mascotaPropiaActualizadaEl };
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

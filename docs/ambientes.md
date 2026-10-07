@@ -48,13 +48,30 @@ dominio exacto.
 
 `SUPABASE_SERVICE_ROLE_KEY` es **obligatoria en PRE y PROD**: sin ella el
 servicio no arranca. Es la clave `service_role` de cada proyecto de Supabase,
-se pone a mano en Render y nunca pasa por Git. El backend la usa solo para
-borrar la identidad de quien borra su cuenta. En DEV es opcional.
+se pone a mano en Render y nunca pasa por Git. El backend la usa para **dos**
+cosas: borrar la identidad de quien borra su cuenta y guardar, leer y borrar los
+archivos de las personas en Supabase Storage (la foto de perfil, SCRUM-120; ver
+el [ADR 0016](adr/0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md)).
+Nunca para leer ni escribir datos de la base. En DEV es opcional: sin ella la
+identidad no se borra en Supabase y las fotos se guardan en memoria.
 
-`ZONA_HORARIA` es la misma en los tres ambientes, `America/Bogota`, y no hace
-falta declararla: es el valor por defecto. Existe para que las pruebas puedan
-cambiarla. Decide que dia es para las actividades, el sendero, el diario y el
-semaforo; ver "El dia se cuenta en hora de Colombia" en `dominio.md`.
+**El bucket de las fotos no se crea a mano.** La API crea `fotos-de-perfil` la
+primera vez que se guarda una foto: privado, sin politicas, con un limite de
+51 200 bytes y solo `image/jpeg` e `image/png`. Si ya existe, lo deja como esta.
+La primera vez en PRE hay que comprobarlo a ojo, porque en CI y en local no hay
+Storage: subir una foto desde el perfil, mirar en Supabase (Storage) que el
+bucket existe, es privado y tiene un objeto con el identificador de la cuenta
+como nombre, y quitar la foto desde el perfil y ver que el objeto desaparece.
+
+La mascota propia (SCRUM-122, ADR 0017) usa **otro bucket**, `mascotas-propias`,
+creado de la misma forma: privado, sin politicas, con un limite de 102 400 bytes
+y solo `image/svg+xml`. Se comprueba igual, subiendo un `.svg` desde el perfil.
+
+**No hay variable de zona horaria.** `ZONA_HORARIA` existio hasta SCRUM-123,
+cuando el servicio contaba el dia en una sola zona. Ahora cada cuenta guarda la
+suya y la informa el dispositivo; ver "El dia se cuenta en la zona de cada
+persona" en `dominio.md` y el ADR 0014. Si todavia esta declarada en Render, se
+puede quitar: ya no se lee.
 
 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` son las claves de los
 avisos por Web Push (SCRUM-102).
@@ -121,31 +138,116 @@ campo llegue a produccion. Se anota la plantilla de la ruta
 —`/api/resultados/:id`— y no la URL concreta, para que los
 identificadores no acaben en el registro solo por viajar en la direccion.
 
+## La imagen de Docker (SCRUM-131)
+
+El backend se empaqueta en una imagen (`Dockerfile`) y esa misma imagen corre en
+el CI, en el entorno completo (SCRUM-132) y en Render. La decision y lo que se
+descarto estan en el [ADR 0018](adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
+El frontend sigue en Vercel: no usa contenedor.
+
+```bash
+docker build -t vsd-api .
+docker run --rm -p 3000:3000 --env-file .env vsd-api
+```
+
+Lo que conviene saber:
+
+- **No lleva configuracion.** Ni `.env` ni ningun valor: todo entra como variable
+  de entorno al ejecutar, con los mismos nombres de esta pagina. `.dockerignore`
+  funciona por lista blanca para que un archivo con secretos no entre por
+  descuido.
+- **`NODE_ENV` vale `production` por omision.** Sin configurar nada, el servicio
+  se niega a arrancar y dice que falta. Para probarla en local con la base en
+  memoria hay que pedir `NODE_ENV=development` y dar `CORS_ORIGIN` y
+  `SUPABASE_URL`.
+- **No aplica migraciones.** Las aplica una persona, como siempre.
+- **Corre sin privilegios** (usuario `node`) y con el codigo de solo lectura.
+- **`PORT`** lo pone Render; si no llega, 3000.
+- **El `HEALTHCHECK`** consulta `/health` con el `fetch` de Node. Lo lee Docker
+  Compose; Render usa su propia comprobacion.
+- **El CI** (trabajo "Imagen de Docker") la construye, la arranca y comprueba lo
+  anterior. Imprime el peso en cada ejecucion.
+
+### El entorno completo (SCRUM-132)
+
+`docker compose --profile completo up --build` levanta cuatro piezas en orden,
+cada una esperando a la anterior por una **condicion** y no por una pausa:
+
+| Pieza         | Que hace                                                 | Espera a              |
+| ------------- | -------------------------------------------------------- | --------------------- |
+| `postgres`    | La base de desarrollo (PostgreSQL 17.6)                  | —                     |
+| `migraciones` | `prisma migrate deploy` y termina                        | `postgres` sana       |
+| `api`         | La imagen de arriba, en `development`, en el puerto 3000 | migraciones sin error |
+| `web`         | La imagen del frontend (nginx), en el puerto 8080        | `api` sana            |
+
+- `migraciones` usa la etapa `compilacion` del `Dockerfile` y no la imagen final,
+  porque la CLI de Prisma no viaja en la que se despliega.
+- Las piezas nuevas estan en el perfil `completo`: `docker compose up -d` y
+  `npm run db:arriba` siguen levantando solo las dos bases, como siempre.
+- El CI (trabajo «Entorno completo con Docker Compose») levanta la base, las
+  migraciones y la API, comprueba que el catalogo responde con su esquema y datos
+  y que la API acepta el origen de la web y no otro; y, si `vsd-frontend` ya
+  tiene su `Dockerfile` en `desarrollo`, levanta tambien la web.
+- Lo que **no** incluye: Supabase. El inicio de sesion usa el proyecto que se
+  indique en `SUPABASE_URL`. Y es el ambiente de desarrollo: la API conecta como
+  el dueno de las tablas, como `start:dev`.
+
+El paso a paso para quien lo use esta en el [README](../README.md).
+
+### Pasar el servicio de Render a Docker
+
+Lo hace **una persona en el panel de Render**; no se automatiza porque se toca un
+servicio vivo con sus variables. Los nombres de los campos salen de lo que se de
+Render, no de haberlos abierto: si algo no coincide, manda el panel.
+
+1. Crear un servicio web **nuevo** con el mismo repositorio y la misma rama, con
+   el lenguaje en **Docker** y el `Dockerfile` de la raiz. Dejar vacio el comando
+   de inicio: la imagen ya trae el suyo.
+2. Copiar las variables de entorno del servicio actual (incluida
+   `SUPABASE_SERVICE_ROLE_KEY`) y poner la ruta de comprobacion en `/health`.
+3. Esperar a que despliegue y comprobar `/health` y, con una sesion de PRE, el
+   perfil y el catalogo.
+4. Cambiar `VITE_API_BASE_URL` de la web de PRE (Vercel) a la direccion nueva y
+   volver a desplegarla, y **apagar el servicio viejo** solo cuando todo
+   funcione.
+5. Anotar aqui la fecha del cambio.
+
+Mientras tanto el servicio de Node actual sigue funcionando: el `Dockerfile` en el
+repositorio no cambia nada de lo desplegado hasta que alguien haga estos pasos.
+
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado            |
-| -------- | ----------------------------------------- | ----------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | **Preparado**     |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**     |
+| Ambiente | Donde vive                                | Estado                                 |
+| -------- | ----------------------------------------- | -------------------------------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento                      |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento                      |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | **En uso**, con las 13 migraciones     |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**, con 5 de 13 migraciones |
 
-Preparado quiere decir las cinco migraciones aplicadas, el catalogo sembrado y
-el rol `vsd_app` con contrasena y sujeto a las politicas de aislamiento. Los
-dos quedaron asi el **21/09/2026**, comprobados con `npm run db:revisar`.
+Preparado quiere decir las migraciones de ese momento aplicadas, el catalogo
+sembrado y el rol `vsd_app` con contrasena y sujeto a las politicas de
+aislamiento. Los dos quedaron asi el **21/09/2026**, con cinco migraciones,
+comprobados con `npm run db:revisar`. Desde entonces cada uno siguio un camino
+distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
 
-Lo que todavia no existe es un despliegue que se conecte a ellas.
+- **PRE** recibio las migraciones a medida que llegaban a `preproduccion`.
+  Tiene las 13, hasta `20261005120000_avisos_push`, y es la base que usa el API
+  desplegado.
+- **PROD** sigue como quedo el 21/09: 5 de 13, hasta
+  `20260921120000_catalogo_inicial`. Le faltan las ocho siguientes, que tienen
+  que estar aplicadas antes del primer despliegue de PROD. Ver "Estado actual".
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
-ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
-lineas de atencion y **el catalogo de tres categorias y nueve actividades**.
+ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas
+de atencion y **el catalogo de tres categorias y nueve actividades**.
 
 El catalogo se siembra con una migracion y no desde el panel justamente por
 eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de
 significar algo, y el fallo no daria ningun error: la aplicacion se veria bien
 y mostraria cosas distintas en cada sitio.
 
-Ninguno de los dos contiene datos de ninguna persona.
+PROD no contiene datos de ninguna persona. PRE si tiene cuentas, creadas desde
+la PWA desplegada.
 
 Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
 plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
@@ -213,13 +315,29 @@ politicas apagadas.
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Las bases de PRE y PROD estan preparadas y listas para recibir conexiones,
-pero **todavia no hay ningun despliegue** que las use: la API solo corre en
-local y en el contenedor del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
-seccion se actualiza cuando eso cambie.
+| Ambiente | API                                                        | PWA                                 | Base                                       |
+| -------- | ---------------------------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| DEV      | `http://localhost:3000`                                    | `http://localhost:5173`             | Local                                      |
+| PRE      | Render, servicio `vsd-api-pre`: `vsd-api-pre.onrender.com` | Vercel: `vsd-health-pre.vercel.app` | `vsd-health-pre`                           |
+| PROD     | Sin desplegar                                              | Sin desplegar                       | `vsd-health-prod`, preparada pero atrasada |
 
-Los dos pasos manuales de cada ambiente —aplicar las migraciones y darle
-contrasena a `vsd_app`— ya estan hechos. Se hicieron con `npm run db:preparar`,
+**PRE esta desplegado y en uso.** Las variables de cada servicio se cargaron a
+mano en Render y en Vercel; ninguna paso por Git. Dos cosas propias de este
+despliegue:
+
+- **Vercel sirve la PWA en cualquier ruta.** `vercel.json` reescribe toda ruta
+  a `index.html`, porque las rutas las resuelve React en el navegador. Sin eso,
+  entrar directo a `/panel` o recargar respondia 404 (SCRUM-104).
+- **Render se duerme.** En el plan gratuito apaga el servicio tras 15 minutos
+  sin peticiones, y despertarlo tarda cerca de un minuto. Lo cubren dos cosas
+  (SCRUM-111): la PWA llama a `/health` en cuanto se abre, y el workflow
+  `mantener-el-api-despierto.yml` lo llama cada 10 minutos. GitHub ejecuta los
+  workflows programados desde la rama por defecto, `produccion`, asi que ese
+  ultimo empieza a correr cuando SCRUM-111 llegue alli; mientras tanto se lanza
+  a mano desde Actions.
+
+Los dos pasos manuales de cada base —aplicar las migraciones y darle
+contrasena a `vsd_app`— se hicieron en PRE y en PROD con `npm run db:preparar`,
 que los encadena en el orden correcto: el rol lo crea una migracion, asi que
 darle contrasena antes no funciona.
 
@@ -227,5 +345,27 @@ Las contrasenas viven en el gestor del equipo y **son distintas por ambiente**.
 Si una se compromete, la otra no se va con ella. No pasan por Git ni por
 ningun chat.
 
-Queda anotar las dos URL en el gestor de secretos del proveedor de despliegue,
-cuando ese despliegue exista.
+### Los correos de Supabase Auth
+
+Confirmar la cuenta, recuperar la contrasena y cambiar el correo los manda
+Supabase, y cada proyecto guarda **sus propias plantillas**: no viajan con las
+migraciones. Las del equipo estan en [`correos/`](../correos/README.md) (SCRUM-125)
+y las **pega una persona** en cada ambiente, en _Authentication → Emails →
+Templates_. Salen de una sola plantilla y usan `{{ .SiteURL }}` para el logo, asi
+que la **Site URL** de cada proyecto tiene que ser la de su PWA (PRE:
+`https://vsd-health-pre.vercel.app`).
+
+### Lo que falta para PROD
+
+1. **Ponerle al dia la base.** Aplicar a `vsd-health-prod` las ocho
+   migraciones que le faltan con `npm run db:aplicar`, con `DIRECT_URL`
+   apuntando al session pooler de PROD en la misma orden. Lo hace una persona
+   del equipo, y antes de ejecutarlo se comprueba a que host apunta.
+2. **Crear el servicio del API y el proyecto de la PWA**, con sus propias
+   variables: `CORS_ORIGIN` con el dominio exacto de PROD, su propio par de
+   claves VAPID y la `DATABASE_URL` de `vsd_app` en PROD.
+3. **Pegar las plantillas de correo** de [`correos/generados/`](../correos/README.md)
+   en `vsd-health-prod`, con la Site URL de la PWA de PROD.
+4. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
+   en el mismo espacio de trabajo: uno solo usa unas 744 de las 750 horas del
+   mes. Ver el encabezado de `mantener-el-api-despierto.yml`.

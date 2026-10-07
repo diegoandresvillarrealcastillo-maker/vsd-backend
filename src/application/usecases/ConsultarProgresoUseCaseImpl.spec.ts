@@ -65,6 +65,8 @@ function resultado(cual: Activity, cuando: string): ActivityResult {
         `eeeeeeee-eeee-4eee-8eee-${String(operacion).padStart(12, '0')}`,
       ),
       completedAt: new Date(cuando),
+      // El dia que se guardo al registrarlo: el de Bogota, como antes.
+      dia: new Calendario().diaDe(new Date(cuando)),
     },
     AHORA,
   );
@@ -84,13 +86,7 @@ function armar(cuenta: User | null, resultados: ActivityResult[] = []) {
     ultimosDe: () => Promise.resolve(resultados),
   } as unknown as ActivityResultRepositoryPort;
 
-  return new ConsultarProgresoUseCaseImpl(
-    cuentas,
-    catalogo,
-    repositorio,
-    new Calendario(),
-    () => AHORA,
-  );
+  return new ConsultarProgresoUseCaseImpl(cuentas, catalogo, repositorio, () => AHORA);
 }
 
 const CON_DOS_MODULOS = unaCuenta().conPreferencias({ modulosActivos: ['bienestar', 'cognicion'] });
@@ -146,5 +142,61 @@ describe('ConsultarProgresoUseCaseImpl', () => {
     await expect(armar(null).execute(new UserId(PERSONA))).rejects.toThrow(
       AccountNotProvisionedError,
     );
+  });
+});
+
+describe('El progreso en la zona de la persona (SCRUM-123)', () => {
+  /** Un resultado de "Movimiento del dia" con el dia que se guardo al registrarlo. */
+  function hecho(dia: string): ActivityResult {
+    return ActivityResult.create(
+      {
+        id: new ResultId('dddddddd-dddd-4ddd-8ddd-00000000f001'),
+        userId: new UserId(PERSONA),
+        activityId: MOVIMIENTO.id,
+        clientOperationId: new ClientOperationId('eeeeeeee-eeee-4eee-8eee-00000000f001'),
+        completedAt: new Date('2026-10-03T01:00:00Z'),
+        dia,
+      },
+      AHORA,
+    );
+  }
+
+  async function movimientoDeHoy(cuenta: User, resultados: ActivityResult[]) {
+    const progreso = await armar(cuenta, resultados).execute(new UserId(PERSONA));
+    const bienestar = progreso.find((uno) => uno.modulo === 'bienestar');
+
+    return {
+      sesiones: bienestar?.sesiones,
+      hecha: bienestar?.hoy.find((una) => una.actividad.nombre === 'Movimiento del día')?.hecha,
+    };
+  }
+
+  it('el "hoy" es el de la zona de la cuenta', async () => {
+    // AHORA es el 2 de octubre en Bogota y ya el 3 en Tokio. Un resultado del
+    // dia 3 es de hoy para quien esta en Tokio, y de manana para quien esta en
+    // Bogota.
+    const delTres = [hecho('2026-10-03')];
+
+    expect(await movimientoDeHoy(CON_DOS_MODULOS, delTres)).toEqual({ sesiones: 1, hecha: false });
+    expect(await movimientoDeHoy(CON_DOS_MODULOS.conZonaHoraria('Asia/Tokyo'), delTres)).toEqual({
+      sesiones: 1,
+      hecha: true,
+    });
+  });
+
+  it('viajar no mueve el dia de lo que ya se hizo: cada resultado trae el suyo', async () => {
+    // Hecho a las 8 p. m. del 2 en Bogota y registrado con ese dia. Si el dia
+    // se recalculara con la zona de hoy, desde Tokio caeria en el 3 y contaria
+    // como hecho hoy: una racha ganada otro dia pasaria por de hoy.
+    const delDos = [hecho('2026-10-02')];
+
+    expect(await movimientoDeHoy(CON_DOS_MODULOS, delDos)).toEqual({ sesiones: 1, hecha: true });
+
+    // En Tokio ya es el 3: lo del 2 sigue contando como una sesion, pero no
+    // como hecho hoy.
+    expect(await movimientoDeHoy(CON_DOS_MODULOS.conZonaHoraria('Asia/Tokyo'), delDos)).toEqual({
+      sesiones: 1,
+      hecha: false,
+    });
   });
 });

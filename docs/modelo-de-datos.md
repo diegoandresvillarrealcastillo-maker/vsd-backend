@@ -78,19 +78,21 @@ el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí sol
 queda su identificador. Ver
 [ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
-| Campo                        | Tipo         | Nulo | Descripción                                                                         |
-| ---------------------------- | ------------ | ---- | ----------------------------------------------------------------------------------- |
-| `id_usuario`                 | UUID         | no   | Clave primaria.                                                                     |
-| `nombre`                     | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                  |
-| `correo`                     | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                              |
-| `id_proveedor_auth`          | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.               |
-| `rol`                        | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                        |
-| `version_politica_aceptada`  | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                          |
-| `fecha_aceptacion_politica`  | TIMESTAMP    | no   | Cuándo la aceptó.                                                                   |
-| `fecha_registro`             | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                           |
-| `modulos_activos`            | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                       |
-| `mascota`                    | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.               |
-| `diario_con_recomendaciones` | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108). |
+| Campo                           | Tipo         | Nulo | Descripción                                                                                        |
+| ------------------------------- | ------------ | ---- | -------------------------------------------------------------------------------------------------- |
+| `id_usuario`                    | UUID         | no   | Clave primaria.                                                                                    |
+| `nombre`                        | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                                 |
+| `correo`                        | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                                             |
+| `id_proveedor_auth`             | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.                              |
+| `rol`                           | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                                       |
+| `version_politica_aceptada`     | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                                         |
+| `fecha_aceptacion_politica`     | TIMESTAMP    | no   | Cuándo la aceptó.                                                                                  |
+| `fecha_registro`                | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                                          |
+| `modulos_activos`               | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                                      |
+| `mascota`                       | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.                              |
+| `diario_con_recomendaciones`    | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108).                |
+| `foto_actualizada_el`           | TIMESTAMPTZ  | sí   | Cuándo se guardó la foto de perfil. NULL: no tiene. La foto vive en Storage (ADR 0016).            |
+| `mascota_propia_actualizada_el` | TIMESTAMPTZ  | sí   | Cuándo se guardó la mascota propia, un SVG. NULL: no tiene. El archivo vive en Storage (ADR 0017). |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una
@@ -267,7 +269,7 @@ Lo que la persona escribe por su cuenta. Corresponde al RF14.
 | ---------------------- | ------------ | ---- | ------------------------------------------------------------------------ |
 | `id_entrada`           | UUID         | no   | Clave primaria.                                                          |
 | `id_usuario`           | UUID         | no   | A quién pertenece.                                                       |
-| `dia`                  | DATE         | no   | Día del calendario de Colombia al que pertenece. Desde SCRUM-95.         |
+| `dia`                  | DATE         | no   | Día del calendario de la persona al que pertenece. Desde SCRUM-95.       |
 | `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                         |
 | `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.          |
 | `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.     |
@@ -360,6 +362,19 @@ fuera de Bogotá es dar un teléfono que no contesta, y en una situación de rie
 eso no es un detalle. Por eso el asistente ordena por cobertura y lo nacional va
 primero.
 
+Tres columnas más desde SCRUM-124 (ver el [ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md)):
+
+`pais` es el código ISO de dos letras donde sirve la fila (`CO`, `MX`, `ES`,
+`US`). Se deduce de la zona horaria de la cuenta, nunca de la ubicación. Vacío
+cuando sirve en cualquier parte: las lecturas, y el **directorio internacional**,
+que es lo único que recibe quien está en un lugar sin líneas verificadas.
+Una restricción de la base impone que sean dos letras mayúsculas.
+
+`fuente` y `verificado_el` son la página oficial donde se confirmó el dato y el
+día en que una persona lo confirmó. **Son obligatorias en los contactos**: la
+restricción `recurso_apoyo_contacto_con_fuente` no deja guardar un teléfono sin
+ellas. Es la forma de que «cada línea tiene fuente» no dependa de acordarse.
+
 Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.
@@ -369,27 +384,37 @@ no puede fallar. Hay una prueba de integración que comprueba que están.
 Los pendientes del semáforo (SCRUM-97). Lo que la persona tiene por hacer, con
 su color.
 
-| Campo                  | Tipo            | Nulo | Descripción                                         |
-| ---------------------- | --------------- | ---- | --------------------------------------------------- |
-| `id_pendiente`         | UUID            | no   | Clave primaria.                                     |
-| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.          |
-| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.       |
-| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.               |
-| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                      |
-| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.               |
-| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo. |
-| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.     |
-| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                     |
+| Campo                  | Tipo            | Nulo | Descripción                                                                                   |
+| ---------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `id_pendiente`         | UUID            | no   | Clave primaria.                                                                               |
+| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.                                                    |
+| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.                                                 |
+| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.                                                         |
+| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                                                                |
+| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.                                                         |
+| `fecha_limite`         | DATE            | sí   | Día límite, en el calendario de la persona. Sin él no vence un día concreto. Desde SCRUM-119. |
+| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo.                                           |
+| `version`              | INTEGER         | no   | Empieza en 1 y sube con cada edición. Detecta que otro dispositivo lo cambió. SCRUM-134.      |
+| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.                                               |
+| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                                                               |
 
 **Los recordatorios no se guardan**: se calculan al consultar.
 
 - **Umbrales:** cada color es un plazo (urgente, esta semana; prioridad, de 7
   a 21 días; aplazable, 21 o más). Un pendiente sin hacer recuerda cuando se le
   acaba: a los 7 días si es urgente, a los 21 si es prioridad y a los 30 si es
-  aplazable, este con tono suave. Salvo que esté pospuesto.
+  aplazable, este con tono suave. Salvo que esté pospuesto. **Con fecha límite**
+  (SCRUM-119) recuerda desde ese día, en lugar de esperar los días de su color.
 - **Uno por visita:** se elige el de mayor color y, a igual color, el más
   antiguo.
 - **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.
+
+**La versión** (SCRUM-134, migración `20261013120000_version_del_pendiente`) es
+aditiva: una columna con valor por defecto 1, así que los pendientes que ya
+existían quedan en 1. La comparación se hace **dentro del propio `UPDATE`**
+(`WHERE version = <la que se leyó>`), no en el código: leer, comparar y escribir
+por separado dejaría pasar al cambio que llega justo en medio. Las reglas de
+conflicto están en `dominio.md` ("Editar un pendiente desde dos dispositivos").
 
 **Política de acceso:** la misma que `RESULTADO`. RLS forzado; cada persona lee
 y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
@@ -397,9 +422,10 @@ y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
 
 ## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
 
-Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes, y el
-de la racha, si ese día no se hizo ninguna actividad. Ninguna de las dos tablas
-guarda datos de salud.
+Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
+la racha, si ese día no se hizo ninguna actividad; y los recordatorios de las
+8:00 (siempre) y las 20:00 (solo si ese día no hubo actividad) de SCRUM-126.
+Ninguna de las dos tablas guarda datos de salud.
 
 `SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos.
 
@@ -414,14 +440,18 @@ guarda datos de salud.
 
 `PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
 
-| Campo                   | Tipo        | Nulo | Descripción                                                                 |
-| ----------------------- | ----------- | ---- | --------------------------------------------------------------------------- |
-| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                     |
-| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.        |
-| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.               |
-| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en hora de Colombia, en que se revisó. Así sale una vez al día. |
-| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                 |
-| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                              |
+| Campo                   | Tipo        | Nulo | Descripción                                                                  |
+| ----------------------- | ----------- | ---- | ---------------------------------------------------------------------------- |
+| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                      |
+| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.         |
+| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                |
+| `minuto_manana`         | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).       |
+| `minuto_noche`          | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).     |
+| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día. |
+| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                  |
+| `ultimo_aviso_manana`   | DATE        | sí   | Igual, para el de las 8:00.                                                  |
+| `ultimo_aviso_noche`    | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.  |
+| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                               |
 
 Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
 `TIME` en una fecha completa, y con ella vuelven los problemas de zona.

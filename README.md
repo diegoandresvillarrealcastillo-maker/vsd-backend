@@ -125,6 +125,11 @@ lineas de atencion, y esa decision se toma antes de mirar nada mas. No se delega
 a un modelo, ni ahora ni cuando exista el adaptador de Fase 2: ver
 [ADR 0011](docs/adr/0011-la-deteccion-de-riesgo-es-por-reglas.md).
 
+Entiende ademas la charla de todos los dias (saludos, gracias, despedidas, "como
+estas" y "que puedes hacer"), que se responde sin lineas de atencion, y solo
+cuando el mensaje entero es charla. Todo lo que puede decir esta en
+[docs/textos-del-asistente.md](docs/textos-del-asistente.md).
+
 ### Probar la API sin salir del editor
 
 El archivo [`peticiones.http`](peticiones.http) trae ocho ejemplos listos:

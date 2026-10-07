@@ -190,6 +190,22 @@ El funcionamiento sin conexion usa **IndexedDB** a traves de un
 adaptador. `localStorage` queda reservado para preferencias no sensibles
 como el tema visual o el idioma.
 
+### La cache HTTP del navegador es otra cosa (SCRUM-133)
+
+Las copias propias de la aplicacion viven en IndexedDB, por persona, y se borran
+al cerrar sesion. La **cache HTTP** del navegador no: sobrevive al cierre de
+sesion y, en un equipo compartido (las salas de computo), la ve quien se sienta
+despues. Por eso:
+
+- **Toda lectura (`GET`) de algo de una persona responde `Cache-Control:
+no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
+  foto, la mascota y la exportacion. Las demas operaciones (`POST`, `PATCH`,
+  `PUT`, `DELETE`) no las guarda el navegador. Cada lectura tiene su prueba.
+- **Lo publico** (el catalogo y la version del aviso) no lleva nada de nadie, asi
+  que se deja guardar y se **revalida**: Express calcula el `ETag` y responde 304
+  sin cuerpo si no cambio. El `ETag` se expone por CORS para que la aplicacion
+  pueda leerlo.
+
 ---
 
 ## 5. Datos personales

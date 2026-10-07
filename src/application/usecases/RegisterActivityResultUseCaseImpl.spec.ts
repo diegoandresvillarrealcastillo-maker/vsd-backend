@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InvalidIdentifierError, ScoreOutOfRangeError } from '../../domain/model/DomainError.js';
+import {
+  FutureCompletionDateError,
+  InvalidIdentifierError,
+  ScoreOutOfRangeError,
+} from '../../domain/model/DomainError.js';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Categoria } from '../../domain/model/Categoria.js';
@@ -345,5 +349,83 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     // haber tocado la persistencia.
     await expect(registrar(comando({ userId: 'roto' }))).rejects.toThrow();
     expect(repositorio.cantidad).toBe(0);
+  });
+  describe('el reloj del dispositivo (SCRUM-133)', () => {
+    // Sin conexion, el resultado viaja despues con la hora del reloj del
+    // dispositivo. Ese reloj puede ir unos minutos adelantado y eso no puede
+    // dejar el resultado rechazado para siempre.
+    const MINUTO = 60 * 1000;
+
+    it('un resultado hecho sin conexion hace horas se registra con su hora, no con la de ahora', async () => {
+      const haceTresHoras = new Date(AHORA.getTime() - 3 * 60 * MINUTO);
+
+      const resultado = await registrar(comando({ completedAt: haceTresHoras }));
+
+      expect(resultado.completedAt.toISOString()).toBe(haceTresHoras.toISOString());
+    });
+
+    it('un reloj adelantado unos minutos se registra como ahora', async () => {
+      const resultado = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 4 * MINUTO) }),
+      );
+
+      expect(resultado.completedAt.toISOString()).toBe(AHORA.toISOString());
+    });
+
+    it('acepta justo en el limite de la tolerancia y rechaza un milisegundo despues', async () => {
+      const enElLimite = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 5 * MINUTO) }),
+      );
+
+      expect(enElLimite.completedAt.toISOString()).toBe(AHORA.toISOString());
+
+      await expect(
+        registrar(
+          comando({
+            clientOperationId: OTRA_OPERACION,
+            completedAt: new Date(AHORA.getTime() + 5 * MINUTO + 1),
+          }),
+        ),
+      ).rejects.toThrow(FutureCompletionDateError);
+      expect(repositorio.cantidad).toBe(1);
+    });
+
+    it('un dia en el futuro se sigue rechazando y no guarda nada', async () => {
+      await expect(
+        registrar(comando({ completedAt: new Date(AHORA.getTime() + 24 * 60 * MINUTO) })),
+      ).rejects.toThrow(FutureCompletionDateError);
+      expect(repositorio.cantidad).toBe(0);
+    });
+
+    it('con el reloj adelantado pasada la medianoche, el resultado no cae en el dia siguiente', async () => {
+      // 23:58 del 14 en Bogota (UTC-5) es 04:58 del 15 en UTC. El dispositivo,
+      // adelantado, dice 00:01 del 15 en Bogota.
+      const alFinalDelDia = new RegisterActivityResultUseCaseImpl(
+        repositorio,
+        new CatalogoFalso([actividad(), bitacora()]),
+        recursos,
+        () => new ResultId(RESULTADO),
+        () => new Date('2026-09-15T04:58:00.000Z'),
+      );
+
+      const { resultado } = await alFinalDelDia.execute(
+        comando({ completedAt: new Date('2026-09-15T05:01:00.000Z') }),
+      );
+
+      expect(resultado.dia).toBe('2026-09-14');
+      expect(resultado.completedAt.toISOString()).toBe('2026-09-15T04:58:00.000Z');
+    });
+
+    it('un reintento con la misma operacion sigue devolviendo lo ya registrado', async () => {
+      const primero = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 3 * MINUTO) }),
+      );
+      const reintento = await registrar(
+        comando({ completedAt: new Date(AHORA.getTime() + 3 * MINUTO) }),
+      );
+
+      expect(reintento.id.value).toBe(primero.id.value);
+      expect(repositorio.cantidad).toBe(1);
+    });
   });
 });

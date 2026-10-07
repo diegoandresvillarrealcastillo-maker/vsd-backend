@@ -3,6 +3,7 @@ import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
+import { conTolerancia } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
   AnotacionGuardada,
   EscribirEnElDiarioCommand,
@@ -46,7 +47,14 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     }
 
     const ahora = this.reloj();
-    const hoy = Calendario.de(command.zonaHoraria).diaDe(ahora);
+    const calendario = Calendario.de(command.zonaHoraria);
+    const hoy = calendario.diaDe(ahora);
+
+    // El dia lo elige el dispositivo, con su reloj. Un reloj adelantado unos
+    // minutos, pasada la medianoche, diria que ya es "manana" (ver
+    // ToleranciaDelReloj): se admite hasta el dia que seria con esa tolerancia,
+    // y no un dia mas.
+    const ultimoDiaAdmitido = calendario.diaDe(conTolerancia(ahora));
 
     const entrada = EntradaDeDiario.nueva(
       {
@@ -58,7 +66,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
         documento: DocumentoDelDiario.desde(command.contenido),
         adjuntos: adjuntosDesde(command.adjuntos),
       },
-      hoy,
+      ultimoDiaAdmitido,
       ahora,
     );
 

@@ -277,14 +277,43 @@ describe('/api/pendientes', () => {
     expect(cuerpoDe(ajeno)).toEqual(cuerpoDe(inexistente));
     expect(cuerpoDe(ajeno)).toMatchObject({ codigo: 'PENDIENTE_NO_ENCONTRADO' });
 
+    // Borrar es idempotente (SCRUM-133): para B el de A responde 204, igual que
+    // uno que no existe, sin confirmar que existe. Y lo que importa: no se toca.
     await request(app.getHttpServer())
       .delete(`/api/pendientes/${id}`)
       .set(...comoUsuario(B))
-      .expect(404);
+      .expect(204);
 
     const deB = cuerpoDe(await consultar(B).expect(200)) as { pendientes: { id: string }[] };
+    const deA = cuerpoDe(await consultar(A).expect(200)) as { pendientes: { id: string }[] };
 
     expect(deB.pendientes.some((uno) => uno.id === id)).toBe(false);
+    expect(deA.pendientes.some((uno) => uno.id === id)).toBe(true);
+  });
+
+  it('borrar dos veces responde 204 las dos: un reintento no atasca la cola sin conexion', async () => {
+    const id = await nuevo(A);
+
+    for (let vez = 0; vez < 2; vez += 1) {
+      await request(app.getHttpServer())
+        .delete(`/api/pendientes/${id}`)
+        .set(...comoUsuario(A))
+        .expect(204);
+    }
+  });
+
+  it('borrar uno que nunca existio responde 204', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/pendientes/97979797-ffff-4fff-8fff-ffffffffffff')
+      .set(...comoUsuario(A))
+      .expect(204);
+  });
+
+  it('borrar con un identificador mal formado sigue siendo un error de la peticion', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/pendientes/no-es-un-uuid')
+      .set(...comoUsuario(A))
+      .expect(400);
   });
 
   it('borrar responde 204 y lo quita', async () => {

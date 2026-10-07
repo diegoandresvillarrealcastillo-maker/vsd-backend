@@ -21,7 +21,7 @@ function operacion(): string {
   return '44444444-4444-4444-b444-' + String(contador).padStart(12, '0');
 }
 
-function armar() {
+function armar(ahora: Date = AHORA) {
   const diario = new DiarioDePrueba();
   const lineas = new LineasDePrueba();
   let ids = 0;
@@ -33,7 +33,7 @@ function armar() {
 
       return new EntradaId('33333333-3333-4333-a333-' + String(ids).padStart(12, '0'));
     },
-    () => AHORA,
+    () => ahora,
   );
 
   return { diario, lineas, casoDeUso };
@@ -221,6 +221,73 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(guardada.sugiereAcompanamiento).toBe(false);
     expect(guardada.lineasDeAtencion).toEqual([]);
     expect(lineas.consultas).toBe(0);
+  });
+
+  describe('el reloj del dispositivo, pasada la medianoche (SCRUM-133)', () => {
+    // El dia lo elige el dispositivo con su reloj. Sin conexion, uno adelantado
+    // unos minutos diria que ya es manana: eso no puede dejar la anotacion
+    // rechazada para siempre. Pero tampoco abre la puerta a un dia de verdad
+    // futuro.
+    const dos = (hora: string): Date => new Date(`2026-10-03T${hora}:00.000Z`);
+
+    function escribir(
+      casoDeUso: EscribirEnElDiarioUseCaseImpl,
+      dia: string,
+    ): ReturnType<EscribirEnElDiarioUseCaseImpl['execute']> {
+      return casoDeUso.execute({
+        userId: PERSONA,
+        zonaHoraria: ZONA,
+        conRecomendaciones: false,
+        clientOperationId: operacion(),
+        dia,
+        contenido: documentoCon('escrita sin conexion'),
+      });
+    }
+
+    it('a las 23:58 en Bogota, un dispositivo que ya marca el dia siguiente se acepta', async () => {
+      // 23:58 del 2 en Bogota (UTC-5) es 04:58 del 3 en UTC. Con cinco minutos
+      // de tolerancia el servidor admite hasta las 00:03 del 3.
+      const { casoDeUso } = armar(dos('04:58'));
+
+      const { entrada } = await escribir(casoDeUso, '2026-10-03');
+
+      expect(entrada.dia).toBe('2026-10-03');
+    });
+
+    it('a las 23:54 no: cinco minutos de tolerancia no alcanzan para llegar al dia siguiente', async () => {
+      const { casoDeUso, diario } = armar(dos('04:54'));
+
+      await expect(escribir(casoDeUso, '2026-10-03')).rejects.toThrow(FutureJournalDayError);
+      expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(0);
+    });
+
+    it('a las 23:55 justo si: el limite exacto se admite', async () => {
+      const { casoDeUso } = armar(dos('04:55'));
+
+      const { entrada } = await escribir(casoDeUso, '2026-10-03');
+
+      expect(entrada.dia).toBe('2026-10-03');
+    });
+
+    it('nunca se admiten dos dias adelante', async () => {
+      const { casoDeUso } = armar(dos('04:58'));
+
+      await expect(escribir(casoDeUso, '2026-10-04')).rejects.toThrow(FutureJournalDayError);
+    });
+
+    it('sin indicar el dia, sigue siendo hoy en la zona de la persona', async () => {
+      const { casoDeUso } = armar(dos('04:58'));
+
+      const { entrada } = await casoDeUso.execute({
+        userId: PERSONA,
+        zonaHoraria: ZONA,
+        conRecomendaciones: false,
+        clientOperationId: operacion(),
+        contenido: documentoCon('sin dia'),
+      });
+
+      expect(entrada.dia).toBe('2026-10-02');
+    });
   });
 
   describe('las lineas son las del pais de la zona de quien escribe (SCRUM-124)', () => {

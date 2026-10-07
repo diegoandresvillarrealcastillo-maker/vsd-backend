@@ -42,6 +42,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/infrastructure/main.js",
     "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js",
+    "correos": "npm run build && node dist/correos/generar.js",
     "db:arriba": "docker compose up -d",
     "db:abajo": "docker compose down",
     "db:reiniciar": "docker compose down -v && docker compose up -d",

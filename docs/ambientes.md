@@ -252,6 +252,16 @@ Las contrasenas viven en el gestor del equipo y **son distintas por ambiente**.
 Si una se compromete, la otra no se va con ella. No pasan por Git ni por
 ningun chat.
 
+### Los correos de Supabase Auth
+
+Confirmar la cuenta, recuperar la contrasena y cambiar el correo los manda
+Supabase, y cada proyecto guarda **sus propias plantillas**: no viajan con las
+migraciones. Las del equipo estan en [`correos/`](../correos/README.md) (SCRUM-125)
+y las **pega una persona** en cada ambiente, en _Authentication → Emails →
+Templates_. Salen de una sola plantilla y usan `{{ .SiteURL }}` para el logo, asi
+que la **Site URL** de cada proyecto tiene que ser la de su PWA (PRE:
+`https://vsd-health-pre.vercel.app`).
+
 ### Lo que falta para PROD
 
 1. **Ponerle al dia la base.** Aplicar a `vsd-health-prod` las ocho
@@ -261,6 +271,8 @@ ningun chat.
 2. **Crear el servicio del API y el proyecto de la PWA**, con sus propias
    variables: `CORS_ORIGIN` con el dominio exacto de PROD, su propio par de
    claves VAPID y la `DATABASE_URL` de `vsd_app` en PROD.
-3. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
+3. **Pegar las plantillas de correo** de [`correos/generados/`](../correos/README.md)
+   en `vsd-health-prod`, con la Site URL de la PWA de PROD.
+4. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
    en el mismo espacio de trabajo: uno solo usa unas 744 de las 750 horas del
    mes. Ver el encabezado de `mantener-el-api-despierto.yml`.

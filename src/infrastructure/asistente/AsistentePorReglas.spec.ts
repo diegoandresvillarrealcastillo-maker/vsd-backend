@@ -69,6 +69,38 @@ describe('AsistentePorReglas', () => {
       expect(respuesta.recursos.every((recurso) => recurso.esLineaDeAtencion())).toBe(true);
     });
 
+    // SCRUM-128: la charla no puede desviar ninguna frase de riesgo de su
+    // protocolo, ni delante ni detras, ni en mayusculas ni con signos.
+    it.each(EXPRESIONES_DE_RIESGO)(
+      'con charla alrededor, "%s" sigue yendo a las lineas de atencion',
+      async (expresion) => {
+        const textos = [
+          `hola, ${expresion}`,
+          `${expresion}, gracias`,
+          `buenas noches. ${expresion}`,
+          `adiós, ${expresion.toUpperCase()}`,
+          `¿cómo estás? ${expresion}!!`,
+          `hola 😊 ${expresion} 😊 chao`,
+        ];
+
+        for (const texto of textos) {
+          const respuesta = await asistente.responder({
+            userId: USUARIO,
+            zonaHoraria: ZONA,
+            texto,
+          });
+
+          expect(respuesta.senalDeRiesgo, texto).toBe(true);
+          expect(respuesta.incluyeLineasDeAtencion, texto).toBe(true);
+          expect(respuesta.recursos.length, texto).toBeGreaterThan(0);
+          expect(
+            respuesta.recursos.every((recurso) => recurso.esLineaDeAtencion()),
+            texto,
+          ).toBe(true);
+        }
+      },
+    );
+
     it('el riesgo gana a cualquier otra intencion reconocida', async () => {
       // La frase habla de dormir, que es una intencion que el asistente sabe
       // responder. Da igual: si hay una senal de riesgo, la respuesta ya esta
@@ -148,6 +180,221 @@ describe('AsistentePorReglas', () => {
       });
 
       expect(respuesta.intencion).toBe(Intencion.COMO_DUERMO_MEJOR);
+    });
+  });
+
+  describe('palabras completas', () => {
+    // El defecto que motivo SCRUM-128: "mal" se buscaba como pedazo de texto y
+    // aparecia dentro de "normal".
+    it.each(['normal', 'todo normal', 'animal', 'terminal', 'formal', 'maletas'])(
+      '"%s" no se lee como "mal"',
+      async (texto) => {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+      },
+    );
+
+    it('"mal" suelta si se sigue leyendo', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'hoy me fue mal',
+      });
+
+      expect(respuesta.intencion).toBe(Intencion.ME_SIENTO_MAL);
+    });
+
+    it.each([
+      ['no logro dormirme', Intencion.COMO_DUERMO_MEJOR],
+      ['estoy desanimado', Intencion.ME_SIENTO_MAL],
+      ['quiero hablar con una psicóloga', Intencion.DONDE_BUSCO_AYUDA],
+      ['necesito terapia', Intencion.DONDE_BUSCO_AYUDA],
+      ['estoy muy cansada', Intencion.ME_SIENTO_MAL],
+      ['estoy sola', Intencion.ME_SIENTO_MAL],
+      ['qué significan mis niveles', Intencion.QUE_SIGNIFICA_MI_RESULTADO],
+    ])('lo que se reconocia antes se sigue reconociendo: "%s"', async (texto, esperada) => {
+      const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+      expect(respuesta.intencion).toBe(esperada);
+    });
+
+    it('"solo" suelta ya no habla de soledad', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'solo quería saludar',
+      });
+
+      expect(respuesta.intencion).toBe(Intencion.SALUDO);
+    });
+  });
+
+  describe('la charla de todos los dias', () => {
+    const CHARLA: readonly (readonly [string, Intencion])[] = [
+      ['Hola', Intencion.SALUDO],
+      ['holaaaa', Intencion.SALUDO],
+      ['Hola 😊', Intencion.SALUDO],
+      ['buenos días', Intencion.SALUDO],
+      ['Buenas tardes', Intencion.SALUDO],
+      ['hola de nuevo', Intencion.SALUDO],
+      ['solo quería saludar', Intencion.SALUDO],
+      ['gracias', Intencion.AGRADECIMIENTO],
+      ['Muchas gracias!', Intencion.AGRADECIMIENTO],
+      ['mil gracias', Intencion.AGRADECIMIENTO],
+      ['te lo agradezco', Intencion.AGRADECIMIENTO],
+      ['ok, gracias', Intencion.AGRADECIMIENTO],
+      ['solo quería darte las gracias', Intencion.AGRADECIMIENTO],
+      ['buenas noches', Intencion.DESPEDIDA],
+      ['Buenas noches, voy a dormir', Intencion.DESPEDIDA],
+      ['adiós', Intencion.DESPEDIDA],
+      ['hasta mañana', Intencion.DESPEDIDA],
+      ['chao, nos vemos', Intencion.DESPEDIDA],
+      ['gracias, hasta luego', Intencion.DESPEDIDA],
+      ['¿cómo estás?', Intencion.COMO_ESTAS],
+      ['hola, ¿cómo estás hoy?', Intencion.COMO_ESTAS],
+      ['qué tal', Intencion.COMO_ESTAS],
+      ['¿qué puedes hacer?', Intencion.QUE_PUEDES_HACER],
+      ['¿en qué me puedes ayudar?', Intencion.QUE_PUEDES_HACER],
+      ['hola, ¿quién eres?', Intencion.QUE_PUEDES_HACER],
+      ['¿qué es VSD IA?', Intencion.QUE_PUEDES_HACER],
+    ];
+
+    it.each(CHARLA)('"%s" se lee como charla', async (texto, esperada) => {
+      const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+      expect(respuesta.intencion).toBe(esperada);
+    });
+
+    // El criterio de aceptacion, literal.
+    it.each(['Hola', 'gracias', 'buenas noches'])(
+      '"%s" recibe una respuesta calida y sin lineas de atencion',
+      async (texto) => {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.mensaje.length).toBeGreaterThan(10);
+        expect(respuesta.recursos).toEqual([]);
+        expect(respuesta.incluyeLineasDeAtencion).toBe(false);
+        expect(respuesta.senalDeRiesgo).toBe(false);
+      },
+    );
+
+    it('"buenas noches" tiene su propia respuesta, y sirve a quien lo escribe al llegar', async () => {
+      const noches = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'buenas noches',
+      });
+      const adios = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'adiós',
+      });
+
+      expect(noches.mensaje).toMatch(/buenas noches/iu);
+      expect(noches.mensaje).toMatch(/aquí estoy/iu);
+      expect(adios.mensaje).not.toBe(noches.mensaje);
+    });
+
+    it('no anade el historial: un saludo no es una ficha de seguimiento', async () => {
+      await historial.save(unResultado(2, '44444444-4444-4444-b444-000000000001'));
+
+      for (const [texto] of CHARLA) {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.mensaje, texto).not.toMatch(/registraste/u);
+      }
+    });
+
+    it('no pregunta nada: no sabria contestar un "bien" o un "mas o menos"', async () => {
+      for (const [texto] of CHARLA) {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.mensaje, texto).not.toMatch(/[?¿]/u);
+      }
+    });
+
+    it('el nombre de la mascota tambien es charla', async () => {
+      const con = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'Hola, Luma',
+        nombreDeLaMascota: 'Luma',
+      });
+      const sin = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'Hola, Luma',
+      });
+
+      expect(con.intencion).toBe(Intencion.SALUDO);
+      // Sin saber que Luma es la mascota, es una palabra que no se entiende.
+      expect(sin.intencion).toBe(Intencion.NO_RECONOCIDA);
+    });
+
+    it('ni un nombre de mascota que sea una frase de riesgo desvia el protocolo', async () => {
+      // El unico camino para que una frase de riesgo parezca charla: que sus
+      // palabras sean "relleno". Aqui lo son, porque la persona llamo asi a su
+      // mascota. El riesgo se mira antes y aparte, y gana igual.
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'hola, quiero morirme',
+        nombreDeLaMascota: 'quiero morirme',
+      });
+
+      expect(respuesta.senalDeRiesgo).toBe(true);
+      expect(respuesta.incluyeLineasDeAtencion).toBe(true);
+    });
+
+    it('el nombre de la mascota no abre la puerta a otra cosa', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'Hola, Luma, quiero desaparecer',
+        nombreDeLaMascota: 'Luma',
+      });
+
+      expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+      expect(respuesta.incluyeLineasDeAtencion).toBe(true);
+    });
+
+    describe('si el mensaje trae algo mas, ya no es charla', () => {
+      // Lo que importa de esta prueba: la lista de riesgo es un suelo, no un
+      // techo. Estas frases no estan en ella, y un saludo delante no las puede
+      // dejar sin lineas de atencion.
+      it.each([
+        'hola, quiero desaparecer',
+        'hola, no quiero despertar',
+        'adiós a todo',
+        'adiós, y gracias por todo',
+        'gracias por todo',
+        'adiós para siempre',
+        'hasta nunca',
+        'buenas noches, que nadie me busque',
+        'me despido de este mundo',
+        'chao, ya no estoy',
+      ])('"%s" sigue ensenando las lineas de atencion', async (texto) => {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+        expect(respuesta.incluyeLineasDeAtencion).toBe(true);
+        expect(respuesta.recursos.every((recurso) => recurso.esLineaDeAtencion())).toBe(true);
+      });
+    });
+
+    describe('con una pregunta de verdad, la pregunta gana', () => {
+      it.each([
+        ['hola, ¿cómo puedo dormir mejor?', Intencion.COMO_DUERMO_MEJOR],
+        ['gracias, ¿qué significa mi nivel?', Intencion.QUE_SIGNIFICA_MI_RESULTADO],
+        ['hola, me siento triste', Intencion.ME_SIENTO_MAL],
+        ['buenas noches, ¿dónde busco ayuda?', Intencion.DONDE_BUSCO_AYUDA],
+        ['gracias, pero me siento peor', Intencion.ME_SIENTO_MAL],
+      ])('"%s"', async (texto, esperada) => {
+        const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+        expect(respuesta.intencion).toBe(esperada);
+      });
     });
   });
 
@@ -351,6 +598,12 @@ describe('AsistentePorReglas', () => {
       'me siento triste',
       'donde busco ayuda',
       'cuanto cuesta el parqueadero',
+      'hola',
+      'gracias',
+      'buenas noches',
+      'adiós',
+      'cómo estás',
+      'qué puedes hacer',
     ];
 
     for (const texto of consultas) {

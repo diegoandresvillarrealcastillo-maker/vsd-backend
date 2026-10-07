@@ -63,6 +63,8 @@ export class AsistenteController {
       // El pais de las lineas de atencion sale de la zona de la cuenta, no de
       // la ubicacion: nunca se pide GPS (SCRUM-124).
       zonaHoraria: cuenta.zonaHoraria,
+      // Solo para que "hola, Luma" se lea como un saludo. No se guarda.
+      nombreDeLaMascota: cuenta.mascota?.nombre,
     });
 
     return AsistenteRespuestaDto.desde(respuesta);

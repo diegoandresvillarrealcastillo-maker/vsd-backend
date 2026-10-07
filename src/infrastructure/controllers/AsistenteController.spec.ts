@@ -80,6 +80,52 @@ describe('POST /api/asistente', () => {
     expect((cuerpoDe(respuesta).recursos as unknown[]).length).toBeGreaterThan(0);
   });
 
+  it('responde a un saludo con calidez y sin lineas de atencion (SCRUM-128)', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'Hola' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toMatchObject({
+      intencion: 'saludo',
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      recursos: [],
+    });
+  });
+
+  it('lee el nombre de la mascota de la cuenta como parte de un saludo', async () => {
+    // El nombre sale de la cuenta del token, no del cuerpo: el cuerpo no puede
+    // declararlo, y la validacion lo rechaza.
+    const antes = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma' });
+
+    expect(antes.body).toMatchObject({ intencion: 'no_reconocida' });
+
+    await request(app.getHttpServer())
+      .patch('/api/cuenta/preferencias')
+      .set(...comoUsuario('token-de-B'))
+      .send({ mascota: { forma: 'fungito', nombre: 'Luma' } })
+      .expect(200);
+
+    const despues = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma' });
+
+    expect(despues.body).toMatchObject({ intencion: 'saludo', recursos: [] });
+
+    const intento = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma', nombreDeLaMascota: 'Luma' });
+
+    expect(intento.status).toBe(400);
+  });
+
   it('ante una senal de riesgo devuelve lineas de atencion', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')

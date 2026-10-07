@@ -48,6 +48,7 @@ export function unaCuenta(
     modulosActivos?: readonly string[];
     mascota?: Mascota;
     fotoActualizadaEl?: Date;
+    mascotaPropiaActualizadaEl?: Date;
   } = {},
 ): User {
   const aceptadoEn = new Date('2026-09-01T10:00:00.000Z');
@@ -68,6 +69,9 @@ export function unaCuenta(
     ...(cambios.fotoActualizadaEl === undefined
       ? {}
       : { fotoActualizadaEl: cambios.fotoActualizadaEl }),
+    ...(cambios.mascotaPropiaActualizadaEl === undefined
+      ? {}
+      : { mascotaPropiaActualizadaEl: cambios.mascotaPropiaActualizadaEl }),
   });
 }
 
@@ -261,6 +265,52 @@ export function pruebasDelPuertoDeUsuarios(
       await banco.repositorio.save((await leer())?.sinFoto() ?? unaCuenta());
 
       expect((await leer())?.fotoActualizadaEl).toBeUndefined();
+    });
+
+    it('la marca de la mascota propia empieza vacia, se guarda, se conserva al cambiar otras cosas y se quita (SCRUM-122)', async () => {
+      const guardadaEl = new Date('2026-10-12T09:00:00.456Z');
+      const leer = () => banco.repositorio.findById(new UserId(PERSONA));
+
+      await banco.repositorio.save(unaCuenta());
+
+      expect((await leer())?.mascotaPropiaActualizadaEl).toBeUndefined();
+
+      await banco.repositorio.save(unaCuenta().conMascotaPropia(guardadaEl));
+
+      expect((await leer())?.mascotaPropiaActualizadaEl).toEqual(guardadaEl);
+
+      // Guardar otra cosa de la cuenta no la borra, ni la foto la pisa.
+      await banco.repositorio.save(
+        (await leer())?.conPreferencias({ nombre: 'Ana' }) ?? unaCuenta(),
+      );
+      await banco.repositorio.save((await leer())?.conZonaHoraria('Asia/Tokyo') ?? unaCuenta());
+      await banco.repositorio.save(
+        (await leer())?.conFoto(new Date('2026-10-09T15:30:00.123Z')) ?? unaCuenta(),
+      );
+      await banco.repositorio.save((await leer())?.sinFoto() ?? unaCuenta());
+
+      expect((await leer())?.mascotaPropiaActualizadaEl).toEqual(guardadaEl);
+
+      // Quitarla la deja vacia: el UPDATE escribe NULL, no se salta la columna.
+      await banco.repositorio.save((await leer())?.sinMascotaPropia() ?? unaCuenta());
+
+      expect((await leer())?.mascotaPropiaActualizadaEl).toBeUndefined();
+    });
+
+    it('elegir la mascota propia se guarda, y quitarla devuelve al personaje de siempre (SCRUM-122)', async () => {
+      const leer = () => banco.repositorio.findById(new UserId(PERSONA));
+      const conMascota = unaCuenta().conMascotaPropia(new Date('2026-10-12T09:00:00.000Z'));
+
+      await banco.repositorio.save(
+        conMascota.conPreferencias({ mascota: { forma: 'propia', nombre: 'Luma' } }),
+      );
+
+      expect((await leer())?.mascota).toEqual({ forma: 'propia', nombre: 'Luma' });
+
+      await banco.repositorio.save((await leer())?.sinMascotaPropia() ?? unaCuenta());
+
+      expect((await leer())?.mascota).toEqual({ forma: 'fungito', nombre: 'Luma' });
+      expect((await leer())?.mascotaPropiaActualizadaEl).toBeUndefined();
     });
 
     it('un personaje sin color ni accesorio vuelve igual, sin campos inventados', async () => {

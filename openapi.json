@@ -425,6 +425,129 @@
         ]
       }
     },
+    "/api/cuenta/mascota-propia": {
+      "put": {
+        "description": "El cuerpo es el SVG mismo, como `image/svg+xml`, de menos de 100 KB. Reemplaza el que hubiera. El servidor **no guarda lo que llega: lo reescribe** desde una lista blanca de elementos y atributos. Rechaza lo peligroso (scripts, manejadores de eventos, enlaces y referencias fuera del archivo, animaciones, DOCTYPE y entidades) y lo que no admite todavía (textos, imágenes, filtros, estilos). No la elige como mascota: eso se hace con las preferencias, poniendo la forma `propia`.",
+        "operationId": "MascotaPropiaController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/svg+xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MASCOTA_SVG_NO_ES_UN_SVG, MASCOTA_SVG_PELIGROSO, MASCOTA_SVG_NO_ADMITIDO o MASCOTA_SVG_DEMASIADO_COMPLEJO."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "MASCOTA_SVG_DEMASIADO_PESADO, o CUERPO_DEMASIADO_GRANDE si pasa de 120 KB."
+          },
+          "415": {
+            "description": "MASCOTA_SVG_TIPO_NO_PERMITIDO: solo .svg."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve el SVG ya saneado. Solo el de quien firma el token. La aplicación lo muestra siempre como `<img>`, nunca incrustado en la página.",
+        "operationId": "MascotaPropiaController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "El SVG."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "MASCOTA_PROPIA_NO_ENCONTRADA: no tiene."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo. Si era la mascota elegida, la persona vuelve al personaje de siempre, con el nombre que le había puesto. Quitar la que no existe no es un error.",
+        "operationId": "MascotaPropiaController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/aviso": {
       "get": {
         "description": "Devuelve la version que hay que aceptar al dar de alta una cuenta. Es la unica fuente de ese valor: ni el frontend ni las pruebas llevan una copia propia.",
@@ -1353,6 +1476,19 @@
           "actualizadaEl"
         ]
       },
+      "MascotaPropiaDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
+        ]
+      },
       "CuentaRespuestaDto": {
         "type": "object",
         "properties": {
@@ -1431,6 +1567,16 @@
                 "$ref": "#/components/schemas/FotoDeLaCuentaDto"
               }
             ]
+          },
+          "mascotaPropia": {
+            "description": "La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaDeLaCuentaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1443,7 +1589,8 @@
           "mascota",
           "diarioConRecomendaciones",
           "zonaHoraria",
-          "foto"
+          "foto",
+          "mascotaPropia"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1689,6 +1836,29 @@
           "contenidoBase64"
         ]
       },
+      "MascotaPropiaExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/svg+xml"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenido": {
+            "type": "string",
+            "description": "El SVG, como texto. Es el que guarda VSD Health, no el que subió la persona: se reescribió sin lo que no se admite."
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenido"
+        ]
+      },
       "ExportacionDto": {
         "type": "object",
         "properties": {
@@ -1731,6 +1901,16 @@
                 "$ref": "#/components/schemas/FotoExportadaDto"
               }
             ]
+          },
+          "mascotaPropia": {
+            "nullable": true,
+            "description": "La mascota propia, si tiene (SCRUM-122).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaExportadaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1740,7 +1920,8 @@
           "entradasDeDiario",
           "pendientes",
           "avisos",
-          "foto"
+          "foto",
+          "mascotaPropia"
         ]
       },
       "BorrarCuentaDto": {

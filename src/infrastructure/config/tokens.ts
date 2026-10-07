@@ -46,6 +46,10 @@ export const REVISAR_AVISOS = Symbol('RevisarAvisosUseCase');
 export const FOTO_DE_PERFIL = Symbol('FotoDePerfilUseCase');
 export const ALMACEN_DE_FOTOS = Symbol('AlmacenDeFotos');
 
+/** La mascota propia, un SVG (SCRUM-122): su caso de uso y su almacen. */
+export const MASCOTA_PROPIA = Symbol('MascotaPropiaUseCase');
+export const ALMACEN_DE_MASCOTAS = Symbol('AlmacenDeMascotas');
+
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 

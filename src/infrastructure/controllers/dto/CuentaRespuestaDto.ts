@@ -22,6 +22,17 @@ export class FotoDeLaCuentaDto {
   actualizadaEl!: Date;
 }
 
+/** La mascota propia, vista desde la cuenta: que hay y desde cuando, no el dibujo. */
+export class MascotaPropiaDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
+}
+
 /**
  * La cuenta, tal como sale por la API.
  *
@@ -84,6 +95,14 @@ export class CuentaRespuestaDto {
   })
   foto!: FotoDeLaCuentaDto | null;
 
+  @ApiProperty({
+    description:
+      'La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.',
+    type: MascotaPropiaDeLaCuentaDto,
+    nullable: true,
+  })
+  mascotaPropia!: MascotaPropiaDeLaCuentaDto | null;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -97,6 +116,10 @@ export class CuentaRespuestaDto {
     dto.zonaHoraria = cuenta.zonaHoraria;
     dto.foto =
       cuenta.fotoActualizadaEl === undefined ? null : { actualizadaEl: cuenta.fotoActualizadaEl };
+    dto.mascotaPropia =
+      cuenta.mascotaPropiaActualizadaEl === undefined
+        ? null
+        : { actualizadaEl: cuenta.mascotaPropiaActualizadaEl };
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

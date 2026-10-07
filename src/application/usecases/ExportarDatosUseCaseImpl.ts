@@ -37,6 +37,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly pendientes: PendientesRepositoryPort,
     private readonly avisos: AvisosRepositoryPort,
     private readonly fotos: AlmacenPersonalPort,
+    private readonly mascotas: AlmacenPersonalPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -47,15 +48,23 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       throw new AccountNotProvisionedError();
     }
 
-    const [resultados, entradasDeDiario, pendientes, preferencias, navegadores, foto] =
-      await Promise.all([
-        this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
-        this.diario.todasDe(id),
-        this.pendientes.todosDe(id),
-        this.avisos.preferenciasDe(id),
-        this.avisos.suscripcionesDe(id),
-        this.fotoDe(cuenta),
-      ]);
+    const [
+      resultados,
+      entradasDeDiario,
+      pendientes,
+      preferencias,
+      navegadores,
+      foto,
+      mascotaPropia,
+    ] = await Promise.all([
+      this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
+      this.diario.todasDe(id),
+      this.pendientes.todosDe(id),
+      this.avisos.preferenciasDe(id),
+      this.avisos.suscripcionesDe(id),
+      this.archivoDe(this.fotos, cuenta, cuenta.fotoActualizadaEl),
+      this.archivoDe(this.mascotas, cuenta, cuenta.mascotaPropiaActualizadaEl),
+    ]);
 
     return {
       generadoEn: this.reloj(),
@@ -65,35 +74,37 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       pendientes,
       avisos: { preferencias, navegadores: navegadores.length },
       foto,
+      mascotaPropia,
     };
   }
 
   /**
-   * La foto de perfil, si tiene (SCRUM-120).
+   * Un archivo de la persona, si tiene: su foto de perfil (SCRUM-120) o su
+   * mascota propia (SCRUM-122).
    *
-   * Si el almacenamiento no responde, **la exportacion falla** en lugar de salir
-   * sin la foto: entregar «todo lo tuyo» con una parte callada seria dar por
-   * cumplido el derecho de acceso sin haberlo cumplido.
+   * Si el almacenamiento no responde, **la exportacion falla** en lugar de
+   * salir sin el archivo: entregar «todo lo tuyo» con una parte callada seria
+   * dar por cumplido el derecho de acceso sin haberlo cumplido.
    */
-  private async fotoDe(cuenta: User): Promise<FotoLeida | null> {
-    if (cuenta.fotoActualizadaEl === undefined) {
+  private async archivoDe(
+    almacen: AlmacenPersonalPort,
+    cuenta: User,
+    actualizadaEl: Date | undefined,
+  ): Promise<FotoLeida | null> {
+    if (actualizadaEl === undefined) {
       return null;
     }
 
     let archivo: ArchivoPersonal | undefined;
 
     try {
-      archivo = await this.fotos.leer(cuenta.id);
+      archivo = await almacen.leer(cuenta.id);
     } catch (error) {
       throw new FileStorageUnavailableError(error);
     }
 
     return archivo === undefined
       ? null
-      : {
-          contenido: archivo.contenido,
-          tipo: archivo.tipo,
-          actualizadaEl: cuenta.fotoActualizadaEl,
-        };
+      : { contenido: archivo.contenido, tipo: archivo.tipo, actualizadaEl };
   }
 }

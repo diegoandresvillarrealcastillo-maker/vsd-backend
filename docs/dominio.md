@@ -195,14 +195,40 @@ que la pantalla diga que esta mal.
   responde, se dice con `ALMACENAMIENTO_NO_DISPONIBLE` (503) y no se confunde con
   «no hay foto».
 
+### La mascota propia
+
+La persona puede subir **un SVG** como su mascota (SCRUM-122, ADR 0017). Un SVG
+es un documento que puede llevar scripts y enlaces, asi que **no se guarda lo que
+llega: se reconstruye** (`SvgDeMascota`). Un lector estricto lo lee, una lista
+blanca de 16 elementos y de sus atributos decide que se queda, cada valor se
+valida contra su tipo, y lo que se guarda es un SVG nuevo escrito por el
+servidor. Lo peligroso (`peligroso`) o que no se admite (`no-admitido`: textos,
+imagenes, filtros, estilos) se rechaza **entero**, con un codigo por motivo; lo
+inofensivo (metadatos de editor, clases, titulos) se descarta.
+
+- Igual que la foto: el archivo vive en Storage (su propio bucket,
+  `mascotas-propias`) y la cuenta guarda una marca, `User.mascotaPropiaActualizadaEl`.
+- Se **elige** como mascota con las preferencias, poniendo la forma `propia`.
+  `conPreferencias` lo rechaza si no se subio (`MASCOTA_INVALIDA`).
+- **Quitarla** (`sinMascotaPropia`) devuelve a quien la tenia elegida al
+  personaje de siempre, `fungito`, **con el nombre que le habia puesto**.
+- Una cuenta con la forma `propia` y sin marca (un estado incoherente) se puede
+  leer y cambiar de nombre sin problema: lo unico que no admite es **elegirla**
+  sin haberla subido.
+- `User` reconstruye una cuenta a partir de otra en **un solo sitio**
+  (`copiaCon`). Un campo nuevo se conserva solo; hay que decidir expresamente
+  cambiarlo. Antes cada metodo copiaba campo por campo, y olvidarse de uno
+  borraba datos sin avisar.
+
 ### Exportar y borrar: los derechos de acceso y de supresion
 
 La Ley 1581 de 2012 reconoce a cada persona el derecho a conocer lo que se
 guarda de ella y a pedir que se suprima (SCRUM-75).
 
 - **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados, las
-  entradas de diario y la foto de perfil, si tiene (en base64; si Storage no
-  responde, la exportacion falla en vez de salir sin ella). Cada repositorio
+  entradas de diario, la foto de perfil (en base64) y la mascota propia (el SVG
+  como texto), si las tiene; si Storage no responde, la exportacion falla en vez
+  de salir sin ellas. Cada repositorio
   filtra por la persona y la base lo impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
   resto de la API: con su nivel orientativo y sin el puntaje normalizado.
 - **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra

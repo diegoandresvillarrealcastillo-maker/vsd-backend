@@ -133,6 +133,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la
       // columna vacia y no como estaba.
       fotoActualizadaEl: user.fotoActualizadaEl ?? null,
+      mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null,
     };
 
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
@@ -212,6 +213,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
         diarioConRecomendaciones: fila.diarioConRecomendaciones,
         zonaHoraria: fila.zonaHoraria,
         ...(fila.fotoActualizadaEl === null ? {} : { fotoActualizadaEl: fila.fotoActualizadaEl }),
+        ...(fila.mascotaPropiaActualizadaEl === null
+          ? {}
+          : { mascotaPropiaActualizadaEl: fila.mascotaPropiaActualizadaEl }),
       },
       fila.fechaAceptacionPolitica,
     );

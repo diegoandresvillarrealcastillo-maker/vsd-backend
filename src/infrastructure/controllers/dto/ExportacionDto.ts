@@ -40,6 +40,22 @@ export class FotoExportadaDto {
   contenidoBase64!: string;
 }
 
+/** La mascota propia, en la exportacion: el SVG tal como se guardo, ya saneado (SCRUM-122). */
+export class MascotaPropiaExportadaDto {
+  @ApiProperty({ example: 'image/svg+xml' })
+  tipo!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', description: 'Cuándo se guardó.' })
+  actualizadaEl!: string;
+
+  @ApiProperty({
+    description:
+      'El SVG, como texto. Es el que guarda VSD Health, no el que subió la persona: se reescribió sin lo que no se admite.',
+    type: String,
+  })
+  contenido!: string;
+}
+
 /**
  * Todo lo que VSD Health guarda de una persona, en JSON.
  *
@@ -76,6 +92,13 @@ export class ExportacionDto {
   })
   foto!: FotoExportadaDto | null;
 
+  @ApiProperty({
+    type: MascotaPropiaExportadaDto,
+    nullable: true,
+    description: 'La mascota propia, si tiene (SCRUM-122).',
+  })
+  mascotaPropia!: MascotaPropiaExportadaDto | null;
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -105,6 +128,15 @@ export class ExportacionDto {
             tipo: datos.foto.tipo,
             actualizadaEl: datos.foto.actualizadaEl.toISOString(),
             contenidoBase64: Buffer.from(datos.foto.contenido).toString('base64'),
+          };
+
+    dto.mascotaPropia =
+      datos.mascotaPropia === null
+        ? null
+        : {
+            tipo: datos.mascotaPropia.tipo,
+            actualizadaEl: datos.mascotaPropia.actualizadaEl.toISOString(),
+            contenido: new TextDecoder().decode(datos.mascotaPropia.contenido),
           };
 
     return dto;

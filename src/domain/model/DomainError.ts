@@ -332,6 +332,64 @@ export class InvalidPhotoError extends DomainError {
   }
 }
 
+/** Por que un SVG de mascota propia no se acepta. Cada motivo tiene su propio codigo. */
+export type MotivoDeSvgInvalido =
+  'tipo' | 'peso' | 'no-es-svg' | 'peligroso' | 'no-admitido' | 'demasiado-complejo';
+
+const SVG_INVALIDO: Readonly<Record<MotivoDeSvgInvalido, { code: string; message: string }>> = {
+  tipo: {
+    code: 'MASCOTA_SVG_TIPO_NO_PERMITIDO',
+    message: 'El archivo de la mascota tiene que ser un .svg.',
+  },
+  peso: {
+    code: 'MASCOTA_SVG_DEMASIADO_PESADO',
+    message: 'El SVG pesa demasiado: tiene que ser de menos de 100 KB.',
+  },
+  'no-es-svg': {
+    code: 'MASCOTA_SVG_NO_ES_UN_SVG',
+    message: 'El archivo no es un SVG válido.',
+  },
+  peligroso: {
+    code: 'MASCOTA_SVG_PELIGROSO',
+    message:
+      'El SVG trae algo que no se puede aceptar por seguridad: scripts, enlaces a otros sitios o contenido que se ejecuta.',
+  },
+  'no-admitido': {
+    code: 'MASCOTA_SVG_NO_ADMITIDO',
+    message:
+      'El SVG usa algo que no se admite: textos, imágenes, filtros, estilos o animaciones. Mira la guía para prepararlo.',
+  },
+  'demasiado-complejo': {
+    code: 'MASCOTA_SVG_DEMASIADO_COMPLEJO',
+    message: 'El SVG es demasiado complejo. Simplifica los trazos y las capas.',
+  },
+};
+
+/**
+ * El SVG de la mascota propia no se puede guardar (SCRUM-122).
+ *
+ * Lleva un codigo distinto por motivo para que la pantalla diga **que** esta
+ * mal. El mensaje nunca repite lo que traia el archivo: ni un nombre de
+ * elemento ni un trozo de contenido.
+ */
+export class InvalidPetSvgError extends DomainError {
+  readonly code: string;
+
+  constructor(readonly motivo: MotivoDeSvgInvalido) {
+    super(SVG_INVALIDO[motivo].message);
+    this.code = SVG_INVALIDO[motivo].code;
+  }
+}
+
+/** No hay mascota propia que devolver. */
+export class OwnPetNotFoundError extends DomainError {
+  readonly code = 'MASCOTA_PROPIA_NO_ENCONTRADA';
+
+  constructor() {
+    super('No tienes una mascota propia.');
+  }
+}
+
 /** No hay foto de perfil que devolver. */
 export class PhotoNotFoundError extends DomainError {
   readonly code = 'FOTO_NO_ENCONTRADA';

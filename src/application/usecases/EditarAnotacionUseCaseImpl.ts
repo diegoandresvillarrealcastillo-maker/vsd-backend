@@ -4,6 +4,7 @@ import {
   JournalEntryNotFoundError,
   StaleJournalEntryError,
 } from '../../domain/model/DomainError.js';
+import { horaDelDispositivo } from '../../domain/model/HoraDelDispositivo.js';
 import { EntradaId, UserId } from '../../domain/model/Identifier.js';
 import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import type {
@@ -41,6 +42,12 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
       throw new JournalEntryNotFoundError();
     }
 
+    // La hora de la edicion es la que dijo el dispositivo, no la de cuando llega:
+    // corregida a las 9:30 sin conexion y recibida a las 14:00, es una correccion
+    // dentro de la hora y no una anotacion nueva (SCRUM-144). Nunca antes de haberse
+    // escrito. Sin hora del dispositivo, o si no sirve, es la del servidor.
+    const horaDeLaEdicion = horaDelDispositivo(command.editadaEn, this.reloj(), actual.creadaEn);
+
     // El reloj de la API contesta antes y con el motivo exacto en el caso
     // corriente.
     const editada = actual.editar(
@@ -51,7 +58,7 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
         adjuntos: command.adjuntos === undefined ? undefined : adjuntosDesde(command.adjuntos),
       },
       command.version,
-      this.reloj(),
+      horaDeLaEdicion,
     );
 
     const guardada = await this.diario.guardarEdicion(editada, actual.version);

@@ -486,6 +486,16 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   casos no se toca nada y el cliente guarda lo suyo como una anotacion nueva
   (ADR 0009). La regla esta aqui para contestar claro, pero quien la hace
   cumplir es la base: ver `docs/modelo-de-datos.md`.
+- **La hora de escribir y de editar es la del dispositivo** (SCRUM-144, ADR 0020).
+  `POST` acepta `escritaEn` y `PATCH` acepta `editadaEn` (ISO 8601 con
+  desplazamiento). Escrita a las 9:00 sin conexion y recibida a las 14:00, la
+  anotacion muestra las 9:00; corregida a las 9:30, se aplica como correccion y
+  no como una anotacion nueva. `horaDelDispositivo()` decide que hora se cree y
+  **nunca lanza**: una hora que no sirve (mal formada, sin desplazamiento, un dia
+  que no existe, en el futuro, de hace mas de 30 dias, anterior al comienzo del
+  dia de la anotacion o a su escritura) se ignora y se usa la del servidor, sin
+  error. Un reloj adelantado unos minutos (la tolerancia de `ToleranciaDelReloj`)
+  queda en «ahora». La hora de la edicion nunca va hacia atras.
 - **El contenido es un documento del editor**, no HTML: `DocumentoDelDiario`
   comprueba la forma del arbol (cada nodo con un `type` valido y solo las
   claves que usa el editor), su profundidad y su tamano. No cierra la lista de

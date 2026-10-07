@@ -115,6 +115,11 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
             id: entrada.id.value,
             idUsuario: entrada.userId.value,
             idOperacionCliente: entrada.clientOperationId.value,
+            // La hora que dijo el dispositivo, ya acotada por el dominio. La base
+            // la acota otra vez (disparador): lo que llegue sin pasar por aqui no
+            // puede adelantarse ni venir de hace mas de un mes.
+            fechaCreacion: entrada.creadaEn,
+            fechaEdicion: entrada.editadaEn,
             dia: aFecha(entrada.dia),
             titulo: entrada.titulo ?? null,
             contenido: entrada.documento.serializado(),
@@ -128,8 +133,8 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
         }),
       );
 
-      // Lo que devuelve la base, con su `fecha_creacion`: la pone el
-      // disparador, y de ella se cuenta la hora para editar.
+      // Lo que devuelve la base, con su `fecha_creacion` tal como la dejo el
+      // disparador: de ella se cuenta la hora para editar.
       return this.aDominio(fila);
     } catch (error) {
       // La misma operacion llego dos veces a la vez y la otra gano. Es un
@@ -166,6 +171,10 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
               ? (editada.adjuntos as unknown as Prisma.InputJsonValue)
               : Prisma.DbNull,
           version: editada.version,
+          // La hora de la edicion segun el dispositivo, ya acotada. El disparador
+          // de la base decide si cae dentro de la hora para editar: si no, no toca
+          // nada y esto devuelve cero filas.
+          fechaEdicion: editada.editadaEn,
         },
       });
 

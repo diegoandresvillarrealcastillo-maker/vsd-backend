@@ -65,6 +65,158 @@ describe('EditarAnotacionUseCaseImpl', () => {
     expect(guardada?.documento.textoPlano()).toBe('Desayune temprano y sali a caminar');
   });
 
+  describe('La hora del dispositivo (SCRUM-144)', () => {
+    const peticion = (extra: Record<string, unknown> = {}) => ({
+      userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
+      conRecomendaciones: false,
+      entradaId: ENTRADA,
+      version: 1,
+      contenido: documentoCon('Corregida sin conexion'),
+      ...extra,
+    });
+
+    it('corregida a la media hora y recibida cinco horas despues, se aplica como correccion', async () => {
+      const { casoDeUso, diario, reloj } = armar();
+
+      reloj.ahora = minutosDespues(5 * 60);
+
+      const { entrada } = await casoDeUso.execute(
+        peticion({ editadaEn: minutosDespues(30).toISOString() }),
+      );
+
+      expect(entrada.version).toBe(2);
+      expect(entrada.editadaEn).toEqual(minutosDespues(30));
+      expect(entrada.creadaEn).toEqual(ESCRITA);
+
+      const guardada = await diario.porId(new UserId(PERSONA), new EntradaId(ENTRADA));
+
+      expect(guardada?.documento.textoPlano()).toBe('Corregida sin conexion');
+    });
+
+    it('hecha pasada la hora, no se aplica, llegue cuando llegue', async () => {
+      const { casoDeUso, diario, reloj } = armar();
+
+      reloj.ahora = minutosDespues(5 * 60);
+
+      await expect(
+        casoDeUso.execute(peticion({ editadaEn: minutosDespues(61).toISOString() })),
+      ).rejects.toThrow(EditWindowClosedError);
+
+      expect((await diario.porId(new UserId(PERSONA), new EntradaId(ENTRADA)))?.version).toBe(1);
+    });
+
+    it('el limite es exacto: a los 60 minutos ya no, un segundo antes si', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      reloj.ahora = minutosDespues(5 * 60);
+
+      await expect(
+        casoDeUso.execute(peticion({ editadaEn: minutosDespues(60).toISOString() })),
+      ).rejects.toThrow(EditWindowClosedError);
+
+      const dentro = await casoDeUso.execute(
+        peticion({ editadaEn: new Date(minutosDespues(60).getTime() - 1000).toISOString() }),
+      );
+
+      expect(dentro.entrada.version).toBe(2);
+    });
+
+    it('sin la hora del dispositivo se mide con la del servidor, como siempre', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      reloj.ahora = minutosDespues(61);
+
+      await expect(casoDeUso.execute(peticion())).rejects.toThrow(EditWindowClosedError);
+    });
+
+    it.each([
+      ['mal formada', 'hace un rato'],
+      ['un numero', 1_790_000_000_000],
+      ['sin desplazamiento horario', '2026-10-03T15:30:00'],
+      ['nula', null],
+    ])('si es %s, se ignora y se usa la del servidor, sin error', async (_motivo, hora) => {
+      const { casoDeUso, reloj } = armar();
+
+      // Con el servidor dentro de la hora, se aplica con la hora del servidor.
+      const { entrada } = await casoDeUso.execute(peticion({ editadaEn: hora }));
+
+      expect(entrada.editadaEn).toEqual(reloj.ahora);
+
+      // Con el servidor fuera de la hora, no hay con que salvarla.
+      reloj.ahora = minutosDespues(61);
+
+      await expect(casoDeUso.execute(peticion({ editadaEn: hora, version: 2 }))).rejects.toThrow(
+        EditWindowClosedError,
+      );
+    });
+
+    it('una hora en el futuro no alarga el plazo: se usa la del servidor', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      reloj.ahora = minutosDespues(61);
+
+      await expect(
+        casoDeUso.execute(peticion({ editadaEn: minutosDespues(70).toISOString() })),
+      ).rejects.toThrow(EditWindowClosedError);
+    });
+
+    it('un reloj adelantado unos minutos queda en "ahora"', async () => {
+      const { casoDeUso, reloj } = armar();
+      const adelantada = new Date(reloj.ahora.getTime() + 3 * 60_000).toISOString();
+
+      const { entrada } = await casoDeUso.execute(peticion({ editadaEn: adelantada }));
+
+      expect(entrada.editadaEn).toEqual(reloj.ahora);
+    });
+
+    it('no puede ser anterior a cuando se escribio la anotacion: se usa la del servidor', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      const { entrada } = await casoDeUso.execute(
+        peticion({ editadaEn: minutosDespues(-1).toISOString() }),
+      );
+
+      expect(entrada.editadaEn).toEqual(reloj.ahora);
+    });
+
+    it('justo cuando se escribio si vale', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      reloj.ahora = minutosDespues(5 * 60);
+
+      const { entrada } = await casoDeUso.execute(peticion({ editadaEn: ESCRITA.toISOString() }));
+
+      expect(entrada.editadaEn).toEqual(ESCRITA);
+    });
+
+    it('una hora de hace mas de 30 dias se ignora', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      // El servidor la ve 40 dias despues: la hora del dispositivo, aunque dentro de
+      // la hora de la anotacion, es demasiado antigua para creerla.
+      reloj.ahora = new Date(ESCRITA.getTime() + 40 * 24 * 60 * 60_000);
+
+      await expect(
+        casoDeUso.execute(peticion({ editadaEn: minutosDespues(30).toISOString() })),
+      ).rejects.toThrow(EditWindowClosedError);
+    });
+
+    it('la hora de la edicion no va hacia atras aunque el otro dispositivo tenga el reloj atrasado', async () => {
+      const { casoDeUso, reloj } = armar();
+
+      reloj.ahora = minutosDespues(5 * 60);
+      await casoDeUso.execute(peticion({ editadaEn: minutosDespues(30).toISOString() }));
+
+      const { entrada } = await casoDeUso.execute(
+        peticion({ version: 2, editadaEn: minutosDespues(10).toISOString() }),
+      );
+
+      expect(entrada.version).toBe(3);
+      expect(entrada.editadaEn).toEqual(minutosDespues(30));
+    });
+  });
+
   it('pasada la hora responde fuera de plazo y no toca nada', async () => {
     const { casoDeUso, diario, reloj } = armar();
     reloj.ahora = minutosDespues(61);

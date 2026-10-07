@@ -267,6 +267,12 @@ no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
 - El diario lo lee solo quien lo escribe; ni el administrador. Se edita solo
   durante su primera hora, y eso lo impone la base: un `UPDATE` directo con el
   rol de la aplicación, pasada esa hora, no encuentra la fila.
+  - **La hora la dice el dispositivo, y la base la acota** (SCRUM-144): nunca en el
+    futuro, nunca de hace más de 30 días, la de una edición nunca antes de haberse
+    escrito. Por eso una corrección hecha sin conexión dentro de su hora se puede
+    aplicar al llegar. El costo está escrito en el ADR 0020: con acceso directo a la
+    conexión de la aplicación se puede declarar una hora y corregir una anotación
+    de hasta 30 días atrás. Es una regla de producto, no un límite de seguridad.
 - **El diario no se analiza sin permiso** (SCRUM-108). Por defecto se guarda y
   se devuelve, y nada más: no se busca ninguna señal en lo que se escribe.
   - Solo si la persona enciende «Recomendaciones según mi diario» en su perfil

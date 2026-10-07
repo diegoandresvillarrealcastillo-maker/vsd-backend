@@ -140,6 +140,63 @@ describe('/api/diario', () => {
       expect(cuerpoDe(futura)).toMatchObject({ codigo: 'DIA_EN_EL_FUTURO' });
     });
 
+    it('escrita sin conexion, conserva la hora del dispositivo y no la de cuando llega (SCRUM-144)', async () => {
+      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+
+      const respuesta = await escribir(A, {
+        clientOperationId: operacion(),
+        contenido: documentoCon('Escrita sin conexion'),
+        escritaEn: nueve.toISOString(),
+      }).expect(201);
+
+      const cuerpo = cuerpoDe(respuesta);
+
+      expect(cuerpo['creadaEn']).toBe(nueve.toISOString());
+      expect(cuerpo['editadaEn']).toBe(nueve.toISOString());
+      expect(cuerpo['editableHasta']).toBe(new Date(nueve.getTime() + 60 * 60_000).toISOString());
+    });
+
+    it.each([
+      ['mal formada', 'ayer por la tarde'],
+      ['un numero', 1_790_000_000_000],
+      ['un objeto', { hora: 'ahora' }],
+      ['una lista', ['2026-10-07T14:00:00Z']],
+      ['nula', null],
+      ['en el futuro', '2999-01-01T00:00:00Z'],
+      ['de hace mas de 30 dias', '2000-01-01T00:00:00Z'],
+      ['sin desplazamiento horario', '2026-10-07T14:00:00'],
+    ])(
+      'una hora del dispositivo %s no rompe la peticion: se usa la del servidor',
+      async (_motivo, hora) => {
+        const antes = Date.now();
+
+        const respuesta = await escribir(A, {
+          clientOperationId: operacion(),
+          contenido: documentoCon('Con una hora que no sirve'),
+          escritaEn: hora,
+        }).expect(201);
+
+        const creada = new Date(String(cuerpoDe(respuesta)['creadaEn'])).getTime();
+
+        expect(creada).toBeGreaterThanOrEqual(antes - 1000);
+        expect(creada).toBeLessThanOrEqual(Date.now() + 1000);
+      },
+    );
+
+    it('un reintento con otra hora devuelve lo que ya se guardo, con la hora de entonces', async () => {
+      const nueve = new Date(Date.now() - 5 * 60 * 60_000).toISOString();
+      const cuerpo = { clientOperationId: operacion(), contenido: documentoCon('Una sola vez') };
+
+      const primera = await escribir(A, { ...cuerpo, escritaEn: nueve }).expect(201);
+      const segunda = await escribir(A, {
+        ...cuerpo,
+        escritaEn: new Date().toISOString(),
+      }).expect(201);
+
+      expect(cuerpoDe(segunda)['id']).toBe(cuerpoDe(primera)['id']);
+      expect(cuerpoDe(segunda)['creadaEn']).toBe(nueve);
+    });
+
     it('HTML en lugar de un documento se rechaza', async () => {
       await escribir(A, {
         clientOperationId: operacion(),
@@ -293,6 +350,69 @@ describe('/api/diario', () => {
         contenido: documentoCon('Segunda version'),
       });
     });
+
+    it('corregida sin conexion dentro de su hora, se aplica aunque llegue horas despues (SCRUM-144)', async () => {
+      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+      const nueveYMedia = new Date(nueve.getTime() + 30 * 60_000);
+      const creada = await escribir(A, {
+        clientOperationId: operacion(),
+        contenido: documentoCon('Primera version'),
+        escritaEn: nueve.toISOString(),
+      }).expect(201);
+      const id = String(cuerpoDe(creada)['id']);
+
+      const respuesta = await editar(A, id, {
+        version: 1,
+        contenido: documentoCon('Corregida a las 9:30'),
+        editadaEn: nueveYMedia.toISOString(),
+      }).expect(200);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({
+        id,
+        version: 2,
+        contenido: documentoCon('Corregida a las 9:30'),
+        creadaEn: nueve.toISOString(),
+        editadaEn: nueveYMedia.toISOString(),
+      });
+    });
+
+    it('una correccion hecha pasada la hora de la anotacion responde 409, llegue cuando llegue', async () => {
+      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+      const creada = await escribir(A, {
+        clientOperationId: operacion(),
+        contenido: documentoCon('Escrita a las 9:00'),
+        escritaEn: nueve.toISOString(),
+      }).expect(201);
+
+      const respuesta = await editar(A, String(cuerpoDe(creada)['id']), {
+        version: 1,
+        contenido: documentoCon('Tarde'),
+        editadaEn: new Date(nueve.getTime() + 61 * 60_000).toISOString(),
+      }).expect(409);
+
+      expect(cuerpoDe(respuesta)).toMatchObject({ codigo: 'EDICION_FUERA_DE_PLAZO' });
+    });
+
+    it.each([
+      ['mal formada', 'hace un rato'],
+      ['un numero', 12345],
+      ['en el futuro', '2999-01-01T00:00:00Z'],
+      ['de hace mas de 30 dias', '2000-01-01T00:00:00Z'],
+      ['nula', null],
+    ])(
+      'una hora de edicion %s se ignora: se usa la del servidor y no rompe nada',
+      async (_motivo, hora) => {
+        const id = await nueva();
+
+        const respuesta = await editar(A, id, {
+          version: 1,
+          contenido: documentoCon('Corregida'),
+          editadaEn: hora,
+        }).expect(200);
+
+        expect(cuerpoDe(respuesta)).toMatchObject({ id, version: 2 });
+      },
+    );
 
     it('con una version vieja responde 409 VERSION_DESACTUALIZADA', async () => {
       const id = await nueva();

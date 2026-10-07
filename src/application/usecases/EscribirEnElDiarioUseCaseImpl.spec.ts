@@ -129,6 +129,167 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(entrada.creadaEn).toEqual(AHORA);
   });
 
+  describe('La hora del dispositivo (SCRUM-144)', () => {
+    // 9 p. m. del 2 de octubre en Bogota. El dispositivo escribio a las 9 a. m. de ese
+    // dia, sin conexion, y la anotacion llega doce horas despues.
+    const NUEVE_AM = '2026-10-02T14:00:00.000Z';
+    const peticion = (extra: Record<string, unknown> = {}) => ({
+      userId: PERSONA,
+      zonaHoraria: ZONA,
+      conRecomendaciones: false,
+      clientOperationId: operacion(),
+      contenido: documentoCon('Escrita sin conexion'),
+      ...extra,
+    });
+
+    it('escrita a las 9:00 y recibida doce horas despues, la anotacion muestra las 9:00', async () => {
+      const { casoDeUso } = armar();
+
+      const { entrada } = await casoDeUso.execute(peticion({ escritaEn: NUEVE_AM }));
+
+      expect(entrada.creadaEn).toEqual(new Date(NUEVE_AM));
+      expect(entrada.editadaEn).toEqual(new Date(NUEVE_AM));
+      expect(entrada.dia).toBe('2026-10-02');
+    });
+
+    it('y se puede corregir hasta una hora despues de las 9:00, no de cuando llego', async () => {
+      const { casoDeUso } = armar();
+
+      const { entrada } = await casoDeUso.execute(peticion({ escritaEn: NUEVE_AM }));
+
+      expect(entrada.editableHasta()).toEqual(new Date('2026-10-02T15:00:00.000Z'));
+    });
+
+    it('sin la hora del dispositivo, es la del servidor, como siempre', async () => {
+      const { casoDeUso } = armar();
+
+      const { entrada } = await casoDeUso.execute(peticion());
+
+      expect(entrada.creadaEn).toEqual(AHORA);
+    });
+
+    it.each([
+      ['mal formada', 'ayer'],
+      ['un numero', 1_790_000_000_000],
+      ['un objeto', {}],
+      ['nula', null],
+      ['sin desplazamiento horario', '2026-10-02T14:00:00'],
+      ['un dia que no existe', '2026-02-30T14:00:00Z'],
+      ['en el futuro', '2026-10-03T03:00:00Z'],
+      ['de hace mas de 30 dias', '2026-08-01T14:00:00Z'],
+    ])('si es %s, se ignora y se usa la del servidor, sin error', async (_motivo, hora) => {
+      const { casoDeUso } = armar();
+
+      const { entrada } = await casoDeUso.execute(peticion({ escritaEn: hora }));
+
+      expect(entrada.creadaEn).toEqual(AHORA);
+      expect(entrada.editadaEn).toEqual(AHORA);
+    });
+
+    it('una hora de hace 30 dias se respeta y de hace 30 dias y un milisegundo, no', async () => {
+      const { casoDeUso } = armar();
+      const limite = new Date(AHORA.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const justo = await casoDeUso.execute(
+        peticion({ dia: '2026-09-02', escritaEn: limite.toISOString() }),
+      );
+      const pasado = await casoDeUso.execute(
+        peticion({ dia: '2026-09-02', escritaEn: new Date(limite.getTime() - 1).toISOString() }),
+      );
+
+      expect(justo.entrada.creadaEn).toEqual(limite);
+      expect(pasado.entrada.creadaEn).toEqual(AHORA);
+    });
+
+    it('un reloj adelantado unos minutos queda en "ahora", no en el futuro', async () => {
+      const { casoDeUso } = armar();
+      const adelantada = new Date(AHORA.getTime() + 3 * 60_000).toISOString();
+
+      const { entrada } = await casoDeUso.execute(peticion({ escritaEn: adelantada }));
+
+      expect(entrada.creadaEn).toEqual(AHORA);
+    });
+
+    it('nunca antes de que empiece el dia de la anotacion, en el calendario de quien la escribe', async () => {
+      const { casoDeUso } = armar();
+      // La medianoche del 2 de octubre en Bogota (UTC-5) es a las 05:00 UTC.
+      const antes = await casoDeUso.execute(
+        peticion({ dia: '2026-10-02', escritaEn: '2026-10-02T04:59:59.999Z' }),
+      );
+      const justo = await casoDeUso.execute(
+        peticion({ dia: '2026-10-02', escritaEn: '2026-10-02T05:00:00.000Z' }),
+      );
+
+      expect(antes.entrada.creadaEn).toEqual(AHORA);
+      expect(justo.entrada.creadaEn).toEqual(new Date('2026-10-02T05:00:00.000Z'));
+    });
+
+    it('el comienzo del dia es el de la zona de la persona, no el de Colombia', async () => {
+      const { casoDeUso } = armar();
+      // En Tokio (UTC+9) el 3 de octubre empieza el 2 a las 15:00 UTC, y ya es 3 alli.
+      const antes = await casoDeUso.execute(
+        peticion({
+          zonaHoraria: 'Asia/Tokyo',
+          dia: '2026-10-03',
+          escritaEn: '2026-10-02T14:59:59.999Z',
+        }),
+      );
+      const justo = await casoDeUso.execute(
+        peticion({
+          zonaHoraria: 'Asia/Tokyo',
+          dia: '2026-10-03',
+          escritaEn: '2026-10-02T15:00:00.000Z',
+        }),
+      );
+
+      expect(antes.entrada.creadaEn).toEqual(AHORA);
+      expect(justo.entrada.creadaEn).toEqual(new Date('2026-10-02T15:00:00.000Z'));
+    });
+
+    it('para un dia pasado, la hora puede ser cualquiera desde el comienzo de ese dia', async () => {
+      const { casoDeUso } = armar();
+
+      const { entrada } = await casoDeUso.execute(
+        peticion({ dia: '2026-09-28', escritaEn: '2026-10-02T20:00:00Z' }),
+      );
+
+      expect(entrada.dia).toBe('2026-09-28');
+      expect(entrada.creadaEn).toEqual(new Date('2026-10-02T20:00:00Z'));
+    });
+
+    it('un reintento devuelve lo que ya se guardo, con la hora de entonces', async () => {
+      const { casoDeUso } = armar();
+      const primera = peticion({ escritaEn: NUEVE_AM });
+
+      await casoDeUso.execute(primera);
+      const reintento = await casoDeUso.execute({
+        ...primera,
+        escritaEn: '2026-10-02T20:00:00.000Z',
+      });
+
+      expect(reintento.entrada.creadaEn).toEqual(new Date(NUEVE_AM));
+    });
+
+    it('un dia que no es una fecha real sigue rechazandose con su error, tenga hora o no', async () => {
+      const { casoDeUso } = armar();
+
+      await expect(
+        casoDeUso.execute(peticion({ dia: '2026-02-30', escritaEn: NUEVE_AM })),
+      ).rejects.toThrow(InvalidJournalEntryError);
+      await expect(
+        casoDeUso.execute(peticion({ dia: 'manana', escritaEn: NUEVE_AM })),
+      ).rejects.toThrow(InvalidJournalEntryError);
+    });
+
+    it('un dia futuro sigue rechazandose aunque la hora sirva', async () => {
+      const { casoDeUso } = armar();
+
+      await expect(
+        casoDeUso.execute(peticion({ dia: '2026-10-05', escritaEn: NUEVE_AM })),
+      ).rejects.toThrow(FutureJournalDayError);
+    });
+  });
+
   it('en un dia futuro no', async () => {
     const { casoDeUso, diario } = armar();
 

@@ -3,6 +3,7 @@ import { Calendario } from '../../domain/model/Calendario.js';
 import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
 import type {
   RegisterActivityResultUseCase,
@@ -40,7 +41,9 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
     // por una senal de riesgo en lo escrito. Tambien en un reintento: quien
     // repite la operacion tiene que ver lo mismo que la primera vez.
     const lineasDeAtencion = resultado.sugiereAcompanamiento()
-      ? RecursoApoyo.ordenarPorAlcance(await this.recursos.lineasDeAtencion())
+      ? RecursoApoyo.ordenarPorAlcance(
+          await this.recursos.lineasDeAtencion(paisDeLaZona(command.zonaHoraria)),
+        )
       : [];
 
     return { resultado, lineasDeAtencion };

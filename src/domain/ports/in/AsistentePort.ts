@@ -50,6 +50,11 @@ export interface ConsultaAlAsistente {
   readonly userId: string;
   /** Lo que escribio, tal cual. */
   readonly texto: string;
+  /**
+   * La zona horaria de su cuenta. De ella sale el pais de las lineas de
+   * atencion que se ensenan (SCRUM-124): nunca se pide ubicacion.
+   */
+  readonly zonaHoraria: string;
 }
 
 /**

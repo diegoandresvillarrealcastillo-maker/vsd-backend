@@ -1,4 +1,5 @@
 import { Calendario } from '../../domain/model/Calendario.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
@@ -36,7 +37,12 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     const existente = await this.diario.porOperacion(userId, clientOperationId);
 
     if (existente !== null) {
-      return acompanarAnotacion(existente, this.recursos, command.conRecomendaciones);
+      return acompanarAnotacion(
+        existente,
+        this.recursos,
+        command.conRecomendaciones,
+        paisDeLaZona(command.zonaHoraria),
+      );
     }
 
     const ahora = this.reloj();
@@ -60,6 +66,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
       await this.diario.guardarNueva(entrada),
       this.recursos,
       command.conRecomendaciones,
+      paisDeLaZona(command.zonaHoraria),
     );
   }
 }

@@ -13,10 +13,22 @@ import type { PrismaService } from '../persistence/PrismaService.js';
 export class PrismaRecursoApoyoRepository implements RecursoApoyoRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
-  async lineasDeAtencion(): Promise<readonly RecursoApoyo[]> {
-    const filas = await this.prisma.recursoApoyo.findMany({
-      where: { tipo: TipoDeRecurso.CONTACTO },
-    });
+  async lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]> {
+    const delPais =
+      pais === undefined
+        ? []
+        : await this.prisma.recursoApoyo.findMany({
+            where: { tipo: TipoDeRecurso.CONTACTO, pais },
+          });
+
+    // Un pais sin lineas, o sin pais, recibe lo que sirve en cualquier parte
+    // (`pais` vacio): nunca las de otro pais (SCRUM-124).
+    const filas =
+      delPais.length > 0
+        ? delPais
+        : await this.prisma.recursoApoyo.findMany({
+            where: { tipo: TipoDeRecurso.CONTACTO, pais: null },
+          });
 
     return RecursoApoyo.ordenarPorAlcance(filas.map((fila) => this.aDominio(fila)));
   }
@@ -36,6 +48,10 @@ export class PrismaRecursoApoyoRepository implements RecursoApoyoRepositoryPort 
       tema: fila.tema ?? undefined,
       cobertura: fila.cobertura ?? undefined,
       enlace: fila.enlace ?? undefined,
+      pais: fila.pais ?? undefined,
+      fuente: fila.fuente ?? undefined,
+      // Un DATE llega como medianoche UTC: sus diez primeras letras son el dia.
+      verificadoEl: fila.verificadoEl?.toISOString().slice(0, 10),
     });
   }
 }

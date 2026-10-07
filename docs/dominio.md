@@ -251,6 +251,9 @@ la misma respuesta las lineas de atencion, ordenadas por alcance. Quien recibe
 la senal recibe tambien los telefonos, sin depender de una segunda peticion que
 podria fallar justo entonces.
 
+Son las del pais de la persona, sacado de su zona horaria (SCRUM-124): ver
+[las lineas de ayuda segun el pais](#las-lineas-de-ayuda-segun-el-pais).
+
 Ese texto **no aparece en ningun registro**. El registro de peticiones solo
 anota metodo, ruta, estado y duracion. Y de los errores de Prisma, cuyo mensaje
 repite los argumentos de la llamada que fallo, se anota el nombre, el codigo y
@@ -498,6 +501,33 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
 - **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
   gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
   manda solo lo de la ultima media hora.
+
+## Las lineas de ayuda segun el pais
+
+Un numero equivocado en una crisis es el peor error posible, asi que las lineas
+que se ensenan (en el asistente, en los resultados y en el diario) son las del
+**pais de la persona**. Ver el
+[ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md).
+
+`paisDeLaZona(zona)` (`PaisDeAyuda.ts`) devuelve el codigo ISO de dos letras, o
+`undefined`. Sale de una lista de zonas escrita a mano, solo para los paises
+cuyas lineas verifico una persona: Colombia, Mexico, Espana y Estados Unidos. No
+se pide GPS ni ubicacion, y no lanza nunca: se llama cuando alguien puede estar
+mal, y una zona desconocida o mal escrita simplemente no tiene pais.
+
+**Misma hora no es mismo pais.** Peru, Ecuador y Panama comparten la hora de
+Bogota y no reciben el 192: reciben el directorio internacional.
+
+`RecursoApoyoRepositoryPort.lineasDeAtencion(pais)` recibe el pais **como
+parametro obligatorio**. Un `lineasDeAtencion()` sin pais que "devuelve todas" es
+justo la llamada que hay que impedir, y con el parametro obligatorio el
+compilador marca cada sitio donde alguien se olvide. Si el pais no tiene filas, o
+no hay pais, devuelve las filas sin pais (el directorio internacional): **nunca
+las de otro pais**.
+
+`RecursoApoyo.create` rechaza un contacto sin `fuente` o sin `verificadoEl`
+(`AAAA-MM-DD`), y la base impone lo mismo con una restriccion. Quien quiera
+agregar una linea sin decir de donde sale, no puede.
 
 ## Errores
 

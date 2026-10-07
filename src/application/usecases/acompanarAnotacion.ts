@@ -15,12 +15,14 @@ import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoA
  *
  * Con el permiso dado, si lo escrito trae una senal de riesgo, las lineas de
  * atencion viajan en la misma respuesta, ordenadas por alcance, como con los
- * resultados (SCRUM-94).
+ * resultados (SCRUM-94). Son las del pais de la persona, sacado de su zona
+ * horaria (SCRUM-124).
  */
 export async function acompanarAnotacion(
   entrada: EntradaDeDiario,
   recursos: RecursoApoyoRepositoryPort,
   conRecomendaciones: boolean,
+  pais: string | undefined,
 ): Promise<AnotacionGuardada> {
   if (!conRecomendaciones) {
     return { entrada, sugiereAcompanamiento: false, lineasDeAtencion: [] };
@@ -32,7 +34,7 @@ export async function acompanarAnotacion(
     entrada,
     sugiereAcompanamiento,
     lineasDeAtencion: sugiereAcompanamiento
-      ? RecursoApoyo.ordenarPorAlcance(await recursos.lineasDeAtencion())
+      ? RecursoApoyo.ordenarPorAlcance(await recursos.lineasDeAtencion(pais))
       : [],
   };
 }

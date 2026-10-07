@@ -1,5 +1,6 @@
 import { UserId } from '../../domain/model/Identifier.js';
 import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { hayRiesgo, normalizar } from '../../domain/model/SenalesDeRiesgo.js';
 import {
   type AsistentePort,
@@ -121,8 +122,10 @@ export class AsistentePorReglas implements AsistentePort {
     // Primero lo que no se negocia. Si hay una senal de riesgo, la respuesta
     // ya esta decidida: no se mira la intencion, no se personaliza, no se
     // intenta ser ingenioso.
+    const pais = paisDeLaZona(consulta.zonaHoraria);
+
     if (hayRiesgo(consulta.texto)) {
-      const lineas = await this.recursos.lineasDeAtencion();
+      const lineas = await this.recursos.lineasDeAtencion(pais);
 
       return {
         intencion: Intencion.ME_SIENTO_MAL,
@@ -140,7 +143,7 @@ export class AsistentePorReglas implements AsistentePort {
     // Una intencion que no se reconoce no devuelve un error ni una disculpa
     // vacia: devuelve las lineas de atencion, que es lo que sirve siempre.
     const acompanamiento =
-      encontrados.length > 0 ? encontrados : await this.recursos.lineasDeAtencion();
+      encontrados.length > 0 ? encontrados : await this.recursos.lineasDeAtencion(pais);
 
     return {
       intencion,

@@ -22,7 +22,7 @@ export class RecursoDto {
 
   @ApiPropertyOptional({
     description:
-      'Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.',
+      'Donde sirve el recurso: nacional, bogota, universidad o internacional (el directorio que recibe quien esta en un lugar sin lineas verificadas). La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.',
     example: 'nacional',
   })
   cobertura?: string;

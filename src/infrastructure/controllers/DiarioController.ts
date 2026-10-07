@@ -127,6 +127,7 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.editarAnotacion.execute({
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       conRecomendaciones: cuenta.diarioConRecomendaciones,
       entradaId: id,
       version: dto.version,

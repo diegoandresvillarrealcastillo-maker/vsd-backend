@@ -4,6 +4,7 @@ import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { Pendiente } from '../../model/Pendiente.js';
 import type { User } from '../../model/User.js';
+import type { FotoLeida } from './FotoDePerfilUseCase.js';
 
 /** Todo lo que VSD Health guarda de una persona. */
 export interface DatosExportados {
@@ -22,6 +23,8 @@ export interface DatosExportados {
     readonly preferencias: PreferenciasDeAviso;
     readonly navegadores: number;
   };
+  /** La foto de perfil, si tiene (SCRUM-120). Es un dato personal como cualquiera. */
+  readonly foto: FotoLeida | null;
 }
 
 /**

@@ -24,6 +24,22 @@ export class AvisosExportadosDto {
   navegadores!: number;
 }
 
+/** La foto de perfil, en la exportacion: el archivo mismo, para poder llevarselo (SCRUM-120). */
+export class FotoExportadaDto {
+  @ApiProperty({ example: 'image/jpeg' })
+  tipo!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', description: 'Cuándo se guardó.' })
+  actualizadaEl!: string;
+
+  @ApiProperty({
+    description: 'El archivo, en base64. Es la imagen tal como se guardó.',
+    type: String,
+    format: 'byte',
+  })
+  contenidoBase64!: string;
+}
+
 /**
  * Todo lo que VSD Health guarda de una persona, en JSON.
  *
@@ -53,6 +69,13 @@ export class ExportacionDto {
   @ApiProperty({ type: AvisosExportadosDto })
   avisos!: AvisosExportadosDto;
 
+  @ApiProperty({
+    type: FotoExportadaDto,
+    nullable: true,
+    description: 'La foto de perfil, si tiene (SCRUM-120).',
+  })
+  foto!: FotoExportadaDto | null;
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -74,6 +97,15 @@ export class ExportacionDto {
       recordatorioNoche: preferencias.minutoNoche !== null,
       navegadores,
     };
+
+    dto.foto =
+      datos.foto === null
+        ? null
+        : {
+            tipo: datos.foto.tipo,
+            actualizadaEl: datos.foto.actualizadaEl.toISOString(),
+            contenidoBase64: Buffer.from(datos.foto.contenido).toString('base64'),
+          };
 
     return dto;
   }

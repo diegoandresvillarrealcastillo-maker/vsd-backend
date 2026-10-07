@@ -126,6 +126,9 @@ model Usuario {
   /// Zona IANA de la persona, informada por su dispositivo (SCRUM-123). Decide
   /// que dia es para ella. Las cuentas anteriores quedan en America/Bogota.
   zonaHoraria String @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
+  /// Cuando se guardo la foto de perfil (SCRUM-120). NULL si no tiene. La foto en
+  /// si vive en Supabase Storage, no en la base.
+  fotoActualizadaEl DateTime? @map("foto_actualizada_el") @db.Timestamptz(3)
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]

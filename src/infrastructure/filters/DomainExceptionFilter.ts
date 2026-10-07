@@ -83,6 +83,17 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // formada.
   AVISO_INVALIDO: HttpStatus.BAD_REQUEST,
 
+  // La foto de perfil (SCRUM-120). Cada motivo con el estado que le toca: el
+  // tipo (415), el peso (413) y lo demas, que es un archivo que no vale (400).
+  FOTO_TIPO_NO_PERMITIDO: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+  FOTO_DEMASIADO_PESADA: HttpStatus.PAYLOAD_TOO_LARGE,
+  FOTO_DEMASIADO_GRANDE: HttpStatus.BAD_REQUEST,
+  FOTO_NO_ES_UNA_IMAGEN: HttpStatus.BAD_REQUEST,
+  FOTO_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
+  // 503 como el borrado: el almacenamiento es de fuera, y reintentar en un
+  // momento es lo que tiene que hacer quien llama.
+  ALMACENAMIENTO_NO_DISPONIBLE: HttpStatus.SERVICE_UNAVAILABLE,
+
   // 503: el borrado depende del proveedor de autenticacion, y si este no
   // responde no se borra nada. No es culpa de quien llama, y reintentar en un
   // momento es exactamente lo que tiene que hacer.

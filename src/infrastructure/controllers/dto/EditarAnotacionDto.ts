@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsInt, IsObject, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  Allow,
+  IsArray,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /**
  * Cuerpo de `PATCH /api/diario/:id`.
@@ -40,4 +49,16 @@ export class EditarAnotacionDto {
   @IsOptional()
   @IsArray()
   adjuntos?: unknown[] | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    example: '2026-10-07T14:30:00.000Z',
+    description:
+      'La hora en que el dispositivo hizo la corrección, en ISO 8601 con desplazamiento. El plazo de una hora se mide contra ella y no contra cuando llega la petición: corregida a las 9:30 sin conexión y recibida a las 14:00, se aplica como corrección. Nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior a la hora en que se escribió la anotación) se ignora y se usa la hora del servidor.',
+  })
+  // Ver `EscribirEnElDiarioDto.escritaEn`.
+  @Allow()
+  @IsOptional()
+  editadaEn?: unknown;
 }

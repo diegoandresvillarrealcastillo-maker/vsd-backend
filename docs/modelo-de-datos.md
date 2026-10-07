@@ -265,20 +265,20 @@ administrador escribe.
 
 Lo que la persona escribe por su cuenta. Corresponde al RF14.
 
-| Campo                  | Tipo         | Nulo | Descripción                                                              |
-| ---------------------- | ------------ | ---- | ------------------------------------------------------------------------ |
-| `id_entrada`           | UUID         | no   | Clave primaria.                                                          |
-| `id_usuario`           | UUID         | no   | A quién pertenece.                                                       |
-| `dia`                  | DATE         | no   | Día del calendario de la persona al que pertenece. Desde SCRUM-95.       |
-| `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                         |
-| `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.          |
-| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.     |
-| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión. Ninguna ruta las escribe todavía. |
-| `adjuntos`             | JSONB        | sí   | Los diagramas: `{ id, tipo: "diagrama", datos }`. Solo con conexión.     |
-| `id_operacion_cliente` | UUID         | no   | **UNIQUE** por persona. Generado en el dispositivo.                      |
-| `version`              | INTEGER      | no   | Aumenta con cada edición.                                                |
-| `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió. La pone la base al insertar y no se puede editar.    |
-| `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición.                                                          |
+| Campo                  | Tipo         | Nulo | Descripción                                                                         |
+| ---------------------- | ------------ | ---- | ----------------------------------------------------------------------------------- |
+| `id_entrada`           | UUID         | no   | Clave primaria.                                                                     |
+| `id_usuario`           | UUID         | no   | A quién pertenece.                                                                  |
+| `dia`                  | DATE         | no   | Día del calendario de la persona al que pertenece. Desde SCRUM-95.                  |
+| `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                                    |
+| `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.                     |
+| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.                |
+| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión. Ninguna ruta las escribe todavía.            |
+| `adjuntos`             | JSONB        | sí   | Los diagramas: `{ id, tipo: "diagrama", datos }`. Solo con conexión.                |
+| `id_operacion_cliente` | UUID         | no   | **UNIQUE** por persona. Generado en el dispositivo.                                 |
+| `version`              | INTEGER      | no   | Aumenta con cada edición.                                                           |
+| `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió, según el dispositivo y acotada por la base. No se puede editar. |
+| `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición, según el dispositivo y acotada por la base.                         |
 
 ### Un registro por día, con una hora para editar (SCRUM-95)
 
@@ -287,17 +287,33 @@ fila. Escribir algo por la tarde no reescribe lo de la mañana: se añade debajo
 
 - **`dia` no se deriva de `fecha_creacion`.** Se puede añadir a un día pasado,
   y la anotación conserva la hora real en que se escribió. En un día futuro, no.
-- **Una hora para editar, impuesta por la base.** La política de UPDATE solo
-  deja pasar filas con `fecha_creacion > now() - interval '60 minutes'`. Fuera
-  de esa hora, un UPDATE directo con el rol de la aplicación no encuentra la
-  fila. La API responde `409 EDICION_FUERA_DE_PLAZO`, y el cliente guarda lo
-  suyo como una anotación nueva.
-- **Nadie puede alargar esa hora.** Un disparador fija `fecha_creacion` al
-  insertar, venga lo que venga. Además, `vsd_app` solo tiene permiso de UPDATE
-  sobre las columnas que se editan: `fecha_creacion`, `dia`, `id_usuario` e
-  `id_operacion_cliente` no se pueden cambiar.
+- **Una hora para editar, impuesta por la base.** Un disparador `BEFORE UPDATE`
+  (`entrada_diario_hora_de_edicion`) comprueba que la hora de la edición caiga
+  antes de `fecha_creacion + 60 minutos`. Fuera de esa hora, un UPDATE directo con
+  el rol de la aplicación no encuentra la fila: el disparador devuelve `NULL` y
+  no cambia nada, sin error. La API responde `409 EDICION_FUERA_DE_PLAZO`, y el
+  cliente guarda lo suyo como una anotación nueva.
+- **La hora es la del dispositivo, acotada** (SCRUM-144, ADR 0020). Una anotación
+  escrita a las 9:00 sin conexión y recibida a las 14:00 es de las 9:00, y una
+  corrección hecha a las 9:30 cae dentro de la hora aunque llegue a las 14:00.
+  La base acota esa hora sin fiarse de ella:
+  - **Nunca en el futuro**: como mucho `now() + 5 minutos` (un reloj adelantado).
+  - **Nunca de hace más de 30 días.**
+  - **La de una edición, nunca antes de haberse escrito la anotación ni de su
+    última edición.**
+  - Un UPDATE que **no cambia** `fecha_edicion` se mide con `now()`, como siempre.
+    Sin esto, dejarla como estaba bastaría para editar «en el momento en que se
+    escribió».
+- **Lo que esto cuesta.** Quien tenga acceso directo a la conexión de la aplicación
+  puede declarar una hora de edición dentro de la hora y corregir una anotación de
+  hasta 30 días atrás. Antes, ni eso. Es una regla de producto y no un límite de
+  seguridad: nadie puede demostrar a qué hora escribió algo. Ver el ADR 0020.
+- **Nadie puede cambiar `fecha_creacion` después.** `vsd_app` solo tiene permiso
+  de UPDATE sobre las columnas que se editan: `fecha_creacion`, `dia`,
+  `id_usuario` e `id_operacion_cliente` no se pueden cambiar.
 
-Ver la migración `20261003180000_diario_por_dia`.
+Ver las migraciones `20261003180000_diario_por_dia` y
+`20261014120000_hora_del_dispositivo_en_el_diario`.
 
 ### El contenido del diario no se evalúa
 

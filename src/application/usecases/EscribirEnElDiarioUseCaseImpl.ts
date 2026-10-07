@@ -2,6 +2,7 @@ import { Calendario } from '../../domain/model/Calendario.js';
 import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
+import { horaDelDispositivo } from '../../domain/model/HoraDelDispositivo.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
 import { conTolerancia } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
@@ -55,19 +56,30 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     // ToleranciaDelReloj): se admite hasta el dia que seria con esa tolerancia,
     // y no un dia mas.
     const ultimoDiaAdmitido = calendario.diaDe(conTolerancia(ahora));
+    const dia = command.dia ?? hoy;
+
+    // La hora de la anotacion es la que dijo el dispositivo, no la de cuando llega:
+    // escrita a las 9:00 sin conexion y recibida a las 14:00, es de las 9:00
+    // (SCRUM-144). Una anotacion no se escribe antes de que empiece su dia. Si el
+    // dia no es una fecha real, `nueva` lo rechaza justo abajo.
+    const escritaEn = horaDelDispositivo(
+      command.escritaEn,
+      ahora,
+      Calendario.esDia(dia) ? calendario.limitesDelDia(dia).desde : undefined,
+    );
 
     const entrada = EntradaDeDiario.nueva(
       {
         id: this.generarId(),
         userId,
         clientOperationId,
-        dia: command.dia ?? hoy,
+        dia,
         titulo: command.titulo,
         documento: DocumentoDelDiario.desde(command.contenido),
         adjuntos: adjuntosDesde(command.adjuntos),
       },
       ultimoDiaAdmitido,
-      ahora,
+      escritaEn,
     );
 
     return acompanarAnotacion(

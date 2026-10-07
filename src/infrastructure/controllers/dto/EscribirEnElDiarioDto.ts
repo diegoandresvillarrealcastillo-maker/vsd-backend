@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  Allow,
   IsArray,
   IsObject,
   IsOptional,
@@ -59,4 +60,17 @@ export class EscribirEnElDiarioDto {
   @IsOptional()
   @IsArray()
   adjuntos?: unknown[];
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    example: '2026-10-07T14:00:00.000Z',
+    description:
+      'La hora en que el dispositivo escribió la anotación, en ISO 8601 con desplazamiento (Z o +hh:mm). Sirve cuando se escribió sin conexión y llega después: la anotación muestra esta hora y no la de cuando se recibe. Es un dato sin fiar y nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior al comienzo del día de la anotación) se ignora y se usa la hora del servidor.',
+  })
+  // Sin validacion a proposito: una hora mala no debe rechazar lo que la persona
+  // escribio. `@Allow` es lo que evita que la lista blanca la quite o la rechace.
+  @Allow()
+  @IsOptional()
+  escritaEn?: unknown;
 }

@@ -373,9 +373,10 @@ model EntradaDiario {
   /// la copia local se guarda aparte. Ver ADR 0009.
   version Int @default(1)
 
-  /// La pone la base al insertar, venga lo que venga: de ella se cuenta la
-  /// hora para editar, y no puede elegirla quien escribe. No se puede editar.
-  /// Ver la migracion 20261003180000_diario_por_dia.
+  /// La hora en que, segun el dispositivo, se escribio la anotacion: de ella se
+  /// cuenta la hora para editar. La base la acota (nunca en el futuro, nunca de
+  /// hace mas de 30 dias) y no se puede editar despues. Ver las migraciones
+  /// 20261003180000_diario_por_dia y 20261014120000_hora_del_dispositivo_en_el_diario.
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 

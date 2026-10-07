@@ -27,6 +27,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0017](0017-un-svg-que-sube-una-persona-se-reescribe-no-se-limpia.md)                      | Un SVG que sube una persona se reescribe, no se limpia                     | Aceptada                                                                       |
 | [0018](0018-el-backend-se-despliega-como-una-imagen-de-docker.md)                          | El backend se despliega como una imagen de Docker; el frontend, no         | Aceptada                                                                       |
 | [0019](0019-el-modo-sin-conexion-guarda-en-el-dispositivo-y-envia-una-cola-idempotente.md) | El modo sin conexion guarda en el dispositivo y envia una cola idempotente | Aceptada                                                                       |
+| [0020](0020-la-hora-de-una-anotacion-es-la-del-dispositivo-acotada.md)                     | La hora de una anotacion del diario es la del dispositivo, acotada         | Aceptada                                                                       |
 
 ## Reglas
 

@@ -92,6 +92,32 @@ describe('La hora para editar', () => {
     expect(entrada.sePuedeEditar(minutosDespues(60))).toBe(false);
   });
 
+  it('la hora de la edicion es la que se le da: es la del dispositivo si se corrigio sin conexion (SCRUM-144)', () => {
+    const editada = nueva().editar({ documento: texto('otra cosa') }, 1, minutosDespues(30));
+
+    expect(editada.editadaEn).toEqual(minutosDespues(30));
+    expect(editada.creadaEn).toEqual(AHORA);
+  });
+
+  it('la hora de la edicion no va hacia atras: dos dispositivos con el reloj distinto no desordenan la historia', () => {
+    const primera = nueva().editar({ documento: texto('desde el celular') }, 1, minutosDespues(30));
+    const segunda = primera.editar(
+      { documento: texto('desde el computador') },
+      2,
+      minutosDespues(10),
+    );
+
+    expect(segunda.version).toBe(3);
+    expect(segunda.editadaEn).toEqual(minutosDespues(30));
+  });
+
+  it('una edicion a la misma hora que la anterior la deja igual', () => {
+    const primera = nueva().editar({ documento: texto('a') }, 1, minutosDespues(20));
+    const segunda = primera.editar({ documento: texto('b') }, 2, minutosDespues(20));
+
+    expect(segunda.editadaEn).toEqual(minutosDespues(20));
+  });
+
   it('dentro de la hora, editar sube la version y cambia solo lo que viene', () => {
     const editada = nueva({ titulo: 'Martes' }).editar(
       { documento: texto('Hoy fue un buen dia, y la tarde mejor') },

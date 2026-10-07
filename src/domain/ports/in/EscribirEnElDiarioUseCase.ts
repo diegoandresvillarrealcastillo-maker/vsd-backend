@@ -27,6 +27,13 @@ export interface EscribirEnElDiarioCommand {
   readonly contenido: unknown;
   readonly adjuntos?: unknown;
   /**
+   * La hora en que el dispositivo escribio la anotacion (ISO 8601), si la mando.
+   * Importa cuando se escribio sin conexion y llega despues (SCRUM-144). Es un
+   * dato sin fiar: si no sirve —mal formada, en el futuro, de hace mas de un mes,
+   * anterior a su dia— se ignora y se usa la del servidor, sin error.
+   */
+  readonly escritaEn?: unknown;
+  /**
    * Si la persona permitio que su diario se lea para recomendarle (SCRUM-108).
    * Sin ese permiso, lo escrito no pasa por ninguna deteccion.
    */

@@ -74,7 +74,7 @@ export class DiarioController {
   @ApiOperation({
     summary: 'Escribir una anotación',
     description:
-      'Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió. Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.',
+      'Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.',
   })
   @ApiResponse({ status: 201, type: AnotacionGuardadaDto })
   @ApiResponse({
@@ -98,6 +98,7 @@ export class DiarioController {
       titulo: dto.titulo,
       contenido: dto.contenido,
       adjuntos: dto.adjuntos,
+      escritaEn: dto.escritaEn,
     });
 
     return AnotacionGuardadaDto.deLaGuardada(guardada);
@@ -108,7 +109,7 @@ export class DiarioController {
   @ApiOperation({
     summary: 'Corregir una anotación durante su primera hora',
     description:
-      'Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). La hora la impone la base de datos, no solo la API.',
+      'Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). El plazo se mide contra la hora de la corrección que manda el dispositivo en editadaEn (acotada: nunca en el futuro ni de hace más de 30 días) y, sin ella, contra la de la petición. Los límites los impone también la base de datos, no solo la API.',
   })
   @ApiResponse({ status: 200, type: AnotacionGuardadaDto })
   @ApiResponse({ status: 400, description: 'El cuerpo no es válido o no trae nada que cambiar.' })
@@ -134,6 +135,7 @@ export class DiarioController {
       titulo: dto.titulo,
       contenido: dto.contenido,
       adjuntos: dto.adjuntos,
+      editadaEn: dto.editadaEn,
     });
 
     return AnotacionGuardadaDto.deLaGuardada(guardada);

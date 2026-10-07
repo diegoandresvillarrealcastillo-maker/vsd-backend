@@ -634,7 +634,7 @@
         ]
       },
       "post": {
-        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió. Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.",
+        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.",
         "operationId": "DiarioController_escribir",
         "parameters": [],
         "requestBody": {
@@ -684,7 +684,7 @@
     },
     "/api/diario/{id}": {
       "patch": {
-        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). La hora la impone la base de datos, no solo la API.",
+        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). El plazo se mide contra la hora de la corrección que manda el dispositivo en editadaEn (acotada: nunca en el futuro ni de hace más de 30 días) y, sin ella, contra la de la petición. Los límites los impone también la base de datos, no solo la API.",
         "operationId": "DiarioController_editar",
         "parameters": [
           {
@@ -1987,6 +1987,12 @@
               "additionalProperties": true
             },
             "description": "Los diagramas: { id, tipo: \"diagrama\", datos }. Como mucho diez."
+          },
+          "escritaEn": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-07T14:00:00.000Z",
+            "description": "La hora en que el dispositivo escribió la anotación, en ISO 8601 con desplazamiento (Z o +hh:mm). Sirve cuando se escribió sin conexión y llega después: la anotación muestra esta hora y no la de cuando se recibe. Es un dato sin fiar y nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior al comienzo del día de la anotación) se ignora y se usa la hora del servidor."
           }
         },
         "required": [
@@ -2122,6 +2128,12 @@
               "type": "object",
               "additionalProperties": true
             }
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-07T14:30:00.000Z",
+            "description": "La hora en que el dispositivo hizo la corrección, en ISO 8601 con desplazamiento. El plazo de una hora se mide contra ella y no contra cuando llega la petición: corregida a las 9:30 sin conexión y recibida a las 14:00, se aplica como corrección. Nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior a la hora en que se escribió la anotación) se ignora y se usa la hora del servidor."
           }
         },
         "required": [

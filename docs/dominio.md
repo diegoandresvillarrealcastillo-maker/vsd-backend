@@ -162,11 +162,16 @@ Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
   bienvenida. Elegir cero, en cambio, se rechaza (`SIN_MODULOS_ACTIVOS`): el
   dashboard quedaria vacio. Las cuentas que ya existian tambien empiezan
   vacias, para preguntarles en lugar de suponer.
-- La **mascota** es un personaje (`fungito`, `sparky`, `ori`, `gato`,
-  `obsidian` o `trama`, SCRUM-99) con un nombre de 1 a 30 caracteres. La forma
-  se valida por formato y no contra esa lista: un personaje nuevo no deberia
-  exigir desplegar el backend. Color (`#RRGGBB`) y accesorio son opcionales y
-  vienen del modelo anterior; los personajes no los usan.
+- La **mascota** es un personaje (`fungito`, `sparky`, `ori`, `gato` u
+  `obsidian`, SCRUM-99) con un nombre de 1 a 30 caracteres. La forma se valida
+  por formato y no contra esa lista: un personaje nuevo no deberia exigir
+  desplegar el backend. Color (`#RRGGBB`) y accesorio son opcionales y vienen
+  del modelo anterior; los personajes no los usan.
+- **Trama se retiro** (SCRUM-121). A quien la tenia elegida la migracion
+  `20261010120000_retirar_a_trama` le dejo a Fungito, y si todavia le decia
+  «Trama» le cambio tambien el nombre; un nombre que la persona eligio se
+  respeta. La API sigue aceptando una forma que no conozca, y el frontend la
+  dibuja como Fungito conservando el nombre.
 
 `User.conPreferencias` devuelve una cuenta nueva y solo toca esas dos cosas.
 El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:

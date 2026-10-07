@@ -323,3 +323,127 @@ jobs:
       - name: Registros del contenedor si algo fallo
         if: failure()
         run: docker logs api || true
+
+  entorno-completo:
+    name: Entorno completo con Docker Compose
+    runs-on: ubuntu-24.04
+    env:
+      # Valores de prueba, publicos por naturaleza: la direccion de un proyecto
+      # que no existe y una clave anonima inventada. Nada de aqui es un secreto.
+      SUPABASE_URL: https://ejemplo.supabase.co
+      VITE_SUPABASE_ANON_KEY: clave-anonima-de-prueba
+      # El frontend se descarga dentro del espacio de trabajo, no en la carpeta
+      # hermana que usa quien trabaja en su equipo.
+      VSD_FRONTEND_DIR: ./vsd-frontend
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Descargar el frontend
+        # Es un repositorio publico, asi que no hace falta ningun secreto.
+        uses: actions/checkout@v7
+        with:
+          repository: diegoandresvillarrealcastillo-maker/vsd-frontend
+          ref: desarrollo
+          path: vsd-frontend
+          persist-credentials: false
+
+      - name: Revisar que el archivo del compose sea valido
+        # Con el perfil, que es donde estan las piezas nuevas, y sin el: el
+        # `docker compose up -d` de siempre no debe necesitar nada de esto.
+        run: |
+          set -euo pipefail
+          docker compose --profile completo config --quiet
+          docker compose config --services
+
+      - name: Levantar la base, las migraciones y la API
+        # `up` espera las condiciones de `depends_on`: la base sana, las
+        # migraciones terminadas sin error, y solo entonces arranca la API.
+        run: docker compose --profile completo up --detach --build api
+
+      - name: Esperar a que la API este sana
+        run: |
+          set -euo pipefail
+          api="$(docker compose ps --quiet api)"
+          for intento in $(seq 1 30); do
+            estado="$(docker inspect --format '{{.State.Health.Status}}' "$api")"
+            echo "intento ${intento}: ${estado}"
+            if [ "$estado" = "healthy" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ "$estado" != "healthy" ]; then
+            echo "::error::La API no llego a estado healthy."
+            exit 1
+          fi
+
+      - name: Comprobar que las migraciones se aplicaron de verdad
+        run: |
+          set -euo pipefail
+          migraciones="$(docker compose ps --all --quiet migraciones)"
+          codigo="$(docker inspect --format '{{.State.ExitCode}}' "$migraciones")"
+          echo "Las migraciones terminaron con codigo ${codigo}"
+          test "$codigo" = "0"
+
+          # El catalogo sale de una migracion: si responde con sus tres
+          # categorias, la base tiene el esquema y los datos, y la API le habla.
+          categorias="$(curl --silent --show-error --fail http://localhost:3000/api/catalogo | jq 'length')"
+          echo "Categorias en el catalogo: ${categorias}"
+          test "$categorias" -ge 3
+
+      - name: Comprobar que la API acepta el origen de la web y no otro
+        run: |
+          set -euo pipefail
+          preguntar() {
+            curl --silent --dump-header - --output /dev/null --request OPTIONS \
+              --header "Origin: $1" --header 'Access-Control-Request-Method: GET' \
+              http://localhost:3000/api/catalogo | tr -d '\r'
+          }
+          preguntar http://localhost:8080 | grep -i '^access-control-allow-origin: http://localhost:8080$'
+          if preguntar https://sitio-ajeno.example | grep -i '^access-control-allow-origin:'; then
+            echo "::error::La API acepto un origen que no esta autorizado."
+            exit 1
+          fi
+
+      - name: Levantar la web
+        # Mientras el frontend de `desarrollo` no tenga su Dockerfile (SCRUM-132
+        # lo agrega en vsd-frontend), este paso lo dice y sigue en lugar de
+        # fallar por algo que no depende de este repositorio.
+        run: |
+          set -euo pipefail
+          if [ ! -f vsd-frontend/Dockerfile ]; then
+            echo "::notice::vsd-frontend (desarrollo) todavia no tiene Dockerfile: se omite la web."
+            exit 0
+          fi
+
+          docker compose --profile completo up --detach --build web
+
+          web="$(docker compose ps --quiet web)"
+          for intento in $(seq 1 24); do
+            estado="$(docker inspect --format '{{.State.Health.Status}}' "$web")"
+            echo "intento ${intento}: ${estado}"
+            if [ "$estado" = "healthy" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ "$estado" != "healthy" ]; then
+            echo "::error::La web no llego a estado healthy."
+            exit 1
+          fi
+
+          curl --silent --show-error --fail http://localhost:8080/ | grep -q 'id="raiz"'
+
+          # Las variables VITE_* se pasaron como argumentos de compilacion: la
+          # direccion de Supabase de prueba tiene que estar dentro del paquete.
+          docker compose exec -T web sh -c 'grep -l "ejemplo.supabase.co" /usr/share/nginx/html/assets/*.js'
+
+      - name: Apagar y mostrar los registros si algo fallo
+        if: always()
+        run: |
+          docker compose --profile completo ps --all || true
+          if [ "${{ job.status }}" != "success" ]; then
+            docker compose --profile completo logs --no-color --tail 80 || true
+          fi
+          docker compose --profile completo down --volumes || true

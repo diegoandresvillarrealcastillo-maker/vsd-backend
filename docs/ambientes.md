@@ -168,6 +168,32 @@ Lo que conviene saber:
 - **El CI** (trabajo "Imagen de Docker") la construye, la arranca y comprueba lo
   anterior. Imprime el peso en cada ejecucion.
 
+### El entorno completo (SCRUM-132)
+
+`docker compose --profile completo up --build` levanta cuatro piezas en orden,
+cada una esperando a la anterior por una **condicion** y no por una pausa:
+
+| Pieza         | Que hace                                                 | Espera a              |
+| ------------- | -------------------------------------------------------- | --------------------- |
+| `postgres`    | La base de desarrollo (PostgreSQL 17.6)                  | —                     |
+| `migraciones` | `prisma migrate deploy` y termina                        | `postgres` sana       |
+| `api`         | La imagen de arriba, en `development`, en el puerto 3000 | migraciones sin error |
+| `web`         | La imagen del frontend (nginx), en el puerto 8080        | `api` sana            |
+
+- `migraciones` usa la etapa `compilacion` del `Dockerfile` y no la imagen final,
+  porque la CLI de Prisma no viaja en la que se despliega.
+- Las piezas nuevas estan en el perfil `completo`: `docker compose up -d` y
+  `npm run db:arriba` siguen levantando solo las dos bases, como siempre.
+- El CI (trabajo «Entorno completo con Docker Compose») levanta la base, las
+  migraciones y la API, comprueba que el catalogo responde con su esquema y datos
+  y que la API acepta el origen de la web y no otro; y, si `vsd-frontend` ya
+  tiene su `Dockerfile` en `desarrollo`, levanta tambien la web.
+- Lo que **no** incluye: Supabase. El inicio de sesion usa el proyecto que se
+  indique en `SUPABASE_URL`. Y es el ambiente de desarrollo: la API conecta como
+  el dueno de las tablas, como `start:dev`.
+
+El paso a paso para quien lo use esta en el [README](../README.md).
+
 ### Pasar el servicio de Render a Docker
 
 Lo hace **una persona en el panel de Render**; no se automatiza porque se toca un

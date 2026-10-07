@@ -9,6 +9,14 @@
 #   docker compose down       parar
 #   docker compose down -v    parar y borrar los datos
 #
+# Y, con el perfil `completo` (SCRUM-132), el sistema entero con un solo
+# comando: la base, las migraciones, la API y la web.
+#
+#   docker compose --profile completo up --build
+#   docker compose --profile completo down
+#
+# Sin el perfil, `docker compose up -d` levanta solo las dos bases, como antes.
+#
 # Las credenciales de aqui son locales y deliberadamente triviales: esta base
 # no sale de tu maquina y no contiene informacion de ninguna persona real.
 
@@ -50,6 +58,92 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # ==========================================================================
+  #  Entorno completo (perfil `completo`, SCRUM-132)
+  # ==========================================================================
+  #
+  #  Cuatro piezas en orden: la base (arriba), las migraciones, la API y la
+  #  web. Cada una espera a la anterior con una condicion, no con una pausa.
+  #
+  #  Lo que NO es:
+  #    - No levanta Supabase. El inicio de sesion usa el proyecto de Supabase
+  #      que se indique en SUPABASE_URL (el de PRE sirve), porque la API
+  #      comprueba cada token contra las claves publicas de ese proyecto.
+  #    - No es el ambiente de produccion. Es el de desarrollo: la API conecta
+  #      como el dueno de las tablas, igual que `npm run start:dev`, y el
+  #      aislamiento por Row Level Security se prueba en las pruebas de
+  #      integracion (que si usan `vsd_app`), no aqui.
+  #
+  #  Variables que se leen del entorno o del .env de esta carpeta:
+  #    SUPABASE_URL            la direccion publica del proyecto (obligatoria)
+  #    VITE_SUPABASE_ANON_KEY  la clave anonima, publica (obligatoria para entrar)
+  #    VITE_PROVEEDOR_GOOGLE   `si` para ofrecer Google (opcional, `no` por omision)
+  #    VSD_FRONTEND_DIR        donde esta vsd-frontend (por omision ../vsd-frontend)
+  #
+  #  Ninguna es un secreto: las tres primeras ya viajan al navegador de cualquiera.
+  # ==========================================================================
+
+  # Aplica las migraciones a la base de este compose y termina. Usa la etapa de
+  # compilacion del Dockerfile y no la imagen final, porque la CLI de Prisma no
+  # viaja en la imagen que se despliega (ADR 0018).
+  migraciones:
+    profiles: [completo]
+    build:
+      context: .
+      target: compilacion
+    image: vsd-api-migraciones:local
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    environment:
+      DIRECT_URL: postgresql://vsd:vsd_local@postgres:5432/vsd_health?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    profiles: [completo]
+    build: .
+    image: vsd-api:local
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      PORT: '3000'
+      # El origen desde el que el navegador le habla a la API: la web de abajo.
+      CORS_ORIGIN: http://localhost:8080,http://127.0.0.1:8080
+      # Sin valor por omision a proposito: si falta, la API se niega a arrancar
+      # y dice que variable es, que es mas claro que arrancar a medias.
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      DATABASE_URL: postgresql://vsd:vsd_local@postgres:5432/vsd_health?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migraciones:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    profiles: [completo]
+    build:
+      context: ${VSD_FRONTEND_DIR:-../vsd-frontend}
+      # Vite incorpora estas variables AL COMPILAR: la imagen sirve solo para
+      # este ambiente. Son valores publicos.
+      args:
+        VITE_APP_ENV: development
+        # La direccion de la API que el NAVEGADOR va a usar: desde el
+        # anfitrion, no desde dentro de la red de Docker.
+        VITE_API_BASE_URL: http://localhost:3000
+        VITE_SUPABASE_URL: ${SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_PROVEEDOR_GOOGLE: ${VITE_PROVEEDOR_GOOGLE:-no}
+    image: vsd-web:local
+    ports:
+      - '8080:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   vsd-datos:

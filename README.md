@@ -170,6 +170,41 @@ No lleva configuracion ni aplica migraciones, y por omision se niega a arrancar
 si falta algo. El detalle esta en [docs/ambientes.md](docs/ambientes.md) y en el
 [ADR 0018](docs/adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
 
+### El sistema completo con un solo comando
+
+Con Docker y las dos carpetas una al lado de la otra (`vsd-backend` y
+`vsd-frontend`) se levanta todo: la base de datos, las migraciones, la API y la
+web (SCRUM-132).
+
+```bash
+export SUPABASE_URL=https://TU-PROYECTO.supabase.co      # o ponerlo en el .env de esta carpeta
+export VITE_SUPABASE_ANON_KEY=la-clave-anonima-publica   # la misma del .env.local del frontend
+docker compose --profile completo up --build             # o: npm run completo:arriba
+```
+
+Cuando termina, la web queda en **http://localhost:8080** y la API en
+**http://localhost:3000**. Para parar: `npm run completo:abajo`.
+
+Lo que conviene saber:
+
+- **El inicio de sesion usa Supabase**, no una copia local: `SUPABASE_URL` es la
+  de un proyecto real (el de PRE sirve) porque la API comprueba cada token contra
+  sus claves publicas. Las dos variables de arriba son publicas, no secretos.
+- **Es el ambiente de desarrollo.** La API conecta como el dueno de las tablas,
+  igual que `npm run start:dev`; el aislamiento entre personas se prueba en las
+  pruebas de integracion.
+- Los puertos **5432**, **3000** y **8080** tienen que estar libres. Si tienes
+  `npm run db:local` encendido, apagalo: usa el mismo 5432.
+- `VSD_FRONTEND_DIR` indica donde esta `vsd-frontend` si no es la carpeta
+  hermana. `VITE_PROVEEDOR_GOOGLE=si` ofrece el inicio con Google.
+- Recuperar la contrasena y entrar con Google necesitan que
+  `http://localhost:8080` este en las URL de redireccion del proyecto de
+  Supabase; mientras no lo este, esos dos caminos no vuelven a la web local.
+  Entrar con correo y contrasena no depende de eso. (Es lo que dice la
+  documentacion de Supabase; no se probo con este compose.)
+- La web se compila **con** la direccion de la API dentro: si cambias el puerto o
+  las variables, hay que reconstruir (`--build`).
+
 ### Base de datos en local
 
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo

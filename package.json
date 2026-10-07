@@ -46,6 +46,8 @@
     "db:arriba": "docker compose up -d",
     "db:abajo": "docker compose down",
     "db:reiniciar": "docker compose down -v && docker compose up -d",
+    "completo:arriba": "docker compose --profile completo up --build",
+    "completo:abajo": "docker compose --profile completo down",
     "db:migrar": "prisma migrate dev",
     "db:aplicar": "prisma migrate deploy",
     "db:estado": "prisma migrate status",

@@ -324,6 +324,48 @@ describe('La foto de perfil por HTTP (SCRUM-120)', () => {
     });
   });
 
+  describe('la peticion previa del navegador (CORS)', () => {
+    // El navegador, desde otro origen, pregunta antes de mandar un PUT con sesion
+    // y con un tipo que no es de formulario. Si la API no contesta que si, la
+    // foto no sube nunca y el sintoma es un error de red sin explicacion.
+    const previa = (origen: string): request.Test =>
+      request(app.getHttpServer())
+        .options('/api/cuenta/foto')
+        .set('Origin', origen)
+        .set('Access-Control-Request-Method', 'PUT')
+        .set('Access-Control-Request-Headers', 'authorization,content-type');
+
+    it('deja pasar el PUT con sesion y con el tipo de la imagen, desde el origen de la aplicacion', async () => {
+      const respuesta = await previa('http://localhost:5173').expect(204);
+
+      expect(respuesta.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+      expect(respuesta.headers['access-control-allow-methods']).toContain('PUT');
+      expect(respuesta.headers['access-control-allow-headers']?.toLowerCase()).toContain(
+        'authorization',
+      );
+      expect(respuesta.headers['access-control-allow-headers']?.toLowerCase()).toContain(
+        'content-type',
+      );
+    });
+
+    it('tambien el DELETE', async () => {
+      const respuesta = await request(app.getHttpServer())
+        .options('/api/cuenta/foto')
+        .set('Origin', 'http://localhost:5173')
+        .set('Access-Control-Request-Method', 'DELETE')
+        .set('Access-Control-Request-Headers', 'authorization')
+        .expect(204);
+
+      expect(respuesta.headers['access-control-allow-methods']).toContain('DELETE');
+    });
+
+    it('desde otro origen, no', async () => {
+      const respuesta = await previa('https://otro-sitio.example');
+
+      expect(respuesta.headers['access-control-allow-origin']).toBeUndefined();
+    });
+  });
+
   describe('cada persona solo ve y toca la suya', () => {
     it('B no ve la foto de A: ni siquiera sabe que existe', async () => {
       await subir(A, PNG_REAL_DE_8_X_6, 'image/png').expect(200);

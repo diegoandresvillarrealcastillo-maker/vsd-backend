@@ -246,9 +246,10 @@ jobs:
           echo "La imagen pesa ${mb} MB."
           docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' vsd-api:ci | cut -c1-140
           # No es una meta: es una alarma contra accidentes (copiar node_modules
-          # de desarrollo, dos veces dist). Se ajusta con el numero real que
-          # imprime esta linea.
-          limite=800
+          # de desarrollo, dos veces dist). La primera ejecucion en el CI dio
+          # 355 MB (la base de Node ~155, node_modules ~133); el margen deja
+          # crecer a las dependencias, pero no cabe lo que no debia entrar.
+          limite=450
           if [ "$mb" -gt "$limite" ]; then
             echo "::error::La imagen pesa ${mb} MB y el limite de alarma es ${limite} MB."
             exit 1

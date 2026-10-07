@@ -11,6 +11,17 @@ export class ConsentimientoDto {
   aceptadoEn!: Date;
 }
 
+/** La foto de perfil, tal como la ve la cuenta: que hay y desde cuando, no los bytes. */
+export class FotoDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
+}
+
 /**
  * La cuenta, tal como sale por la API.
  *
@@ -65,6 +76,14 @@ export class CuentaRespuestaDto {
   })
   zonaHoraria!: string;
 
+  @ApiProperty({
+    description:
+      'La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.',
+    type: FotoDeLaCuentaDto,
+    nullable: true,
+  })
+  foto!: FotoDeLaCuentaDto | null;
+
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
 
@@ -76,6 +95,8 @@ export class CuentaRespuestaDto {
     dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
     dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
     dto.zonaHoraria = cuenta.zonaHoraria;
+    dto.foto =
+      cuenta.fotoActualizadaEl === undefined ? null : { actualizadaEl: cuenta.fotoActualizadaEl };
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;

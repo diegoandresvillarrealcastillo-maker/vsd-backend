@@ -177,18 +177,42 @@ Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
 El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:
 el cuerpo no tiene donde ponerlos, y mandarlos responde 400.
 
+### La foto de perfil
+
+La foto (SCRUM-120, ADR 0016) es una imagen `.jpg` o `.png` de menos de 50 KB que
+la persona elige en su perfil. El navegador la recorta y la comprime, y **la API
+la valida otra vez** sin fiarse de eso (`FotoDePerfil`): el tipo, el peso, que el
+contenido empiece como lo que dice ser y que ningun lado pase de 1024 px. Cada
+motivo de rechazo tiene su codigo (`FOTO_TIPO_NO_PERMITIDO`,
+`FOTO_DEMASIADO_PESADA`, `FOTO_DEMASIADO_GRANDE`, `FOTO_NO_ES_UNA_IMAGEN`) para
+que la pantalla diga que esta mal.
+
+- **El archivo vive en Storage; la cuenta guarda una marca**: `User.fotoActualizadaEl`,
+  si hay foto y desde cuando. Cambia con cada foto nueva.
+- Los tres casos de uso (`FotoDePerfilUseCaseImpl`: guardar, leer y quitar) reciben
+  **solo la persona**, que sale del token. No hay forma de pedir, cambiar ni
+  quitar la de otra.
+- **`conPreferencias` y `conZonaHoraria` conservan la marca.** Reconstruyen la
+  cuenta campo por campo, y si no la arrastraran, guardar el nombre borraria la
+  foto sin que nadie lo pidiera.
+- Marca sin archivo es lo mismo que no tener foto; archivo sin marca queda sin
+  ver y se limpia con la siguiente foto o al quitarla. Si el almacenamiento no
+  responde, se dice con `ALMACENAMIENTO_NO_DISPONIBLE` (503) y no se confunde con
+  «no hay foto».
+
 ### Exportar y borrar: los derechos de acceso y de supresion
 
 La Ley 1581 de 2012 reconoce a cada persona el derecho a conocer lo que se
 guarda de ella y a pedir que se suprima (SCRUM-75).
 
-- **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados y
-  las entradas de diario. Cada repositorio filtra por la persona y la base lo
-  impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
+- **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados, las
+  entradas de diario y la foto de perfil, si tiene (en base64; si Storage no
+  responde, la exportacion falla en vez de salir sin ella). Cada repositorio
+  filtra por la persona y la base lo impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
   resto de la API: con su nivel orientativo y sin el puntaje normalizado.
 - **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra
-  las filas dentro de una transaccion, borra la identidad en el proveedor y
-  solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
+  las filas dentro de una transaccion, borra los archivos de la persona en
+  Storage, borra la identidad en el proveedor y solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
   respuesta es `BORRADO_NO_COMPLETADO` (503): no se borro nada y se puede
   reintentar.
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import {
+  AccountNotProvisionedError,
+  FileStorageUnavailableError,
+} from '../../domain/model/DomainError.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
@@ -14,9 +17,12 @@ import type { User } from '../../domain/model/User.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
+import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { AlmacenDoble } from '../../pruebas/almacenDePrueba.js';
 import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
+import { PNG_REAL_DE_8_X_6 } from '../../pruebas/fotosDePrueba.js';
 import { ExportarDatosUseCaseImpl } from './ExportarDatosUseCaseImpl.js';
 
 const PERSONA = '11111111-1111-4111-8111-111111111111';
@@ -43,7 +49,7 @@ const PENDIENTE = Pendiente.nuevo(
 );
 
 /** Arma el caso de uso con dobles que anotan por quien les preguntaron. */
-function armar(cuenta: User | null) {
+function armar(cuenta: User | null, fotos: AlmacenPersonalPort = new AlmacenDoble()) {
   const preguntas: { resultados?: string; desde?: Date; diario?: string; pendientes?: string } = {};
 
   const cuentas: UserRepositoryPort = {
@@ -93,6 +99,7 @@ function armar(cuenta: User | null) {
       diario,
       pendientes,
       avisos,
+      fotos,
       () => AHORA,
     ),
   };
@@ -147,5 +154,85 @@ describe('ExportarDatosUseCaseImpl', () => {
     await expect(casoDeUso.execute(new UserId(PERSONA))).rejects.toThrow(
       AccountNotProvisionedError,
     );
+  });
+
+  describe('la foto de perfil (SCRUM-120)', () => {
+    const GUARDADA_EL = new Date('2026-10-09T15:30:00.123Z');
+
+    it('sin foto, sale null y ni se pregunta al almacenamiento', async () => {
+      const preguntas: string[] = [];
+      const fotos: AlmacenPersonalPort = {
+        guardar: () => Promise.resolve(),
+        leer: (persona) => {
+          preguntas.push(persona.value);
+
+          return Promise.resolve(undefined);
+        },
+        borrar: () => Promise.resolve(),
+      };
+
+      const datos = await armar(unaCuenta(), fotos).casoDeUso.execute(new UserId(PERSONA));
+
+      expect(datos.foto).toBeNull();
+      expect(preguntas).toEqual([]);
+    });
+
+    it('con foto, sale el archivo tal como se guardo, con su tipo y su fecha', async () => {
+      const fotos = new AlmacenDoble();
+
+      await fotos.guardar(new UserId(PERSONA), { contenido: PNG_REAL_DE_8_X_6, tipo: 'image/png' });
+
+      const datos = await armar(
+        unaCuenta({ fotoActualizadaEl: GUARDADA_EL }),
+        fotos,
+      ).casoDeUso.execute(new UserId(PERSONA));
+
+      expect(datos.foto).toEqual({
+        contenido: PNG_REAL_DE_8_X_6,
+        tipo: 'image/png',
+        actualizadaEl: GUARDADA_EL,
+      });
+    });
+
+    it('pregunta por la misma persona que exporta', async () => {
+      const preguntas: string[] = [];
+      const fotos: AlmacenPersonalPort = {
+        guardar: () => Promise.resolve(),
+        leer: (persona) => {
+          preguntas.push(persona.value);
+
+          return Promise.resolve({ contenido: PNG_REAL_DE_8_X_6, tipo: 'image/png' });
+        },
+        borrar: () => Promise.resolve(),
+      };
+
+      await armar(unaCuenta({ fotoActualizadaEl: GUARDADA_EL }), fotos).casoDeUso.execute(
+        new UserId(PERSONA),
+      );
+
+      expect(preguntas).toEqual([PERSONA]);
+    });
+
+    it('con la marca pero sin el archivo, sale null', async () => {
+      const datos = await armar(unaCuenta({ fotoActualizadaEl: GUARDADA_EL })).casoDeUso.execute(
+        new UserId(PERSONA),
+      );
+
+      expect(datos.foto).toBeNull();
+    });
+
+    it('si el almacenamiento falla, la exportacion falla: no sale «todo» con una parte callada', async () => {
+      const fotos: AlmacenPersonalPort = {
+        guardar: () => Promise.resolve(),
+        leer: () => Promise.reject(new Error('Storage no respondio')),
+        borrar: () => Promise.resolve(),
+      };
+
+      await expect(
+        armar(unaCuenta({ fotoActualizadaEl: GUARDADA_EL }), fotos).casoDeUso.execute(
+          new UserId(PERSONA),
+        ),
+      ).rejects.toThrow(FileStorageUnavailableError);
+    });
   });
 });

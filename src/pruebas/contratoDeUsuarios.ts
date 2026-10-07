@@ -47,6 +47,7 @@ export function unaCuenta(
     versionPolitica?: string;
     modulosActivos?: readonly string[];
     mascota?: Mascota;
+    fotoActualizadaEl?: Date;
   } = {},
 ): User {
   const aceptadoEn = new Date('2026-09-01T10:00:00.000Z');
@@ -64,6 +65,9 @@ export function unaCuenta(
     ...(cambios.nombre === undefined ? {} : { nombre: cambios.nombre }),
     ...(cambios.modulosActivos === undefined ? {} : { modulosActivos: cambios.modulosActivos }),
     ...(cambios.mascota === undefined ? {} : { mascota: cambios.mascota }),
+    ...(cambios.fotoActualizadaEl === undefined
+      ? {}
+      : { fotoActualizadaEl: cambios.fotoActualizadaEl }),
   });
 }
 
@@ -228,6 +232,35 @@ export function pruebasDelPuertoDeUsuarios(
       expect((await banco.repositorio.findById(new UserId(PERSONA)))?.zonaHoraria).toBe(
         'Asia/Tokyo',
       );
+    });
+
+    it('la marca de la foto empieza vacia, se guarda, se conserva al cambiar otras cosas y se quita (SCRUM-120)', async () => {
+      const guardadaEl = new Date('2026-10-09T15:30:00.123Z');
+      const leer = () => banco.repositorio.findById(new UserId(PERSONA));
+
+      await banco.repositorio.save(unaCuenta());
+
+      expect((await leer())?.fotoActualizadaEl).toBeUndefined();
+
+      await banco.repositorio.save(unaCuenta().conFoto(guardadaEl));
+
+      expect((await leer())?.fotoActualizadaEl).toEqual(guardadaEl);
+
+      // Guardar otra cosa de la cuenta no borra la foto.
+      await banco.repositorio.save(
+        (await leer())?.conPreferencias({ nombre: 'Ana' }) ?? unaCuenta(),
+      );
+
+      expect((await leer())?.fotoActualizadaEl).toEqual(guardadaEl);
+
+      await banco.repositorio.save((await leer())?.conZonaHoraria('Asia/Tokyo') ?? unaCuenta());
+
+      expect((await leer())?.fotoActualizadaEl).toEqual(guardadaEl);
+
+      // Y quitarla la deja vacia: el UPDATE escribe NULL, no se salta la columna.
+      await banco.repositorio.save((await leer())?.sinFoto() ?? unaCuenta());
+
+      expect((await leer())?.fotoActualizadaEl).toBeUndefined();
     });
 
     it('un personaje sin color ni accesorio vuelve igual, sin campos inventados', async () => {

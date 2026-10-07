@@ -6,23 +6,24 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 
 ## Indice
 
-| ADR                                                            | Decision                                             | Estado                                                                         |
-| -------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [0001](0001-dos-repositorios-separados.md)                     | Dos repositorios separados en lugar de un monorepo   | Aceptada                                                                       |
-| [0002](0002-arquitectura-hexagonal.md)                         | Arquitectura hexagonal en tres capas                 | Aceptada                                                                       |
-| [0003](0003-uuid-como-clave-primaria.md)                       | UUID como clave primaria                             | Aceptada                                                                       |
-| [0004](0004-autenticacion-sin-contrasenas.md)                  | Autenticacion sin contrasenas con Supabase Auth      | Reemplazada por [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) |
-| [0005](0005-vitest-como-ejecutor-de-pruebas.md)                | Vitest como ejecutor de pruebas                      | Aceptada                                                                       |
-| [0006](0006-el-dominio-se-escribe-sin-framework.md)            | El dominio se escribe sin framework                  | Aceptada                                                                       |
-| [0007](0007-nestjs-12-y-modulos-esm.md)                        | NestJS 12 y modulos ESM                              | Aceptada                                                                       |
-| [0008](0008-campos-jsonb-para-datos-variables.md)              | Campos JSONB para los datos que varian por actividad | Aceptada                                                                       |
-| [0009](0009-versionado-de-entradas-de-diario.md)               | Versionado del diario y la regla de no sobrescribir  | Aceptada                                                                       |
-| [0010](0010-aislamiento-en-la-base-de-datos.md)                | El aislamiento entre personas lo impone la base      | Aceptada                                                                       |
-| [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)           | La deteccion de riesgo es por reglas, no por modelo  | Aceptada                                                                       |
-| [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) | Contrasena y Google en lugar del enlace magico       | Aceptada                                                                       |
-| [0013](0013-la-api-verifica-el-token-contra-el-jwks.md)        | La API verifica el token contra el JWKS de Supabase  | Aceptada                                                                       |
-| [0014](0014-cada-persona-tiene-su-zona-horaria.md)             | Cada persona tiene su zona horaria                   | Aceptada                                                                       |
-| [0015](0015-las-lineas-de-ayuda-segun-el-pais.md)              | Las lineas de ayuda se eligen por el pais de la zona | Aceptada                                                                       |
+| ADR                                                                                  | Decision                                                             | Estado                                                                         |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [0001](0001-dos-repositorios-separados.md)                                           | Dos repositorios separados en lugar de un monorepo                   | Aceptada                                                                       |
+| [0002](0002-arquitectura-hexagonal.md)                                               | Arquitectura hexagonal en tres capas                                 | Aceptada                                                                       |
+| [0003](0003-uuid-como-clave-primaria.md)                                             | UUID como clave primaria                                             | Aceptada                                                                       |
+| [0004](0004-autenticacion-sin-contrasenas.md)                                        | Autenticacion sin contrasenas con Supabase Auth                      | Reemplazada por [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md) |
+| [0005](0005-vitest-como-ejecutor-de-pruebas.md)                                      | Vitest como ejecutor de pruebas                                      | Aceptada                                                                       |
+| [0006](0006-el-dominio-se-escribe-sin-framework.md)                                  | El dominio se escribe sin framework                                  | Aceptada                                                                       |
+| [0007](0007-nestjs-12-y-modulos-esm.md)                                              | NestJS 12 y modulos ESM                                              | Aceptada                                                                       |
+| [0008](0008-campos-jsonb-para-datos-variables.md)                                    | Campos JSONB para los datos que varian por actividad                 | Aceptada                                                                       |
+| [0009](0009-versionado-de-entradas-de-diario.md)                                     | Versionado del diario y la regla de no sobrescribir                  | Aceptada                                                                       |
+| [0010](0010-aislamiento-en-la-base-de-datos.md)                                      | El aislamiento entre personas lo impone la base                      | Aceptada                                                                       |
+| [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)                                 | La deteccion de riesgo es por reglas, no por modelo                  | Aceptada                                                                       |
+| [0012](0012-contrasena-y-google-en-lugar-del-enlace-magico.md)                       | Contrasena y Google en lugar del enlace magico                       | Aceptada                                                                       |
+| [0013](0013-la-api-verifica-el-token-contra-el-jwks.md)                              | La API verifica el token contra el JWKS de Supabase                  | Aceptada                                                                       |
+| [0014](0014-cada-persona-tiene-su-zona-horaria.md)                                   | Cada persona tiene su zona horaria                                   | Aceptada                                                                       |
+| [0015](0015-las-lineas-de-ayuda-segun-el-pais.md)                                    | Las lineas de ayuda se eligen por el pais de la zona                 | Aceptada                                                                       |
+| [0016](0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md) | Los archivos de cada persona viven en Storage y solo los toca la API | Aceptada                                                                       |
 
 ## Reglas
 

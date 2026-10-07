@@ -42,6 +42,10 @@ export const ENVIADOR_PUSH = Symbol('EnviadorDePushPort');
 export const AVISOS = Symbol('AvisosUseCase');
 export const REVISAR_AVISOS = Symbol('RevisarAvisosUseCase');
 
+/** La foto de perfil (SCRUM-120): su caso de uso y el almacen donde viven los archivos. */
+export const FOTO_DE_PERFIL = Symbol('FotoDePerfilUseCase');
+export const ALMACEN_DE_FOTOS = Symbol('AlmacenDeFotos');
+
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 

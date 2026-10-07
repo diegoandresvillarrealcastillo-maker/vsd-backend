@@ -272,3 +272,92 @@ describe('La zona horaria de la cuenta (SCRUM-123)', () => {
     expect(cuenta.conPreferencias({ nombre: 'Ana' }).zonaHoraria).toBe('Europe/Madrid');
   });
 });
+
+describe('User: la foto de perfil (SCRUM-120)', () => {
+  const GUARDADA_EL = new Date('2026-10-09T15:30:00.123Z');
+
+  it('una cuenta nueva no tiene foto', () => {
+    expect(User.create(datos(), AHORA).fotoActualizadaEl).toBeUndefined();
+  });
+
+  it('conFoto devuelve otra cuenta con la fecha, y la original no cambia', () => {
+    const antes = User.create(datos(), AHORA);
+    const despues = antes.conFoto(GUARDADA_EL);
+
+    expect(despues).not.toBe(antes);
+    expect(despues.fotoActualizadaEl).toEqual(GUARDADA_EL);
+    expect(antes.fotoActualizadaEl).toBeUndefined();
+  });
+
+  it('conFoto no toca nada mas de la cuenta', () => {
+    const antes = User.create(
+      datos({
+        nombre: 'Ana',
+        modulosActivos: ['cognicion'],
+        mascota: { forma: 'sparky', nombre: 'Chispa' },
+        diarioConRecomendaciones: true,
+        zonaHoraria: 'Europe/Madrid',
+      }),
+      AHORA,
+    );
+    const despues = antes.conFoto(GUARDADA_EL);
+
+    expect(despues.id.value).toBe(antes.id.value);
+    expect(despues.correo).toBe(antes.correo);
+    expect(despues.idProveedorAuth).toBe(antes.idProveedorAuth);
+    expect(despues.rol).toBe(antes.rol);
+    expect(despues.consentimiento).toEqual(antes.consentimiento);
+    expect(despues.registradoEn).toEqual(antes.registradoEn);
+    expect(despues.nombre).toBe('Ana');
+    expect(despues.modulosActivos).toEqual(['cognicion']);
+    expect(despues.mascota).toEqual({ forma: 'sparky', nombre: 'Chispa' });
+    expect(despues.diarioConRecomendaciones).toBe(true);
+    expect(despues.zonaHoraria).toBe('Europe/Madrid');
+  });
+
+  it('copia la fecha, para que no se pueda mutar desde fuera', () => {
+    const fecha = new Date(GUARDADA_EL.getTime());
+    const cuenta = User.create(datos(), AHORA).conFoto(fecha);
+
+    fecha.setFullYear(1990);
+
+    expect(cuenta.fotoActualizadaEl?.getUTCFullYear()).toBe(2026);
+  });
+
+  it('sinFoto la quita', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.sinFoto().fotoActualizadaEl).toBeUndefined();
+    expect(cuenta.fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('sinFoto en una cuenta sin foto devuelve esta misma cuenta', () => {
+    const cuenta = User.create(datos(), AHORA);
+
+    expect(cuenta.sinFoto()).toBe(cuenta);
+  });
+
+  // Estas dos son las que importan: `conPreferencias` y `conZonaHoraria`
+  // reconstruyen la cuenta campo por campo, y si no arrastraran la foto,
+  // guardar el nombre o la zona borraria la foto sin que nadie lo pidiera.
+  it('cambiar las preferencias no quita la foto', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.conPreferencias({ nombre: 'Ana' }).fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('cambiar la zona horaria no quita la foto', () => {
+    const cuenta = User.create(datos({ fotoActualizadaEl: GUARDADA_EL }), AHORA);
+
+    expect(cuenta.conZonaHoraria('Asia/Tokyo').fotoActualizadaEl).toEqual(GUARDADA_EL);
+  });
+
+  it('la foto no se puede poner por conPreferencias', () => {
+    // El cuerpo de PATCH /api/cuenta/preferencias no tiene donde ponerla; aqui se
+    // comprueba que el tipo tampoco: la foto solo entra por su propia ruta.
+    // @ts-expect-error `fotoActualizadaEl` no es una preferencia.
+    const cuenta = User.create(datos(), AHORA).conPreferencias({ fotoActualizadaEl: GUARDADA_EL });
+
+    expect(cuenta.fotoActualizadaEl).toBeUndefined();
+  });
+});

@@ -294,6 +294,70 @@ export class InvalidPetError extends DomainError {
   }
 }
 
+/** Por que una foto de perfil no se acepta. Cada motivo tiene su propio codigo. */
+export type MotivoDeFotoInvalida = 'tipo' | 'peso' | 'lado' | 'imagen';
+
+const FOTO_INVALIDA: Readonly<Record<MotivoDeFotoInvalida, { code: string; message: string }>> = {
+  tipo: {
+    code: 'FOTO_TIPO_NO_PERMITIDO',
+    message: 'La foto tiene que ser un archivo .jpg o .png.',
+  },
+  peso: {
+    code: 'FOTO_DEMASIADO_PESADA',
+    message: 'La foto pesa demasiado: tiene que ser de menos de 50 KB.',
+  },
+  lado: {
+    code: 'FOTO_DEMASIADO_GRANDE',
+    message: 'La foto es demasiado grande: no puede pasar de 1024 píxeles de ancho ni de alto.',
+  },
+  imagen: {
+    code: 'FOTO_NO_ES_UNA_IMAGEN',
+    message: 'El archivo no es una imagen .jpg o .png válida.',
+  },
+};
+
+/**
+ * La foto de perfil no se puede guardar (SCRUM-120).
+ *
+ * Lleva un codigo distinto por motivo para que la pantalla pueda decirle a la
+ * persona **que** esta mal en lugar de un «no se pudo». El mensaje nunca dice
+ * que traia el archivo.
+ */
+export class InvalidPhotoError extends DomainError {
+  readonly code: string;
+
+  constructor(readonly motivo: MotivoDeFotoInvalida) {
+    super(FOTO_INVALIDA[motivo].message);
+    this.code = FOTO_INVALIDA[motivo].code;
+  }
+}
+
+/** No hay foto de perfil que devolver. */
+export class PhotoNotFoundError extends DomainError {
+  readonly code = 'FOTO_NO_ENCONTRADA';
+
+  constructor() {
+    super('No tienes una foto de perfil.');
+  }
+}
+
+/**
+ * El almacenamiento de archivos no respondio (SCRUM-120).
+ *
+ * No es culpa de quien llama: reintentar en un momento es lo correcto. El
+ * fallo tecnico va como `causa` al registro, no en la respuesta.
+ */
+export class FileStorageUnavailableError extends DomainError {
+  readonly code = 'ALMACENAMIENTO_NO_DISPONIBLE';
+
+  constructor(causa?: unknown) {
+    super(
+      'No se pudo guardar o leer el archivo en este momento. Inténtalo de nuevo en unos minutos.',
+      causa,
+    );
+  }
+}
+
 /**
  * La anotacion del diario no tiene la forma que el diario guarda.
  *

@@ -296,6 +296,135 @@
         ]
       }
     },
+    "/api/cuenta/foto": {
+      "put": {
+        "description": "El cuerpo es la imagen misma, como `image/jpeg` o `image/png`, de menos de 50 KB y de no más de 1024 píxeles por lado. Reemplaza la que hubiera. El servidor comprueba el tipo, el peso, que el contenido sea de verdad lo que dice ser y su tamaño en píxeles: no se fía de lo que haya hecho el navegador.",
+        "operationId": "FotoDePerfilController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "FOTO_NO_ES_UNA_IMAGEN o FOTO_DEMASIADO_GRANDE (más de 1024 píxeles por lado)."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "FOTO_DEMASIADO_PESADA, o CUERPO_DEMASIADO_GRANDE si pasa de 60 KB."
+          },
+          "415": {
+            "description": "FOTO_TIPO_NO_PERMITIDO: solo .jpg y .png."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve la imagen. Solo la de quien firma el token. Va por la API y no por un enlace directo a Storage, para que cada petición lleve la sesión.",
+        "operationId": "FotoDePerfilController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La imagen."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "FOTO_NO_ENCONTRADA: no tiene foto."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la foto de perfil propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo y deja la cuenta sin foto. Quitar la que no existe no es un error.",
+        "operationId": "FotoDePerfilController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/aviso": {
       "get": {
         "description": "Devuelve la version que hay que aceptar al dar de alta una cuenta. Es la unica fuente de ese valor: ni el frontend ni las pruebas llevan una copia propia.",
@@ -1211,6 +1340,19 @@
           "nombre"
         ]
       },
+      "FotoDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
+        ]
+      },
       "CuentaRespuestaDto": {
         "type": "object",
         "properties": {
@@ -1279,6 +1421,16 @@
             "type": "string",
             "description": "Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).",
             "example": "America/Bogota"
+          },
+          "foto": {
+            "description": "La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoDeLaCuentaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1290,7 +1442,8 @@
           "modulosActivos",
           "mascota",
           "diarioConRecomendaciones",
-          "zonaHoraria"
+          "zonaHoraria",
+          "foto"
         ]
       },
       "ActualizarPreferenciasDto": {
@@ -1512,6 +1665,30 @@
           "navegadores"
         ]
       },
+      "FotoExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenidoBase64": {
+            "type": "string",
+            "description": "El archivo, en base64. Es la imagen tal como se guardó.",
+            "format": "byte"
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenidoBase64"
+        ]
+      },
       "ExportacionDto": {
         "type": "object",
         "properties": {
@@ -1544,6 +1721,16 @@
           },
           "avisos": {
             "$ref": "#/components/schemas/AvisosExportadosDto"
+          },
+          "foto": {
+            "nullable": true,
+            "description": "La foto de perfil, si tiene (SCRUM-120).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoExportadaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1552,7 +1739,8 @@
           "resultados",
           "entradasDeDiario",
           "pendientes",
-          "avisos"
+          "avisos",
+          "foto"
         ]
       },
       "BorrarCuentaDto": {

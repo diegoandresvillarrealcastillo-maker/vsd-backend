@@ -48,8 +48,20 @@ dominio exacto.
 
 `SUPABASE_SERVICE_ROLE_KEY` es **obligatoria en PRE y PROD**: sin ella el
 servicio no arranca. Es la clave `service_role` de cada proyecto de Supabase,
-se pone a mano en Render y nunca pasa por Git. El backend la usa solo para
-borrar la identidad de quien borra su cuenta. En DEV es opcional.
+se pone a mano en Render y nunca pasa por Git. El backend la usa para **dos**
+cosas: borrar la identidad de quien borra su cuenta y guardar, leer y borrar los
+archivos de las personas en Supabase Storage (la foto de perfil, SCRUM-120; ver
+el [ADR 0016](adr/0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md)).
+Nunca para leer ni escribir datos de la base. En DEV es opcional: sin ella la
+identidad no se borra en Supabase y las fotos se guardan en memoria.
+
+**El bucket de las fotos no se crea a mano.** La API crea `fotos-de-perfil` la
+primera vez que se guarda una foto: privado, sin politicas, con un limite de
+51 200 bytes y solo `image/jpeg` e `image/png`. Si ya existe, lo deja como esta.
+La primera vez en PRE hay que comprobarlo a ojo, porque en CI y en local no hay
+Storage: subir una foto desde el perfil, mirar en Supabase (Storage) que el
+bucket existe, es privado y tiene un objeto con el identificador de la cuenta
+como nombre, y quitar la foto desde el perfil y ver que el objeto desaparece.
 
 **No hay variable de zona horaria.** `ZONA_HORARIA` existio hasta SCRUM-123,
 cuando el servicio contaba el dia en una sola zona. Ahora cada cuenta guarda la

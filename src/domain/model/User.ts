@@ -62,6 +62,8 @@ export interface DatosDeUsuario {
   readonly diarioConRecomendaciones?: boolean | undefined;
   /** Zona IANA de la persona (SCRUM-123). Sin ella, `America/Bogota`. */
   readonly zonaHoraria?: string | undefined;
+  /** Cuando se guardo su foto de perfil (SCRUM-120). Sin ella, no tiene foto. */
+  readonly fotoActualizadaEl?: Date | undefined;
 }
 
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
@@ -144,6 +146,16 @@ export class User {
    */
   readonly zonaHoraria: string;
 
+  /**
+   * Cuando se guardo la foto de perfil, o `undefined` si no tiene (SCRUM-120).
+   *
+   * La foto en si no vive en la cuenta: esta en el almacenamiento de archivos.
+   * Aqui solo queda **si hay** y **desde cuando**, que es lo que la pantalla
+   * necesita para pedirla y para saber cuando dejo de ser la que tenia
+   * guardada.
+   */
+  readonly fotoActualizadaEl: Date | undefined;
+
   private constructor(datos: DatosDeUsuario & { readonly modulosActivos: readonly Modulo[] }) {
     this.id = datos.id;
     this.correo = datos.correo;
@@ -156,6 +168,10 @@ export class User {
     this.mascota = datos.mascota;
     this.diarioConRecomendaciones = datos.diarioConRecomendaciones ?? false;
     this.zonaHoraria = datos.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO;
+    this.fotoActualizadaEl =
+      datos.fotoActualizadaEl === undefined
+        ? undefined
+        : new Date(datos.fotoActualizadaEl.getTime());
   }
 
   static create(datos: DatosDeUsuario, ahora: Date = new Date()): User {
@@ -222,6 +238,7 @@ export class User {
       mascota: cambios.mascota === undefined ? this.mascota : crearMascota(cambios.mascota),
       diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
       zonaHoraria: this.zonaHoraria,
+      fotoActualizadaEl: this.fotoActualizadaEl,
     });
   }
 
@@ -252,6 +269,42 @@ export class User {
       mascota: this.mascota,
       diarioConRecomendaciones: this.diarioConRecomendaciones,
       zonaHoraria: nueva,
+      fotoActualizadaEl: this.fotoActualizadaEl,
+    });
+  }
+
+  /**
+   * La misma cuenta con una foto de perfil guardada ahora (SCRUM-120).
+   *
+   * Aparte de `conPreferencias` a proposito: la foto no entra por el cuerpo de
+   * `PATCH /api/cuenta/preferencias`, que solo acepta lo que la persona escribe.
+   * Se sube con su propia ruta, que es la que valida el archivo.
+   */
+  conFoto(guardadaEl: Date): User {
+    return this.copiaCon({ fotoActualizadaEl: guardadaEl });
+  }
+
+  /** La misma cuenta sin foto de perfil. Quitar la que no hay deja todo igual. */
+  sinFoto(): User {
+    return this.fotoActualizadaEl === undefined
+      ? this
+      : this.copiaCon({ fotoActualizadaEl: undefined });
+  }
+
+  private copiaCon(cambios: { readonly fotoActualizadaEl: Date | undefined }): User {
+    return new User({
+      id: this.id,
+      correo: this.correo,
+      idProveedorAuth: this.idProveedorAuth,
+      rol: this.rol,
+      consentimiento: this.consentimiento,
+      registradoEn: this.registradoEn,
+      nombre: this.nombre,
+      modulosActivos: this.modulosActivos,
+      mascota: this.mascota,
+      diarioConRecomendaciones: this.diarioConRecomendaciones,
+      zonaHoraria: this.zonaHoraria,
+      fotoActualizadaEl: cambios.fotoActualizadaEl,
     });
   }
 

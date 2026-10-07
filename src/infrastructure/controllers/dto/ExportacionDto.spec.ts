@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { UserId } from '../../../domain/model/Identifier.js';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { unaCuenta } from '../../../pruebas/contratoDeUsuarios.js';
+import { PNG_REAL_DE_8_X_6 } from '../../../pruebas/fotosDePrueba.js';
 import { ExportacionDto } from './ExportacionDto.js';
 
 const PERSONA = '11111111-1111-4111-8111-111111111111';
@@ -27,6 +28,7 @@ function datosConAvisos(
       },
       navegadores: 2,
     },
+    foto: null,
   };
 }
 
@@ -66,5 +68,36 @@ describe('ExportacionDto: los avisos', () => {
       recordatorioManana: false,
       recordatorioNoche: true,
     });
+  });
+});
+
+describe('ExportacionDto: la foto de perfil (SCRUM-120)', () => {
+  const CON_FOTO: DatosExportados = {
+    ...datosConAvisos({}),
+    foto: {
+      contenido: PNG_REAL_DE_8_X_6,
+      tipo: 'image/png',
+      actualizadaEl: new Date('2026-10-09T15:30:00.123Z'),
+    },
+  };
+
+  it('sin foto, sale null', () => {
+    expect(ExportacionDto.desde(datosConAvisos({})).foto).toBeNull();
+  });
+
+  it('con foto, sale el archivo en base64, con su tipo y su fecha', () => {
+    expect(ExportacionDto.desde(CON_FOTO).foto).toEqual({
+      tipo: 'image/png',
+      actualizadaEl: '2026-10-09T15:30:00.123Z',
+      contenidoBase64: Buffer.from(PNG_REAL_DE_8_X_6).toString('base64'),
+    });
+  });
+
+  it('el base64 vuelve a ser exactamente la imagen', () => {
+    const devuelta = new Uint8Array(
+      Buffer.from(ExportacionDto.desde(CON_FOTO).foto?.contenidoBase64 ?? '', 'base64'),
+    );
+
+    expect(devuelta).toEqual(PNG_REAL_DE_8_X_6);
   });
 });

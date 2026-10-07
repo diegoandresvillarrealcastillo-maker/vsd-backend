@@ -76,6 +76,16 @@ export interface Mascota {
   readonly accesorio?: string;
 }
 
+/**
+ * La forma que significa «mi mascota propia» (SCRUM-122): el dibujo no es de un
+ * personaje de la aplicacion sino un SVG que subio la persona, y vive en el
+ * almacenamiento de archivos. Elegirla exige haberlo subido.
+ */
+export const FORMA_DE_LA_MASCOTA_PROPIA = 'propia';
+
+/** El personaje de siempre: al que se vuelve cuando se quita la mascota propia. */
+export const FORMA_POR_DEFECTO_DE_LA_MASCOTA = 'fungito';
+
 /** Una clave corta en minusculas: `fungito`, `gato`, `bufanda-roja`. */
 const CLAVE = /^[a-z][a-z0-9-]{0,29}$/;
 

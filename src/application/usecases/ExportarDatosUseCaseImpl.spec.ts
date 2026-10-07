@@ -49,7 +49,11 @@ const PENDIENTE = Pendiente.nuevo(
 );
 
 /** Arma el caso de uso con dobles que anotan por quien les preguntaron. */
-function armar(cuenta: User | null, fotos: AlmacenPersonalPort = new AlmacenDoble()) {
+function armar(
+  cuenta: User | null,
+  fotos: AlmacenPersonalPort = new AlmacenDoble(),
+  mascotas: AlmacenPersonalPort = new AlmacenDoble(),
+) {
   const preguntas: { resultados?: string; desde?: Date; diario?: string; pendientes?: string } = {};
 
   const cuentas: UserRepositoryPort = {
@@ -100,6 +104,7 @@ function armar(cuenta: User | null, fotos: AlmacenPersonalPort = new AlmacenDobl
       pendientes,
       avisos,
       fotos,
+      mascotas,
       () => AHORA,
     ),
   };
@@ -234,5 +239,94 @@ describe('ExportarDatosUseCaseImpl', () => {
         ),
       ).rejects.toThrow(FileStorageUnavailableError);
     });
+  });
+});
+
+describe('la mascota propia (SCRUM-122)', () => {
+  const GUARDADA_EL = new Date('2026-10-12T09:00:00.000Z');
+  const SVG = {
+    contenido: new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+    ),
+    tipo: 'image/svg+xml',
+  };
+
+  it('sin mascota propia, sale null y ni se pregunta al almacenamiento', async () => {
+    const mascotas = new AlmacenDoble();
+
+    const datos = await armar(unaCuenta(), new AlmacenDoble(), mascotas).casoDeUso.execute(
+      new UserId(PERSONA),
+    );
+
+    expect(datos.mascotaPropia).toBeNull();
+    expect(mascotas.llamadas).toEqual([]);
+  });
+
+  it('con mascota propia, sale el SVG tal como se guardo, con su tipo y su fecha', async () => {
+    const mascotas = new AlmacenDoble();
+
+    await mascotas.guardar(new UserId(PERSONA), SVG);
+
+    const datos = await armar(
+      unaCuenta({ mascotaPropiaActualizadaEl: GUARDADA_EL }),
+      new AlmacenDoble(),
+      mascotas,
+    ).casoDeUso.execute(new UserId(PERSONA));
+
+    expect(datos.mascotaPropia).toEqual({ ...SVG, actualizadaEl: GUARDADA_EL });
+  });
+
+  it('cada archivo sale de su almacen: la foto no es la mascota ni al reves', async () => {
+    const fotos = new AlmacenDoble();
+    const mascotas = new AlmacenDoble();
+    const foto = { contenido: new Uint8Array([1, 2, 3]), tipo: 'image/png' };
+
+    await fotos.guardar(new UserId(PERSONA), foto);
+    await mascotas.guardar(new UserId(PERSONA), SVG);
+
+    const datos = await armar(
+      unaCuenta({ fotoActualizadaEl: GUARDADA_EL, mascotaPropiaActualizadaEl: GUARDADA_EL }),
+      fotos,
+      mascotas,
+    ).casoDeUso.execute(new UserId(PERSONA));
+
+    expect(datos.foto?.tipo).toBe('image/png');
+    expect(datos.mascotaPropia?.tipo).toBe('image/svg+xml');
+  });
+
+  it('solo se pregunta por lo que la cuenta dice que tiene', async () => {
+    const fotos = new AlmacenDoble();
+    const mascotas = new AlmacenDoble();
+
+    await armar(
+      unaCuenta({ mascotaPropiaActualizadaEl: GUARDADA_EL }),
+      fotos,
+      mascotas,
+    ).casoDeUso.execute(new UserId(PERSONA));
+
+    expect(fotos.llamadas).toEqual([]);
+    expect(mascotas.llamadas).toEqual(['leer']);
+  });
+
+  it('con la marca pero sin el archivo, sale null', async () => {
+    const datos = await armar(
+      unaCuenta({ mascotaPropiaActualizadaEl: GUARDADA_EL }),
+    ).casoDeUso.execute(new UserId(PERSONA));
+
+    expect(datos.mascotaPropia).toBeNull();
+  });
+
+  it('si el almacenamiento falla, la exportacion falla: no sale «todo» con una parte callada', async () => {
+    const mascotas = new AlmacenDoble();
+
+    mascotas.falla = true;
+
+    await expect(
+      armar(
+        unaCuenta({ mascotaPropiaActualizadaEl: GUARDADA_EL }),
+        new AlmacenDoble(),
+        mascotas,
+      ).casoDeUso.execute(new UserId(PERSONA)),
+    ).rejects.toThrow(FileStorageUnavailableError);
   });
 });

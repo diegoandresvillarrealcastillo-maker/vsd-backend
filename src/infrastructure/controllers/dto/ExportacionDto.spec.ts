@@ -29,6 +29,7 @@ function datosConAvisos(
       navegadores: 2,
     },
     foto: null,
+    mascotaPropia: null,
   };
 }
 
@@ -99,5 +100,42 @@ describe('ExportacionDto: la foto de perfil (SCRUM-120)', () => {
     );
 
     expect(devuelta).toEqual(PNG_REAL_DE_8_X_6);
+  });
+});
+
+describe('ExportacionDto: la mascota propia (SCRUM-122)', () => {
+  const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><circle r="1"/></svg>';
+  const CON_MASCOTA: DatosExportados = {
+    ...datosConAvisos({}),
+    mascotaPropia: {
+      contenido: new TextEncoder().encode(SVG),
+      tipo: 'image/svg+xml',
+      actualizadaEl: new Date('2026-10-12T09:00:00.000Z'),
+    },
+  };
+
+  it('sin mascota propia, sale null', () => {
+    expect(ExportacionDto.desde(datosConAvisos({})).mascotaPropia).toBeNull();
+  });
+
+  it('con mascota propia, sale el SVG como texto, con su tipo y su fecha', () => {
+    expect(ExportacionDto.desde(CON_MASCOTA).mascotaPropia).toEqual({
+      tipo: 'image/svg+xml',
+      actualizadaEl: '2026-10-12T09:00:00.000Z',
+      contenido: SVG,
+    });
+  });
+
+  it('el texto con tildes y enes sale tal cual', () => {
+    const dto = ExportacionDto.desde({
+      ...CON_MASCOTA,
+      mascotaPropia: {
+        contenido: new TextEncoder().encode('<svg><g id="ñandú-áé"/></svg>'),
+        tipo: 'image/svg+xml',
+        actualizadaEl: new Date('2026-10-12T09:00:00.000Z'),
+      },
+    });
+
+    expect(dto.mascotaPropia?.contenido).toBe('<svg><g id="ñandú-áé"/></svg>');
   });
 });

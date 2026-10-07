@@ -129,6 +129,9 @@ model Usuario {
   /// Cuando se guardo la foto de perfil (SCRUM-120). NULL si no tiene. La foto en
   /// si vive en Supabase Storage, no en la base.
   fotoActualizadaEl DateTime? @map("foto_actualizada_el") @db.Timestamptz(3)
+  /// Cuando se guardo la mascota propia, un SVG (SCRUM-122). NULL si no tiene. El
+  /// archivo vive en Supabase Storage, no en la base.
+  mascotaPropiaActualizadaEl DateTime? @map("mascota_propia_actualizada_el") @db.Timestamptz(3)
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]

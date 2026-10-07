@@ -78,20 +78,21 @@ el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí sol
 queda su identificador. Ver
 [ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
-| Campo                        | Tipo         | Nulo | Descripción                                                                             |
-| ---------------------------- | ------------ | ---- | --------------------------------------------------------------------------------------- |
-| `id_usuario`                 | UUID         | no   | Clave primaria.                                                                         |
-| `nombre`                     | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                      |
-| `correo`                     | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                                  |
-| `id_proveedor_auth`          | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.                   |
-| `rol`                        | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                            |
-| `version_politica_aceptada`  | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                              |
-| `fecha_aceptacion_politica`  | TIMESTAMP    | no   | Cuándo la aceptó.                                                                       |
-| `fecha_registro`             | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                               |
-| `modulos_activos`            | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                           |
-| `mascota`                    | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.                   |
-| `diario_con_recomendaciones` | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108).     |
-| `foto_actualizada_el`        | TIMESTAMPTZ  | sí   | Cuándo se guardó la foto de perfil. NULL: no tiene. La foto vive en Storage (ADR 0016). |
+| Campo                           | Tipo         | Nulo | Descripción                                                                                        |
+| ------------------------------- | ------------ | ---- | -------------------------------------------------------------------------------------------------- |
+| `id_usuario`                    | UUID         | no   | Clave primaria.                                                                                    |
+| `nombre`                        | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                                 |
+| `correo`                        | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                                             |
+| `id_proveedor_auth`             | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.                              |
+| `rol`                           | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                                       |
+| `version_politica_aceptada`     | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                                         |
+| `fecha_aceptacion_politica`     | TIMESTAMP    | no   | Cuándo la aceptó.                                                                                  |
+| `fecha_registro`                | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                                          |
+| `modulos_activos`               | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                                      |
+| `mascota`                       | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.                              |
+| `diario_con_recomendaciones`    | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108).                |
+| `foto_actualizada_el`           | TIMESTAMPTZ  | sí   | Cuándo se guardó la foto de perfil. NULL: no tiene. La foto vive en Storage (ADR 0016).            |
+| `mascota_propia_actualizada_el` | TIMESTAMPTZ  | sí   | Cuándo se guardó la mascota propia, un SVG. NULL: no tiene. El archivo vive en Storage (ADR 0017). |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una

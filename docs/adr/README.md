@@ -24,6 +24,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0014](0014-cada-persona-tiene-su-zona-horaria.md)                                   | Cada persona tiene su zona horaria                                   | Aceptada                                                                       |
 | [0015](0015-las-lineas-de-ayuda-segun-el-pais.md)                                    | Las lineas de ayuda se eligen por el pais de la zona                 | Aceptada                                                                       |
 | [0016](0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md) | Los archivos de cada persona viven en Storage y solo los toca la API | Aceptada                                                                       |
+| [0017](0017-un-svg-que-sube-una-persona-se-reescribe-no-se-limpia.md)                | Un SVG que sube una persona se reescribe, no se limpia               | Aceptada                                                                       |
 
 ## Reglas
 

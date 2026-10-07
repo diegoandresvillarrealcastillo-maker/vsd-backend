@@ -33,6 +33,13 @@ export const LIMITE_DEL_CUERPO_DEL_DIARIO = '1mb';
 export const LIMITE_DEL_CUERPO_DE_LA_FOTO = '60kb';
 
 /**
+ * Tamano maximo del cuerpo de la mascota propia (SCRUM-122): un poco mas que
+ * los 100 KB que permite el dominio, por lo mismo que la foto. Un SVG de 110 KB
+ * llega hasta el dominio y recibe su mensaje claro.
+ */
+export const LIMITE_DEL_CUERPO_DE_LA_MASCOTA = '120kb';
+
+/**
  * Aplica a la aplicacion todo lo que no son rutas: protecciones, validacion
  * de entrada y politica de origenes.
  *
@@ -107,6 +114,24 @@ export function configurarAplicacion(
     '/api/cuenta/foto',
     function leerCuerpoDeLaFoto(peticion: Request, respuesta: Response, siguiente: NextFunction) {
       lectorDeLaFoto(peticion, respuesta, siguiente);
+    },
+  );
+
+  // La mascota propia llega como el SVG mismo, no como JSON. Solo este tipo; con
+  // otro, el cuerpo se queda sin leer y el dominio rechaza el tipo.
+  const lectorDeLaMascota = raw({
+    type: 'image/svg+xml',
+    limit: LIMITE_DEL_CUERPO_DE_LA_MASCOTA,
+  });
+
+  app.use(
+    '/api/cuenta/mascota-propia',
+    function leerCuerpoDeLaMascota(
+      peticion: Request,
+      respuesta: Response,
+      siguiente: NextFunction,
+    ) {
+      lectorDeLaMascota(peticion, respuesta, siguiente);
     },
   );
 

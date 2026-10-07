@@ -220,6 +220,16 @@ como el tema visual o el idioma.
     no se fia del navegador y comprueba el tipo, el peso (menos de 50 KB), que
     el contenido sea lo que dice ser y su tamano en pixeles (hasta 1024 por
     lado). Se sirve con `Cache-Control: no-store`.
+  - **La mascota propia, un SVG** (SCRUM-122, ADR 0017). Un SVG es un documento
+    que puede llevar scripts, enlaces y entidades, asi que **no se guarda lo que
+    llega: se reconstruye** desde una lista blanca de elementos y atributos, con
+    un lector estricto (sin DOCTYPE, entidades, CDATA ni instrucciones de
+    procesamiento) y cada valor validado contra su tipo. Lo peligroso se rechaza
+    entero, con un motivo. Se muestra solo como `<img>`, y al devolverlo lleva una
+    politica (`Content-Security-Policy: default-src 'none'; sandbox`) que lo deja
+    inerte si alguien lo abre suelto. Va en su propio bucket privado y entra en la
+    exportacion y en el borrado de la cuenta. **Es un saneador escrito a mano y no
+    lo ha revisado nadie de fuera.**
   - Toda tabla nueva que guarde algo de una persona debe declarar su clave
     hacia `usuario` con `ON DELETE CASCADE`. La prueba
     `borradoDeCuenta.integracion.spec.ts` recorre cada tabla con columna

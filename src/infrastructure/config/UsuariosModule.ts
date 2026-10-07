@@ -4,8 +4,10 @@ import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/Ac
 import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuentaUseCaseImpl.js';
 import { ExportarDatosUseCaseImpl } from '../../application/usecases/ExportarDatosUseCaseImpl.js';
 import { FotoDePerfilUseCaseImpl } from '../../application/usecases/FotoDePerfilUseCaseImpl.js';
+import { MascotaPropiaUseCaseImpl } from '../../application/usecases/MascotaPropiaUseCaseImpl.js';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
 import { PESO_MAXIMO_DE_LA_FOTO, TIPOS_DE_FOTO } from '../../domain/model/FotoDePerfil.js';
+import { PESO_MAXIMO_DEL_SVG, TIPO_DEL_SVG } from '../../domain/model/svg/SvgDeMascota.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
@@ -23,6 +25,7 @@ import {
 import { AvisoController } from '../controllers/AvisoController.js';
 import { CuentaController } from '../controllers/CuentaController.js';
 import { FotoDePerfilController } from '../controllers/FotoDePerfilController.js';
+import { MascotaPropiaController } from '../controllers/MascotaPropiaController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.js';
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
@@ -35,12 +38,14 @@ import {
   ACTIVITY_RESULT_REPOSITORY,
   ACTUALIZAR_PREFERENCIAS,
   ALMACEN_DE_FOTOS,
+  ALMACEN_DE_MASCOTAS,
   AVISOS_REPOSITORY,
   BORRAR_CUENTA,
   CONFIGURACION,
   DIARIO_REPOSITORY,
   EXPORTAR_DATOS,
   FOTO_DE_PERFIL,
+  MASCOTA_PROPIA,
   PENDIENTES_REPOSITORY,
   PRISMA,
   PROVEEDOR_DE_IDENTIDAD,
@@ -70,7 +75,7 @@ import {
 @Module({
   // El diario y los pendientes, para la exportacion de datos.
   imports: [ActivityResultModule, DiarioModule, PendientesModule, AvisosModule],
-  controllers: [CuentaController, FotoDePerfilController, AvisoController],
+  controllers: [CuentaController, FotoDePerfilController, MascotaPropiaController, AvisoController],
   providers: [
     {
       provide: USER_REPOSITORY,
@@ -138,6 +143,39 @@ import {
       inject: [CONFIGURACION],
     },
     {
+      // Los archivos de la mascota propia (SCRUM-122, ADR 0017): su propio
+      // bucket privado, con su propio limite y su propio tipo, aunque con la
+      // misma clave y el mismo adaptador que las fotos.
+      provide: ALMACEN_DE_MASCOTAS,
+      useFactory: (configuracion: Configuracion): AlmacenPersonalPort => {
+        const registro = new Logger('Almacenamiento');
+
+        if (configuracion.claveDeServicioDeSupabase === undefined) {
+          registro.warn(
+            'Sin SUPABASE_SERVICE_ROLE_KEY: las mascotas propias se guardan en memoria.',
+          );
+
+          return new AlmacenPersonalEnMemoria();
+        }
+
+        registro.log('Mascotas propias en un bucket privado de Supabase Storage.');
+
+        return new AlmacenPersonalEnSupabase(
+          configuracion.urlDeSupabase,
+          configuracion.claveDeServicioDeSupabase,
+          'mascotas-propias',
+          { tiposPermitidos: [TIPO_DEL_SVG], pesoMaximo: PESO_MAXIMO_DEL_SVG },
+        );
+      },
+      inject: [CONFIGURACION],
+    },
+    {
+      provide: MASCOTA_PROPIA,
+      useFactory: (cuentas: UserRepositoryPort, almacen: AlmacenPersonalPort) =>
+        new MascotaPropiaUseCaseImpl(cuentas, almacen),
+      inject: [USER_REPOSITORY, ALMACEN_DE_MASCOTAS],
+    },
+    {
       provide: FOTO_DE_PERFIL,
       useFactory: (cuentas: UserRepositoryPort, almacen: AlmacenPersonalPort) =>
         new FotoDePerfilUseCaseImpl(cuentas, almacen),
@@ -149,8 +187,9 @@ import {
         cuentas: UserRepositoryPort,
         identidades: ProveedorDeIdentidadPort,
         fotos: AlmacenPersonalPort,
-      ) => new BorrarCuentaUseCaseImpl(cuentas, identidades, [fotos]),
-      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, ALMACEN_DE_FOTOS],
+        mascotas: AlmacenPersonalPort,
+      ) => new BorrarCuentaUseCaseImpl(cuentas, identidades, [fotos, mascotas]),
+      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, ALMACEN_DE_FOTOS, ALMACEN_DE_MASCOTAS],
     },
     {
       provide: EXPORTAR_DATOS,
@@ -161,7 +200,17 @@ import {
         pendientes: PendientesRepositoryPort,
         avisos: AvisosRepositoryPort,
         fotos: AlmacenPersonalPort,
-      ) => new ExportarDatosUseCaseImpl(cuentas, resultados, diario, pendientes, avisos, fotos),
+        mascotas: AlmacenPersonalPort,
+      ) =>
+        new ExportarDatosUseCaseImpl(
+          cuentas,
+          resultados,
+          diario,
+          pendientes,
+          avisos,
+          fotos,
+          mascotas,
+        ),
       inject: [
         USER_REPOSITORY,
         ACTIVITY_RESULT_REPOSITORY,
@@ -169,6 +218,7 @@ import {
         PENDIENTES_REPOSITORY,
         AVISOS_REPOSITORY,
         ALMACEN_DE_FOTOS,
+        ALMACEN_DE_MASCOTAS,
       ],
     },
     {

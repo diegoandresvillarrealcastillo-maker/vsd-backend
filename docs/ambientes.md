@@ -63,6 +63,10 @@ Storage: subir una foto desde el perfil, mirar en Supabase (Storage) que el
 bucket existe, es privado y tiene un objeto con el identificador de la cuenta
 como nombre, y quitar la foto desde el perfil y ver que el objeto desaparece.
 
+La mascota propia (SCRUM-122, ADR 0017) usa **otro bucket**, `mascotas-propias`,
+creado de la misma forma: privado, sin politicas, con un limite de 102 400 bytes
+y solo `image/svg+xml`. Se comprueba igual, subiendo un `.svg` desde el perfil.
+
 **No hay variable de zona horaria.** `ZONA_HORARIA` existio hasta SCRUM-123,
 cuando el servicio contaba el dia en una sola zona. Ahora cada cuenta guarda la
 suya y la informa el dispositivo; ver "El dia se cuenta en la zona de cada

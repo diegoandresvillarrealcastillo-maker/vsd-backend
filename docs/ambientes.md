@@ -138,6 +138,57 @@ campo llegue a produccion. Se anota la plantilla de la ruta
 —`/api/resultados/:id`— y no la URL concreta, para que los
 identificadores no acaben en el registro solo por viajar en la direccion.
 
+## La imagen de Docker (SCRUM-131)
+
+El backend se empaqueta en una imagen (`Dockerfile`) y esa misma imagen corre en
+el CI, en el entorno completo (SCRUM-132) y en Render. La decision y lo que se
+descarto estan en el [ADR 0018](adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
+El frontend sigue en Vercel: no usa contenedor.
+
+```bash
+docker build -t vsd-api .
+docker run --rm -p 3000:3000 --env-file .env vsd-api
+```
+
+Lo que conviene saber:
+
+- **No lleva configuracion.** Ni `.env` ni ningun valor: todo entra como variable
+  de entorno al ejecutar, con los mismos nombres de esta pagina. `.dockerignore`
+  funciona por lista blanca para que un archivo con secretos no entre por
+  descuido.
+- **`NODE_ENV` vale `production` por omision.** Sin configurar nada, el servicio
+  se niega a arrancar y dice que falta. Para probarla en local con la base en
+  memoria hay que pedir `NODE_ENV=development` y dar `CORS_ORIGIN` y
+  `SUPABASE_URL`.
+- **No aplica migraciones.** Las aplica una persona, como siempre.
+- **Corre sin privilegios** (usuario `node`) y con el codigo de solo lectura.
+- **`PORT`** lo pone Render; si no llega, 3000.
+- **El `HEALTHCHECK`** consulta `/health` con el `fetch` de Node. Lo lee Docker
+  Compose; Render usa su propia comprobacion.
+- **El CI** (trabajo "Imagen de Docker") la construye, la arranca y comprueba lo
+  anterior. Imprime el peso en cada ejecucion.
+
+### Pasar el servicio de Render a Docker
+
+Lo hace **una persona en el panel de Render**; no se automatiza porque se toca un
+servicio vivo con sus variables. Los nombres de los campos salen de lo que se de
+Render, no de haberlos abierto: si algo no coincide, manda el panel.
+
+1. Crear un servicio web **nuevo** con el mismo repositorio y la misma rama, con
+   el lenguaje en **Docker** y el `Dockerfile` de la raiz. Dejar vacio el comando
+   de inicio: la imagen ya trae el suyo.
+2. Copiar las variables de entorno del servicio actual (incluida
+   `SUPABASE_SERVICE_ROLE_KEY`) y poner la ruta de comprobacion en `/health`.
+3. Esperar a que despliegue y comprobar `/health` y, con una sesion de PRE, el
+   perfil y el catalogo.
+4. Cambiar `VITE_API_BASE_URL` de la web de PRE (Vercel) a la direccion nueva y
+   volver a desplegarla, y **apagar el servicio viejo** solo cuando todo
+   funcione.
+5. Anotar aqui la fecha del cambio.
+
+Mientras tanto el servicio de Node actual sigue funcionando: el `Dockerfile` en el
+repositorio no cambia nada de lo desplegado hasta que alguien haga estos pasos.
+
 ## La base de datos de cada ambiente
 
 | Ambiente | Donde vive                                | Estado                                 |

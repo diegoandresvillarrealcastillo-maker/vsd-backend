@@ -225,3 +225,100 @@ jobs:
           DATABASE_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
           PRUEBAS_DE_INTEGRACION: obligatorias
         run: npm run test:integracion
+
+  imagen:
+    name: Imagen de Docker
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Construir la imagen
+        # La misma que va a desplegar Render (ADR 0018). Si el Dockerfile deja de
+        # compilar, se entera el Pull Request y no el dia de la entrega.
+        run: docker build --tag vsd-api:ci .
+
+      - name: Imprimir el peso y revisar que no se haya disparado
+        run: |
+          set -euo pipefail
+          bytes="$(docker image inspect vsd-api:ci --format '{{.Size}}')"
+          mb=$((bytes / 1024 / 1024))
+          echo "La imagen pesa ${mb} MB."
+          docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' vsd-api:ci | cut -c1-140
+          # No es una meta: es una alarma contra accidentes (copiar node_modules
+          # de desarrollo, dos veces dist). Se ajusta con el numero real que
+          # imprime esta linea.
+          limite=800
+          if [ "$mb" -gt "$limite" ]; then
+            echo "::error::La imagen pesa ${mb} MB y el limite de alarma es ${limite} MB."
+            exit 1
+          fi
+
+      - name: Arrancarla y esperar a que este sana
+        run: |
+          set -euo pipefail
+          # development y no production: aqui se quiere ver que arranca. Que
+          # production sin configurar se niega a arrancar se comprueba mas abajo.
+          docker run --detach --name api --publish 3000:3000 \
+            --env NODE_ENV=development \
+            --env CORS_ORIGIN=http://localhost:5173 \
+            --env SUPABASE_URL=https://ejemplo.supabase.co \
+            vsd-api:ci
+
+          # Esperar al HEALTHCHECK de la imagen comprueba tambien que ese
+          # comando funciona, que es algo que de otro modo nadie ejecuta.
+          for intento in $(seq 1 24); do
+            estado="$(docker inspect --format '{{.State.Health.Status}}' api)"
+            echo "intento ${intento}: ${estado}"
+            if [ "$estado" = "healthy" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$estado" != "healthy" ]; then
+            docker logs api
+            echo "::error::La imagen no llego a estado healthy."
+            exit 1
+          fi
+
+          curl --silent --show-error --fail http://localhost:3000/health
+          echo
+
+      - name: Revisar la imagen por dentro
+        run: |
+          set -euo pipefail
+
+          usuario="$(docker exec api id -u)"
+          echo "Corre con el usuario ${usuario}"
+          test "$usuario" != "0"
+
+          # Nada de configuracion ni de herramientas de desarrollo.
+          docker exec api sh -c 'test ! -e /app/.env'
+          docker exec api sh -c 'test ! -d /app/node_modules/prisma'
+          docker exec api sh -c 'test ! -d /app/node_modules/typescript'
+          docker exec api sh -c 'test ! -d /app/src'
+
+          # El codigo es de solo lectura para quien corre el proceso.
+          if docker exec api sh -c 'touch /app/dist/escribir-aqui 2>/dev/null'; then
+            echo "::error::El proceso pudo escribir dentro de /app/dist."
+            exit 1
+          fi
+
+      - name: Comprobar que sin configurar se niega a arrancar
+        run: |
+          set -uo pipefail
+          # Por omision la imagen es production, que exige la base de datos y la
+          # clave de servicio. Si arrancara igual, arrancaria en memoria y
+          # perderia los datos al reiniciarse.
+          if docker run --rm vsd-api:ci > salida.txt 2>&1; then
+            cat salida.txt
+            echo "::error::Sin configuracion debio negarse a arrancar y arranco."
+            exit 1
+          fi
+          grep -q "CORS_ORIGIN" salida.txt
+          grep -q "SUPABASE_URL" salida.txt
+
+      - name: Registros del contenedor si algo fallo
+        if: failure()
+        run: docker logs api || true

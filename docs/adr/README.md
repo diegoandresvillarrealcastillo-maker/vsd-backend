@@ -25,6 +25,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0015](0015-las-lineas-de-ayuda-segun-el-pais.md)                                    | Las lineas de ayuda se eligen por el pais de la zona                 | Aceptada                                                                       |
 | [0016](0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md) | Los archivos de cada persona viven en Storage y solo los toca la API | Aceptada                                                                       |
 | [0017](0017-un-svg-que-sube-una-persona-se-reescribe-no-se-limpia.md)                | Un SVG que sube una persona se reescribe, no se limpia               | Aceptada                                                                       |
+| [0018](0018-el-backend-se-despliega-como-una-imagen-de-docker.md)                    | El backend se despliega como una imagen de Docker; el frontend, no   | Aceptada                                                                       |
 
 ## Reglas
 

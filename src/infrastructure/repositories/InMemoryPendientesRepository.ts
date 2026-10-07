@@ -40,9 +40,12 @@ export class InMemoryPendientesRepository implements PendientesRepositoryPort {
     return pendiente;
   }
 
-  actualizar(pendiente: Pendiente): Promise<Pendiente | null> {
+  actualizar(pendiente: Pendiente, versionAnterior: number): Promise<Pendiente | null> {
     const posicion = this.pendientes.findIndex(
-      (uno) => uno.id.equals(pendiente.id) && uno.perteneceA(pendiente.userId),
+      (uno) =>
+        uno.id.equals(pendiente.id) &&
+        uno.perteneceA(pendiente.userId) &&
+        uno.version === versionAnterior,
     );
 
     if (posicion === -1) {

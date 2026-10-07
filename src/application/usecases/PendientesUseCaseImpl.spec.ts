@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { InvalidIdentifierError, TaskNotFoundError } from '../../domain/model/DomainError.js';
+import {
+  InvalidIdentifierError,
+  InvalidTaskError,
+  StaleTaskError,
+  TaskNotFoundError,
+} from '../../domain/model/DomainError.js';
 import type { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { PendienteId as IdDePendiente } from '../../domain/model/Identifier.js';
 import type { Pendiente } from '../../domain/model/Pendiente.js';
@@ -44,8 +49,24 @@ class PendientesDePrueba implements PendientesRepositoryPort {
     return Promise.resolve(pendiente);
   }
 
-  actualizar(pendiente: Pendiente) {
-    const posicion = this.todos.findIndex((uno) => uno.id.equals(pendiente.id));
+  /**
+   * Lo que pasa justo antes de la proxima escritura: otro dispositivo cambia el
+   * pendiente entre que el caso de uso lo leyo y lo escribe. Cada funcion se usa
+   * una sola vez, en orden.
+   */
+  private readonly alEscribir: (() => void)[] = [];
+
+  antesDeLaProximaEscritura(cambio: () => void): void {
+    this.alEscribir.push(cambio);
+  }
+
+  /** Como la base: solo escribe si la version sigue siendo la que se leyo. */
+  actualizar(pendiente: Pendiente, versionAnterior: number) {
+    this.alEscribir.shift()?.();
+
+    const posicion = this.todos.findIndex(
+      (uno) => uno.id.equals(pendiente.id) && uno.version === versionAnterior,
+    );
 
     if (posicion === -1) {
       return Promise.resolve(null);
@@ -350,5 +371,326 @@ describe('La fecha limite en el semaforo (SCRUM-119)', () => {
 
     expect(con.fechaLimite).toBe('2026-10-12');
     expect(sin.fechaLimite).toBeUndefined();
+  });
+});
+
+describe('Editar con version (SCRUM-134)', () => {
+  /** Un pendiente de PERSONA, ya guardado, en la version 1. */
+  async function uno(texto = 'Llamar a la EPS') {
+    const base = armar();
+    const creado = await base.semaforo.crear({
+      userId: PERSONA,
+      clientOperationId: operacion(),
+      texto,
+      nivel: 'urgente',
+    });
+
+    return { ...base, creado };
+  }
+
+  /** Lo que hace otro dispositivo: cambia el pendiente directamente en el almacen. */
+  function otroDispositivo(
+    repositorio: PendientesDePrueba,
+    id: PendienteId,
+    cambios: Parameters<Pendiente['editar']>[0],
+  ): void {
+    const posicion = repositorio.todos.findIndex((p) => p.id.equals(id));
+    const actual = repositorio.todos[posicion];
+
+    if (actual === undefined) {
+      throw new Error('el pendiente de la prueba no esta');
+    }
+
+    repositorio.todos[posicion] = actual.editar(cambios, INICIO);
+  }
+
+  it('con la version vigente se aplica y la sube', async () => {
+    const { semaforo, creado } = await uno();
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      texto: 'Llamar a la EPS hoy',
+      version: 1,
+    });
+
+    expect(editado).toMatchObject({ texto: 'Llamar a la EPS hoy', version: 2 });
+  });
+
+  it('con una version vieja y otro cambio es un conflicto, y no toca nada', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { texto: 'Lo cambio el otro' });
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        nivel: 'aplazable',
+        version: 1,
+      }),
+    ).rejects.toThrow(StaleTaskError);
+
+    const guardado = repositorio.todos.find((p) => p.id.equals(creado.id));
+
+    expect(guardado).toMatchObject({ texto: 'Lo cambio el otro', nivel: 'urgente', version: 2 });
+  });
+
+  it('marcarlo como hecho con una version vieja se aplica sobre lo vigente', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { texto: 'Lo cambio el otro' });
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      hecho: true,
+      version: 1,
+    });
+
+    // Hecho Y con el texto del otro dispositivo: no se perdio ninguna de las dos.
+    expect(editado).toMatchObject({ hecho: true, texto: 'Lo cambio el otro', version: 3 });
+  });
+
+  it('reabrirlo con una version vieja es un conflicto: depende de lo que se vio', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { hecho: true });
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        hecho: false,
+        version: 1,
+      }),
+    ).rejects.toThrow(StaleTaskError);
+  });
+
+  it('marcarlo como hecho y cambiar otra cosa con una version vieja tambien es un conflicto', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { texto: 'Lo cambio el otro' });
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        hecho: true,
+        nivel: 'prioridad',
+        version: 1,
+      }),
+    ).rejects.toThrow(StaleTaskError);
+  });
+
+  it('un reintento cuya respuesta se perdio no choca consigo mismo', async () => {
+    const { semaforo, creado } = await uno();
+    const edicion = {
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      texto: 'Llamar hoy',
+      nivel: 'prioridad',
+      version: 1,
+    };
+
+    const primera = await semaforo.editar(edicion);
+    // El dispositivo no se entero y reenvia la misma edicion con la version de antes.
+    const reintento = await semaforo.editar(edicion);
+
+    expect(primera.version).toBe(2);
+    expect(reintento.version).toBe(2);
+    expect(reintento).toMatchObject({ texto: 'Llamar hoy', nivel: 'prioridad' });
+  });
+
+  it('un reintento tampoco sube la version ni cambia la hora de edicion', async () => {
+    const { semaforo, reloj, creado } = await uno();
+    const edicion = { userId: PERSONA, pendienteId: creado.id.value, texto: 'Hoy', version: 1 };
+
+    const primera = await semaforo.editar(edicion);
+
+    reloj.ahora = new Date(INICIO.getTime() + UN_DIA);
+
+    const reintento = await semaforo.editar(edicion);
+
+    expect(reintento.editadoEn).toEqual(primera.editadoEn);
+  });
+
+  it('dos dispositivos que piden lo mismo coinciden sin conflicto', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { nivel: 'aplazable' });
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      nivel: 'aplazable',
+      version: 1,
+    });
+
+    expect(editado).toMatchObject({ nivel: 'aplazable', version: 2 });
+  });
+
+  it('sin version no se comprueba nada, como antes de este cambio', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    otroDispositivo(repositorio, creado.id, { texto: 'Lo cambio el otro' });
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      nivel: 'aplazable',
+    });
+
+    expect(editado).toMatchObject({ texto: 'Lo cambio el otro', nivel: 'aplazable', version: 3 });
+  });
+
+  it('con la version vigente, una escritura que se cuela entre leer y escribir es un conflicto', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    repositorio.antesDeLaProximaEscritura(() =>
+      otroDispositivo(repositorio, creado.id, { texto: 'Se colo' }),
+    );
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        nivel: 'aplazable',
+        version: 1,
+      }),
+    ).rejects.toThrow(StaleTaskError);
+
+    // Lo que se colo se conserva, y lo que se pedia no se aplico.
+    expect(repositorio.todos.find((p) => p.id.equals(creado.id))).toMatchObject({
+      texto: 'Se colo',
+      nivel: 'urgente',
+    });
+  });
+
+  it('marcarlo como hecho se reintenta si algo se cuela, y no pierde lo que se colo', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    repositorio.antesDeLaProximaEscritura(() =>
+      otroDispositivo(repositorio, creado.id, { texto: 'Se colo' }),
+    );
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      hecho: true,
+      version: 1,
+    });
+
+    expect(editado).toMatchObject({ hecho: true, texto: 'Se colo', version: 3 });
+  });
+
+  it('sin version tambien se reintenta si algo se cuela', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    repositorio.antesDeLaProximaEscritura(() =>
+      otroDispositivo(repositorio, creado.id, { texto: 'Se colo' }),
+    );
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      nivel: 'aplazable',
+    });
+
+    expect(editado).toMatchObject({ texto: 'Se colo', nivel: 'aplazable' });
+  });
+
+  it('el reintento tiene un limite: tres escrituras que se cuelan seguidas es un conflicto', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    for (let vez = 0; vez < 3; vez += 1) {
+      repositorio.antesDeLaProximaEscritura(() =>
+        otroDispositivo(repositorio, creado.id, { texto: `Se colo ${vez}` }),
+      );
+    }
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        hecho: true,
+        version: 1,
+      }),
+    ).rejects.toThrow(StaleTaskError);
+  });
+
+  it('con dos intentos que se cuelan, el tercero todavia gana', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    for (let vez = 0; vez < 2; vez += 1) {
+      repositorio.antesDeLaProximaEscritura(() =>
+        otroDispositivo(repositorio, creado.id, { texto: `Se colo ${vez}` }),
+      );
+    }
+
+    const editado = await semaforo.editar({
+      userId: PERSONA,
+      pendienteId: creado.id.value,
+      hecho: true,
+      version: 1,
+    });
+
+    expect(editado).toMatchObject({ hecho: true, texto: 'Se colo 1' });
+  });
+
+  it('si lo borran entre leer y escribir, no existe (no es un conflicto)', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    repositorio.antesDeLaProximaEscritura(() => {
+      repositorio.todos = [];
+    });
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        nivel: 'aplazable',
+        version: 1,
+      }),
+    ).rejects.toThrow(TaskNotFoundError);
+  });
+
+  it('marcarlo como hecho tras borrarlo tambien dice que no existe', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    repositorio.antesDeLaProximaEscritura(() => {
+      repositorio.todos = [];
+    });
+
+    await expect(
+      semaforo.editar({
+        userId: PERSONA,
+        pendienteId: creado.id.value,
+        hecho: true,
+        version: 1,
+      }),
+    ).rejects.toThrow(TaskNotFoundError);
+  });
+
+  it('el pendiente de otra persona no se alcanza, ni acertando la version', async () => {
+    const { semaforo, repositorio, creado } = await uno();
+
+    await expect(
+      semaforo.editar({
+        userId: OTRA,
+        pendienteId: creado.id.value,
+        hecho: true,
+        version: 1,
+      }),
+    ).rejects.toThrow(TaskNotFoundError);
+    expect(repositorio.todos.find((p) => p.id.equals(creado.id))?.hecho).toBe(false);
+  });
+
+  it('una edicion vacia sigue siendo un error aunque traiga la version vigente', async () => {
+    const { semaforo, creado } = await uno();
+
+    await expect(
+      semaforo.editar({ userId: PERSONA, pendienteId: creado.id.value, version: 1 }),
+    ).rejects.toThrow(InvalidTaskError);
   });
 });

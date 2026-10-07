@@ -79,10 +79,15 @@ export class PendientesController {
   @ApiOperation({
     summary: 'Cambiar un pendiente',
     description:
-      'Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita.',
+      'Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita. Con version, detecta que otro dispositivo lo cambió: si ya no es la vigente, responde 409 sin tocar nada, salvo que la edición solo lo marque como hecho (se aplica) o que el pendiente ya esté como se pide (se devuelve tal cual, así un reintento tras una respuesta perdida no choca consigo mismo).',
   })
   @ApiResponse({ status: 200, type: PendienteDto })
   @ApiResponse({ status: 400, description: 'El cuerpo no es válido o no trae nada que cambiar.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'VERSION_DESACTUALIZADA: otro dispositivo lo cambió. No se tocó nada; consulta GET /api/pendientes para ver cómo quedó.',
+  })
   @ApiResponse({
     status: 404,
     description: 'No existe o es de otra persona; las dos se responden igual.',
@@ -101,6 +106,7 @@ export class PendientesController {
         hecho: dto.hecho,
         posponerHasta: dto.posponerHasta,
         fechaLimite: dto.fechaLimite,
+        version: dto.version,
       }),
     );
   }

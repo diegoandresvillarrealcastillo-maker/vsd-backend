@@ -516,6 +516,25 @@ export class TaskNotFoundError extends DomainError {
 }
 
 /**
+ * El pendiente cambio desde otro dispositivo (SCRUM-134).
+ *
+ * Mismo codigo que el del diario (`VERSION_DESACTUALIZADA`, ADR 0009) a
+ * proposito: para quien lo recibe es el mismo hecho, "esto ya no es lo que
+ * viste", y el cliente lo trata igual sea cual sea el dato. La respuesta no
+ * trae el estado actual: el cliente lo consulta, que es una lectura y esta
+ * permitida tambien sin repetir la regla aqui.
+ */
+export class StaleTaskError extends DomainError {
+  readonly code = 'VERSION_DESACTUALIZADA';
+
+  constructor() {
+    super(
+      'Este pendiente cambió desde otro dispositivo. Revisa cómo quedó antes de volver a cambiarlo.',
+    );
+  }
+}
+
+/**
  * Un recurso de apoyo esta mal formado y no se puede mostrar.
  *
  * Importa mas de lo que parece: los recursos son lo que el asistente responde

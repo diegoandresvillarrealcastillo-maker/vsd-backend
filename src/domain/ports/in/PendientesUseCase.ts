@@ -25,6 +25,13 @@ export interface CrearPendienteCommand {
 export interface EditarPendienteCommand {
   readonly userId: string;
   readonly pendienteId: string;
+  /**
+   * La version que el dispositivo tenia del pendiente (SCRUM-134). Si ya no es
+   * la vigente, la edicion se rechaza salvo que solo lo marque como hecho o que
+   * el pendiente ya este como se pide. Sin ella no se comprueba nada: asi
+   * funcionan los dispositivos anteriores a este cambio.
+   */
+  readonly version?: number | undefined;
   readonly texto?: string | undefined;
   readonly nivel?: string | undefined;
   readonly hecho?: boolean | undefined;

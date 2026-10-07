@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Calendario } from './Calendario.js';
 import { InvalidTaskError } from './DomainError.js';
 import { ClientOperationId, PendienteId, UserId } from './Identifier.js';
-import { DIAS_PARA_RECORDAR, elegirRecordatorio, Pendiente } from './Pendiente.js';
+import {
+  DIAS_PARA_RECORDAR,
+  elegirRecordatorio,
+  Pendiente,
+  soloMarcaComoHecho,
+} from './Pendiente.js';
 
 const PERSONA = new UserId('11111111-1111-4111-8111-111111111111');
 const ANOTADO = new Date('2026-10-01T15:00:00.000Z');
@@ -308,5 +313,92 @@ describe('La fecha limite, opcional (SCRUM-119)', () => {
     expect(
       pendiente.recordatorio(instante, Calendario.de('Europe/Madrid').diaDe(instante)),
     ).not.toBeNull();
+  });
+});
+
+describe('La version (SCRUM-134)', () => {
+  it('un pendiente nuevo empieza en 1', () => {
+    expect(nuevo('urgente').version).toBe(1);
+  });
+
+  it('cada edicion la sube en uno, sin tocar el original', () => {
+    const uno = nuevo('urgente');
+    const dos = uno.editar({ texto: 'Otra cosa' }, ANOTADO);
+    const tres = dos.editar({ hecho: true }, ANOTADO);
+
+    expect([uno.version, dos.version, tres.version]).toEqual([1, 2, 3]);
+  });
+
+  it('un pendiente guardado conserva la que tenia', () => {
+    const guardado = Pendiente.guardado({ ...nuevo('urgente'), version: 7 });
+
+    expect(guardado.version).toBe(7);
+    expect(guardado.editar({ hecho: true }, ANOTADO).version).toBe(8);
+  });
+});
+
+describe('Si ya esta como se pide (SCRUM-134)', () => {
+  const pospuesto = diasDespues(3);
+  const base = nuevo('urgente', 'Llamar', ANOTADO, '2026-10-12').editar(
+    { posponerHasta: pospuesto, hecho: true },
+    ANOTADO,
+  );
+
+  it.each([
+    ['el mismo texto, aunque venga con espacios', { texto: '  Llamar  ' }],
+    ['el mismo nivel', { nivel: 'urgente' }],
+    ['el mismo estado de hecho', { hecho: true }],
+    ['la misma fecha limite', { fechaLimite: '2026-10-12' }],
+    [
+      'el mismo instante de posponer, aunque sea otro objeto Date',
+      { posponerHasta: new Date(pospuesto.getTime()) },
+    ],
+    ['varias cosas a la vez, todas iguales', { texto: 'Llamar', nivel: 'urgente', hecho: true }],
+  ])('%s: ya esta', (_nombre, cambios) => {
+    expect(base.yaTiene(cambios)).toBe(true);
+  });
+
+  it.each([
+    ['otro texto', { texto: 'Otra cosa' }],
+    ['otro nivel', { nivel: 'aplazable' }],
+    ['otro estado de hecho', { hecho: false }],
+    ['otra fecha limite', { fechaLimite: '2026-10-13' }],
+    ['quitar la fecha limite que si tiene', { fechaLimite: null }],
+    ['otro instante de posponer', { posponerHasta: diasDespues(4) }],
+    ['dejar de posponer lo que si esta pospuesto', { posponerHasta: null }],
+    ['una cosa igual y otra distinta', { nivel: 'urgente', texto: 'Distinto' }],
+  ])('%s: no esta', (_nombre, cambios) => {
+    expect(base.yaTiene(cambios)).toBe(false);
+  });
+
+  it('quitar lo que no tiene ya esta', () => {
+    const sin = nuevo('urgente');
+
+    expect(sin.yaTiene({ posponerHasta: null })).toBe(true);
+    expect(sin.yaTiene({ fechaLimite: null })).toBe(true);
+  });
+
+  it('una edicion vacia nunca ya esta: esa es un error y lo dice editar', () => {
+    expect(base.yaTiene({})).toBe(false);
+  });
+});
+
+describe('Solo marcar como hecho (SCRUM-134)', () => {
+  it('hecho true, solo, si', () => {
+    expect(soloMarcaComoHecho({ hecho: true })).toBe(true);
+  });
+
+  it.each([
+    ['reabrirlo', { hecho: false }],
+    ['marcarlo y cambiar el texto', { hecho: true, texto: 'Otro' }],
+    ['marcarlo y cambiar el nivel', { hecho: true, nivel: 'aplazable' }],
+    ['marcarlo y posponerlo', { hecho: true, posponerHasta: diasDespues(2) }],
+    ['marcarlo y dejar de posponer', { hecho: true, posponerHasta: null }],
+    ['marcarlo y cambiar la fecha limite', { hecho: true, fechaLimite: '2026-10-12' }],
+    ['marcarlo y quitar la fecha limite', { hecho: true, fechaLimite: null }],
+    ['cambiar solo el texto', { texto: 'Otro' }],
+    ['nada', {}],
+  ])('%s: no', (_nombre, cambios) => {
+    expect(soloMarcaComoHecho(cambios)).toBe(false);
   });
 });

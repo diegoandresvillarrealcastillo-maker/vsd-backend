@@ -113,16 +113,24 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
     }
   }
 
-  async actualizar(pendiente: Pendiente): Promise<Pendiente | null> {
+  async actualizar(pendiente: Pendiente, versionAnterior: number): Promise<Pendiente | null> {
     return this.prisma.comoUsuario(pendiente.userId.value, async (cliente) => {
       const { count } = await cliente.pendiente.updateMany({
-        where: { id: pendiente.id.value, idUsuario: pendiente.userId.value },
+        // La version va en el WHERE: la comprueba la base, en el mismo UPDATE.
+        // Comprobarla antes en el codigo dejaria una ventana entre leer y
+        // escribir por la que se colaria el cambio del otro dispositivo.
+        where: {
+          id: pendiente.id.value,
+          idUsuario: pendiente.userId.value,
+          version: versionAnterior,
+        },
         data: {
           texto: pendiente.texto,
           nivel: pendiente.nivel,
           hecho: pendiente.hecho,
           posponerHasta: pendiente.posponerHasta ?? null,
           fechaLimite: aFecha(pendiente.fechaLimite),
+          version: { increment: 1 },
         },
       });
 
@@ -154,6 +162,7 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
       hecho: fila.hecho,
       posponerHasta: fila.posponerHasta ?? undefined,
       fechaLimite: fila.fechaLimite?.toISOString().slice(0, 10),
+      version: fila.version,
       creadoEn: fila.fechaCreacion,
       editadoEn: fila.fechaEdicion,
     });

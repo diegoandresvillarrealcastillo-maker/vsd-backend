@@ -329,6 +329,118 @@ describe('/api/pendientes', () => {
     expect(deA.pendientes.some((uno) => uno.id === id)).toBe(false);
   });
 
+  describe('la version (SCRUM-134)', () => {
+    async function leerUno(token: string, id: string): Promise<Record<string, unknown>> {
+      const { pendientes } = cuerpoDe(await consultar(token).expect(200)) as {
+        pendientes: Record<string, unknown>[];
+      };
+      const encontrado = pendientes.find((uno) => uno['id'] === id);
+
+      if (encontrado === undefined) {
+        throw new Error('el pendiente de la prueba no esta');
+      }
+
+      return encontrado;
+    }
+
+    it('un pendiente trae su version, que sube con cada edicion', async () => {
+      const id = await nuevo(A);
+
+      expect((await leerUno(A, id))['version']).toBe(1);
+
+      const editado = await editar(A, id, { texto: 'Otro texto', version: 1 }).expect(200);
+
+      expect(cuerpoDe(editado)['version']).toBe(2);
+      expect((await leerUno(A, id))['version']).toBe(2);
+    });
+
+    it('con una version vieja responde 409 VERSION_DESACTUALIZADA y no cambia nada', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Lo cambio el otro', version: 1 }).expect(200);
+
+      const conflicto = await editar(A, id, { nivel: 'aplazable', version: 1 }).expect(409);
+
+      expect(cuerpoDe(conflicto)).toMatchObject({ codigo: 'VERSION_DESACTUALIZADA' });
+      expect(await leerUno(A, id)).toMatchObject({
+        texto: 'Lo cambio el otro',
+        nivel: 'urgente',
+        version: 2,
+      });
+    });
+
+    it('el 409 no repite lo escrito', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Algo muy personal', version: 1 }).expect(200);
+
+      const conflicto = await editar(A, id, { texto: 'Otra cosa privada', version: 1 }).expect(409);
+
+      expect(JSON.stringify(cuerpoDe(conflicto))).not.toContain('personal');
+      expect(JSON.stringify(cuerpoDe(conflicto))).not.toContain('privada');
+    });
+
+    it('marcarlo como hecho con una version vieja se aplica, y conserva el texto del otro dispositivo', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Lo cambio el otro', version: 1 }).expect(200);
+
+      const hecho = await editar(A, id, { hecho: true, version: 1 }).expect(200);
+
+      expect(cuerpoDe(hecho)).toMatchObject({
+        hecho: true,
+        texto: 'Lo cambio el otro',
+        version: 3,
+      });
+    });
+
+    it('repetir una edicion cuya respuesta se perdio responde 200 y no sube la version', async () => {
+      const id = await nuevo(A);
+
+      const primera = await editar(A, id, { texto: 'Solo una vez', version: 1 }).expect(200);
+      const reintento = await editar(A, id, { texto: 'Solo una vez', version: 1 }).expect(200);
+
+      expect(cuerpoDe(primera)['version']).toBe(2);
+      expect(cuerpoDe(reintento)).toMatchObject({ texto: 'Solo una vez', version: 2 });
+    });
+
+    it('sin version funciona como antes', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Primero' }).expect(200);
+      const segunda = await editar(A, id, { nivel: 'prioridad' }).expect(200);
+
+      expect(cuerpoDe(segunda)).toMatchObject({ texto: 'Primero', nivel: 'prioridad', version: 3 });
+    });
+
+    it.each([
+      ['cero', 0],
+      ['negativa', -1],
+      ['con decimales', 1.5],
+      ['texto', 'uno'],
+      ['nula', null],
+    ])('una version %s es un error de la peticion', async (_nombre, version) => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { texto: 'Algo', version }).expect(400);
+      expect((await leerUno(A, id))['version']).toBe(1);
+    });
+
+    it('otra persona no lo alcanza ni acertando la version: 404 y no se toca', async () => {
+      const id = await nuevo(A);
+
+      await editar(B, id, { hecho: true, version: 1 }).expect(404);
+
+      expect(await leerUno(A, id)).toMatchObject({ hecho: false, version: 1 });
+    });
+
+    it('una edicion vacia sigue siendo 400 aunque traiga la version', async () => {
+      const id = await nuevo(A);
+
+      await editar(A, id, { version: 1 }).expect(400);
+    });
+  });
+
   it('el texto no sale por el registro', async () => {
     const anotado: string[] = [];
 

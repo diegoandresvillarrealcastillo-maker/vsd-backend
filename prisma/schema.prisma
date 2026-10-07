@@ -95,6 +95,11 @@ model Pendiente {
 
   idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
+  /// Sube en uno con cada edicion (SCRUM-134). La API compara la que trae el
+  /// dispositivo con esta, dentro del propio UPDATE, para no pisar lo que otro
+  /// dispositivo cambio mientras uno estaba sin conexion.
+  version Int @default(1)
+
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 

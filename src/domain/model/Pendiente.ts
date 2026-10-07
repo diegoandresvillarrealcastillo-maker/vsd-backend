@@ -137,6 +137,39 @@ export interface Recordatorio {
   readonly fechaLimite: Dia | null;
 }
 
+/** Si la edicion trae algo que cambiar. */
+function traeCambios(cambios: CambiosDePendiente): boolean {
+  return (
+    cambios.texto !== undefined ||
+    cambios.nivel !== undefined ||
+    cambios.hecho !== undefined ||
+    cambios.posponerHasta !== undefined ||
+    cambios.fechaLimite !== undefined
+  );
+}
+
+/**
+ * Si la edicion **solo** marca el pendiente como hecho (SCRUM-134).
+ *
+ * Es la unica que no entra en conflicto con lo que otro dispositivo haya
+ * cambiado: marcar algo como hecho es un hecho que ocurrio, no una opinion, y
+ * se lleva bien con cualquier otro cambio (el texto, el color, la fecha). Si
+ * un dispositivo lo marco sin conexion mientras otro le cambiaba el texto, no
+ * hay nada que preguntarle a la persona: sigue hecho y con el texto nuevo.
+ *
+ * Reabrirlo (`hecho: false`) no es asi: depende de lo que se vio, y se trata
+ * como cualquier otra edicion.
+ */
+export function soloMarcaComoHecho(cambios: CambiosDePendiente): boolean {
+  return (
+    cambios.hecho === true &&
+    cambios.texto === undefined &&
+    cambios.nivel === undefined &&
+    cambios.posponerHasta === undefined &&
+    cambios.fechaLimite === undefined
+  );
+}
+
 export interface DatosDePendiente {
   readonly id: PendienteId;
   readonly userId: UserId;
@@ -147,6 +180,11 @@ export interface DatosDePendiente {
   readonly posponerHasta: Date | undefined;
   /** Dia limite, en el calendario de la persona. Sin el, no vence un dia concreto. */
   readonly fechaLimite: Dia | undefined;
+  /**
+   * Empieza en 1 y sube en uno con cada edicion (SCRUM-134). Sirve para saber
+   * que otro dispositivo lo cambio entretanto.
+   */
+  readonly version: number;
   readonly creadoEn: Date;
   readonly editadoEn: Date;
 }
@@ -170,6 +208,7 @@ export class Pendiente {
   readonly hecho: boolean;
   readonly posponerHasta: Date | undefined;
   readonly fechaLimite: Dia | undefined;
+  readonly version: number;
   readonly creadoEn: Date;
   readonly editadoEn: Date;
 
@@ -183,6 +222,7 @@ export class Pendiente {
     this.posponerHasta =
       datos.posponerHasta === undefined ? undefined : new Date(datos.posponerHasta.getTime());
     this.fechaLimite = datos.fechaLimite;
+    this.version = datos.version;
     this.creadoEn = new Date(datos.creadoEn.getTime());
     this.editadoEn = new Date(datos.editadoEn.getTime());
   }
@@ -203,6 +243,7 @@ export class Pendiente {
       posponerHasta: undefined,
       fechaLimite:
         datos.fechaLimite === undefined ? undefined : fechaLimiteValida(datos.fechaLimite),
+      version: 1,
       creadoEn: ahora,
       editadoEn: ahora,
     });
@@ -214,13 +255,7 @@ export class Pendiente {
   }
 
   editar(cambios: CambiosDePendiente, ahora: Date): Pendiente {
-    if (
-      cambios.texto === undefined &&
-      cambios.nivel === undefined &&
-      cambios.hecho === undefined &&
-      cambios.posponerHasta === undefined &&
-      cambios.fechaLimite === undefined
-    ) {
+    if (!traeCambios(cambios)) {
       throw new InvalidTaskError('la edición no trae nada que cambiar');
     }
 
@@ -231,8 +266,41 @@ export class Pendiente {
       hecho: cambios.hecho ?? this.hecho,
       posponerHasta: this.nuevaFechaParaPosponer(cambios.posponerHasta, ahora),
       fechaLimite: this.nuevaFechaLimite(cambios.fechaLimite),
+      version: this.version + 1,
       editadoEn: ahora,
     });
+  }
+
+  /**
+   * Si este pendiente ya esta como lo pide la edicion (SCRUM-134).
+   *
+   * Importa por los reintentos: sin conexion, una edicion se envia, el servidor
+   * la aplica y la respuesta se pierde. El dispositivo la reenvia con la version
+   * de antes, que ya no coincide, y sin esta comprobacion se toparia con un
+   * conflicto contra si mismo. Si el pendiente ya tiene lo que se pide, ya esta
+   * hecho y no hay nada que decidir. Tambien cubre a dos dispositivos que
+   * coinciden sin saberlo.
+   *
+   * Una edicion vacia nunca "ya esta": esa es un error y lo dice `editar`.
+   */
+  yaTiene(cambios: CambiosDePendiente): boolean {
+    if (!traeCambios(cambios)) {
+      return false;
+    }
+
+    return (
+      (cambios.texto === undefined || cambios.texto.trim() === this.texto) &&
+      (cambios.nivel === undefined || cambios.nivel === this.nivel) &&
+      (cambios.hecho === undefined || cambios.hecho === this.hecho) &&
+      (cambios.posponerHasta === undefined ||
+        (cambios.posponerHasta === null
+          ? this.posponerHasta === undefined
+          : this.posponerHasta?.getTime() === cambios.posponerHasta.getTime())) &&
+      (cambios.fechaLimite === undefined ||
+        (cambios.fechaLimite === null
+          ? this.fechaLimite === undefined
+          : this.fechaLimite === cambios.fechaLimite))
+    );
   }
 
   perteneceA(userId: UserId): boolean {

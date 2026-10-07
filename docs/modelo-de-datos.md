@@ -394,6 +394,7 @@ su color.
 | `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.                                                         |
 | `fecha_limite`         | DATE            | sí   | Día límite, en el calendario de la persona. Sin él no vence un día concreto. Desde SCRUM-119. |
 | `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo.                                           |
+| `version`              | INTEGER         | no   | Empieza en 1 y sube con cada edición. Detecta que otro dispositivo lo cambió. SCRUM-134.      |
 | `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.                                               |
 | `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                                                               |
 
@@ -407,6 +408,13 @@ su color.
 - **Uno por visita:** se elige el de mayor color y, a igual color, el más
   antiguo.
 - **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.
+
+**La versión** (SCRUM-134, migración `20261013120000_version_del_pendiente`) es
+aditiva: una columna con valor por defecto 1, así que los pendientes que ya
+existían quedan en 1. La comparación se hace **dentro del propio `UPDATE`**
+(`WHERE version = <la que se leyó>`), no en el código: leer, comparar y escribir
+por separado dejaría pasar al cambio que llega justo en medio. Las reglas de
+conflicto están en `dominio.md` ("Editar un pendiente desde dos dispositivos").
 
 **Política de acceso:** la misma que `RESULTADO`. RLS forzado; cada persona lee
 y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración

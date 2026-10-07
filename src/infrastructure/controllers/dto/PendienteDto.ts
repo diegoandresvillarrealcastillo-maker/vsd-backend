@@ -4,11 +4,13 @@ import {
   IsBoolean,
   IsDate,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import type { Pendiente, Recordatorio } from '../../../domain/model/Pendiente.js';
@@ -51,6 +53,14 @@ export class PendienteDto {
   })
   fechaLimite!: string | null;
 
+  @ApiProperty({
+    type: 'integer',
+    minimum: 1,
+    description:
+      'Empieza en 1 y sube con cada edición. Hay que devolverla al editar: si otro dispositivo lo cambió entretanto, la edición se rechaza con 409 en vez de pisarlo.',
+  })
+  version!: number;
+
   @ApiProperty({ type: String, format: 'date-time' })
   creadoEn!: string;
 
@@ -66,6 +76,7 @@ export class PendienteDto {
     dto.hecho = pendiente.hecho;
     dto.posponerHasta = pendiente.posponerHasta?.toISOString() ?? null;
     dto.fechaLimite = pendiente.fechaLimite ?? null;
+    dto.version = pendiente.version;
     dto.creadoEn = pendiente.creadoEn.toISOString();
     dto.editadoEn = pendiente.editadoEn.toISOString();
 
@@ -185,6 +196,20 @@ export class CrearPendienteDto {
  * `posponerHasta: null` deja de posponer.
  */
 export class EditarPendienteDto {
+  @ApiPropertyOptional({
+    type: 'integer',
+    minimum: 1,
+    description:
+      'La versión que el dispositivo tenía del pendiente. Si ya no es la vigente, la edición se rechaza con 409, salvo que solo lo marque como hecho o que el pendiente ya esté como se pide. Sin ella no se comprueba nada.',
+  })
+  // No `@IsOptional()`: trata null como ausente, y un null llegaria al caso de uso
+  // como si fuera una version vieja. Aqui solo puede faltar (undefined); si viene,
+  // tiene que ser un entero positivo.
+  @ValidateIf((dto: EditarPendienteDto) => dto.version !== undefined)
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @ApiPropertyOptional({ maxLength: 280 })
   @IsOptional()
   @IsString()

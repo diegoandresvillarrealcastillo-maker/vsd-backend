@@ -813,7 +813,7 @@
     },
     "/api/pendientes/{id}": {
       "patch": {
-        "description": "Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita.",
+        "description": "Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita. Con version, detecta que otro dispositivo lo cambió: si ya no es la vigente, responde 409 sin tocar nada, salvo que la edición solo lo marque como hecho (se aplica) o que el pendiente ya esté como se pide (se devuelve tal cual, así un reintento tras una respuesta perdida no choca consigo mismo).",
         "operationId": "PendientesController_editar",
         "parameters": [
           {
@@ -851,6 +851,9 @@
           },
           "404": {
             "description": "No existe o es de otra persona; las dos se responden igual."
+          },
+          "409": {
+            "description": "VERSION_DESACTUALIZADA: otro dispositivo lo cambió. No se tocó nada; consulta GET /api/pendientes para ver cómo quedó."
           }
         },
         "security": [
@@ -1756,6 +1759,11 @@
             "example": "2026-10-12",
             "description": "Día límite, en el calendario de la persona (SCRUM-119). Null: no vence un día concreto."
           },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Empieza en 1 y sube con cada edición. Hay que devolverla al editar: si otro dispositivo lo cambió entretanto, la edición se rechaza con 409 en vez de pisarlo."
+          },
           "creadoEn": {
             "type": "string",
             "format": "date-time"
@@ -1772,6 +1780,7 @@
           "hecho",
           "posponerHasta",
           "fechaLimite",
+          "version",
           "creadoEn",
           "editadoEn"
         ]
@@ -2234,6 +2243,11 @@
       "EditarPendienteDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "La versión que el dispositivo tenía del pendiente. Si ya no es la vigente, la edición se rechaza con 409, salvo que solo lo marque como hecho o que el pendiente ya esté como se pide. Sin ella no se comprueba nada."
+          },
           "texto": {
             "type": "string",
             "maxLength": 280

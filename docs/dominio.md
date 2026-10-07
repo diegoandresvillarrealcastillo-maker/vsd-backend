@@ -534,12 +534,59 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   recuerda nada; `null` deja de posponer.
 - La consulta trae los sin hacer y los hechos de los ultimos 7 dias.
 - Crear es idempotente por `clientOperationId`, por persona.
+- **Editar con version** (SCRUM-134): ver "Editar un pendiente desde dos
+  dispositivos" mas abajo.
 - **Borrar tambien es idempotente** (SCRUM-133): borrar uno que ya no esta
   responde 204, igual que la primera vez. Sin conexion, si se pierde la respuesta
   del primer borrado, el reintento llegaria a un error que la cola de
   sincronizacion no sabria distinguir de un fallo de verdad. No filtra nada: el
   pendiente de otra persona responde igual y no se toca (ADR 0010). Editar uno
   que no existe sigue respondiendo `PENDIENTE_NO_ENCONTRADO`.
+
+### Editar un pendiente desde dos dispositivos (SCRUM-134)
+
+Sin conexion, dos dispositivos pueden editar el mismo pendiente y el ultimo en
+sincronizar pisaba al otro sin aviso. Cada pendiente lleva una `version` (empieza
+en 1 y sube con cada edicion), y `PATCH /api/pendientes/:id` acepta la que el
+dispositivo tenia. La regla, que vive en `PendientesUseCaseImpl.editar`:
+
+| El dispositivo trae...                                  | Resultado                                         |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| la version vigente                                      | se aplica; la version sube                        |
+| una version vieja, y **el pendiente ya esta como pide** | `200` con lo vigente, sin cambiar nada            |
+| una version vieja, y **solo lo marca como hecho**       | se aplica sobre lo vigente (no se pierde lo otro) |
+| una version vieja, y cualquier otra edicion             | `409 VERSION_DESACTUALIZADA`, sin tocar nada      |
+| ninguna version (dispositivos anteriores a este cambio) | se aplica, como siempre                           |
+
+Por que cada fila:
+
+- **«Ya esta como pide»** es lo que evita que un reintento choque consigo mismo.
+  Sin conexion, una edicion se envia, el servidor la aplica y la respuesta se
+  pierde; el dispositivo la reenvia con la version de antes, que ya no coincide.
+  Como cada campo de la edicion es un valor absoluto (no un incremento), basta
+  comprobar que el pendiente ya lo tiene. Tambien cubre a dos dispositivos que
+  coinciden sin saberlo. No hace falta guardar identificadores de operacion de
+  cada edicion.
+- **Marcar como hecho gana.** Es un hecho que ocurrio, no una opinion, y se lleva
+  bien con cualquier otro cambio: si un dispositivo lo marco sin conexion
+  mientras otro le cambiaba el texto, no hay nada que preguntarle a la persona,
+  queda hecho y con el texto nuevo. **Reabrirlo no es asi** (depende de lo que se
+  vio) y se trata como cualquier otra edicion.
+- **El resto es un conflicto** y no se resuelve solo. El texto, el color y las
+  fechas no se mezclan: una mezcla mal hecha produce algo que nadie escribio (el
+  mismo razonamiento del ADR 0009). La respuesta no trae el estado actual ni
+  repite lo escrito: el cliente consulta el semaforo, que es una lectura.
+- **El codigo es el mismo que el del diario** (`VERSION_DESACTUALIZADA`), a
+  proposito: para quien lo recibe es el mismo hecho, "esto ya no es lo que
+  viste", y se trata igual sea cual sea el dato.
+
+**La comparacion que cuenta la hace la base**, dentro del `UPDATE`. Si la escritura
+no pasa porque otro dispositivo la cambio entre leer y escribir: con version, es
+un conflicto; sin version o marcando como hecho, se relee y se reaplica (hasta tres
+veces) sobre lo vigente, porque esas ediciones se llevan bien con cualquier cosa.
+
+**Una version que no es un entero positivo** (cero, negativa, con decimales, texto
+o `null`) es un `400`, no un conflicto: `null` no significa «sin version».
 
 ## Los avisos por Web Push
 
@@ -645,6 +692,7 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `StaleJournalEntryError`            | `VERSION_DESACTUALIZADA`              | Otro dispositivo la cambio entretanto        |
 | `InvalidTaskError`                  | `PENDIENTE_INVALIDO`                  | Texto, nivel o fecha de posponer no validos  |
 | `TaskNotFoundError`                 | `PENDIENTE_NO_ENCONTRADO`             | No existe o es de otra persona               |
+| `StaleTaskError`                    | `VERSION_DESACTUALIZADA`              | Otro dispositivo cambio el pendiente         |
 
 La clave de operacion es unica **por persona** desde el ADR 0010, asi que usar
 la de otra ya no produce un error distinto: se registra un resultado propio,

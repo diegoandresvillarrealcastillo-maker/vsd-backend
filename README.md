@@ -156,6 +156,20 @@ interrupcion funcionan sobre los archivos `.ts`.
 | `npm run build`            | Compila a `dist/`                              |
 | `npm run openapi`          | Genera `openapi.json` sin levantar el servidor |
 
+### La imagen de Docker
+
+El backend tiene su `Dockerfile` (SCRUM-131): es la imagen que corre en el CI y
+la que Render va a desplegar. No hace falta para el desarrollo diario.
+
+```bash
+docker build -t vsd-api .
+docker run --rm -p 3000:3000 --env-file .env vsd-api
+```
+
+No lleva configuracion ni aplica migraciones, y por omision se niega a arrancar
+si falta algo. El detalle esta en [docs/ambientes.md](docs/ambientes.md) y en el
+[ADR 0018](docs/adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
+
 ### Base de datos en local
 
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo

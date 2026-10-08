@@ -311,3 +311,106 @@ En consecuencia:
 - **Ley 1616 de 2013** — salud mental en Colombia.
 - Concepto de la Superintendencia de Industria y Comercio sobre datos
   sensibles de salud.
+
+---
+
+## 8. Registro de eventos de seguridad (SCRUM-163)
+
+Cuando algo sale mal, la pregunta es **que paso, a quien y desde donde**. Este
+registro la responde sin convertirse en otra fuga: no guarda lo que la persona
+escribio, solo que hizo algo.
+
+### Que se registra
+
+Un catalogo **cerrado** (`src/domain/model/EventoDeSeguridad.ts`). No hay
+mensajes libres: cada tipo declara los unicos campos que lleva.
+
+| Evento                        | Cuando                                          | Campos propios          |
+| ----------------------------- | ----------------------------------------------- | ----------------------- |
+| `CUENTA_BORRADA`              | Termina el borrado de una cuenta (204)          | `idUsuario`             |
+| `DATOS_EXPORTADOS`            | Se entrega la exportacion de los datos          | `idUsuario`             |
+| `PERMISO_DEL_DIARIO_CAMBIADO` | El permiso de recomendaciones del diario cambia | `idUsuario`, `activado` |
+| `TOKEN_RECHAZADO`             | Un token no pasa la verificacion                | `motivo`                |
+| `CUENTA_NO_REGISTRADA`        | Sesion valida de alguien sin cuenta (403)       | `idProveedor`           |
+| `ARCHIVO_PELIGROSO_RECHAZADO` | Una foto o un SVG que no es lo que dice ser     | `idUsuario`, `motivo`   |
+
+Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente`,
+`tipo`, y cuando se conocen `idPeticion` (el `x-request-id` de la respuesta) y
+`huellaDeIp`. Ejemplo de una linea:
+
+```json
+{
+  "canal": "seguridad",
+  "version": 1,
+  "en": "2026-10-08T15:00:00.000Z",
+  "ambiente": "preproduction",
+  "tipo": "DATOS_EXPORTADOS",
+  "idUsuario": "8f14e45f-ceea-467a-9575-0d9a1c3c7b11",
+  "idPeticion": "b1e7a5a4-1f0e-4a43-9d2c-5a3f6b1c9d11",
+  "huellaDeIp": "3fa91c0b7d2e4a56"
+}
+```
+
+`TOKEN_RECHAZADO` distingue solo dos motivos: `TOKEN_INVALIDO` y
+`VERIFICACION_NO_DISPONIBLE` (el servicio de claves no respondio; no es culpa de
+quien llama). No se registra una peticion **sin** cabecera: es ruido, no un
+intento.
+
+### Que nunca lleva
+
+Correo, nombre, fecha de nacimiento, contenido del diario, resultados, tokens
+ni la IP. Lo garantizan cuatro cosas, no la buena voluntad:
+
+1. El tipo del evento (TypeScript) no tiene esos campos.
+2. El adaptador copia **solo** los campos que `CAMPOS_POR_TIPO` declara para ese
+   tipo; lo demas se descarta aunque alguien lo cuele con un `as`.
+3. Los valores que no son texto corto o booleano se descartan.
+4. La IP nunca se escribe: se escribe `huellaDeIp`, un HMAC-SHA256 con clave
+   (`REGISTRO_SEGURIDAD_CLAVE_IP`), truncado a 16 caracteres. Un hash sin clave
+   se revertiria probando las 4 mil millones de IPv4.
+
+Las pruebas de `RegistroDeSeguridad.spec.ts` recorren todos los hechos por HTTP y
+comprueban que ni el correo, ni el nombre, ni el token, ni `127.0.0.1` aparecen en
+ninguna linea.
+
+### Adonde va (decision D8)
+
+- **Siempre**: una linea JSON por la salida estandar. Render la conserva y puede
+  reenviarla a un servicio externo con sus flujos de registros (se configura en
+  el panel de Render).
+- **Opcional**: una copia por HTTP a un servicio de registros con **retencion de
+  90 dias**, si una persona define `REGISTRO_SEGURIDAD_URL` (y el token). No hay
+  proveedor fijado: manda un `POST` con un arreglo JSON y una cabecera. La
+  eleccion del servicio, la cuenta y la retencion de 90 dias son de una persona
+  del equipo, nunca de Claude.
+
+Nunca estorba: `registrar` no espera, no lanza y, si el servicio no responde, el
+envio por HTTP guarda como maximo 500 eventos y descarta los mas viejos. La
+direccion, la clave y el contenido de los eventos no aparecen en ningun aviso.
+
+### Como leerlo
+
+1. Busca `"canal":"seguridad"` en los registros del servicio (o en Render).
+2. Para seguir un caso: filtra por `idUsuario` (el identificador interno) o por
+   `idPeticion`, que coincide con el `[id]` de la linea de la peticion en el
+   registro de peticiones y con lo que ve la persona cuando algo falla.
+3. Para saber si dos eventos vienen del mismo sitio, compara `huellaDeIp`. Sin
+   `REGISTRO_SEGURIDAD_CLAVE_IP` la clave cambia en cada arranque y solo se puede
+   comparar dentro del mismo despliegue; ponla (un secreto de 16+ caracteres) para
+   poder comparar entre despliegues. Cambiarla rompe la comparacion con lo anterior.
+4. La IP es la que Express da por buena. Detras de Render solo es la del cliente
+   si `TRUST_PROXY_HOPS` esta bien puesta (SCRUM-151); si no, todas las huellas
+   seran la misma, la del proxy.
+
+### Lo que este registro **no** cubre
+
+- **Inicios de sesion, registros, cambios de contrasena y correos de recuperacion**
+  los hace Supabase Auth, no esta API. Su rastro esta en el panel de Supabase:
+  _Logs > Auth_, con retencion segun el plan: en el gratuito es muy corta (un
+  dia segun la documentacion de Supabase al escribir esto; confirmarlo en el
+  panel). Si hace falta mas, hay que exportarlos desde alli.
+- **Eventos que dependen de PR aun abiertos** y que se agregaran al catalogo
+  cuando se fusionen: cuenta creada, menor rechazado y consentimiento registrado
+  (edad y consentimiento, backend #92) y limite de peticiones superado (#93).
+- **Quien lo lee**: la lectura del registro es de una persona del equipo con
+  acceso al servicio elegido; no hay pantalla ni endpoint para consultarlo.

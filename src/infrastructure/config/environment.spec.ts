@@ -264,3 +264,130 @@ describe('La clave de servicio es obligatoria fuera de local', () => {
     }
   });
 });
+
+describe('El registro de seguridad (SCRUM-163)', () => {
+  const EN_PRE = {
+    ...VALIDA,
+    NODE_ENV: 'preproduction',
+    CORS_ORIGIN: 'https://vsd.example',
+    DATABASE_URL: 'postgresql://x:y@z:5432/db',
+    SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
+  };
+
+  it('sin nada configurado funciona igual y solo sale por la salida estandar', () => {
+    const { registroDeSeguridad } = validarConfiguracion(EN_PRE);
+
+    expect(registroDeSeguridad).toEqual({ envio: undefined, claveDeIp: undefined });
+  });
+
+  it('con direccion y clave activa la copia por HTTP', () => {
+    const { registroDeSeguridad } = validarConfiguracion({
+      ...EN_PRE,
+      REGISTRO_SEGURIDAD_URL: 'https://registros.ejemplo.co/ingesta',
+      REGISTRO_SEGURIDAD_TOKEN: 'Bearer abc123',
+      REGISTRO_SEGURIDAD_CABECERA: 'DD-API-KEY',
+      REGISTRO_SEGURIDAD_CLAVE_IP: 'una-clave-bien-larga-para-las-ip',
+    });
+
+    expect(registroDeSeguridad).toEqual({
+      envio: {
+        url: 'https://registros.ejemplo.co/ingesta',
+        token: 'Bearer abc123',
+        cabecera: 'DD-API-KEY',
+      },
+      claveDeIp: 'una-clave-bien-larga-para-las-ip',
+    });
+  });
+
+  it('la clave y la cabecera vacias cuentan como ausentes', () => {
+    const { registroDeSeguridad } = validarConfiguracion({
+      ...EN_PRE,
+      REGISTRO_SEGURIDAD_URL: 'https://registros.ejemplo.co/ingesta',
+      REGISTRO_SEGURIDAD_TOKEN: '  ',
+      REGISTRO_SEGURIDAD_CABECERA: '',
+    });
+
+    expect(registroDeSeguridad.envio).toEqual({
+      url: 'https://registros.ejemplo.co/ingesta',
+      token: undefined,
+      cabecera: undefined,
+    });
+  });
+
+  it('exige https: los hechos de seguridad no viajan sin cifrar', () => {
+    expect(() =>
+      validarConfiguracion({ ...EN_PRE, REGISTRO_SEGURIDAD_URL: 'http://registros.ejemplo.co' }),
+    ).toThrow(/REGISTRO_SEGURIDAD_URL.*https/);
+  });
+
+  it('tolera http solo en la propia maquina y fuera de produccion', () => {
+    const local = { ...VALIDA, REGISTRO_SEGURIDAD_URL: 'http://localhost:9000/ingesta' };
+
+    expect(validarConfiguracion(local).registroDeSeguridad.envio?.url).toBe(
+      'http://localhost:9000/ingesta',
+    );
+    expect(() =>
+      validarConfiguracion({
+        ...EN_PRE,
+        NODE_ENV: 'production',
+        REGISTRO_SEGURIDAD_URL: 'http://localhost:9000/ingesta',
+      }),
+    ).toThrow(/https/);
+  });
+
+  it('rechaza una direccion que no es una URL', () => {
+    expect(() =>
+      validarConfiguracion({ ...EN_PRE, REGISTRO_SEGURIDAD_URL: 'no-es-una-url' }),
+    ).toThrow(/REGISTRO_SEGURIDAD_URL/);
+  });
+
+  it('rechaza usuario y contrasena dentro de la direccion', () => {
+    expect(() =>
+      validarConfiguracion({
+        ...EN_PRE,
+        REGISTRO_SEGURIDAD_URL: 'https://usuario:clave@registros.ejemplo.co',
+      }),
+    ).toThrow(/usuario ni contrasena/);
+  });
+
+  it.each(['REGISTRO_SEGURIDAD_TOKEN', 'REGISTRO_SEGURIDAD_CABECERA'])(
+    '%s sin direccion es un error: quien lo puso queria la copia y no la tendria',
+    (variable) => {
+      expect(() => validarConfiguracion({ ...EN_PRE, [variable]: 'algo' })).toThrow(
+        new RegExp(variable),
+      );
+    },
+  );
+
+  it('la cabecera solo admite letras, numeros y guiones', () => {
+    expect(() =>
+      validarConfiguracion({
+        ...EN_PRE,
+        REGISTRO_SEGURIDAD_URL: 'https://registros.ejemplo.co',
+        REGISTRO_SEGURIDAD_CABECERA: 'Mala: cabecera\r\nX-Otra',
+      }),
+    ).toThrow(/REGISTRO_SEGURIDAD_CABECERA/);
+  });
+
+  it('la clave de las IP no puede ser corta', () => {
+    expect(() => validarConfiguracion({ ...EN_PRE, REGISTRO_SEGURIDAD_CLAVE_IP: 'corta' })).toThrow(
+      /REGISTRO_SEGURIDAD_CLAVE_IP/,
+    );
+  });
+
+  it('el mensaje de error no incluye la clave ni la direccion recibidas', () => {
+    try {
+      validarConfiguracion({
+        ...EN_PRE,
+        REGISTRO_SEGURIDAD_URL: 'http://registros.ejemplo.co/ruta-con-secreto-123',
+        REGISTRO_SEGURIDAD_TOKEN: 'Bearer valor-que-no-debe-salir',
+      });
+      expect.unreachable('deberia haber lanzado');
+    } catch (error) {
+      const mensaje = (error as Error).message;
+
+      expect(mensaje).not.toContain('valor-que-no-debe-salir');
+      expect(mensaje).not.toContain('secreto-123');
+    }
+  });
+});

@@ -1,7 +1,11 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { Request, Response } from 'express';
 import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
+import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
+import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import type { PeticionConCuenta } from './CuentaActual.js';
 import { ES_PUBLICO } from './Publico.js';
 import { NO_EXIGE_CUENTA } from './SinCuenta.js';
@@ -36,6 +40,7 @@ export class GuardiaDeCuenta implements CanActivate {
   constructor(
     private readonly cuentas: RegistrarCuentaUseCase,
     private readonly reflector: Reflector,
+    private readonly seguridad: RegistroDeSeguridadPort = new RegistroDeSeguridadNulo(),
   ) {}
 
   async canActivate(contexto: ExecutionContext): Promise<boolean> {
@@ -50,7 +55,7 @@ export class GuardiaDeCuenta implements CanActivate {
       return true;
     }
 
-    const peticion = contexto.switchToHttp().getRequest<PeticionConCuenta>();
+    const peticion = contexto.switchToHttp().getRequest<PeticionConCuenta & Request>();
     const identidad = peticion.identidad;
 
     if (identidad === undefined) {
@@ -63,6 +68,14 @@ export class GuardiaDeCuenta implements CanActivate {
     const cuenta = await this.cuentas.buscarPorProveedor(identidad.id);
 
     if (cuenta === null) {
+      // Un token autentico sin cuenta: lo normal es una persona que aun no
+      // termino el alta. Muchos seguidos de la misma identidad dicen otra cosa.
+      this.seguridad.registrar({
+        tipo: 'CUENTA_NO_REGISTRADA',
+        idProveedor: identidad.id,
+        ...contextoDeLaPeticion(peticion, contexto.switchToHttp().getResponse<Response>()),
+      });
+
       throw new AccountNotProvisionedError();
     }
 

@@ -67,6 +67,20 @@ export function configurarAplicacion(
   // busque vulnerabilidades conocidas de una version concreta.
   app.getHttpAdapter().getInstance().disable('x-powered-by');
 
+  // De donde sale la direccion de quien llama. Detras de un proxy (en Render hay
+  // uno), sin esto Express ve la direccion del proxy para todo el mundo y el limite
+  // de abajo, que cuenta por direccion, es uno solo para todas las personas: una
+  // abusiva deja a las demas en 429 y el limite no frena a nadie en particular
+  // (S-03 de la auditoria 360).
+  //
+  // Es un numero de saltos, no `true`: ver TRUST_PROXY_HOPS en environment.ts. Con 0
+  // no se toca nada, que es lo correcto cuando no hay proxy (en local, en las
+  // pruebas): confiar en X-Forwarded-For sin proxy deja que cualquiera elija su
+  // propia direccion.
+  if (configuracion.saltosDeProxyDeConfianza > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', configuracion.saltosDeProxyDeConfianza);
+  }
+
   // Lo primero de la cadena, antes incluso del limite de peticiones, para que
   // hasta un 429 salga con su identificador. Un error sin identificador es
   // justamente el que nadie puede rastrear despues.
@@ -77,9 +91,9 @@ export function configurarAplicacion(
   app.use(helmet());
 
   // Limite por direccion IP. Es imperfecto, porque varias personas detras del
-  // mismo enrutador comparten direccion, pero es lo que se puede hacer sin
-  // usuarios autenticados. En el Ciclo 5, con identidad, podra aplicarse
-  // tambien por cuenta.
+  // mismo enrutador comparten direccion, pero es lo que se puede hacer antes de
+  // saber quien es cada una. Las rutas que cuestan llevan ademas un tope por
+  // cuenta (`@LimitePorCuenta`), que se aplica ya con la identidad verificada.
   app.use(
     rateLimit({
       windowMs: VENTANA_DEL_LIMITE_MS,

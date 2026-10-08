@@ -52,6 +52,40 @@ describe('validarConfiguracion', () => {
     expect(() => validarConfiguracion({ ...VALIDA, PORT: 'ochenta' })).toThrow(/PORT/);
   });
 
+  describe('TRUST_PROXY_HOPS (S-03 de la auditoria 360)', () => {
+    it('sin ponerla no hay proxy de confianza: es lo correcto en local y en las pruebas', () => {
+      expect(validarConfiguracion(VALIDA).saltosDeProxyDeConfianza).toBe(0);
+    });
+
+    it.each([
+      ['0', 0],
+      ['1', 1],
+      ['2', 2],
+      ['5', 5],
+    ])('acepta %s saltos', (texto, esperado) => {
+      expect(
+        validarConfiguracion({ ...VALIDA, TRUST_PROXY_HOPS: texto }).saltosDeProxyDeConfianza,
+      ).toBe(esperado);
+    });
+
+    it.each(['-1', '1.5', 'true', 'uno', '6', '100'])(
+      'rechaza %s: tiene que ser un numero entero de 0 a 5, nunca `true`',
+      (valor) => {
+        // `true` confiaria en lo que escriba quien llama en X-Forwarded-For, y
+        // Render no reescribe esa cabecera: el limite se esquivaria cambiandola.
+        expect(() => validarConfiguracion({ ...VALIDA, TRUST_PROXY_HOPS: valor })).toThrow(
+          /TRUST_PROXY_HOPS/,
+        );
+      },
+    );
+
+    it('el error no repite el valor recibido', () => {
+      expect(() => validarConfiguracion({ ...VALIDA, TRUST_PROXY_HOPS: 'valor-raro-123' })).toThrow(
+        expect.objectContaining({ message: expect.not.stringContaining('valor-raro-123') }),
+      );
+    });
+  });
+
   it('rechaza un ambiente desconocido', () => {
     expect(() => validarConfiguracion({ ...VALIDA, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });

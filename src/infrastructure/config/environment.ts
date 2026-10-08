@@ -113,6 +113,27 @@ const esquema = z
     // Origenes autorizados para CORS, separados por coma.
     CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN es obligatoria'),
 
+    // Cuantos proxies de confianza hay entre quien llama y la API (S-03 de la
+    // auditoria 360). Con 0, que es lo de siempre, Express toma como direccion de
+    // quien llama la del ultimo salto, y detras de un proxy esa es la del propio
+    // proxy: el limite de peticiones por IP pasa a ser uno solo para todo el mundo.
+    //
+    // Es un numero y no `true`, a proposito. Con `true` se confia en lo que diga
+    // la cabecera X-Forwarded-For, y Render no la reescribe: anade la direccion que
+    // ve al final de la que traiga quien llama. Contando saltos desde la derecha
+    // se toma la que anadio el proxy; con `true`, la que escribio quien llama.
+    //
+    // Contar de menos es seguro (el limite sigue siendo compartido); contar de mas
+    // no: se tomaria una direccion que escribio quien llama y el limite se podria
+    // esquivar cambiando una cabecera. Ver docs/ambientes.md para comprobar el
+    // numero en cada ambiente.
+    TRUST_PROXY_HOPS: z.coerce
+      .number()
+      .int('TRUST_PROXY_HOPS tiene que ser un numero entero')
+      .min(0, 'TRUST_PROXY_HOPS no puede ser negativo')
+      .max(5, 'TRUST_PROXY_HOPS no puede ser mayor que 5: ningun despliegue tiene tantos proxies')
+      .default(0),
+
     // Conexion a PostgreSQL. Opcional en desarrollo y pruebas, donde el
     // adaptador en memoria alcanza y es mucho mas rapido.
     DATABASE_URL: z.string().optional(),
@@ -238,6 +259,12 @@ export interface Configuracion {
   readonly ambiente: Ambiente;
   readonly puerto: number;
   readonly origenesAutorizados: readonly string[];
+  /**
+   * Cuantos proxies de confianza hay delante de la API. 0, sin proxy. Decide de
+   * donde se saca la direccion IP de quien llama, y con ella el limite de
+   * peticiones.
+   */
+  readonly saltosDeProxyDeConfianza: number;
   readonly esProduccion: boolean;
   /**
    * Conexion a PostgreSQL. Ausente solo en desarrollo y pruebas, donde el
@@ -309,6 +336,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     NODE_ENV,
     PORT,
     CORS_ORIGIN,
+    TRUST_PROXY_HOPS,
     DATABASE_URL,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
@@ -327,6 +355,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     origenesAutorizados: CORS_ORIGIN.split(',')
       .map((origen) => origen.trim())
       .filter((origen) => origen.length > 0),
+    saltosDeProxyDeConfianza: TRUST_PROXY_HOPS,
     esProduccion: NODE_ENV === Ambiente.PRODUCCION,
     urlBaseDeDatos: (DATABASE_URL ?? '').trim() === '' ? undefined : DATABASE_URL,
     // La barra final se quita aqui y no en cada sitio que use el valor: si un

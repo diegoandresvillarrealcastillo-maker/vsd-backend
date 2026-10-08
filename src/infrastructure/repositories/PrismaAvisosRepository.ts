@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
-import { TipoDeAviso } from '../../domain/model/Aviso.js';
+import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
@@ -105,6 +105,22 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
             claveAuth: suscripcion.auth,
           },
         });
+
+        // Un tope por cuenta (SCRUM-153): sale la mas antigua, no se rechaza la
+        // nueva. Va en la misma transaccion, asi que nunca se ve de mas ni de
+        // menos.
+        const sobrantes = await cliente.suscripcionPush.findMany({
+          where: { idUsuario: userId.value },
+          orderBy: [{ fechaCreacion: 'desc' }, { id: 'desc' }],
+          skip: MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+          select: { id: true },
+        });
+
+        if (sobrantes.length > 0) {
+          await cliente.suscripcionPush.deleteMany({
+            where: { id: { in: sobrantes.map((fila) => fila.id) } },
+          });
+        }
       },
     );
   }

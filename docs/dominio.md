@@ -647,6 +647,15 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
     pero nunca se manda dos veces;
   - entrega a cada navegador de la persona, y suelta los que ya no existen
     (404 o 410).
+- **Solo a servicios de push conocidos** (SCRUM-153). `suscripcionValida` acepta
+  unicamente las direcciones de Google (`fcm.googleapis.com`), Mozilla
+  (`*.push.services.mozilla.com`), Apple (`web.push.apple.com`) y Windows
+  (`*.notify.windows.com`), sin usuario, sin puerto y sin que `URL` y `web-push`
+  puedan leerla distinto; `WebPushEnviador` vuelve a comprobarlo antes de cada
+  envio. Cualquier otra es un `400` (`AVISO_INVALIDO`). Explicado en
+  [seguridad](seguridad.md).
+- **Diez navegadores por cuenta como mucho.** Al pasar de diez entra el nuevo y
+  sale el mas antiguo; no se rechaza (`MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA`).
 - **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
   gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
   manda solo lo de la ultima media hora.

@@ -1013,7 +1013,7 @@
     },
     "/api/notificaciones/suscripciones": {
       "post": {
-        "description": "Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo.",
+        "description": "Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo. Solo se aceptan los servicios de push de Google, Mozilla, Apple y Windows. Una cuenta guarda hasta 10 navegadores: al pasar de 10, sale el más antiguo.",
         "operationId": "NotificacionesController_suscribir",
         "parameters": [],
         "requestBody": {
@@ -1031,7 +1031,7 @@
             "description": "Suscrito."
           },
           "400": {
-            "description": "La suscripción no es válida."
+            "description": "La suscripción no es válida, o su dirección no es la de un servicio de push conocido (AVISO_INVALIDO)."
           }
         },
         "security": [

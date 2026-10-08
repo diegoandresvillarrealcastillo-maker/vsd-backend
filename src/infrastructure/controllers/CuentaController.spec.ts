@@ -336,7 +336,7 @@ describe('Lo que se guarda en el navegador y lo que no (SCRUM-133)', () => {
     expect(respuesta.headers['cache-control']).toBe('no-store');
   });
 
-  it.each(['/api/catalogo', '/api/aviso'])(
+  it.each(['/api/catalogo', '/api/aviso', '/api/asistente/reglas-locales'])(
     '%s lleva ETag y responde 304 si no cambio, sin cuerpo',
     async (ruta) => {
       const primera = await request(app.getHttpServer()).get(ruta).expect(200);
@@ -353,7 +353,7 @@ describe('Lo que se guarda en el navegador y lo que no (SCRUM-133)', () => {
     },
   );
 
-  it.each(['/api/catalogo', '/api/aviso'])(
+  it.each(['/api/catalogo', '/api/aviso', '/api/asistente/reglas-locales'])(
     '%s con un ETag viejo devuelve el contenido entero',
     async (ruta) => {
       const respuesta = await request(app.getHttpServer())

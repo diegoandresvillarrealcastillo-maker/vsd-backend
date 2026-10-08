@@ -62,6 +62,9 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  */
 export const ASISTENTE = Symbol('AsistentePort');
 
+/** Las reglas de VSD IA que se aplican en el dispositivo, sin conexion (SCRUM-141). */
+export const CONSULTAR_REGLAS_LOCALES = Symbol('ConsultarLasReglasLocalesUseCase');
+
 /** El sendero de cada modulo activo. */
 export const CONSULTAR_PROGRESO = Symbol('ConsultarProgresoUseCase');
 

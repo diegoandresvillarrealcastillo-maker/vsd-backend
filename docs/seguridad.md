@@ -155,12 +155,14 @@ perfectamente valida. El rol de VSD Health vive en la tabla `usuario`.
 ### Que rutas estan abiertas
 
 El guardia se aplica a toda la API y las excepciones se declaran una a
-una con `@Publico()`. Hoy son dos:
+una con `@Publico()`. Hoy son cuatro:
 
-| Ruta                | Por que esta abierta                                              |
-| ------------------- | ----------------------------------------------------------------- |
-| `GET /health`       | La consulta el proveedor de despliegue, que no tiene cuenta       |
-| `GET /api/catalogo` | Mismo contenido para todo el mundo, no sale de la cuenta de nadie |
+| Ruta                                | Por que esta abierta                                                                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /health`                       | La consulta el proveedor de despliegue, que no tiene cuenta                                                                                      |
+| `GET /api/catalogo`                 | Mismo contenido para todo el mundo, no sale de la cuenta de nadie                                                                                |
+| `GET /api/aviso`                    | La version del aviso de privacidad: se necesita antes de que exista la cuenta                                                                    |
+| `GET /api/asistente/reglas-locales` | Las reglas y las lineas de ayuda para responder sin conexion (SCRUM-141): mismo contenido para todo el mundo, y se piden justo cuando algo falla |
 
 Hay ademas una ruta que **si exige token pero no exige cuenta**, marcada con
 `@SinCuenta()`: `POST /api/cuenta`. Tiene que ser asi por definicion, porque es

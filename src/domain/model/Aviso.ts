@@ -108,6 +108,80 @@ export interface SuscripcionPush {
 const CLAVE = /^[A-Za-z0-9_-]{1,200}={0,2}$/;
 const LARGO_MAXIMO_DEL_ENDPOINT = 1000;
 
+/**
+ * Cuantos navegadores puede tener una cuenta recibiendo avisos (SCRUM-153).
+ *
+ * Una persona real usa unos pocos: el telefono, el computador, quizas una
+ * tableta. Diez dan margen de sobra. Lo que pase de ahi no se rechaza: entra
+ * la nueva y sale la mas antigua, para que quien dejo navegadores viejos sin
+ * cerrar sesion no se quede sin poder activar los avisos en el de hoy.
+ */
+export const MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA = 10;
+
+/**
+ * Los servicios de push de los navegadores (SCRUM-153).
+ *
+ * El API hace una peticion HTTPS a la direccion que el navegador le entrega al
+ * suscribirse. Si esa direccion pudiera ser cualquiera, cualquier cuenta
+ * lograria que el servidor llamara a donde quisiera (SSRF): a la red interna del
+ * proveedor, a un servicio de metadatos o a una pagina ajena. Por eso solo se
+ * aceptan los servicios que existen de verdad:
+ *
+ * - `fcm.googleapis.com`: Chrome, Edge, Brave y Opera;
+ * - `*.push.services.mozilla.com`: Firefox;
+ * - `web.push.apple.com`: Safari y las aplicaciones web en iOS;
+ * - `*.notify.windows.com`: Windows.
+ *
+ * Si aparece otro servicio legitimo, se agrega aqui y se explica en
+ * `docs/seguridad.md`.
+ */
+const SERVICIOS_DE_PUSH_EXACTOS: readonly string[] = ['fcm.googleapis.com', 'web.push.apple.com'];
+const SERVICIOS_DE_PUSH_CON_SUBDOMINIO: readonly string[] = [
+  '.push.services.mozilla.com',
+  '.notify.windows.com',
+];
+
+function esUnServicioDePushConocido(servidor: string): boolean {
+  return (
+    SERVICIOS_DE_PUSH_EXACTOS.includes(servidor) ||
+    // El punto del sufijo exige un nombre delante: `push.services.mozilla.com`
+    // a secas no sirve, y `xpush.services.mozilla.com` tampoco.
+    SERVICIOS_DE_PUSH_CON_SUBDOMINIO.some(
+      (sufijo) => servidor.endsWith(sufijo) && servidor.length > sufijo.length,
+    )
+  );
+}
+
+/**
+ * Si la direccion es la de un servicio de push conocido.
+ *
+ * Se comprueba al suscribirse y otra vez antes de cada envio: una suscripcion
+ * guardada antes de que existiera la lista no tiene por que salvarse de ella.
+ */
+export function esLaDireccionDeUnServicioDePush(endpoint: string): boolean {
+  let direccion: URL;
+
+  try {
+    direccion = new URL(endpoint);
+  } catch {
+    return false;
+  }
+
+  // Un servicio de push de verdad no lleva usuario, contrasena ni puerto. El
+  // servidor tiene que coincidir letra por letra con el texto recibido: aqui
+  // se lee con `URL`, pero `web-push` lee la direccion con el `url.parse`
+  // antiguo, y los dos entienden distinto algo como `\@`. No se acepta nada
+  // que obligue a elegir cual de los dos tiene la razon.
+  return (
+    direccion.protocol === 'https:' &&
+    direccion.username === '' &&
+    direccion.password === '' &&
+    direccion.port === '' &&
+    endpoint.startsWith(`https://${direccion.hostname}/`) &&
+    esUnServicioDePushConocido(direccion.hostname)
+  );
+}
+
 /** Comprueba una suscripcion que llega del navegador. */
 export function suscripcionValida(suscripcion: SuscripcionPush): SuscripcionPush {
   let direccion: URL;
@@ -124,6 +198,12 @@ export function suscripcionValida(suscripcion: SuscripcionPush): SuscripcionPush
 
   if (suscripcion.endpoint.length > LARGO_MAXIMO_DEL_ENDPOINT) {
     throw new InvalidNotificationSettingError('la direccion del navegador es demasiado larga');
+  }
+
+  if (!esLaDireccionDeUnServicioDePush(suscripcion.endpoint)) {
+    throw new InvalidNotificationSettingError(
+      'la direccion del navegador no es la de un servicio de avisos conocido',
+    );
   }
 
   if (!CLAVE.test(suscripcion.p256dh) || !CLAVE.test(suscripcion.auth)) {

@@ -183,6 +183,46 @@ Ocultar un boton no es un control de acceso. Toda restriccion visible en
 la interfaz debe existir tambien en el backend. La interfaz mejora la
 experiencia; el backend es quien decide.
 
+### A donde llama el API: los avisos push (SCRUM-153)
+
+Para mandar un aviso, el API hace una peticion HTTPS a la direccion que el
+navegador le entrego al suscribirse. Esa direccion llega de la persona, asi que
+es entrada no confiable: si cualquiera pudiera ser, una cuenta lograria que el
+servidor llamara a donde quisiera (SSRF), por ejemplo a la red interna del
+proveedor o a un servicio de metadatos.
+
+`suscripcionValida` (en `Aviso.ts`) solo acepta direcciones de los servicios de
+push que existen de verdad:
+
+| Servicio                     | Direccion                     | Navegadores                |
+| ---------------------------- | ----------------------------- | -------------------------- |
+| Firebase Cloud Messaging     | `fcm.googleapis.com`          | Chrome, Edge, Brave, Opera |
+| Mozilla autopush             | `*.push.services.mozilla.com` | Firefox                    |
+| Apple                        | `web.push.apple.com`          | Safari, aplicaciones iOS   |
+| Windows Notification Service | `*.notify.windows.com`        | Windows                    |
+
+Ademas rechaza lo que no tiene un servicio de push de verdad: usuario,
+contrasena, puerto, direcciones IP, un punto al final del nombre y todo lo que
+`URL` y el `url.parse` de `web-push` puedan leer distinto (como `\@`). El
+nombre tiene que ser, letra por letra, el del texto recibido. El mensaje de
+error no repite la direccion.
+
+- **Un servicio nuevo.** Si aparece otro servicio legitimo, se agrega a la lista
+  de `Aviso.ts`, con su prueba en `Aviso.spec.ts`, y se anota en esta tabla. Un
+  navegador cuyo servicio no este en la lista recibe un `400` (`AVISO_INVALIDO`)
+  al activar los avisos y el resto de la aplicacion sigue igual.
+- **Las suscripciones que ya estaban guardadas** se revisan antes de cada envio
+  con la misma regla: si la direccion no es de uno de estos servicios no se manda
+  nada y se cuenta como caducada, que es lo que la quita de la base.
+- **Un tope de diez navegadores por cuenta.** Al pasar de diez, entra el nuevo y
+  sale el mas antiguo; no se rechaza, para que quien dejo navegadores viejos sin
+  cerrar sesion pueda activar los avisos en el de hoy. Sin el tope, una cuenta
+  podia guardar suscripciones sin limite y volver lenta la revision de avisos.
+- **Diez segundos de espera.** `WebPushEnviador` pasa `timeout` a `web-push`: un
+  servicio que no contesta no deja la conexion abierta, que detendria la
+  revision (entrega de a un navegador). Es un limite de inactividad del
+  socket, no del total de la respuesta.
+
 ---
 
 ## 4. Almacenamiento en el dispositivo

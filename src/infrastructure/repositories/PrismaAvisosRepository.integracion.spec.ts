@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TipoDeAviso } from '../../domain/model/Aviso.js';
+import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -573,6 +573,50 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           .rowCount,
       ).toBe(0);
       expect((await conAjustes(enElNavegador, 'DELETE FROM suscripcion_push')).rowCount).toBe(1);
+    });
+
+    describe('el tope por cuenta (SCRUM-153)', () => {
+      const navegador = (numero: number) => ({
+        endpoint: `https://fcm.googleapis.com/fcm/send/10210210-tope-${numero}`,
+        p256dh: 'clave-p256dh',
+        auth: 'clave-auth',
+      });
+
+      it('al pasar el tope sale la mas antigua y las demas se quedan', async () => {
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 2; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        const quedan = (await avisos.suscripcionesDe(new UserId(ANA))).map((una) => una.endpoint);
+
+        expect(quedan).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+        expect(quedan).not.toContain(navegador(1).endpoint);
+        expect(quedan).not.toContain(navegador(2).endpoint);
+        expect(quedan).toContain(navegador(3).endpoint);
+        expect(quedan).toContain(navegador(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 2).endpoint);
+      });
+
+      it('el tope es de cada cuenta', async () => {
+        await avisos.suscribir(new UserId(BETO), navegador(500));
+
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 3; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        await expect(avisos.suscripcionesDe(new UserId(BETO))).resolves.toEqual([navegador(500)]);
+      });
+
+      it('renovar un navegador ya guardado no hace salir a ninguno', async () => {
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        await avisos.suscribir(new UserId(ANA), navegador(1));
+
+        await expect(avisos.suscripcionesDe(new UserId(ANA))).resolves.toHaveLength(
+          MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+        );
+      });
     });
 
     it('se borran con la cuenta', async () => {

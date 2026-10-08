@@ -3,7 +3,7 @@ import type { PreferenciasDeAviso } from '../../model/Aviso.js';
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { Pendiente } from '../../model/Pendiente.js';
-import type { User } from '../../model/User.js';
+import type { ConsentimientoAceptado, User } from '../../model/User.js';
 import type { FotoLeida } from './FotoDePerfilUseCase.js';
 import type { MascotaPropiaLeida } from './MascotaPropiaUseCase.js';
 
@@ -11,6 +11,11 @@ import type { MascotaPropiaLeida } from './MascotaPropiaUseCase.js';
 export interface DatosExportados {
   readonly generadoEn: Date;
   readonly cuenta: User;
+  /**
+   * Todo lo que acepto alguna vez, version por version (L-05 de la auditoria
+   * 360). La cuenta dice lo vigente; aqui esta tambien lo anterior.
+   */
+  readonly consentimientos: readonly ConsentimientoAceptado[];
   readonly resultados: readonly ActivityResult[];
   readonly entradasDeDiario: readonly EntradaDeDiario[];
   /** Los del semaforo, hechos o no (SCRUM-97). */

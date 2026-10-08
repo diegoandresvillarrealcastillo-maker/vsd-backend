@@ -9,6 +9,7 @@ import {
   NoActiveModulesError,
   UnknownModuleError,
 } from './DomainError.js';
+import { FechaDeNacimiento } from './FechaDeNacimiento.js';
 import { UserId } from './Identifier.js';
 import { type DatosDeUsuario, EDAD_MINIMA, Rol, User } from './User.js';
 
@@ -100,6 +101,94 @@ describe('El consentimiento de tratamiento de datos', () => {
 
     expect(usuario.consentimiento?.versionPolitica).toBe('1.0');
     expect(usuario.consentimiento?.aceptadoEn.toISOString()).toBe('2026-09-16T10:00:00.000Z');
+  });
+});
+
+describe('El registro completo: la edad y los terminos (auditoria 360)', () => {
+  const registro = {
+    fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+    consentimiento: {
+      versionPolitica: '2026-09-1',
+      aceptadoEn: new Date('2026-09-16T11:00:00.000Z'),
+    },
+    terminos: { versionPolitica: '2026-10-1', aceptadoEn: new Date('2026-09-16T11:00:00.000Z') },
+  };
+
+  it('una cuenta sin fecha ni terminos tiene el registro incompleto', () => {
+    expect(User.create(datos(), AHORA).registroCompleto()).toBe(false);
+  });
+
+  it('con la fecha y los terminos esta completo', () => {
+    const usuario = User.create(
+      datos({ fechaDeNacimiento: registro.fechaDeNacimiento, terminos: registro.terminos }),
+      AHORA,
+    );
+
+    expect(usuario.registroCompleto()).toBe(true);
+  });
+
+  it.each([
+    ['solo con la fecha', { fechaDeNacimiento: registro.fechaDeNacimiento }],
+    ['solo con los terminos', { terminos: registro.terminos }],
+  ])('%s sigue incompleto', (_caso, parcial) => {
+    expect(User.create(datos(parcial), AHORA).registroCompleto()).toBe(false);
+  });
+
+  it('completar el registro devuelve otra cuenta con todo lo demas igual', () => {
+    const antes = User.create(datos({ nombre: 'Ana', zonaHoraria: 'Europe/Madrid' }), AHORA);
+
+    const despues = antes.conRegistroCompleto(registro, AHORA);
+
+    expect(despues.registroCompleto()).toBe(true);
+    expect(despues.fechaDeNacimiento?.valor).toBe('1998-03-14');
+    expect(despues.terminos?.versionPolitica).toBe('2026-10-1');
+    expect(despues.consentimiento?.versionPolitica).toBe('2026-09-1');
+    expect(despues.nombre).toBe('Ana');
+    expect(despues.zonaHoraria).toBe('Europe/Madrid');
+    expect(despues.id.value).toBe(USUARIO_A);
+    // La anterior no cambio.
+    expect(antes.registroCompleto()).toBe(false);
+    expect(antes.consentimiento?.versionPolitica).toBe('1.0');
+  });
+
+  it('el resto de los cambios no pierde el registro', () => {
+    const completa = User.create(datos(), AHORA).conRegistroCompleto(registro, AHORA);
+
+    expect(completa.conPreferencias({ nombre: 'Ana' }).registroCompleto()).toBe(true);
+    expect(completa.conZonaHoraria('Asia/Tokyo').registroCompleto()).toBe(true);
+    expect(completa.conFoto(AHORA).registroCompleto()).toBe(true);
+  });
+
+  it('completar con una version vacia o una fecha del futuro se rechaza', () => {
+    const cuenta = User.create(datos(), AHORA);
+    const futuro = new Date(AHORA.getTime() + 86400000);
+
+    expect(() =>
+      cuenta.conRegistroCompleto(
+        { ...registro, terminos: { versionPolitica: '  ', aceptadoEn: AHORA } },
+        AHORA,
+      ),
+    ).toThrow(MissingConsentError);
+    expect(() =>
+      cuenta.conRegistroCompleto(
+        { ...registro, consentimiento: { versionPolitica: '2026-09-1', aceptadoEn: futuro } },
+        AHORA,
+      ),
+    ).toThrow(FutureConsentDateError);
+  });
+
+  it('los terminos se validan como el aviso al construir la cuenta', () => {
+    expect(() =>
+      User.create(datos({ terminos: { versionPolitica: '', aceptadoEn: AHORA } }), AHORA),
+    ).toThrow(MissingConsentError);
+    expect(() =>
+      User.create(
+        datos({
+          terminos: { versionPolitica: '2026-10-1', aceptadoEn: new Date(AHORA.getTime() + 1000) },
+        }),
+        AHORA,
+      ),
+    ).toThrow(FutureConsentDateError);
   });
 });
 

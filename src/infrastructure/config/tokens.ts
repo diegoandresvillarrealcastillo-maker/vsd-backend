@@ -50,6 +50,9 @@ export const ALMACEN_DE_FOTOS = Symbol('AlmacenDeFotos');
 export const MASCOTA_PROPIA = Symbol('MascotaPropiaUseCase');
 export const ALMACEN_DE_MASCOTAS = Symbol('AlmacenDeMascotas');
 
+/** Donde se anotan los hechos de seguridad (SCRUM-163). */
+export const REGISTRO_DE_SEGURIDAD = Symbol('RegistroDeSeguridadPort');
+
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 
@@ -61,6 +64,9 @@ export const RECURSO_APOYO_REPOSITORY = Symbol('RecursoApoyoRepositoryPort');
  * unico sitio donde se elige entre ese y el que use un modelo de lenguaje.
  */
 export const ASISTENTE = Symbol('AsistentePort');
+
+/** Las reglas de VSD IA que se aplican en el dispositivo, sin conexion (SCRUM-141). */
+export const CONSULTAR_REGLAS_LOCALES = Symbol('ConsultarLasReglasLocalesUseCase');
 
 /** El sendero de cada modulo activo. */
 export const CONSULTAR_PROGRESO = Symbol('ConsultarProgresoUseCase');

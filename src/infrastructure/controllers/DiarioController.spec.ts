@@ -33,6 +33,25 @@ function cuerpoDe(respuesta: request.Response): Record<string, unknown> {
   return respuesta.body as Record<string, unknown>;
 }
 
+/**
+ * Las 12:00 en Bogota, el calendario del diario. Las pruebas de la hora del
+ * dispositivo (SCRUM-144) escriben "hace cinco horas"; con el reloj real, entre las
+ * 0:00 y las 5:00 de Bogota eso cae antes de que empiece el dia de hoy y el
+ * servidor lo descarta a proposito (`noAntesDe`), asi que fallaban segun la hora a
+ * la que se corrieran (SCRUM-162).
+ */
+const MEDIODIA_EN_BOGOTA = new Date('2026-10-07T17:00:00Z');
+
+/**
+ * Pone el reloj (solo `Date`) a mediodia y devuelve la hora de hace cinco horas,
+ * que siempre cae hoy. `afterEach` suelta el reloj.
+ */
+function haceCincoHoras(): Date {
+  vi.useFakeTimers({ toFake: ['Date'], now: MEDIODIA_EN_BOGOTA });
+
+  return new Date(Date.now() - 5 * 60 * 60_000);
+}
+
 async function levantarAplicacion(): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
@@ -141,7 +160,7 @@ describe('/api/diario', () => {
     });
 
     it('escrita sin conexion, conserva la hora del dispositivo y no la de cuando llega (SCRUM-144)', async () => {
-      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+      const nueve = haceCincoHoras();
 
       const respuesta = await escribir(A, {
         clientOperationId: operacion(),
@@ -184,7 +203,7 @@ describe('/api/diario', () => {
     );
 
     it('un reintento con otra hora devuelve lo que ya se guardo, con la hora de entonces', async () => {
-      const nueve = new Date(Date.now() - 5 * 60 * 60_000).toISOString();
+      const nueve = haceCincoHoras().toISOString();
       const cuerpo = { clientOperationId: operacion(), contenido: documentoCon('Una sola vez') };
 
       const primera = await escribir(A, { ...cuerpo, escritaEn: nueve }).expect(201);
@@ -352,7 +371,7 @@ describe('/api/diario', () => {
     });
 
     it('corregida sin conexion dentro de su hora, se aplica aunque llegue horas despues (SCRUM-144)', async () => {
-      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+      const nueve = haceCincoHoras();
       const nueveYMedia = new Date(nueve.getTime() + 30 * 60_000);
       const creada = await escribir(A, {
         clientOperationId: operacion(),
@@ -377,7 +396,7 @@ describe('/api/diario', () => {
     });
 
     it('una correccion hecha pasada la hora de la anotacion responde 409, llegue cuando llegue', async () => {
-      const nueve = new Date(Date.now() - 5 * 60 * 60_000);
+      const nueve = haceCincoHoras();
       const creada = await escribir(A, {
         clientOperationId: operacion(),
         contenido: documentoCon('Escrita a las 9:00'),

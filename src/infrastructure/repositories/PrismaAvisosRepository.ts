@@ -11,6 +11,33 @@ function fechaDelDia(dia: Dia): Date {
   return new Date(`${dia}T00:00:00.000Z`);
 }
 
+/**
+ * Que ese aviso todavia no se haya revisado hoy.
+ *
+ * Es la misma condicion para saber a quien le toca y para reclamar el aviso
+ * (`marcarRevisado`), y tiene que serlo: si las dos preguntaran cosas distintas,
+ * a alguien le tocaria un aviso que despues no se le deja reclamar, o al reves.
+ */
+function sinRevisarHoy(tipo: TipoDeAviso, hoy: Date): Prisma.PreferenciaAvisoWhereInput {
+  const semaforoSinRevisar = [{ ultimoAvisoSemaforo: null }, { ultimoAvisoSemaforo: { lt: hoy } }];
+  const mananaSinRevisar = [{ ultimoAvisoManana: null }, { ultimoAvisoManana: { lt: hoy } }];
+  const rachaSinRevisar = [{ ultimoAvisoRacha: null }, { ultimoAvisoRacha: { lt: hoy } }];
+  const nocheSinRevisar = [{ ultimoAvisoNoche: null }, { ultimoAvisoNoche: { lt: hoy } }];
+
+  switch (tipo) {
+    case TipoDeAviso.SEMAFORO:
+      return { OR: semaforoSinRevisar };
+    case TipoDeAviso.MANANA:
+      return { OR: mananaSinRevisar };
+    // La racha y la noche invitan a lo mismo: una sola por dia, la primera
+    // que llegue. Si la otra ya se reviso hoy, esta no le toca.
+    case TipoDeAviso.RACHA:
+      return { AND: [{ OR: rachaSinRevisar }, { OR: nocheSinRevisar }] };
+    case TipoDeAviso.NOCHE:
+      return { AND: [{ OR: nocheSinRevisar }, { OR: rachaSinRevisar }] };
+  }
+}
+
 /** A quien le toca `tipo`: su zona, su hora en la ventana y ese aviso sin revisar hoy. */
 function criterioDeQuienLeToca(
   tipo: TipoDeAviso,
@@ -20,31 +47,17 @@ function criterioDeQuienLeToca(
   hoy: Date,
 ): Prisma.PreferenciaAvisoWhereInput {
   const ventana = { gte: desde, lte: hasta };
-  // El mismo aviso ya se reviso hoy, o no.
-  const semaforoSinRevisar = [{ ultimoAvisoSemaforo: null }, { ultimoAvisoSemaforo: { lt: hoy } }];
-  const mananaSinRevisar = [{ ultimoAvisoManana: null }, { ultimoAvisoManana: { lt: hoy } }];
-  const rachaSinRevisar = [{ ultimoAvisoRacha: null }, { ultimoAvisoRacha: { lt: hoy } }];
-  const nocheSinRevisar = [{ ultimoAvisoNoche: null }, { ultimoAvisoNoche: { lt: hoy } }];
+  const sinRevisar = sinRevisarHoy(tipo, hoy);
 
   switch (tipo) {
     case TipoDeAviso.SEMAFORO:
-      return { zonaHoraria: zona, minutoSemaforo: ventana, OR: semaforoSinRevisar };
+      return { zonaHoraria: zona, minutoSemaforo: ventana, ...sinRevisar };
     case TipoDeAviso.MANANA:
-      return { zonaHoraria: zona, minutoManana: ventana, OR: mananaSinRevisar };
-    // La racha y la noche invitan a lo mismo: una sola por dia, la primera
-    // que llegue. Si la otra ya se reviso hoy, esta no le toca.
+      return { zonaHoraria: zona, minutoManana: ventana, ...sinRevisar };
     case TipoDeAviso.RACHA:
-      return {
-        zonaHoraria: zona,
-        minutoRacha: ventana,
-        AND: [{ OR: rachaSinRevisar }, { OR: nocheSinRevisar }],
-      };
+      return { zonaHoraria: zona, minutoRacha: ventana, ...sinRevisar };
     case TipoDeAviso.NOCHE:
-      return {
-        zonaHoraria: zona,
-        minutoNoche: ventana,
-        AND: [{ OR: nocheSinRevisar }, { OR: rachaSinRevisar }],
-      };
+      return { zonaHoraria: zona, minutoNoche: ventana, ...sinRevisar };
   }
 }
 
@@ -177,12 +190,21 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
     return filas.map((fila) => new UserId(fila.idUsuario));
   }
 
-  async marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<void> {
+  /**
+   * Reclama el aviso de hoy con **una sola sentencia**: `UPDATE ... WHERE` el
+   * aviso sigue sin revisar. Si dos revisiones llegan a la vez, PostgreSQL deja
+   * pasar a una y a la otra la hace esperar a que termine; al reevaluar el
+   * `WHERE` sobre la fila ya cambiada, ya no coincide, y actualiza cero filas.
+   * Quien actualiza una fila lo gano; quien actualiza cero se aparta.
+   *
+   * Leer primero y escribir despues dejaria una ventana entre las dos cosas.
+   */
+  async marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<boolean> {
     const hoy = fechaDelDia(dia);
 
-    await this.prisma.comoUsuario(userId.value, (cliente) =>
+    const { count } = await this.prisma.comoUsuario(userId.value, (cliente) =>
       cliente.preferenciaAviso.updateMany({
-        where: { idUsuario: userId.value },
+        where: { idUsuario: userId.value, ...sinRevisarHoy(tipo, hoy) },
         data: {
           [TipoDeAviso.SEMAFORO]: { ultimoAvisoSemaforo: hoy },
           [TipoDeAviso.RACHA]: { ultimoAvisoRacha: hoy },
@@ -191,5 +213,7 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
         }[tipo],
       }),
     );
+
+    return count > 0;
   }
 }

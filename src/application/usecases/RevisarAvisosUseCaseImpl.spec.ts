@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type {
   MensajeDeAviso,
   PreferenciasDeAviso,
@@ -13,7 +12,7 @@ import type { ActivityResultRepositoryPort } from '../../domain/ports/out/Activi
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { Entrega, EnviadorDePushPort } from '../../domain/ports/out/EnviadorDePushPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
-import { RevisarAvisosUseCaseImpl } from './RevisarAvisosUseCaseImpl.js';
+import { PERSONAS_A_LA_VEZ, RevisarAvisosUseCaseImpl } from './RevisarAvisosUseCaseImpl.js';
 
 const ANA = '11111111-1111-4111-8111-111111111111';
 const BETO = '22222222-2222-4222-9222-222222222222';
@@ -128,10 +127,23 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     );
   }
 
-  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia) {
-    this.revisados.set(`${userId.value}:${tipo}`, dia);
+  /** Los que otra revision ya reclamo (`persona:tipo`), aunque `aQuienLeToca` los siga devolviendo. */
+  readonly yaReclamados = new Set<string>();
+  /** Cuantas veces se pregunto, y cuantas a la vez. */
+  llamadas = 0;
 
-    return Promise.resolve();
+  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia) {
+    const clave = `${userId.value}:${tipo}`;
+
+    this.llamadas += 1;
+
+    if (this.yaReclamados.has(clave) || this.revisados.get(clave) === dia) {
+      return Promise.resolve(false);
+    }
+
+    this.revisados.set(clave, dia);
+
+    return Promise.resolve(true);
   }
 }
 
@@ -193,29 +205,52 @@ function pendientes(porPersona: Record<string, string[]>): PendientesRepositoryP
 /** Quien hizo alguna actividad desde el inicio del dia. */
 function resultados(conActividadHoy: string[]): ActivityResultRepositoryPort {
   return {
-    ultimosDe: (userId: UserId) =>
-      Promise.resolve(
-        conActividadHoy.includes(userId.value) ? [{} as unknown as ActivityResult] : [],
-      ),
+    hayActividadDesde: (userId: UserId) => Promise.resolve(conActividadHoy.includes(userId.value)),
   } as unknown as ActivityResultRepositoryPort;
+}
+
+/** Un servicio de push que tarda un poco, para ver cuantos envios hay a la vez. */
+class EnviadorLento extends EnviadorDePrueba {
+  enVuelo = 0;
+  maximoEnVuelo = 0;
+
+  override async enviar(suscripcion: SuscripcionPush, mensaje: MensajeDeAviso): Promise<Entrega> {
+    this.enVuelo += 1;
+    this.maximoEnVuelo = Math.max(this.maximoEnVuelo, this.enVuelo);
+
+    await new Promise<void>((resolver) => setTimeout(resolver, 3));
+
+    this.enVuelo -= 1;
+
+    return super.enviar(suscripcion, mensaje);
+  }
 }
 
 function armar({
   conPendientes = { [ANA]: ['Pagar la matrícula', 'Pedir cita'] },
   conActividadHoy = [],
-}: { conPendientes?: Record<string, string[]>; conActividadHoy?: string[] } = {}) {
+  enviador = new EnviadorDePrueba(),
+  personasALaVez,
+}: {
+  conPendientes?: Record<string, string[]>;
+  conActividadHoy?: string[];
+  enviador?: EnviadorDePrueba;
+  personasALaVez?: number;
+} = {}) {
   const avisos = new AvisosDePrueba();
-  const enviador = new EnviadorDePrueba();
   const fallos: unknown[] = [];
-  const revision = new RevisarAvisosUseCaseImpl(
-    avisos,
-    enviador,
-    pendientes(conPendientes),
-    resultados(conActividadHoy),
-    { fallo: (_tipo, error) => fallos.push(error) },
-  );
+  const montar = (compartidos: AvisosDePrueba = avisos) =>
+    new RevisarAvisosUseCaseImpl(
+      compartidos,
+      enviador,
+      pendientes(conPendientes),
+      resultados(conActividadHoy),
+      { fallo: (_tipo, error) => fallos.push(error) },
+      personasALaVez,
+    );
+  const revision = montar();
 
-  return { avisos, enviador, revision, fallos };
+  return { avisos, enviador, revision, fallos, montar };
 }
 
 describe('la revision de cada minuto', () => {
@@ -257,8 +292,18 @@ describe('la revision de cada minuto', () => {
 
     avisos.elegir(ANA, 480, null);
 
-    expect(await revision.revisar(minutos(-1))).toEqual({ entregados: 0, caducadas: 0 });
-    expect(await revision.revisar(OCHO)).toEqual({ entregados: 1, caducadas: 0 });
+    expect(await revision.revisar(minutos(-1))).toEqual({
+      personas: 0,
+      entregados: 0,
+      caducadas: 0,
+      fallos: 0,
+    });
+    expect(await revision.revisar(OCHO)).toEqual({
+      personas: 1,
+      entregados: 1,
+      caducadas: 0,
+      fallos: 0,
+    });
     expect(enviador.para(ANA)).toEqual([
       expect.objectContaining({
         tipo: 'semaforo',
@@ -348,8 +393,8 @@ describe('la revision de cada minuto', () => {
 
       avisos.recordatorios(ANA, 480, null);
 
-      expect(await revision.revisar(minutos(-1))).toEqual({ entregados: 0, caducadas: 0 });
-      expect(await revision.revisar(OCHO)).toEqual({ entregados: 1, caducadas: 0 });
+      expect(await revision.revisar(minutos(-1))).toMatchObject({ personas: 0, entregados: 0 });
+      expect(await revision.revisar(OCHO)).toMatchObject({ personas: 1, entregados: 1 });
       expect(enviador.para(ANA)).toEqual([
         expect.objectContaining({ tipo: 'manana', ruta: '/panel' }),
       ]);
@@ -423,11 +468,11 @@ describe('la revision de cada minuto', () => {
 
       avisos.recordatorios(ANA, null, 1200);
 
-      expect(await revision.revisar(new Date(VEINTE.getTime() - 60_000))).toEqual({
+      expect(await revision.revisar(new Date(VEINTE.getTime() - 60_000))).toMatchObject({
+        personas: 0,
         entregados: 0,
-        caducadas: 0,
       });
-      expect(await revision.revisar(VEINTE)).toEqual({ entregados: 1, caducadas: 0 });
+      expect(await revision.revisar(VEINTE)).toMatchObject({ personas: 1, entregados: 1 });
       expect(enviador.para(ANA)).toEqual([
         expect.objectContaining({ tipo: 'noche', ruta: '/panel' }),
       ]);
@@ -505,7 +550,7 @@ describe('la revision de cada minuto', () => {
     avisos.elegir(ANA, 480, null);
     enviador.caducadas.add(`https://push.example.com/${ANA}`);
 
-    expect(await revision.revisar(OCHO)).toEqual({ entregados: 0, caducadas: 1 });
+    expect(await revision.revisar(OCHO)).toMatchObject({ entregados: 0, caducadas: 1, fallos: 0 });
     expect(await avisos.suscripcionesDe(new UserId(ANA))).toEqual([]);
   });
 
@@ -530,7 +575,145 @@ describe('la revision de cada minuto', () => {
     avisos.elegir(ANA, 480, 480);
     enviador.clavePublica = null;
 
-    expect(await revision.revisar(OCHO)).toEqual({ entregados: 0, caducadas: 0 });
+    expect(await revision.revisar(OCHO)).toEqual({
+      personas: 0,
+      entregados: 0,
+      caducadas: 0,
+      fallos: 0,
+    });
     expect(avisos.revisados.size).toBe(0);
+  });
+});
+
+describe('la revision con varias personas a la vez (SCRUM-160)', () => {
+  /** Un identificador de prueba por numero. */
+  const persona = (numero: number) => `55555555-5555-4555-8555-${String(numero).padStart(12, '0')}`;
+
+  function muchas(cuantas: number) {
+    const gente = Array.from({ length: cuantas }, (_, indice) => persona(indice + 1));
+
+    return {
+      gente,
+      conPendientes: Object.fromEntries(gente.map((una) => [una, ['Algo pendiente']])),
+    };
+  }
+
+  it('si otra revision ya reclamo el aviso, esta no manda nada ni lo cuenta', async () => {
+    const { avisos, enviador, revision, fallos } = armar();
+
+    avisos.elegir(ANA, 480, null);
+    // Otra instancia se adelanto: `aQuienLeToca` todavia la devuelve, pero el reclamo ya no.
+    avisos.yaReclamados.add(`${ANA}:semaforo`);
+
+    expect(await revision.revisar(OCHO)).toEqual({
+      personas: 0,
+      entregados: 0,
+      caducadas: 0,
+      fallos: 0,
+    });
+    expect(enviador.entregados).toEqual([]);
+    expect(fallos).toEqual([]);
+  });
+
+  it('dos revisiones a la vez mandan cada aviso una sola vez', async () => {
+    const { gente, conPendientes } = muchas(20);
+    const { avisos, enviador, montar } = armar({ conPendientes });
+
+    for (const una of gente) {
+      avisos.elegir(una, 480, null);
+    }
+
+    // Dos instancias del API con los mismos datos, como durante un despliegue.
+    const [uno, otro] = await Promise.all([montar().revisar(OCHO), montar().revisar(OCHO)]);
+
+    expect(enviador.entregados).toHaveLength(20);
+    expect(new Set(enviador.entregados.map((entrega) => entrega.endpoint)).size).toBe(20);
+    // Entre las dos atendieron a cada persona exactamente una vez.
+    expect(uno.personas + otro.personas).toBe(20);
+    expect(uno.entregados + otro.entregados).toBe(20);
+  });
+
+  it('atiende a varias personas a la vez, pero nunca mas que el tope', async () => {
+    const { gente, conPendientes } = muchas(24);
+    const enviador = new EnviadorLento();
+    const { avisos, revision } = armar({ conPendientes, enviador, personasALaVez: 3 });
+
+    for (const una of gente) {
+      avisos.elegir(una, 480, null);
+    }
+
+    const resumen = await revision.revisar(OCHO);
+
+    expect(resumen).toMatchObject({ personas: 24, entregados: 24, fallos: 0 });
+    // Con una navegador por persona, los envios a la vez son las personas a la vez.
+    expect(enviador.maximoEnVuelo).toBe(3);
+    expect(enviador.enVuelo).toBe(0);
+  });
+
+  it('con el tope de fabrica no pasa de PERSONAS_A_LA_VEZ', async () => {
+    const { gente, conPendientes } = muchas(30);
+    const enviador = new EnviadorLento();
+    const { avisos, revision } = armar({ conPendientes, enviador });
+
+    for (const una of gente) {
+      avisos.elegir(una, 480, null);
+    }
+
+    await revision.revisar(OCHO);
+
+    expect(enviador.maximoEnVuelo).toBe(PERSONAS_A_LA_VEZ);
+  });
+
+  it('los navegadores de una misma persona se avisan a la vez, no uno tras otro', async () => {
+    const enviador = new EnviadorLento();
+    const { avisos, revision } = armar({ enviador, personasALaVez: 1 });
+
+    avisos.elegir(ANA, 480, null);
+    avisos.suscripciones.set(
+      ANA,
+      Array.from({ length: 5 }, (_, indice) => ({
+        endpoint: `https://push.example.com/${indice}/${ANA}`,
+        p256dh: 'p',
+        auth: 'a',
+      })),
+    );
+
+    const resumen = await revision.revisar(OCHO);
+
+    expect(resumen).toMatchObject({ personas: 1, entregados: 5 });
+    expect(enviador.maximoEnVuelo).toBe(5);
+  });
+
+  it('cuenta los fallos sin detener a nadie', async () => {
+    const { avisos, enviador, revision, fallos } = armar({
+      conPendientes: { [ANA]: ['uno'], [BETO]: ['otro'] },
+    });
+
+    avisos.elegir(ANA, 480, null);
+    avisos.elegir(BETO, 480, null);
+    avisos.elegir('66666666-6666-4666-8666-666666666666', 480, null, 'Marte/Olympus');
+    enviador.fallan.add(`https://push.example.com/${ANA}`);
+
+    const resumen = await revision.revisar(OCHO);
+
+    // Ana fallo, la zona de Marte fallo, y Beto recibio el suyo.
+    expect(resumen).toMatchObject({ personas: 2, entregados: 1, fallos: 2 });
+    expect(fallos).toHaveLength(2);
+    expect(enviador.para(BETO)).toHaveLength(1);
+  });
+
+  it('con mas personas que el tope, todas reciben su aviso', async () => {
+    const { gente, conPendientes } = muchas(50);
+    const { avisos, enviador, revision } = armar({ conPendientes, personasALaVez: 4 });
+
+    for (const una of gente) {
+      avisos.elegir(una, 480, null);
+    }
+
+    await revision.revisar(OCHO);
+
+    expect(new Set(enviador.entregados.map((entrega) => entrega.endpoint))).toEqual(
+      new Set(gente.map((una) => `https://push.example.com/${una}`)),
+    );
   });
 });

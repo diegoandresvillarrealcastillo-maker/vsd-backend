@@ -17,6 +17,7 @@ import type { ActivityResultRepositoryPort } from '../../domain/ports/out/Activi
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { EnviadorDePushPort } from '../../domain/ports/out/EnviadorDePushPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import { conTope } from '../conTope.js';
 
 /**
  * Cuanto puede llegar tarde un aviso. Si el servidor estuvo parado a la hora
@@ -25,10 +26,29 @@ import type { PendientesRepositoryPort } from '../../domain/ports/out/Pendientes
  */
 export const MINUTOS_DE_GRACIA = 30;
 
+/**
+ * Cuantas personas se atienden a la vez en una revision.
+ *
+ * Cada persona toma una conexion de la base mientras se le reclama el aviso y
+ * se lee lo suyo. El pool de conexiones del API es de 10 (el de `pg` por
+ * defecto), y las peticiones de la gente salen del mismo: con 4, una revision
+ * grande deja 6 libres para ellas. Subirlo sin subir el pool solo haria que las
+ * peticiones esperen turno detras de los avisos.
+ *
+ * Lo que mas tarda no es la base sino esperar al servicio de push (hasta 10 s
+ * por navegador), y mientras se espera la conexion ya esta libre: por eso unas
+ * pocas personas a la vez bastan para que la revision no sea una fila de
+ * esperas una detras de otra.
+ */
+export const PERSONAS_A_LA_VEZ = 4;
+
 /** Para el registro: que fallo sin contar de quien. `zona` es una zona que no se pudo leer. */
 export interface RegistroDeAvisos {
   fallo(tipo: TipoDeAviso | 'zona', error: unknown): void;
 }
+
+/** Las cuentas de una revision, que van sumando las personas atendidas a la vez. */
+type Cuentas = { -readonly [clave in keyof ResumenDeLaRevision]: number };
 
 /**
  * La revision de cada minuto (SCRUM-102).
@@ -42,15 +62,21 @@ export interface RegistroDeAvisos {
  *
  * 1. Pregunta a quien le toca: su hora cae en la ultima media hora y hoy
  *    todavia no se reviso. Es lo unico que se mira de todos a la vez.
- * 2. Lo marca revisado **antes** de mandar nada. Si mandar falla a medias,
- *    se pierde un aviso; al reves se mandaria dos veces, y un aviso repetido
- *    molesta mas que uno que no llego.
- * 3. Decide el mensaje en nombre de la persona: sin pendientes no hay aviso
- *    del semaforo, y quien ya hizo una actividad hoy no recibe el de la racha
- *    ni el de la noche. El de la manana sale siempre.
- * 4. Lo entrega a cada navegador suyo. Un navegador que ya no existe se suelta.
+ * 2. Con varias personas a la vez (`PERSONAS_A_LA_VEZ`), a cada una:
+ *    a. **Reclama** su aviso de hoy antes de mandar nada. El reclamo es una sola
+ *       operacion de la base y solo uno lo gana: si otra revision se adelanto
+ *       (dos instancias del API durante un despliegue), esta se aparta y no hay
+ *       aviso doble. Y si mandar falla a medias se pierde un aviso; al reves se
+ *       mandaria dos veces, y un aviso repetido molesta mas que uno que no llego.
+ *    b. Decide el mensaje en nombre de la persona: sin pendientes no hay aviso
+ *       del semaforo, y quien ya hizo una actividad hoy no recibe el de la
+ *       racha ni el de la noche. El de la manana sale siempre.
+ *    c. Lo entrega a cada navegador suyo, todos a la vez (son diez como
+ *       maximo). Un navegador que ya no existe se suelta.
  *
- * Lo que falle con una persona no detiene a las demas.
+ * Todo lo que se lee de una persona va en su nombre, con el aislamiento intacto:
+ * no se abrio ninguna lectura de varias cuentas a la vez. Lo que falle con una
+ * persona no detiene a las demas.
  */
 export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
   constructor(
@@ -59,10 +85,11 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     private readonly pendientes: PendientesRepositoryPort,
     private readonly resultados: ActivityResultRepositoryPort,
     private readonly registro: RegistroDeAvisos = { fallo: () => undefined },
+    private readonly personasALaVez: number = PERSONAS_A_LA_VEZ,
   ) {}
 
   async revisar(ahora: Date): Promise<ResumenDeLaRevision> {
-    const resumen = { entregados: 0, caducadas: 0 };
+    const resumen = { personas: 0, entregados: 0, caducadas: 0, fallos: 0 };
 
     if (this.enviador.clavePublica === null) {
       return resumen;
@@ -76,7 +103,7 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       } catch (error) {
         // Una zona que este servidor no conoce no detiene las demas. Con la
         // validacion de la cuenta no deberia ocurrir; si ocurre, queda dicho.
-        this.registro.fallo('zona', error);
+        this.fallo('zona', error, resumen);
         continue;
       }
 
@@ -86,11 +113,12 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     return resumen;
   }
 
-  private async revisarZona(
-    calendario: Calendario,
-    ahora: Date,
-    resumen: { entregados: number; caducadas: number },
-  ): Promise<void> {
+  private fallo(tipo: TipoDeAviso | 'zona', error: unknown, resumen: Cuentas): void {
+    resumen.fallos += 1;
+    this.registro.fallo(tipo, error);
+  }
+
+  private async revisarZona(calendario: Calendario, ahora: Date, resumen: Cuentas): Promise<void> {
     const dia = calendario.diaDe(ahora);
     const minuto = calendario.minutoDelDia(ahora);
     // La gracia no cruza la medianoche: el dia ya es otro.
@@ -105,19 +133,36 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
         dia,
       );
 
-      for (const userId of personas) {
-        try {
-          await this.avisos.marcarRevisado(userId, tipo, dia);
+      await conTope(personas, this.personasALaVez, (userId) =>
+        this.revisarPersona(userId, tipo, ahora, dia, calendario, resumen),
+      );
+    }
+  }
 
-          const mensaje = await this.mensajePara(tipo, userId, ahora, dia, calendario);
-
-          if (mensaje !== null) {
-            await this.entregar(userId, mensaje, resumen);
-          }
-        } catch (error) {
-          this.registro.fallo(tipo, error);
-        }
+  /** Todo lo de una persona. Nunca lanza: lo que falle queda dicho y contado. */
+  private async revisarPersona(
+    userId: UserId,
+    tipo: TipoDeAviso,
+    ahora: Date,
+    dia: string,
+    calendario: Calendario,
+    resumen: Cuentas,
+  ): Promise<void> {
+    try {
+      if (!(await this.avisos.marcarRevisado(userId, tipo, dia))) {
+        // Otra revision ya lo reclamo hoy: no es nuestro.
+        return;
       }
+
+      resumen.personas += 1;
+
+      const mensaje = await this.mensajePara(tipo, userId, ahora, dia, calendario);
+
+      if (mensaje !== null) {
+        await this.entregar(userId, mensaje, resumen);
+      }
+    } catch (error) {
+      this.fallo(tipo, error, resumen);
     }
   }
 
@@ -145,10 +190,10 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     }
 
     // La racha y la noche: una invitacion, solo si hoy no hizo nada todavia.
+    // Basta saber si hubo algo, no que fue.
     const { desde } = calendario.limitesDelDia(dia);
-    const deHoy = await this.resultados.ultimosDe(userId, desde);
 
-    if (deHoy.length > 0) {
+    if (await this.resultados.hayActividadDesde(userId, desde)) {
       return null;
     }
 
@@ -157,25 +202,27 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       : mensajeDeLaRacha();
   }
 
-  private async entregar(
-    userId: UserId,
-    mensaje: MensajeDeAviso,
-    resumen: { entregados: number; caducadas: number },
-  ): Promise<void> {
-    for (const suscripcion of await this.avisos.suscripcionesDe(userId)) {
-      try {
-        const entrega = await this.enviador.enviar(suscripcion, mensaje);
+  private async entregar(userId: UserId, mensaje: MensajeDeAviso, resumen: Cuentas): Promise<void> {
+    const suscripciones = await this.avisos.suscripcionesDe(userId);
 
-        if (entrega === 'caducada') {
-          await this.avisos.desuscribir(userId, suscripcion.endpoint);
-          resumen.caducadas += 1;
-        } else {
-          resumen.entregados += 1;
+    // Todos a la vez: son como mucho diez por cuenta, y esperarlos uno tras otro
+    // sumaria hasta diez veces la espera del servicio de push mas lento.
+    await Promise.all(
+      suscripciones.map(async (suscripcion) => {
+        try {
+          const entrega = await this.enviador.enviar(suscripcion, mensaje);
+
+          if (entrega === 'caducada') {
+            await this.avisos.desuscribir(userId, suscripcion.endpoint);
+            resumen.caducadas += 1;
+          } else {
+            resumen.entregados += 1;
+          }
+        } catch (error) {
+          // Un navegador que falla no impide los demas de la misma persona.
+          this.fallo(mensaje.tipo, error, resumen);
         }
-      } catch (error) {
-        // Un navegador que falla no impide los demas de la misma persona.
-        this.registro.fallo(mensaje.tipo, error);
-      }
-    }
+      }),
+    );
   }
 }

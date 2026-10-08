@@ -49,11 +49,23 @@ export interface AvisosUseCase {
   desuscribir(userId: string, endpoint: string): Promise<void>;
 }
 
+/**
+ * Lo que dejo una revision, para medirla. Son solo cuentas: ni quien, ni que
+ * mensaje.
+ */
 export interface ResumenDeLaRevision {
+  /**
+   * Personas a las que esta revision les toco un aviso y lo reclamo, lo
+   * hayan recibido o no (sin pendientes, por ejemplo, no hay semaforo). No
+   * cuenta a quien otra revision ya se le adelanto.
+   */
+  readonly personas: number;
   /** Avisos que llegaron al servicio de push de algun navegador. */
   readonly entregados: number;
   /** Navegadores que ya no existen y se dejaron de usar. */
   readonly caducadas: number;
+  /** Cosas que fallaron (una persona, un navegador, una zona) sin detener a las demas. */
+  readonly fallos: number;
 }
 
 export interface RevisarAvisosUseCase {

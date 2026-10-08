@@ -42,6 +42,28 @@ function sinRevisarHoy(ultimo: Dia | null, dia: Dia): boolean {
 }
 
 /**
+ * La racha y la noche invitan a lo mismo: una sola por dia, la primera que
+ * llegue. Cada una es la hermana de la otra; los demas avisos no tienen.
+ */
+function hermanoDe(tipo: TipoDeAviso): TipoDeAviso | undefined {
+  if (tipo === TipoDeAviso.RACHA) {
+    return TipoDeAviso.NOCHE;
+  }
+
+  return tipo === TipoDeAviso.NOCHE ? TipoDeAviso.RACHA : undefined;
+}
+
+/** Que ese aviso, y su hermano si lo tiene, sigan sin revisar hoy. */
+function sinRevisarElAviso(fila: Fila, tipo: TipoDeAviso, dia: Dia): boolean {
+  const hermano = hermanoDe(tipo);
+
+  return (
+    sinRevisarHoy(ultimoDe(fila, tipo), dia) &&
+    (hermano === undefined || sinRevisarHoy(ultimoDe(fila, hermano), dia))
+  );
+}
+
+/**
  * Los avisos en memoria, para desarrollo sin base de datos y para las
  * pruebas. Se comporta como el de PostgreSQL: un navegador entrega los avisos
  * de una sola persona.
@@ -159,44 +181,39 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
             return false;
           }
 
-          // La racha y la noche invitan a lo mismo: una sola por dia, la
-          // primera que llegue.
-          const hermano =
-            tipo === TipoDeAviso.RACHA
-              ? TipoDeAviso.NOCHE
-              : tipo === TipoDeAviso.NOCHE
-                ? TipoDeAviso.RACHA
-                : undefined;
-
-          return (
-            sinRevisarHoy(ultimoDe(fila, tipo), dia) &&
-            (hermano === undefined || sinRevisarHoy(ultimoDe(fila, hermano), dia))
-          );
+          return sinRevisarElAviso(fila, tipo, dia);
         })
         .map(([id]) => new UserId(id)),
     );
   }
 
-  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<void> {
+  /**
+   * Reclama el aviso de hoy: `true` solo si estaba sin revisar. Sin `await`
+   * entre mirar y escribir, ninguna otra llamada se cuela en medio, como la
+   * sentencia unica de PostgreSQL.
+   */
+  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<boolean> {
     const fila = this.preferencias.get(userId.value);
 
-    if (fila !== undefined) {
-      switch (tipo) {
-        case TipoDeAviso.SEMAFORO:
-          fila.ultimoAvisoSemaforo = dia;
-          break;
-        case TipoDeAviso.RACHA:
-          fila.ultimoAvisoRacha = dia;
-          break;
-        case TipoDeAviso.MANANA:
-          fila.ultimoAvisoManana = dia;
-          break;
-        case TipoDeAviso.NOCHE:
-          fila.ultimoAvisoNoche = dia;
-          break;
-      }
+    if (fila === undefined || !sinRevisarElAviso(fila, tipo, dia)) {
+      return Promise.resolve(false);
     }
 
-    return Promise.resolve();
+    switch (tipo) {
+      case TipoDeAviso.SEMAFORO:
+        fila.ultimoAvisoSemaforo = dia;
+        break;
+      case TipoDeAviso.RACHA:
+        fila.ultimoAvisoRacha = dia;
+        break;
+      case TipoDeAviso.MANANA:
+        fila.ultimoAvisoManana = dia;
+        break;
+      case TipoDeAviso.NOCHE:
+        fila.ultimoAvisoNoche = dia;
+        break;
+    }
+
+    return Promise.resolve(true);
   }
 }

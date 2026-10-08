@@ -171,6 +171,78 @@ describe('InMemoryAvisosRepository: los recordatorios (SCRUM-126)', () => {
   });
 });
 
+describe('InMemoryAvisosRepository: reclamar el aviso del dia (SCRUM-160)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  beforeEach(async () => {
+    repositorio = new InMemoryAvisosRepository();
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        minutoManana: MINUTO_DE_LA_MANANA,
+        minutoRacha: 1140,
+        minutoNoche: MINUTO_DE_LA_NOCHE,
+      }),
+    );
+  });
+
+  it('la primera llamada lo reclama y la segunda no', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+  });
+
+  it('muchas llamadas a la vez: exactamente una lo reclama', async () => {
+    const resultados = await Promise.all(
+      Array.from({ length: 25 }, () => repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY)),
+    );
+
+    expect(resultados.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('al dia siguiente se puede volver a reclamar', async () => {
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY);
+
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, MANANA)).toBe(true);
+  });
+
+  it('reclamar uno no cierra el de otra clase', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+  });
+
+  it('la racha y la noche son la misma invitacion: reclamar una cierra la otra', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY)).toBe(false);
+  });
+
+  it('y al reves: si se reclamo la noche, la racha ya no', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY)).toBe(false);
+  });
+
+  it('racha y noche reclamadas a la vez: solo una sale', async () => {
+    const resultados = await Promise.all([
+      repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY),
+    ]);
+
+    expect(resultados.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('quien no tiene nada guardado no tiene nada que reclamar', async () => {
+    expect(await repositorio.marcarRevisado(BETO, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+  });
+
+  it('lo reclamado por una persona no cierra el de otra', async () => {
+    await repositorio.guardarPreferencias(preferencias(BETO, { minutoSemaforo: 480 }));
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY);
+
+    expect(await repositorio.marcarRevisado(BETO, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+  });
+});
+
 describe('InMemoryAvisosRepository: el tope de navegadores por cuenta (SCRUM-153)', () => {
   let repositorio: InMemoryAvisosRepository;
 

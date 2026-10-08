@@ -21,6 +21,87 @@ export const Ambiente = {
 
 export type Ambiente = (typeof Ambiente)[keyof typeof Ambiente];
 
+/** Direcciones que cuentan como la propia maquina, las unicas donde se tolera `http`. */
+const MAQUINA_LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * Las variables del registro de seguridad van juntas o no van, y la direccion
+ * tiene que ser segura: lo que se manda ahi son hechos de seguridad con
+ * identificadores de personas, y una clave de autorizacion.
+ */
+function validarElRegistroDeSeguridad(
+  valores: {
+    NODE_ENV: string;
+    REGISTRO_SEGURIDAD_URL?: string | undefined;
+    REGISTRO_SEGURIDAD_TOKEN?: string | undefined;
+    REGISTRO_SEGURIDAD_CABECERA?: string | undefined;
+    REGISTRO_SEGURIDAD_CLAVE_IP?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const url = valores.REGISTRO_SEGURIDAD_URL ?? '';
+
+  if (url === '') {
+    for (const nombre of ['REGISTRO_SEGURIDAD_TOKEN', 'REGISTRO_SEGURIDAD_CABECERA'] as const) {
+      if ((valores[nombre] ?? '') !== '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: [nombre],
+          message: 'Solo tiene sentido junto con REGISTRO_SEGURIDAD_URL.',
+        });
+      }
+    }
+  } else if (!URL.canParse(url)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_URL'],
+      message: 'Debe ser una URL completa, como https://registros.ejemplo.co/ingesta',
+    });
+  } else {
+    const direccion = new URL(url);
+    const esLocal = MAQUINA_LOCAL.has(direccion.hostname);
+    const aceptaHttp = esLocal && valores.NODE_ENV !== Ambiente.PRODUCCION;
+
+    if (direccion.protocol !== 'https:' && !(direccion.protocol === 'http:' && aceptaHttp)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REGISTRO_SEGURIDAD_URL'],
+        message:
+          'Debe empezar por https://. Los hechos de seguridad no viajan sin cifrar (solo se tolera http en la propia maquina, fuera de produccion).',
+      });
+    }
+
+    if (direccion.username !== '' || direccion.password !== '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REGISTRO_SEGURIDAD_URL'],
+        message:
+          'No debe llevar usuario ni contrasena dentro de la direccion: usa REGISTRO_SEGURIDAD_TOKEN.',
+      });
+    }
+  }
+
+  const cabecera = valores.REGISTRO_SEGURIDAD_CABECERA ?? '';
+
+  if (cabecera !== '' && !/^[A-Za-z0-9-]+$/.test(cabecera)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_CABECERA'],
+      message: 'Solo letras, numeros y guiones, como Authorization o DD-API-KEY.',
+    });
+  }
+
+  const claveDeIp = valores.REGISTRO_SEGURIDAD_CLAVE_IP ?? '';
+
+  if (claveDeIp !== '' && claveDeIp.length < 16) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_CLAVE_IP'],
+      message: 'Debe tener al menos 16 caracteres; una clave corta se adivina.',
+    });
+  }
+}
+
 const esquema = z
   .object({
     NODE_ENV: z
@@ -93,6 +174,23 @@ const esquema = z
     VAPID_PRIVATE_KEY: z.string().trim().optional(),
     // Un contacto para los servicios de push: mailto: o https:.
     VAPID_SUBJECT: z.string().trim().optional(),
+
+    // Registro de seguridad (SCRUM-163, decision D8). Los hechos de seguridad
+    // siempre salen por la salida estandar, que es lo que Render conserva. Si
+    // ademas se quiere una copia en un servicio externo de registros con
+    // retencion de 90 dias, una persona pone aqui su direccion y su clave. Todo
+    // opcional: sin esto, el servicio funciona igual.
+    REGISTRO_SEGURIDAD_URL: z.string().trim().optional(),
+    // El valor completo de la cabecera de autorizacion, como lo pide el
+    // servicio (por ejemplo `Bearer abc123`). Es un secreto.
+    REGISTRO_SEGURIDAD_TOKEN: z.string().trim().optional(),
+    // El nombre de esa cabecera si no es `Authorization`.
+    REGISTRO_SEGURIDAD_CABECERA: z.string().trim().optional(),
+    // La clave con la que se calcula la huella de las IP. Un secreto: con ella
+    // alguien podria comprobar si una IP concreta aparece en el registro. Sin
+    // ella se usa una clave al azar por arranque, y las huellas no se pueden
+    // comparar entre un despliegue y otro.
+    REGISTRO_SEGURIDAD_CLAVE_IP: z.string().trim().optional(),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -146,6 +244,8 @@ const esquema = z
       });
     }
 
+    validarElRegistroDeSeguridad(valores, ctx);
+
     if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
       ctx.addIssue({
         code: 'custom',
@@ -185,6 +285,24 @@ export interface Configuracion {
   readonly claveDeServicioDeSupabase: string | undefined;
   /** Claves para los avisos por Web Push. Ausentes, no hay avisos (SCRUM-102). */
   readonly vapid: ClavesVapid | undefined;
+  /** Registro de eventos de seguridad (SCRUM-163). */
+  readonly registroDeSeguridad: AjustesDelRegistroDeSeguridad;
+}
+
+export interface AjustesDelRegistroDeSeguridad {
+  /**
+   * La copia por HTTP en un servicio externo de registros. Ausente, los eventos
+   * solo salen por la salida estandar.
+   */
+  readonly envio:
+    | {
+        readonly url: string;
+        readonly token: string | undefined;
+        readonly cabecera: string | undefined;
+      }
+    | undefined;
+  /** La clave de la huella de las IP. Ausente, se usa una al azar por arranque. */
+  readonly claveDeIp: string | undefined;
 }
 
 export interface ClavesVapid {
@@ -225,6 +343,10 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY,
     VAPID_SUBJECT,
+    REGISTRO_SEGURIDAD_URL,
+    REGISTRO_SEGURIDAD_TOKEN,
+    REGISTRO_SEGURIDAD_CABECERA,
+    REGISTRO_SEGURIDAD_CLAVE_IP,
   } = resultado.data;
 
   return {
@@ -249,5 +371,20 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
             privada: VAPID_PRIVATE_KEY ?? '',
             contacto: VAPID_SUBJECT ?? '',
           },
+    registroDeSeguridad: {
+      envio:
+        (REGISTRO_SEGURIDAD_URL ?? '') === ''
+          ? undefined
+          : {
+              url: REGISTRO_SEGURIDAD_URL ?? '',
+              token: (REGISTRO_SEGURIDAD_TOKEN ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_TOKEN,
+              cabecera:
+                (REGISTRO_SEGURIDAD_CABECERA ?? '') === ''
+                  ? undefined
+                  : REGISTRO_SEGURIDAD_CABECERA,
+            },
+      claveDeIp:
+        (REGISTRO_SEGURIDAD_CLAVE_IP ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_CLAVE_IP,
+    },
   };
 }

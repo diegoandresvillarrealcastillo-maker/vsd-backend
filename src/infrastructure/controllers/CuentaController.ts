@@ -11,11 +11,13 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActualizarPreferenciasUseCase } from '../../domain/ports/in/ActualizarPreferenciasUseCase.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ExportarDatosUseCase } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { PermiteRegistroIncompleto } from '../auth/PermiteRegistroIncompleto.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
@@ -26,9 +28,11 @@ import {
   BORRAR_CUENTA,
   EXPORTAR_DATOS,
   REGISTRAR_CUENTA,
+  REGISTRO_DE_SEGURIDAD,
 } from '../config/tokens.js';
 import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
 import { LIMITE_DE_EXPORTAR } from '../limites/limites.js';
+import { ContextoDeSeguridad } from '../seguridad/contextoDeLaPeticion.js';
 import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
@@ -55,6 +59,8 @@ export class CuentaController {
     private readonly exportacion: ExportarDatosUseCase,
     @Inject(BORRAR_CUENTA)
     private readonly borrado: BorrarCuentaUseCase,
+    @Inject(REGISTRO_DE_SEGURIDAD)
+    private readonly seguridad: RegistroDeSeguridadPort,
   ) {}
 
   /**
@@ -148,6 +154,7 @@ export class CuentaController {
   async actualizarPreferencias(
     @Body() dto: ActualizarPreferenciasDto,
     @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<CuentaRespuestaDto> {
     const actualizada = await this.preferencias.execute(cuenta.id, {
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
@@ -157,6 +164,17 @@ export class CuentaController {
         ? {}
         : { diarioConRecomendaciones: dto.diarioConRecomendaciones }),
     });
+
+    // Dejar que el diario reciba recomendaciones es dar permiso sobre lo mas
+    // intimo que guarda la aplicacion: queda anotado cuando cambia (SCRUM-163).
+    if (actualizada.diarioConRecomendaciones !== cuenta.diarioConRecomendaciones) {
+      this.seguridad.registrar({
+        tipo: 'PERMISO_DEL_DIARIO_CAMBIADO',
+        idUsuario: cuenta.id.value,
+        activado: actualizada.diarioConRecomendaciones,
+        ...origen,
+      });
+    }
 
     return CuentaRespuestaDto.desde(actualizada);
   }
@@ -176,8 +194,17 @@ export class CuentaController {
   @ApiResponse({ status: 200, description: 'Los datos, en JSON.', type: ExportacionDto })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
   @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
-  async exportar(@CuentaActual() cuenta: User): Promise<ExportacionDto> {
-    return ExportacionDto.desde(await this.exportacion.execute(cuenta.id));
+  async exportar(
+    @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
+  ): Promise<ExportacionDto> {
+    const datos = await this.exportacion.execute(cuenta.id);
+
+    // Todo lo de una persona sale en un solo archivo: si alguien lo hace con un
+    // token robado, este es el rastro (SCRUM-163).
+    this.seguridad.registrar({ tipo: 'DATOS_EXPORTADOS', idUsuario: cuenta.id.value, ...origen });
+
+    return ExportacionDto.desde(datos);
   }
 
   @Delete()
@@ -202,7 +229,12 @@ export class CuentaController {
   async borrar(
     @Body() _confirmacion: BorrarCuentaDto,
     @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<void> {
     await this.borrado.execute(cuenta.id);
+
+    // Solo si el borrado termino: el identificador interno ya no apunta a nada,
+    // pero es lo que permite ligar este hecho con lo que se pidio antes.
+    this.seguridad.registrar({ tipo: 'CUENTA_BORRADA', idUsuario: cuenta.id.value, ...origen });
   }
 }

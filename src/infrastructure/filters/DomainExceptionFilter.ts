@@ -4,11 +4,19 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
+  Inject,
   Logger,
+  Optional,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { DomainError } from '../../domain/model/DomainError.js';
+import { esArchivoPeligroso } from '../../domain/model/EventoDeSeguridad.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
+import type { PeticionConCuenta } from '../auth/CuentaActual.js';
+import { REGISTRO_DE_SEGURIDAD } from '../config/tokens.js';
 import { identificadorDeLaRespuesta } from '../logging/identificadorDePeticion.js';
+import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
+import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 
 /**
  * Traduce los errores a respuestas HTTP.
@@ -194,12 +202,20 @@ function estadoAlLeerElCuerpo(error: unknown): number | undefined {
 export class DomainExceptionFilter implements ExceptionFilter {
   private readonly registro = new Logger('Errores');
 
+  constructor(
+    @Optional()
+    @Inject(REGISTRO_DE_SEGURIDAD)
+    private readonly seguridad: RegistroDeSeguridadPort = new RegistroDeSeguridadNulo(),
+  ) {}
+
   catch(excepcion: unknown, host: ArgumentsHost): void {
     const respuesta = host.switchToHttp().getResponse<Response>();
 
     if (excepcion instanceof DomainError) {
       const estado = ESTADO_POR_CODIGO[excepcion.code] ?? HttpStatus.BAD_REQUEST;
       const cuerpo: CuerpoDeError = { codigo: excepcion.code, mensaje: excepcion.message };
+
+      this.registrarSiEsDeSeguridad(excepcion.code, host);
 
       // Un error del dominio con estado 5xx significa que algo nuestro fallo.
       // La persona recibe el mensaje claro; la causa tecnica va al registro,
@@ -265,5 +281,34 @@ export class DomainExceptionFilter implements ExceptionFilter {
     };
 
     respuesta.status(HttpStatus.INTERNAL_SERVER_ERROR).json(cuerpo);
+  }
+
+  /**
+   * Un archivo que no es lo que dice ser, o que trae algo que no debe, se anota
+   * como hecho de seguridad (SCRUM-163). La respuesta no cambia en nada.
+   */
+  private registrarSiEsDeSeguridad(codigo: string, host: ArgumentsHost): void {
+    if (!esArchivoPeligroso(codigo)) {
+      return;
+    }
+
+    try {
+      const http = host.switchToHttp();
+      const peticion = http.getRequest<PeticionConCuenta & Request>();
+
+      // Sin cuenta no hay a quien atribuirlo; la ruta lo exige, asi que no deberia pasar.
+      if (peticion.cuenta === undefined) {
+        return;
+      }
+
+      this.seguridad.registrar({
+        tipo: 'ARCHIVO_PELIGROSO_RECHAZADO',
+        idUsuario: peticion.cuenta.id.value,
+        motivo: codigo,
+        ...contextoDeLaPeticion(peticion, http.getResponse<Response>()),
+      });
+    } catch {
+      // Anotar el hecho nunca puede impedir que la persona reciba su respuesta.
+    }
   }
 }

@@ -15,6 +15,7 @@ import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioReposito
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { AlmacenPersonalEnMemoria } from '../almacenamiento/AlmacenPersonalEnMemoria.js';
 import { AlmacenPersonalEnSupabase } from '../almacenamiento/AlmacenPersonalEnSupabase.js';
@@ -51,6 +52,7 @@ import {
   PRISMA,
   PROVEEDOR_DE_IDENTIDAD,
   REGISTRAR_CUENTA,
+  REGISTRO_DE_SEGURIDAD,
   USER_REPOSITORY,
 } from './tokens.js';
 
@@ -246,9 +248,12 @@ import {
     },
     {
       provide: APP_GUARD,
-      useFactory: (cuentas: RegistrarCuentaUseCaseImpl, reflector: Reflector) =>
-        new GuardiaDeCuenta(cuentas, reflector),
-      inject: [REGISTRAR_CUENTA, Reflector],
+      useFactory: (
+        cuentas: RegistrarCuentaUseCaseImpl,
+        reflector: Reflector,
+        seguridad: RegistroDeSeguridadPort,
+      ) => new GuardiaDeCuenta(cuentas, reflector, seguridad),
+      inject: [REGISTRAR_CUENTA, Reflector, REGISTRO_DE_SEGURIDAD],
     },
   ],
   exports: [USER_REPOSITORY, REGISTRAR_CUENTA],

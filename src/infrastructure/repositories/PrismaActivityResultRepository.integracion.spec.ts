@@ -401,4 +401,62 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
 
     expect(recuperado?.score?.level).toBe('favorable');
   });
+
+  describe('hayActividadDesde (SCRUM-160)', () => {
+    const HECHO = new Date('2026-09-14T11:00:00.000Z');
+
+    async function guardarUno(usuario: string, numero: number): Promise<void> {
+      await repositorio.save(
+        await unResultado({
+          id: `40000000-0000-4000-8000-0000000000e${numero}`,
+          usuario,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: `50000000-0000-4000-8000-0000000000e${numero}`,
+          puntajeCrudo: 8,
+          completedAt: HECHO,
+        }),
+      );
+    }
+
+    it('dice que si cuando hay un resultado desde esa fecha, y que no si es anterior', async () => {
+      await guardarUno(USUARIO_A, 1);
+
+      await expect(repositorio.hayActividadDesde(new UserId(USUARIO_A), HECHO)).resolves.toBe(true);
+      await expect(
+        repositorio.hayActividadDesde(new UserId(USUARIO_A), new Date('2026-09-14T00:00:00.000Z')),
+      ).resolves.toBe(true);
+      await expect(
+        repositorio.hayActividadDesde(new UserId(USUARIO_A), new Date(HECHO.getTime() + 1)),
+      ).resolves.toBe(false);
+    });
+
+    it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
+      await guardarUno(USUARIO_B, 2);
+
+      await expect(repositorio.hayActividadDesde(new UserId(USUARIO_A), new Date(0))).resolves.toBe(
+        false,
+      );
+      await expect(repositorio.hayActividadDesde(new UserId(USUARIO_B), new Date(0))).resolves.toBe(
+        true,
+      );
+    });
+
+    it('sin resultados, no', async () => {
+      await expect(repositorio.hayActividadDesde(new UserId(USUARIO_A), new Date(0))).resolves.toBe(
+        false,
+      );
+    });
+
+    it('coincide con lo que dice ultimosDe', async () => {
+      await guardarUno(USUARIO_A, 3);
+
+      for (const desde of [new Date(0), HECHO, new Date(HECHO.getTime() + 1)]) {
+        const lista = await repositorio.ultimosDe(new UserId(USUARIO_A), desde);
+
+        await expect(repositorio.hayActividadDesde(new UserId(USUARIO_A), desde)).resolves.toBe(
+          lista.length > 0,
+        );
+      }
+    });
+  });
 });

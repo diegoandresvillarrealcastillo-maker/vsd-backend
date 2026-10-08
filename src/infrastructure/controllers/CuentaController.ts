@@ -11,12 +11,15 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActualizarPreferenciasUseCase } from '../../domain/ports/in/ActualizarPreferenciasUseCase.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ExportarDatosUseCase } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
+import { PermiteRegistroIncompleto } from '../auth/PermiteRegistroIncompleto.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
 import { UsuarioActual } from '../auth/UsuarioActual.js';
 import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
@@ -25,7 +28,11 @@ import {
   BORRAR_CUENTA,
   EXPORTAR_DATOS,
   REGISTRAR_CUENTA,
+  REGISTRO_DE_SEGURIDAD,
 } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_EXPORTAR } from '../limites/limites.js';
+import { ContextoDeSeguridad } from '../seguridad/contextoDeLaPeticion.js';
 import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
@@ -52,6 +59,8 @@ export class CuentaController {
     private readonly exportacion: ExportarDatosUseCase,
     @Inject(BORRAR_CUENTA)
     private readonly borrado: BorrarCuentaUseCase,
+    @Inject(REGISTRO_DE_SEGURIDAD)
+    private readonly seguridad: RegistroDeSeguridadPort,
   ) {}
 
   /**
@@ -63,9 +72,9 @@ export class CuentaController {
   @SinCuenta()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Dar de alta la cuenta, o recuperar la que ya existe',
+    summary: 'Dar de alta la cuenta, completar el registro, o recuperar la que ya existe',
     description:
-      'Se invoca despues de iniciar sesion. Si la persona ya tenia cuenta se devuelve tal cual, sin volver a pedir el consentimiento ni sobrescribir el que hay: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.',
+      'Se invoca despues de iniciar sesion. Crear una cuenta exige la fecha de nacimiento, ser mayor de 18 anos y las dos casillas (aviso de privacidad y terminos) con las versiones vigentes; la edad la calcula el servidor. Un menor no queda registrado: su identidad se borra y la respuesta es 403 MENOR_DE_EDAD. Si la persona ya tenia cuenta se devuelve tal cual, sin sobrescribir lo que acepto: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Las cuentas anteriores a que se pidiera la fecha y las casillas vienen con `registroCompleto: false`; mandar aqui el registro lo completa. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.',
   })
   @ApiBody({ type: RegistrarCuentaDto })
   @ApiResponse({
@@ -76,12 +85,18 @@ export class CuentaController {
   @ApiResponse({
     status: 400,
     description:
-      'El cuerpo no es valido, o falta el consentimiento. Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012).',
+      'El cuerpo no es valido, falta o no sirve la fecha de nacimiento (FECHA_DE_NACIMIENTO_INVALIDA), o falta el consentimiento (CONSENTIMIENTO_NO_REGISTRADO). Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012).',
   })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
   @ApiResponse({
+    status: 403,
+    description:
+      'MENOR_DE_EDAD: la plataforma es solo para mayores de 18 anos. No se guarda nada y la identidad se borra.',
+  })
+  @ApiResponse({
     status: 409,
-    description: 'Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso.',
+    description:
+      'Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso, o la version del aviso o de los terminos ya no es la vigente.',
   })
   async registrar(
     @Body() dto: RegistrarCuentaDto,
@@ -91,7 +106,11 @@ export class CuentaController {
       // Los dos salen del token verificado, no del cuerpo.
       idProveedorAuth: identidad.id,
       correo: identidad.correo ?? '',
-      versionPolitica: dto.versionPolitica,
+      ...(dto.fechaNacimiento === undefined ? {} : { fechaNacimiento: dto.fechaNacimiento }),
+      ...(dto.versionPolitica === undefined ? {} : { versionPolitica: dto.versionPolitica }),
+      ...(dto.versionTerminos === undefined ? {} : { versionTerminos: dto.versionTerminos }),
+      ...(dto.aceptaAviso === undefined ? {} : { aceptaAviso: dto.aceptaAviso }),
+      ...(dto.aceptaTerminos === undefined ? {} : { aceptaTerminos: dto.aceptaTerminos }),
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
       ...(dto.zonaHoraria === undefined ? {} : { zonaHoraria: dto.zonaHoraria }),
     });
@@ -100,6 +119,8 @@ export class CuentaController {
   }
 
   @Get()
+  // Es como el frontend se entera de que le falta completar el registro.
+  @PermiteRegistroIncompleto()
   // Nombre, correo y preferencias: no deben quedar en la cache del navegador,
   // que no se borra al cerrar sesion (SCRUM-133).
   @Header('Cache-Control', 'no-store')
@@ -133,6 +154,7 @@ export class CuentaController {
   async actualizarPreferencias(
     @Body() dto: ActualizarPreferenciasDto,
     @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<CuentaRespuestaDto> {
     const actualizada = await this.preferencias.execute(cuenta.id, {
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
@@ -143,10 +165,24 @@ export class CuentaController {
         : { diarioConRecomendaciones: dto.diarioConRecomendaciones }),
     });
 
+    // Dejar que el diario reciba recomendaciones es dar permiso sobre lo mas
+    // intimo que guarda la aplicacion: queda anotado cuando cambia (SCRUM-163).
+    if (actualizada.diarioConRecomendaciones !== cuenta.diarioConRecomendaciones) {
+      this.seguridad.registrar({
+        tipo: 'PERMISO_DEL_DIARIO_CAMBIADO',
+        idUsuario: cuenta.id.value,
+        activado: actualizada.diarioConRecomendaciones,
+        ...origen,
+      });
+    }
+
     return CuentaRespuestaDto.desde(actualizada);
   }
 
   @Get('exportacion')
+  // Un derecho: no depende de haber completado el registro.
+  @PermiteRegistroIncompleto()
+  @LimitePorCuenta(LIMITE_DE_EXPORTAR)
   // Son datos personales: ni el navegador ni un proxy deben guardar copia.
   @Header('Cache-Control', 'no-store')
   @Header('Content-Disposition', 'attachment; filename="vsd-health-mis-datos.json"')
@@ -158,11 +194,22 @@ export class CuentaController {
   @ApiResponse({ status: 200, description: 'Los datos, en JSON.', type: ExportacionDto })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
   @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
-  async exportar(@CuentaActual() cuenta: User): Promise<ExportacionDto> {
-    return ExportacionDto.desde(await this.exportacion.execute(cuenta.id));
+  async exportar(
+    @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
+  ): Promise<ExportacionDto> {
+    const datos = await this.exportacion.execute(cuenta.id);
+
+    // Todo lo de una persona sale en un solo archivo: si alguien lo hace con un
+    // token robado, este es el rastro (SCRUM-163).
+    this.seguridad.registrar({ tipo: 'DATOS_EXPORTADOS', idUsuario: cuenta.id.value, ...origen });
+
+    return ExportacionDto.desde(datos);
   }
 
   @Delete()
+  // Un derecho: quien no quiere completar el registro tiene que poder irse.
+  @PermiteRegistroIncompleto()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Borrar la cuenta propia con todo lo suyo',
@@ -182,7 +229,12 @@ export class CuentaController {
   async borrar(
     @Body() _confirmacion: BorrarCuentaDto,
     @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<void> {
     await this.borrado.execute(cuenta.id);
+
+    // Solo si el borrado termino: el identificador interno ya no apunta a nada,
+    // pero es lo que permite ligar este hecho con lo que se pidio antes.
+    this.seguridad.registrar({ tipo: 'CUENTA_BORRADA', idUsuario: cuenta.id.value, ...origen });
   }
 }

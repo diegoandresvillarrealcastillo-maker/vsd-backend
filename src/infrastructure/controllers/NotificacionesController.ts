@@ -15,6 +15,8 @@ import type { User } from '../../domain/model/User.js';
 import type { AvisosUseCase } from '../../domain/ports/in/AvisosUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { AVISOS } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_SUSCRIBIR_AVISOS } from '../limites/limites.js';
 import {
   CambiarHorasDto,
   CambiarRecordatoriosDto,
@@ -98,14 +100,19 @@ export class NotificacionesController {
   }
 
   @Post('suscripciones')
+  @LimitePorCuenta(LIMITE_DE_SUSCRIBIR_AVISOS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Recibir los avisos en este navegador',
     description:
-      'Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo.',
+      'Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo. Solo se aceptan los servicios de push de Google, Mozilla, Apple y Windows. Una cuenta guarda hasta 10 navegadores: al pasar de 10, sale el más antiguo.',
   })
   @ApiResponse({ status: 204, description: 'Suscrito.' })
-  @ApiResponse({ status: 400, description: 'La suscripción no es válida.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'La suscripción no es válida, o su dirección no es la de un servicio de push conocido (AVISO_INVALIDO).',
+  })
   async suscribir(@Body() dto: SuscribirDto, @CuentaActual() cuenta: User): Promise<void> {
     await this.avisos.suscribir(cuenta.id.value, {
       endpoint: dto.endpoint,
@@ -115,6 +122,7 @@ export class NotificacionesController {
   }
 
   @Delete('suscripciones')
+  @LimitePorCuenta(LIMITE_DE_SUSCRIBIR_AVISOS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Dejar de recibir los avisos en este navegador',

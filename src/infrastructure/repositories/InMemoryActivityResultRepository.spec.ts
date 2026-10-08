@@ -90,6 +90,49 @@ describe('InMemoryActivityResultRepository', () => {
   it('empieza vacio', () => {
     expect(repositorio.cantidad).toBe(0);
   });
+
+  describe('hayActividadDesde (SCRUM-160)', () => {
+    const HECHO = new Date('2026-09-14T11:00:00.000Z');
+
+    it('dice que si cuando hay un resultado desde esa fecha', async () => {
+      await repositorio.save(unResultado());
+
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), HECHO)).toBe(true);
+      expect(
+        await repositorio.hayActividadDesde(new UserId(USUARIO), new Date('2026-09-14T00:00:00Z')),
+      ).toBe(true);
+    });
+
+    it('dice que no si el resultado es anterior a la fecha', async () => {
+      await repositorio.save(unResultado());
+
+      expect(
+        await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(HECHO.getTime() + 1)),
+      ).toBe(false);
+    });
+
+    it('dice que no si la persona no hizo nada', async () => {
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(0))).toBe(false);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await repositorio.save(unResultado(OPERACION, OTRO_USUARIO, OTRO_RESULTADO));
+
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(0))).toBe(false);
+    });
+
+    it('coincide con lo que dice ultimosDe', async () => {
+      await repositorio.save(unResultado());
+
+      for (const desde of [new Date(0), HECHO, new Date(HECHO.getTime() + 1)]) {
+        const lista = await repositorio.ultimosDe(new UserId(USUARIO), desde);
+
+        expect(await repositorio.hayActividadDesde(new UserId(USUARIO), desde)).toBe(
+          lista.length > 0,
+        );
+      }
+    });
+  });
 });
 
 describe('Cableado completo', () => {

@@ -9,6 +9,12 @@ export interface EditarAnotacionCommand {
   readonly titulo?: string | null | undefined;
   readonly contenido?: unknown;
   readonly adjuntos?: unknown;
+  /**
+   * La hora en que el dispositivo hizo la edicion (ISO 8601), si la mando. El plazo
+   * de una hora se mide contra ella y no contra cuando llega (SCRUM-144). Ver
+   * `EscribirEnElDiarioCommand.escritaEn` para lo que pasa si no sirve.
+   */
+  readonly editadaEn?: unknown;
   /** Ver `EscribirEnElDiarioCommand.conRecomendaciones`. */
   readonly conRecomendaciones: boolean;
   /**

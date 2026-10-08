@@ -135,9 +135,59 @@ Al darse de alta solo se acepta la version vigente: cualquier otra responde
 conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
 lo que acepto aquel dia.
 
-**Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
-sensibles de menores exige garantias adicionales que quedan fuera del alcance
-de esta version.
+#### La edad minima es de 18 anos, y la comprueba el servidor
+
+El tratamiento de datos sensibles de menores exige garantias adicionales que
+quedan fuera del alcance de esta version. Hasta la auditoria 360, `EDAD_MINIMA`
+existia pero nada la usaba: el registro ni siquiera pedia una fecha. Ahora:
+
+- **Se declara la fecha de nacimiento** (`FechaDeNacimiento`): una fecha real,
+  que ya paso y de no mas de 120 anos. Se guarda el dia completo, no un "es
+  mayor de edad", porque es la prueba de lo que declaro, sale en su exportacion
+  y se borra con la cuenta.
+- **La edad se cuenta en el servidor**, con el dia local de la persona
+  (`Calendario`) y no con el de UTC: quien cumple 18 hoy en Bogota a las 8 p. m.
+  ya es mayor aunque en UTC sea manana. Los nacidos un 29 de febrero cumplen el
+  1 de marzo en los anos que no son bisiestos, que no adelanta la mayoria de
+  edad ni un dia.
+- **Un menor no queda registrado.** `POST /api/cuenta` responde 403
+  `MENOR_DE_EDAD`, no crea la cuenta, y borra su identidad en Supabase Auth
+  (la via que ya usa el borrado de cuenta). El rechazo se anota sin su fecha,
+  su correo ni su identificador. Si el proveedor no deja borrar la identidad,
+  igual se rechaza y se anota que hay que limpiarla a mano.
+- **La base es la ultima defensa**: un `CHECK` impide guardar la fecha de un
+  menor, con un dia de margen por la diferencia entre la fecha UTC de la base y
+  la de la persona.
+
+#### El consentimiento lo da la persona, con una casilla
+
+Antes bastaba con enviar la version: el panel la mandaba solo, en cada carga, y
+quien entraba con Google quedaba con consentimiento registrado sin haber
+marcado nada. Ahora el alta exige `aceptaAviso: true` y `aceptaTerminos: true`
+ademas de las versiones vigentes; sin ellas responde 400
+`CONSENTIMIENTO_NO_REGISTRADO` y no crea nada.
+
+Los **terminos** se aceptan aparte del aviso, con su propia version y su propia
+fecha: son dos documentos y cada uno cambia por su lado.
+
+#### El historial de lo aceptado
+
+`usuario` guarda lo vigente; la tabla `consentimiento` guarda **todo** lo que se
+acepto alguna vez, una fila por cada vez. Solo admite altas: la aplicacion no
+tiene permiso de `UPDATE` ni de `DELETE`, porque un historial que ella misma
+pudiera reescribir no probaria nada. Se borra con la cuenta, por la clave
+foranea. Sale en la exportacion.
+
+#### Las cuentas anteriores
+
+Las creadas antes de que se pidiera la fecha y las casillas tienen
+`registroCompleto: false`. `GuardiaDeCuenta` les responde 403
+`REGISTRO_INCOMPLETO` en todo menos en lo que lleva `@PermiteRegistroIncompleto()`:
+consultar la cuenta, **exportarla y borrarla**, que son derechos que no se
+condicionan. Mandar el registro a `POST /api/cuenta` lo completa, con las mismas
+comprobaciones que un alta. Lo que habian aceptado antes queda en el historial.
+
+Ver [ADR 0021](adr/0021-la-edad-y-el-consentimiento-se-comprueban-en-el-servidor.md).
 
 ### El administrador gestiona contenidos, no personas
 
@@ -252,11 +302,14 @@ del servidor.
 Desde el Ciclo 5 la regla se aplica en tres puntos, y ninguna peticion con
 datos de salud puede saltarselos:
 
-- **El alta lo exige.** `POST /api/cuenta` sin consentimiento responde 400
-  `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada (`RegistrarCuentaUseCaseImpl`).
+- **El alta lo exige.** `POST /api/cuenta` sin las dos casillas marcadas
+  responde 400 `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada
+  (`RegistrarCuentaUseCaseImpl`). Y antes de pedirlas comprueba la edad.
 - **Sin cuenta no se opera.** `GuardiaDeCuenta` traduce la identidad del token
   a la cuenta propia en cada ruta, y si no existe responde 403
-  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta.
+  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta. Con
+  la cuenta pero sin el registro completo responde 403 `REGISTRO_INCOMPLETO`,
+  salvo en consultar, exportar y borrar la cuenta.
 - **La base no lo admite.** Las columnas del consentimiento son `NOT NULL`, y
   `PrismaUserRepository` se niega a guardar una cuenta sin el antes de llegar
   a PostgreSQL.
@@ -486,6 +539,16 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   casos no se toca nada y el cliente guarda lo suyo como una anotacion nueva
   (ADR 0009). La regla esta aqui para contestar claro, pero quien la hace
   cumplir es la base: ver `docs/modelo-de-datos.md`.
+- **La hora de escribir y de editar es la del dispositivo** (SCRUM-144, ADR 0020).
+  `POST` acepta `escritaEn` y `PATCH` acepta `editadaEn` (ISO 8601 con
+  desplazamiento). Escrita a las 9:00 sin conexion y recibida a las 14:00, la
+  anotacion muestra las 9:00; corregida a las 9:30, se aplica como correccion y
+  no como una anotacion nueva. `horaDelDispositivo()` decide que hora se cree y
+  **nunca lanza**: una hora que no sirve (mal formada, sin desplazamiento, un dia
+  que no existe, en el futuro, de hace mas de 30 dias, anterior al comienzo del
+  dia de la anotacion o a su escritura) se ignora y se usa la del servidor, sin
+  error. Un reloj adelantado unos minutos (la tolerancia de `ToleranciaDelReloj`)
+  queda en «ahora». La hora de la edicion nunca va hacia atras.
 - **El contenido es un documento del editor**, no HTML: `DocumentoDelDiario`
   comprueba la forma del arbol (cada nodo con un `type` valido y solo las
   claves que usa el editor), su profundidad y su tamano. No cierra la lista de
@@ -632,14 +695,92 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
 - **La revision** (`RevisarAvisosUseCaseImpl`) corre cada minuto dentro del
   API (`RelojDeAvisos`):
   - busca a quien le toca: su hora cae en la ultima media hora y ese aviso no
-    se reviso hoy;
-  - lo marca revisado **antes** de mandar: si algo falla, se pierde un aviso,
-    pero nunca se manda dos veces;
-  - entrega a cada navegador de la persona, y suelta los que ya no existen
-    (404 o 410).
+    se reviso hoy (lo unico que se mira de todos a la vez, y solo identificadores);
+  - atiende a **varias personas a la vez** (`PERSONAS_A_LA_VEZ`, 4), cada una en
+    su nombre y con el aislamiento intacto;
+  - a cada una le **reclama** el aviso de hoy **antes** de mandar
+    (`marcarRevisado` devuelve `true` solo a quien lo gana): si algo falla, se
+    pierde un aviso, pero nunca se manda dos veces. El reclamo es una sola
+    sentencia de la base, asi que tampoco hay aviso doble si dos revisiones
+    corren a la vez (dos instancias del API durante un despliegue). Con la racha
+    y la noche, reclamar una cierra la otra;
+  - decide el mensaje (la racha y la noche solo necesitan saber si hubo
+    actividad hoy: `hayActividadDesde`, una fila y no todas las del dia);
+  - entrega a cada navegador de la persona, todos a la vez (son diez como mucho),
+    y suelta los que ya no existen (404 o 410).
+- **La revision se mide.** Cada una que hizo algo deja una linea con las personas
+  atendidas, lo entregado, los navegadores soltados, los fallos y cuanto tardo;
+  solo cuentas, ni quien ni que mensaje. Avisa si tarda la mitad del minuto o mas
+  (`REVISION_LENTA_MS`), y si una revision se salta un minuto porque la anterior
+  sigue, lo dice y cuenta los seguidos. Ver [Cuanto aguanta la revision](#cuanto-aguanta-la-revision-de-avisos).
+- **Solo a servicios de push conocidos** (SCRUM-153). `suscripcionValida` acepta
+  unicamente las direcciones de Google (`fcm.googleapis.com`), Mozilla
+  (`*.push.services.mozilla.com`), Apple (`web.push.apple.com`) y Windows
+  (`*.notify.windows.com`), sin usuario, sin puerto y sin que `URL` y `web-push`
+  puedan leerla distinto; `WebPushEnviador` vuelve a comprobarlo antes de cada
+  envio. Cualquier otra es un `400` (`AVISO_INVALIDO`). Explicado en
+  [seguridad](seguridad.md).
+- **Diez navegadores por cuenta como mucho.** Al pasar de diez entra el nuevo y
+  sale el mas antiguo; no se rechaza (`MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA`).
 - **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
   gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
   manda solo lo de la ultima media hora.
+
+### Cuanto aguanta la revision de avisos
+
+La revision tiene un minuto. Si dura mas, el siguiente se salta (no corren dos a
+la vez) y los avisos llegan tarde, hasta la media hora de gracia; pasada esa, se
+pierden. Lo que la hace lenta no es la base sino **esperar al servicio de push**
+(Google, Mozilla, Apple), y eso es lo que se reparte entre varias personas.
+
+**Medicion** (SCRUM-160): 2000 cuentas a las que les toca el aviso de las 8:00 en
+el mismo minuto, un navegador cada una, contra PostgreSQL local con el rol
+`vsd_app` y el aislamiento intacto, con un servicio de push de mentira que tarda
+50 ms:
+
+| Personas a la vez  | Revision de 2000 | Avisos por segundo |
+| ------------------ | ---------------- | ------------------ |
+| 1 (como antes)     | 125 s            | 16                 |
+| **4 (de fabrica)** | **31 s**         | **64**             |
+| 8                  | 16 s             | 126                |
+| 2 instancias x 4   | 16 s             | 126                |
+
+En serie, 2000 cuentas tardaban dos minutos: mas del doble de lo que tiene la
+revision. La ultima fila son dos instancias del API revisando a la vez, como en un
+despliegue: se entregaron los 2000 avisos, ninguno repetido.
+
+**La cuenta para otros servicios de push.** Cada persona cuesta lo que tarda el
+servicio de push mas unos 12 ms de base. Con 4 a la vez y un servicio que contesta
+en 200 ms, caben unos **19 avisos por segundo, es decir, unos 1100 por minuto**. Mas
+alla, la revision empieza a saltarse minutos: el registro lo avisa antes
+(`REVISION_LENTA_MS`: la mitad del minuto) y cuando ocurre.
+
+**Por que 4 y no 8.** El pool de conexiones del API es de 10 y es el mismo de las
+peticiones de la gente; Supabase en el plan gratuito tiene pocas conexiones. Cada
+persona usa una conexion solo unos milisegundos (reclamar, leer lo suyo) y la suelta
+antes de esperar al servicio de push, asi que 4 dejan de sobra para las peticiones.
+Si algun dia hace falta mas, se sube `PERSONAS_A_LA_VEZ` **junto con el pool**, no
+solo.
+
+**Repetir la medicion.** Es una prueba opcional que no corre en el CI y se niega a
+correr fuera de la base local, porque crea y borra miles de cuentas falsas:
+
+```powershell
+npm run db:local          # en otra terminal
+$env:CARGA_DE_AVISOS_PERSONAS = '2000'
+$env:CARGA_DE_AVISOS_LATENCIA_MS = '50'   # lo que tarda el servicio de push
+npx vitest run RevisarAvisos.carga
+```
+
+`CARGA_DE_AVISOS_A_LA_VEZ` (`1,4,8` por defecto) elige las configuraciones. Las
+cifras de arriba son de un equipo de desarrollo: sirven para comparar entre
+configuraciones, no como promesa de lo que hara Render.
+
+**Lo que no se hizo, a proposito.** Leer en un solo paso los pendientes, los
+resultados y las suscripciones de todas las cuentas habria sido mas rapido, pero
+exige una politica de acceso que deje a la tarea de avisos leer los datos de todas
+las personas. Hoy solo lee las horas. Con la concurrencia acotada se gana lo que
+hacia falta sin abrir esa puerta.
 
 ## Las lineas de ayuda segun el pais
 

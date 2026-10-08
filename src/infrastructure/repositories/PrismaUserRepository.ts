@@ -1,8 +1,13 @@
 import { Prisma, type Usuario } from '@prisma/client';
 import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
+import { FechaDeNacimiento } from '../../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { Mascota } from '../../domain/model/Preferencias.js';
-import { User } from '../../domain/model/User.js';
+import {
+  TipoDeConsentimiento,
+  User,
+  type ConsentimientoAceptado,
+} from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
@@ -121,6 +126,16 @@ export class PrismaUserRepository implements UserRepositoryPort {
       rol: user.rol,
       versionPoliticaAceptada: consentimiento.versionPolitica,
       fechaAceptacionPolitica: consentimiento.aceptadoEn,
+      // Null y no omitidas: igual que la foto, guardar la cuenta tiene que dejar
+      // estas columnas como la entidad las trae. La fecha es un dia y no un
+      // instante: se escribe a medianoche UTC para que la columna DATE guarde
+      // el mismo dia en cualquier zona del servidor.
+      fechaNacimiento:
+        user.fechaDeNacimiento === undefined
+          ? null
+          : new Date(`${user.fechaDeNacimiento.valor}T00:00:00.000Z`),
+      versionTerminosAceptada: user.terminos?.versionPolitica ?? null,
+      fechaAceptacionTerminos: user.terminos?.aceptadoEn ?? null,
       // Se omite en lugar de mandar undefined: el modo estricto del proyecto
       // no acepta lo segundo, y omitirla deja la columna en NULL.
       ...(user.nombre === undefined ? {} : { nombre: user.nombre }),
@@ -140,13 +155,35 @@ export class PrismaUserRepository implements UserRepositoryPort {
     // es lo que promete el puerto. `fechaRegistro` no se toca al actualizar:
     // es cuando aparecio la cuenta, y eso ocurrio una sola vez.
     try {
-      await this.prisma.comoUsuario(user.id.value, (cliente) =>
-        cliente.usuario.upsert({
+      await this.prisma.comoUsuario(user.id.value, async (cliente) => {
+        await cliente.usuario.upsert({
           where: { id: user.id.value },
           create: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
           update: datos,
-        }),
-      );
+        });
+
+        // Lo aceptado pasa al historial en la misma transaccion que la cuenta:
+        // o quedan las dos cosas o ninguna. `skipDuplicates` hace que guardar la
+        // cuenta por otro motivo (cambiar el nombre, la zona) no repita lo que ya
+        // esta; solo entra la version que todavia no estaba. Nunca se actualiza
+        // ni se borra una fila: la aplicacion ni siquiera tiene permiso.
+        const aceptados = [
+          { tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD, aceptado: consentimiento },
+          ...(user.terminos === undefined
+            ? []
+            : [{ tipo: TipoDeConsentimiento.TERMINOS, aceptado: user.terminos }]),
+        ];
+
+        await cliente.consentimiento.createMany({
+          data: aceptados.map(({ tipo, aceptado }) => ({
+            idUsuario: user.id.value,
+            tipo,
+            version: aceptado.versionPolitica,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+          skipDuplicates: true,
+        });
+      });
     } catch (error) {
       if (esCorreoDuplicado(error)) {
         // Alguien se registro con correo y ahora entra con Google, o al reves,
@@ -163,6 +200,23 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
       throw error;
     }
+  }
+
+  async consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
+    const filas = await this.prisma.comoUsuario(id.value, (cliente) =>
+      cliente.consentimiento.findMany({
+        where: { idUsuario: id.value },
+        orderBy: [{ aceptadoEn: 'asc' }, { tipo: 'asc' }],
+      }),
+    );
+
+    return filas.map((fila) => ({
+      // La base solo admite los dos tipos (CHECK), asi que la conversion no
+      // oculta nada.
+      tipo: fila.tipo as TipoDeConsentimiento,
+      version: fila.version,
+      aceptadoEn: fila.aceptadoEn,
+    }));
   }
 
   /**
@@ -206,6 +260,23 @@ export class PrismaUserRepository implements UserRepositoryPort {
           versionPolitica: fila.versionPoliticaAceptada,
           aceptadoEn: fila.fechaAceptacionPolitica,
         },
+        ...(fila.versionTerminosAceptada === null || fila.fechaAceptacionTerminos === null
+          ? {}
+          : {
+              terminos: {
+                versionPolitica: fila.versionTerminosAceptada,
+                aceptadoEn: fila.fechaAceptacionTerminos,
+              },
+            }),
+        // `restaurar` y no `crear`: es una fecha que ya paso la prueba de la
+        // mayoria de edad al entrar, y no se vuelve a juzgar al leerla.
+        ...(fila.fechaNacimiento === null
+          ? {}
+          : {
+              fechaDeNacimiento: FechaDeNacimiento.restaurar(
+                fila.fechaNacimiento.toISOString().slice(0, 10),
+              ),
+            }),
         registradoEn: fila.fechaRegistro,
         ...(fila.nombre === null ? {} : { nombre: fila.nombre }),
         modulosActivos: fila.modulosActivos,

@@ -70,7 +70,7 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   }
 
   marcarRevisado() {
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 }
 
@@ -227,12 +227,26 @@ describe('AvisosUseCaseImpl', () => {
     ).rejects.toThrow(InvalidNotificationSettingError);
 
     await avisos.suscribir(PERSONA, {
-      endpoint: 'https://push.example.com/abc',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
       p256dh: 'clave-p256dh',
       auth: 'clave-auth',
     });
-    await avisos.desuscribir(PERSONA, 'https://push.example.com/abc');
+    await avisos.desuscribir(PERSONA, 'https://fcm.googleapis.com/fcm/send/abc');
 
+    expect(repositorio.suscripciones).toEqual([]);
+  });
+
+  it('no guarda una direccion que no es de un servicio de push conocido (SCRUM-153)', async () => {
+    const repositorio = new AvisosDePrueba();
+    const avisos = new AvisosUseCaseImpl(repositorio, enviador('clave'));
+
+    await expect(
+      avisos.suscribir(PERSONA, {
+        endpoint: 'https://169.254.169.254/latest/meta-data/',
+        p256dh: 'clave-p256dh',
+        auth: 'clave-auth',
+      }),
+    ).rejects.toThrow(InvalidNotificationSettingError);
     expect(repositorio.suscripciones).toEqual([]);
   });
 });

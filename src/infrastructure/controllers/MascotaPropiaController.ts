@@ -24,6 +24,8 @@ import type { User } from '../../domain/model/User.js';
 import type { MascotaPropiaUseCase } from '../../domain/ports/in/MascotaPropiaUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { MASCOTA_PROPIA } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_ESCRIBIR_ARCHIVOS } from '../limites/limites.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
 
 /**
@@ -48,6 +50,7 @@ export class MascotaPropiaController {
   ) {}
 
   @Put()
+  @LimitePorCuenta(LIMITE_DE_ESCRIBIR_ARCHIVOS)
   @ApiOperation({
     summary: 'Guardar la mascota propia',
     description:
@@ -113,6 +116,7 @@ export class MascotaPropiaController {
   }
 
   @Delete()
+  @LimitePorCuenta(LIMITE_DE_ESCRIBIR_ARCHIVOS)
   @ApiOperation({
     summary: 'Quitar la mascota propia',
     description:

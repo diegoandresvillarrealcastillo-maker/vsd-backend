@@ -157,7 +157,12 @@ export class EntradaDeDiario {
     return new EntradaDeDiario(datos);
   }
 
-  /** Hasta cuando se puede corregir. */
+  /**
+   * Hasta cuando se puede corregir, contado desde que se escribio. Esa hora es la
+   * que dijo el dispositivo, acotada (ver `horaDelDispositivo`): lo escrito sin
+   * conexion a las 9:00 se puede corregir hasta las 10:00 aunque se reciba a las
+   * 14:00.
+   */
   editableHasta(): Date {
     return new Date(this.creadaEn.getTime() + MINUTOS_PARA_EDITAR * 60_000);
   }
@@ -176,6 +181,10 @@ export class EntradaDeDiario {
    *
    * Primero se mira la hora y despues la version: fuera de plazo da igual que
    * version se tuviera, y el mensaje que sirve es el del plazo.
+   *
+   * `ahora` es la hora de la edicion: la del dispositivo si la edicion se hizo sin
+   * conexion y llega despues (SCRUM-144), ya acotada por quien llama. El plazo se
+   * cuenta contra ella y no contra cuando se recibe.
    */
   editar(cambios: CambiosDeEntrada, versionLeida: number, ahora: Date): EntradaDeDiario {
     if (!this.sePuedeEditar(ahora)) {
@@ -200,7 +209,9 @@ export class EntradaDeDiario {
       documento: cambios.documento ?? this.documento,
       adjuntos: cambios.adjuntos ?? this.adjuntos,
       version: this.version + 1,
-      editadaEn: ahora,
+      // Nunca antes de la ultima edicion: dos dispositivos con el reloj distinto
+      // no hacen que la historia vaya hacia atras.
+      editadaEn: new Date(Math.max(ahora.getTime(), this.editadaEn.getTime())),
     });
 
     editada.comprobarQueNoEstaVacia();

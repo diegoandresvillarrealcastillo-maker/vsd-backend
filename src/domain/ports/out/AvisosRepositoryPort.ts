@@ -50,6 +50,18 @@ export interface AvisosRepositoryPort {
     dia: Dia,
   ): Promise<readonly UserId[]>;
 
-  /** Ese aviso ya se reviso hoy: no vuelve a salir hasta manana. */
-  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<void>;
+  /**
+   * Reclama el aviso de hoy: queda revisado y no vuelve a salir hasta manana.
+   *
+   * **Devuelve `true` solo a quien lo reclamo.** Si ya estaba revisado hoy,
+   * porque otra revision se adelanto, devuelve `false` y quien llamo no debe
+   * mandar nada. Es lo que impide un aviso doble cuando dos revisiones corren
+   * a la vez (un despliegue que solapa dos instancias del API, por ejemplo), y
+   * por eso la comprobacion y la marca ocurren en una sola operacion, no en
+   * dos: mirar y despues escribir dejaria una ventana para que pasen las dos.
+   *
+   * Con la racha y la noche, que son la misma invitacion, reclamar una cierra
+   * tambien la otra: el reclamo falla si cualquiera de las dos ya se reviso hoy.
+   */
+  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<boolean>;
 }

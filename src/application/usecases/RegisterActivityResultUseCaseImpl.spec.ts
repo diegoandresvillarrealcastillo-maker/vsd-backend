@@ -53,6 +53,14 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     );
   }
 
+  hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
+    return Promise.resolve(
+      [...this.porOperacion.values()].some(
+        (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
+      ),
+    );
+  }
+
   get cantidad(): number {
     return this.porOperacion.size;
   }

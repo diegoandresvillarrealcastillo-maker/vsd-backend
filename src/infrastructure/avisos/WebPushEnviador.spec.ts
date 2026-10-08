@@ -22,7 +22,7 @@ const webPush = (await import('web-push')).default;
 
 const CLAVES = { publica: 'publica', privada: 'privada', contacto: 'mailto:a@ejemplo.co' };
 const SUSCRIPCION = {
-  endpoint: 'https://push.example.com/direccion-del-navegador',
+  endpoint: 'https://fcm.googleapis.com/fcm/send/direccion-del-navegador',
   p256dh: 'p',
   auth: 'a',
 };
@@ -64,6 +64,27 @@ describe('WebPushEnviador', () => {
       topic: 'racha',
       vapidDetails: { subject: 'mailto:a@ejemplo.co', publicKey: 'publica', privateKey: 'privada' },
     });
+  });
+
+  it('no espera para siempre a un servicio que no contesta (SCRUM-153)', async () => {
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    await new WebPushEnviador(CLAVES).enviar(SUSCRIPCION, mensajeDeLaRacha());
+
+    const [, , opciones] = sendNotification.mock.calls[0] as [unknown, string, { timeout: number }];
+
+    // Diez segundos: de sobra para uno sano, y la revision entrega de a uno.
+    expect(opciones.timeout).toBe(10_000);
+  });
+
+  it('no manda nada a una direccion que no es de un servicio de push conocido (SCRUM-153)', async () => {
+    const guardadaAntes = { ...SUSCRIPCION, endpoint: 'https://push.example.com/abc' };
+
+    // 'caducada' es lo que hace que la revision la quite de la base.
+    await expect(
+      new WebPushEnviador(CLAVES).enviar(guardadaAntes, mensajeDeLaRacha()),
+    ).resolves.toBe('caducada');
+    expect(sendNotification).not.toHaveBeenCalled();
   });
 
   it.each([404, 410])('un %i es un navegador que ya no existe', async (estado) => {

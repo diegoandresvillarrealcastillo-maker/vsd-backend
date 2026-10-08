@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TipoDeAviso } from '../../domain/model/Aviso.js';
+import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -537,6 +537,133 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     });
   });
 
+  describe('reclamar el aviso del dia (SCRUM-160)', () => {
+    function encendidos(persona: string) {
+      return {
+        userId: new UserId(persona),
+        zonaHoraria: ZONA,
+        minutoSemaforo: 480,
+        minutoRacha: 1140,
+        minutoManana: 480,
+        minutoNoche: 1200,
+      };
+    }
+
+    async function reclamosSimultaneos(
+      persona: string,
+      tipos: readonly TipoDeAviso[],
+      cuantos: number,
+      dia = HOY,
+    ): Promise<boolean[]> {
+      const llamadas: Promise<boolean>[] = [];
+
+      for (let indice = 0; indice < cuantos; indice += 1) {
+        const tipo = tipos[indice % tipos.length];
+
+        if (tipo !== undefined) {
+          llamadas.push(avisos.marcarRevisado(new UserId(persona), tipo, dia));
+        }
+      }
+
+      return Promise.all(llamadas);
+    }
+
+    it('la primera llamada lo reclama y la segunda no', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO, HOY)).resolves.toBe(
+        true,
+      );
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO, HOY)).resolves.toBe(
+        false,
+      );
+    });
+
+    it('con 30 reclamos a la vez, exactamente uno lo gana', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+
+      // Son 30 llamadas contra el pool de la base: dependen de la base, no de
+      // que el codigo de la aplicacion vaya en orden.
+      const resultados = await reclamosSimultaneos(ANA, [TipoDeAviso.MANANA], 30);
+
+      expect(resultados.filter(Boolean)).toHaveLength(1);
+      expect(await avisos.aQuienLeToca(TipoDeAviso.MANANA, ZONA, 0, 1439, HOY)).toEqual([]);
+    });
+
+    it('la racha y la noche son la misma invitacion: a la vez, solo una sale', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+
+      const resultados = await reclamosSimultaneos(ANA, [TipoDeAviso.RACHA, TipoDeAviso.NOCHE], 30);
+
+      expect(resultados.filter(Boolean)).toHaveLength(1);
+      expect(await avisos.aQuienLeToca(TipoDeAviso.RACHA, ZONA, 0, 1439, HOY)).toEqual([]);
+      expect(await avisos.aQuienLeToca(TipoDeAviso.NOCHE, ZONA, 0, 1439, HOY)).toEqual([]);
+    });
+
+    it('reclamar una clase de aviso no cierra las otras', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, HOY)).resolves.toBe(
+        true,
+      );
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO, HOY)).resolves.toBe(
+        true,
+      );
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.RACHA, HOY)).resolves.toBe(
+        true,
+      );
+    });
+
+    it('al dia siguiente se vuelve a poder reclamar', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+      await avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, HOY);
+
+      await expect(
+        avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, '2026-10-06'),
+      ).resolves.toBe(true);
+    });
+
+    it('lo que reclama una persona no cierra el aviso de otra', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+      await avisos.guardarPreferencias(encendidos(BETO));
+
+      const [deAna, deBeto] = await Promise.all([
+        reclamosSimultaneos(ANA, [TipoDeAviso.SEMAFORO], 10),
+        reclamosSimultaneos(BETO, [TipoDeAviso.SEMAFORO], 10),
+      ]);
+
+      expect(deAna.filter(Boolean)).toHaveLength(1);
+      expect(deBeto.filter(Boolean)).toHaveLength(1);
+    });
+
+    it('quien no tiene nada guardado no tiene nada que reclamar', async () => {
+      await expect(
+        avisos.marcarRevisado(new UserId(BETO), TipoDeAviso.SEMAFORO, HOY),
+      ).resolves.toBe(false);
+    });
+
+    it('no abre ninguna lectura de mas: reclamar sigue yendo en nombre de la persona', async () => {
+      await avisos.guardarPreferencias(encendidos(ANA));
+
+      // Con la sesion de otra persona la base no deja ni ver la fila: el reclamo
+      // actualiza cero filas aunque el aviso siga sin revisar.
+      const comoBeto = { 'vsd.usuario_actual': BETO };
+
+      expect(
+        (
+          await conAjustes(
+            comoBeto,
+            'UPDATE preferencia_aviso SET ultimo_aviso_manana = $2 WHERE id_usuario = $1',
+            [ANA, HOY],
+          )
+        ).rowCount,
+      ).toBe(0);
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.MANANA, HOY)).resolves.toBe(
+        true,
+      );
+    });
+  });
+
   describe('los navegadores', () => {
     it('un navegador entrega los avisos de una sola persona', async () => {
       await avisos.suscribir(new UserId(ANA), NAVEGADOR);
@@ -573,6 +700,50 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           .rowCount,
       ).toBe(0);
       expect((await conAjustes(enElNavegador, 'DELETE FROM suscripcion_push')).rowCount).toBe(1);
+    });
+
+    describe('el tope por cuenta (SCRUM-153)', () => {
+      const navegador = (numero: number) => ({
+        endpoint: `https://fcm.googleapis.com/fcm/send/10210210-tope-${numero}`,
+        p256dh: 'clave-p256dh',
+        auth: 'clave-auth',
+      });
+
+      it('al pasar el tope sale la mas antigua y las demas se quedan', async () => {
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 2; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        const quedan = (await avisos.suscripcionesDe(new UserId(ANA))).map((una) => una.endpoint);
+
+        expect(quedan).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+        expect(quedan).not.toContain(navegador(1).endpoint);
+        expect(quedan).not.toContain(navegador(2).endpoint);
+        expect(quedan).toContain(navegador(3).endpoint);
+        expect(quedan).toContain(navegador(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 2).endpoint);
+      });
+
+      it('el tope es de cada cuenta', async () => {
+        await avisos.suscribir(new UserId(BETO), navegador(500));
+
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 3; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        await expect(avisos.suscripcionesDe(new UserId(BETO))).resolves.toEqual([navegador(500)]);
+      });
+
+      it('renovar un navegador ya guardado no hace salir a ninguno', async () => {
+        for (let numero = 1; numero <= MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA; numero += 1) {
+          await avisos.suscribir(new UserId(ANA), navegador(numero));
+        }
+
+        await avisos.suscribir(new UserId(ANA), navegador(1));
+
+        await expect(avisos.suscripcionesDe(new UserId(ANA))).resolves.toHaveLength(
+          MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+        );
+      });
     });
 
     it('se borran con la cuenta', async () => {

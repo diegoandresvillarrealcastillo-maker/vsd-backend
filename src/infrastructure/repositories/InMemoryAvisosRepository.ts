@@ -1,5 +1,5 @@
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
-import { TipoDeAviso } from '../../domain/model/Aviso.js';
+import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
@@ -39,6 +39,28 @@ function ultimoDe(fila: Fila, tipo: TipoDeAviso): Dia | null {
 /** Sin revisar hoy: nunca, o un dia anterior. */
 function sinRevisarHoy(ultimo: Dia | null, dia: Dia): boolean {
   return ultimo === null || ultimo < dia;
+}
+
+/**
+ * La racha y la noche invitan a lo mismo: una sola por dia, la primera que
+ * llegue. Cada una es la hermana de la otra; los demas avisos no tienen.
+ */
+function hermanoDe(tipo: TipoDeAviso): TipoDeAviso | undefined {
+  if (tipo === TipoDeAviso.RACHA) {
+    return TipoDeAviso.NOCHE;
+  }
+
+  return tipo === TipoDeAviso.NOCHE ? TipoDeAviso.RACHA : undefined;
+}
+
+/** Que ese aviso, y su hermano si lo tiene, sigan sin revisar hoy. */
+function sinRevisarElAviso(fila: Fila, tipo: TipoDeAviso, dia: Dia): boolean {
+  const hermano = hermanoDe(tipo);
+
+  return (
+    sinRevisarHoy(ultimoDe(fila, tipo), dia) &&
+    (hermano === undefined || sinRevisarHoy(ultimoDe(fila, hermano), dia))
+  );
 }
 
 /**
@@ -90,7 +112,23 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
   }
 
   suscribir(userId: UserId, suscripcion: SuscripcionPush): Promise<void> {
+    // Se borra antes de poner: una suscripcion renovada pasa a ser la mas
+    // reciente, como en la base, donde se reemplaza la fila.
+    this.suscripciones.delete(suscripcion.endpoint);
     this.suscripciones.set(suscripcion.endpoint, { userId: userId.value, suscripcion });
+
+    // El `Map` recuerda el orden en que se agrego cada una: las primeras de la
+    // persona son las mas antiguas, y son las que salen al pasar el tope.
+    const deLaPersona = [...this.suscripciones.entries()].filter(
+      ([, fila]) => fila.userId === userId.value,
+    );
+
+    for (const [endpoint] of deLaPersona.slice(
+      0,
+      Math.max(0, deLaPersona.length - MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA),
+    )) {
+      this.suscripciones.delete(endpoint);
+    }
 
     return Promise.resolve();
   }
@@ -143,44 +181,39 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
             return false;
           }
 
-          // La racha y la noche invitan a lo mismo: una sola por dia, la
-          // primera que llegue.
-          const hermano =
-            tipo === TipoDeAviso.RACHA
-              ? TipoDeAviso.NOCHE
-              : tipo === TipoDeAviso.NOCHE
-                ? TipoDeAviso.RACHA
-                : undefined;
-
-          return (
-            sinRevisarHoy(ultimoDe(fila, tipo), dia) &&
-            (hermano === undefined || sinRevisarHoy(ultimoDe(fila, hermano), dia))
-          );
+          return sinRevisarElAviso(fila, tipo, dia);
         })
         .map(([id]) => new UserId(id)),
     );
   }
 
-  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<void> {
+  /**
+   * Reclama el aviso de hoy: `true` solo si estaba sin revisar. Sin `await`
+   * entre mirar y escribir, ninguna otra llamada se cuela en medio, como la
+   * sentencia unica de PostgreSQL.
+   */
+  marcarRevisado(userId: UserId, tipo: TipoDeAviso, dia: Dia): Promise<boolean> {
     const fila = this.preferencias.get(userId.value);
 
-    if (fila !== undefined) {
-      switch (tipo) {
-        case TipoDeAviso.SEMAFORO:
-          fila.ultimoAvisoSemaforo = dia;
-          break;
-        case TipoDeAviso.RACHA:
-          fila.ultimoAvisoRacha = dia;
-          break;
-        case TipoDeAviso.MANANA:
-          fila.ultimoAvisoManana = dia;
-          break;
-        case TipoDeAviso.NOCHE:
-          fila.ultimoAvisoNoche = dia;
-          break;
-      }
+    if (fila === undefined || !sinRevisarElAviso(fila, tipo, dia)) {
+      return Promise.resolve(false);
     }
 
-    return Promise.resolve();
+    switch (tipo) {
+      case TipoDeAviso.SEMAFORO:
+        fila.ultimoAvisoSemaforo = dia;
+        break;
+      case TipoDeAviso.RACHA:
+        fila.ultimoAvisoRacha = dia;
+        break;
+      case TipoDeAviso.MANANA:
+        fila.ultimoAvisoManana = dia;
+        break;
+      case TipoDeAviso.NOCHE:
+        fila.ultimoAvisoNoche = dia;
+        break;
+    }
+
+    return Promise.resolve(true);
   }
 }

@@ -1,5 +1,8 @@
 import request from 'supertest';
-import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
+import {
+  VERSION_VIGENTE_DE_LOS_TERMINOS,
+  VERSION_VIGENTE_DEL_AVISO,
+} from '../domain/model/AvisoDePrivacidad.js';
 import { TokenInvalidoError } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 import type { Identidad } from '../infrastructure/auth/VerificadorDeIdentidad.js';
 
@@ -39,6 +42,20 @@ export const SESIONES: Record<string, Identidad> = {
   'token-de-B': { id: '22222222-2222-4222-9222-222222222222', correo: 'b@sesion-de-prueba.test' },
 };
 
+/**
+ * Lo que manda quien se registra bien: mayor de edad y con las dos casillas
+ * marcadas, con las versiones vigentes. Las pruebas que necesitan una cuenta
+ * lista para usar lo envian tal cual; las que prueban que algo falta le quitan
+ * la pieza.
+ */
+export const REGISTRO_DE_PRUEBA = {
+  fechaNacimiento: '1990-06-15',
+  versionPolitica: VERSION_VIGENTE_DEL_AVISO,
+  versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+  aceptaAviso: true,
+  aceptaTerminos: true,
+} as const;
+
 /** Cabecera lista para pasar a supertest. */
 export function comoUsuario(token: string): [string, string] {
   return ['Authorization', `Bearer ${token}`];
@@ -64,7 +81,7 @@ export async function darDeAlta(
     await request(servidor)
       .post('/api/cuenta')
       .set(...comoUsuario(token))
-      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
+      .send(REGISTRO_DE_PRUEBA)
       .expect(200);
   }
 }

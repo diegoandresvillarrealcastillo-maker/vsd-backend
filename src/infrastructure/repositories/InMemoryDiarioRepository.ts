@@ -6,9 +6,10 @@ import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioReposito
 /**
  * Diario en memoria, para el arranque sin base de datos y para las pruebas.
  *
- * La hora para editar la hace cumplir PostgreSQL. Aqui no hay base, asi que
- * solo la comprueba el dominio antes de llegar, que es suficiente para un
- * arranque local. Las pruebas de la regla de verdad van contra la base.
+ * La hora para editar y las cotas de la hora del dispositivo (nunca en el
+ * futuro, nunca de hace mas de 30 dias) las hace cumplir PostgreSQL. Aqui no hay
+ * base, asi que solo las comprueba el dominio antes de llegar, que es suficiente
+ * para un arranque local. Las pruebas de la regla de verdad van contra la base.
  */
 export class InMemoryDiarioRepository implements DiarioRepositoryPort {
   private readonly porPersona = new Map<string, EntradaDeDiario[]>();

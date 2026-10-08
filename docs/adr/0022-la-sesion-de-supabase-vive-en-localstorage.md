@@ -1,10 +1,11 @@
-# ADR 0021: La sesion de Supabase vive en localStorage
+# ADR 0022: La sesion de Supabase vive en localStorage
 
 - **Estado:** aceptado
 - **Fecha:** 2026-10-08
 - **Tarea:** SCRUM-143. Deja por escrito lo que se decidio al construir el acceso
   (Ciclo 5) y al abrir la aplicacion sin conexion (SCRUM-137), y que se aparta de lo
-  que pide HU_MF09_001.
+  que pide HU_MF09_001. Se puso al dia con SCRUM-152 (la CSP) y SCRUM-164 (la casilla
+  de la sesion) de la Auditoria 360.
 
 ## Contexto
 
@@ -21,10 +22,12 @@ Lo que hace el sistema hoy:
   refresco (treinta dias)— en el almacenamiento del navegador, bajo la clave
   `vsd.sesion`. Un adaptador (`infraestructura/supabase/almacenamiento.ts`) la
   enruta a `localStorage` o a `sessionStorage`.
-- La sesion **se recuerda por omision**: la pantalla de acceso trae marcada
-  «Recordar en este dispositivo» («Si lo desmarcas, la sesion se cierra al cerrar la
-  pestana. Usalo en computadores compartidos.»). Quien la desmarca guarda la sesion en
-  `sessionStorage`. Al crear la cuenta siempre se recuerda.
+- La sesion **no se recuerda por omision** (SCRUM-164): la pantalla de acceso trae
+  **desmarcada** «Mantener la sesion en este equipo». Con la casilla sin tocar, que es
+  lo que pasa si la persona no hace nada, la sesion se guarda en `sessionStorage` y se
+  cierra al cerrar la pestana; marcada, se guarda en `localStorage`. Al crear la cuenta
+  con correo se usa `localStorage` por una razon tecnica (`RECORDAR_SIEMPRE`, en
+  `ProveedorDeSesion`).
 - **Lo demas que es de una persona no esta en `localStorage`.** Esta en IndexedDB,
   una base por persona y cifrada (ADR 0019). En `localStorage` solo quedan el token
   y preferencias del dispositivo que no dicen nada de nadie: el tema, donde dejo la
@@ -52,9 +55,10 @@ Lo que acota el riesgo:
    `signOut` de Supabase), la base de la persona y la clave que la cifraba (ADR
    0019). Si la sesion termina sola (caduco, se revoco) no se borra lo guardado
    en IndexedDB, pero la sesion se cierra.
-4. **Quien lo necesite puede no dejar el token en `localStorage`**: desmarcando
-   «Recordar en este dispositivo» la sesion vive en `sessionStorage` y desaparece al
-   cerrar la pestana. Es la salida para un computador compartido.
+4. **Por omision el token no queda en `localStorage`**: sin marcar «Mantener la
+   sesion en este equipo», la sesion vive en `sessionStorage` y desaparece al cerrar la
+   pestana. Solo queda en `localStorage` si la persona marca la casilla o se registra
+   con correo.
 5. **Lo que se muestra se sanea** (el diario, el SVG propio —ADR 0017—), porque el
    riesgo real de `localStorage` es codigo que corra dentro de la pagina.
 
@@ -93,14 +97,19 @@ en `localStorage`.
   podria renovarlo durante treinta dias. Es el riesgo que el criterio quiere evitar
   y esta decision lo acepta. Lo acota que el token de acceso dure una hora, no lo
   elimina.
-- **Hoy no hay una politica de contenido (CSP)** en `vercel.json` ni en la
-  configuracion de nginx de la imagen del frontend. Es la defensa que mas reduciria
-  este riesgo y **no esta puesta**. El ADR 0019 ya la nombra como necesaria. Queda
-  para la auditoria de seguridad, no se hizo en este ticket.
-- **Como la casilla viene marcada, en una sala de computo quien no la desmarca ni
-  cierra sesion deja la suya abierta hasta treinta dias** para la persona que se
-  siente despues. La salida existe, pero depende de que la persona la use; si se
-  quisiera que viniera desmarcada, es un cambio de pantalla, no de arquitectura.
+- **La politica de contenido (CSP) existe pero todavia no bloquea.** SCRUM-152 la manda
+  en modo «solo informar» (`Content-Security-Policy-Report-Only`) desde `vercel.json` y
+  desde la imagen de nginx del frontend, con el mismo valor: el script
+  `comprobar-las-cabeceras.mjs` falla la compilacion si difieren. Dice en la consola
+  que habria bloqueado sin romper nada; el plan que deja escrito es una semana asi en
+  PRE y despues pasarla a `Content-Security-Policy`. Mientras siga en «solo informar»
+  **no frena a un script inyectado**. Es la defensa que mas reduciria este riesgo, y el
+  ADR 0019 ya la nombra como necesaria.
+- **El riesgo de una sala de computo bajo con SCRUM-164**, porque la casilla viene
+  desmarcada y quien no hace nada deja la sesion en `sessionStorage`. Lo que queda es
+  quien marca «Mantener la sesion en este equipo» en un equipo compartido y no cierra
+  sesion: la suya queda abierta hasta treinta dias para la persona que se siente
+  despues. Y el registro con correo, que usa `localStorage`.
 - **No se ha comprobado** la rotacion de tokens de refresco ni su tiempo de reuso en
   el panel de Supabase de cada ambiente. Conviene revisarlo.
 

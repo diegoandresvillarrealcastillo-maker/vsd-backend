@@ -1,4 +1,4 @@
-# ADR 0022: Lo que exige conexion se ve deshabilitado y no se guarda para despues
+# ADR 0023: Lo que exige conexion se ve deshabilitado y no se guarda para despues
 
 - **Estado:** aceptado
 - **Fecha:** 2026-10-08

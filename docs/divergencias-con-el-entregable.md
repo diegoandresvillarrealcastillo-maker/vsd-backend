@@ -111,7 +111,7 @@ por lo que es: asistente por reglas.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **El entregable dice** | HU_MF09_001, seguridad y privacidad: «No guardar tokens en LocalStorage; separar datos por usuario y limpiar al cerrar sesión»                                                                                              |
 | **El sistema hace**    | El token de acceso (una hora) y el de refresco (treinta días) de Supabase viven en `localStorage`, bajo `vsd.sesion`. **Todo lo demás de la persona** está en IndexedDB, cifrado, una base por persona, y se borra al salir |
-| **Decisión**           | [ADR 0021](adr/0021-la-sesion-de-supabase-vive-en-localstorage.md)                                                                                                                                                          |
+| **Decisión**           | [ADR 0022](adr/0022-la-sesion-de-supabase-vive-en-localstorage.md)                                                                                                                                                          |
 
 **Qué se cumple y qué no.** Se cumplen las otras dos mitades de esa línea: los datos
 están separados por persona y se limpian al cerrar sesión. No se cumple la primera.
@@ -123,11 +123,14 @@ que guardar aparte quién es la persona) y metería nuestra API, que se duerme, 
 camino del inicio de sesión.
 
 **Lo que cuesta, y hay que decirlo.** Un script que corra dentro de la página puede
-leer el token. Lo acota que el de acceso dure una hora; no lo elimina. **Hoy no hay
-una política de contenido (CSP)**, ni en Vercel ni en la imagen de nginx: es la
-defensa que más reduciría este riesgo y queda para la auditoría de seguridad. Y como
-la casilla «Recordar en este dispositivo» viene marcada, en un computador compartido
-quien no la desmarca ni cierra sesión deja la suya abierta.
+leer el token. Lo acota que el de acceso dure una hora; no lo elimina. **La política
+de contenido (CSP) ya existe, pero todavía no bloquea**: SCRUM-152 la manda en modo
+«solo informar», en Vercel y en la imagen de nginx, hasta ver una semana en PRE qué
+rompería. Es la defensa que más reduciría este riesgo, y mientras no pase a bloquear
+no frena a un script inyectado. En un computador compartido, SCRUM-164 ya deja la
+casilla «Mantener la sesión en este equipo» **desmarcada**: quien no hace nada deja la
+sesión en `sessionStorage` y se cierra con la pestaña. El riesgo que queda es de quien
+la marca y no cierra sesión, y el del registro con correo, que usa `localStorage`.
 
 ## 5. VSD IA responde algo sin conexión
 
@@ -158,7 +161,7 @@ paquete no pasa por la caché del service worker, que no toca la API por diseño
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **El entregable dice** | Requisito del equipo: todo disponible sin conexión **salvo** el cambio de contraseña, el cambio de correo y la configuración del perfil. HU_MF09_001, criterio 3: lo no disponible «informa la limitación sin simular éxito» |
 | **El sistema hace**    | Exigen conexión también entrar, registrarse, recuperar la contraseña, descargar los datos, borrar la cuenta, añadir un módulo y empezar la bienvenida. **El cambio de correo no existe** en la aplicación                    |
-| **Decisión**           | [ADR 0022](adr/0022-lo-que-exige-conexion-se-ve-deshabilitado-y-no-se-guarda-para-despues.md)                                                                                                                                |
+| **Decisión**           | [ADR 0023](adr/0023-lo-que-exige-conexion-se-ve-deshabilitado-y-no-se-guarda-para-despues.md)                                                                                                                                |
 
 **Por qué.** Lo que prueba quién es la persona o lo que el servidor decide en el
 momento no se puede guardar «para después» sin decirle que ya pasó algo que no ha

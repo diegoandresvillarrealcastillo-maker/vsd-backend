@@ -169,6 +169,12 @@ Hay ademas una ruta que **si exige token pero no exige cuenta**, marcada con
 la que crea la cuenta que todas las demas exigen; sin esa marca, darse de alta
 requeriria estar ya dado de alta.
 
+Y una tercera marca, `@PermiteRegistroIncompleto()`, para lo que se le puede
+hacer a una cuenta que todavia no declaro su fecha de nacimiento ni marco las
+casillas: consultarla, exportarla y borrarla. Lo que no lleva la marca la
+rechaza con 403 `REGISTRO_INCOMPLETO`, de modo que una ruta nueva exige el
+registro completo sin que nadie tenga que acordarse (ADR 0021).
+
 Es al reves de proteger ruta por ruta, y es deliberado: olvidar el
 decorador deja una ruta publica cerrada, que se nota en cuanto alguien la
 usa; olvidar proteger deja una ruta privada abierta, que no se nota nunca.
@@ -196,11 +202,12 @@ como el tema visual o el idioma.
 el de refresco (treinta dias) de Supabase viven en `localStorage`, bajo
 `vsd.sesion`, y es una divergencia deliberada de HU_MF09_001, que pide no
 guardar tokens ahi. Sin la sesion guardada no se puede abrir la aplicacion sin
-conexion. Que cosas lo acotan, que cuesta y que falta (**hoy no hay una politica
-de contenido, CSP**) esta en el
-[ADR 0021](adr/0021-la-sesion-de-supabase-vive-en-localstorage.md). Quien no
-quiere dejarla en un equipo compartido desmarca «Recordar en este dispositivo» y
-la sesion vive en `sessionStorage`.
+conexion. Que cosas lo acotan, que cuesta y que falta (**la politica de contenido,
+CSP, esta puesta en modo «solo informar» pero todavia no bloquea**, SCRUM-152) esta en
+el [ADR 0022](adr/0022-la-sesion-de-supabase-vive-en-localstorage.md). Por omision la
+sesion vive en `sessionStorage` y se cierra con la pestana: solo pasa a `localStorage`
+si la persona marca «Mantener la sesion en este equipo» (SCRUM-164) o se registra con
+correo.
 
 Lo que **si es de una persona** nunca va ahi: se borra al cerrar sesion o al
 borrar la cuenta (IndexedDB, su clave y lo que la mascota ya le dijo).

@@ -290,15 +290,18 @@ distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
   `20260921120000_catalogo_inicial`. Le faltan las ocho siguientes, que tienen
   que estar aplicadas antes del primer despliegue de PROD. Ver "Estado actual".
 
-> **Despues del 06/10/2026 llegaron nueve migraciones mas** (`20261007120000_zona_horaria_por_persona`
-> hasta `20261014120000_hora_del_dispositivo_en_el_diario`): ya son **22** en el
+> **Despues del 06/10/2026 llegaron diez migraciones mas** (`20261007120000_zona_horaria_por_persona`
+> hasta `20261015120000_edad_y_consentimiento_explicito`): ya son **23** en el
 > repositorio. Cuales estan aplicadas en cada base lo dice `npm run db:revisar`, y **las
-> aplica una persona**, en orden, antes de desplegar el backend. Dos importan para el
-> modo sin conexion: `20261013120000_version_del_pendiente` (SCRUM-134: el codigo nuevo
-> necesita esa columna) y `20261014120000_hora_del_dispositivo_en_el_diario`
-> (SCRUM-144: cambia el disparador y la politica del diario). **Sin ellas, desplegar el
-> backend rompe los pendientes y el diario.** Esta tabla refleja lo comprobado el
-> 06/10; no se ha vuelto a comprobar.
+> aplica una persona**, en orden, antes de desplegar el backend. Tres importan para lo
+> que se acaba de construir: `20261013120000_version_del_pendiente` (SCRUM-134: el codigo
+> nuevo necesita esa columna), `20261014120000_hora_del_dispositivo_en_el_diario`
+> (SCRUM-144: cambia el disparador y la politica del diario) y
+> `20261015120000_edad_y_consentimiento_explicito` (SCRUM-147, de la Auditoria 360: agrega
+> la fecha de nacimiento, los terminos aceptados y la tabla `consentimiento`; es aditiva,
+> y las cuentas que ya existen quedan como registro incompleto hasta que lo completen,
+> ADR 0021). **Sin ellas, desplegar el backend rompe los pendientes, el diario y el
+> registro.** Esta tabla refleja lo comprobado el 06/10; no se ha vuelto a comprobar.
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
 ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas

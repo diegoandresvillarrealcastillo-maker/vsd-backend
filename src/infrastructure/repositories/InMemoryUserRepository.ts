@@ -1,5 +1,9 @@
 import type { UserId } from '../../domain/model/Identifier.js';
-import type { User } from '../../domain/model/User.js';
+import {
+  TipoDeConsentimiento,
+  type ConsentimientoAceptado,
+  type User,
+} from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
 /**
@@ -22,6 +26,9 @@ import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPo
 export class InMemoryUserRepository implements UserRepositoryPort {
   private readonly porId = new Map<string, User>();
 
+  /** El historial de lo aceptado por cuenta: solo se anade, como en la base. */
+  private readonly historial = new Map<string, ConsentimientoAceptado[]>();
+
   findById(id: UserId): Promise<User | null> {
     // El puerto es asincrono porque el adaptador real habla con PostgreSQL.
     // Aqui no hay nada que esperar, asi que se devuelve una promesa resuelta
@@ -39,8 +46,41 @@ export class InMemoryUserRepository implements UserRepositoryPort {
 
   save(user: User): Promise<void> {
     this.porId.set(user.id.value, user);
+    this.anotarLoAceptado(user);
 
     return Promise.resolve();
+  }
+
+  consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
+    return Promise.resolve([...(this.historial.get(id.value) ?? [])]);
+  }
+
+  /** Lo mismo que hace la base: una fila por aceptacion, sin repetir la que ya esta. */
+  private anotarLoAceptado(user: User): void {
+    const anotadas = this.historial.get(user.id.value) ?? [];
+    const aceptadas = [
+      { tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD, aceptado: user.consentimiento },
+      { tipo: TipoDeConsentimiento.TERMINOS, aceptado: user.terminos },
+    ];
+
+    for (const { tipo, aceptado } of aceptadas) {
+      if (aceptado === undefined) {
+        continue;
+      }
+
+      const yaEsta = anotadas.some(
+        (fila) =>
+          fila.tipo === tipo &&
+          fila.version === aceptado.versionPolitica &&
+          fila.aceptadoEn.getTime() === aceptado.aceptadoEn.getTime(),
+      );
+
+      if (!yaEsta) {
+        anotadas.push({ tipo, version: aceptado.versionPolitica, aceptadoEn: aceptado.aceptadoEn });
+      }
+    }
+
+    this.historial.set(user.id.value, anotadas);
   }
 
   /**
@@ -55,6 +95,7 @@ export class InMemoryUserRepository implements UserRepositoryPort {
   async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
     await antesDeConfirmar();
     this.porId.delete(id.value);
+    this.historial.delete(id.value);
   }
 
   /** Numero de cuentas guardadas. Solo para pruebas. */

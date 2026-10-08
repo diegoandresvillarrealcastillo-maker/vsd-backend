@@ -97,7 +97,7 @@
     },
     "/api/cuenta": {
       "post": {
-        "description": "Se invoca despues de iniciar sesion. Si la persona ya tenia cuenta se devuelve tal cual, sin volver a pedir el consentimiento ni sobrescribir el que hay: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.",
+        "description": "Se invoca despues de iniciar sesion. Crear una cuenta exige la fecha de nacimiento, ser mayor de 18 anos y las dos casillas (aviso de privacidad y terminos) con las versiones vigentes; la edad la calcula el servidor. Un menor no queda registrado: su identidad se borra y la respuesta es 403 MENOR_DE_EDAD. Si la persona ya tenia cuenta se devuelve tal cual, sin sobrescribir lo que acepto: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Las cuentas anteriores a que se pidiera la fecha y las casillas vienen con `registroCompleto: false`; mandar aqui el registro lo completa. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.",
         "operationId": "CuentaController_registrar",
         "parameters": [],
         "requestBody": {
@@ -122,13 +122,16 @@
             }
           },
           "400": {
-            "description": "El cuerpo no es valido, o falta el consentimiento. Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012)."
+            "description": "El cuerpo no es valido, falta o no sirve la fecha de nacimiento (FECHA_DE_NACIMIENTO_INVALIDA), o falta el consentimiento (CONSENTIMIENTO_NO_REGISTRADO). Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012)."
           },
           "401": {
             "description": "Falta la sesion o el token no es valido."
           },
+          "403": {
+            "description": "MENOR_DE_EDAD: la plataforma es solo para mayores de 18 anos. No se guarda nada y la identidad se borra."
+          },
           "409": {
-            "description": "Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso."
+            "description": "Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso, o la version del aviso o de los terminos ya no es la vigente."
           }
         },
         "security": [
@@ -136,7 +139,7 @@
             "sesion": []
           }
         ],
-        "summary": "Dar de alta la cuenta, o recuperar la que ya existe",
+        "summary": "Dar de alta la cuenta, completar el registro, o recuperar la que ya existe",
         "tags": [
           "Cuenta"
         ]
@@ -550,12 +553,12 @@
     },
     "/api/aviso": {
       "get": {
-        "description": "Devuelve la version que hay que aceptar al dar de alta una cuenta. Es la unica fuente de ese valor: ni el frontend ni las pruebas llevan una copia propia.",
+        "description": "Devuelve las versiones que hay que aceptar al dar de alta una cuenta. Es la unica fuente de esos valores: ni el frontend ni las pruebas llevan una copia propia.",
         "operationId": "AvisoController_consultar",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "La version vigente.",
+            "description": "Las versiones vigentes.",
             "content": {
               "application/json": {
                 "schema": {
@@ -565,7 +568,7 @@
             }
           }
         },
-        "summary": "Consultar la version vigente del aviso de privacidad",
+        "summary": "Consultar las versiones vigentes del aviso de privacidad y de los terminos",
         "tags": [
           "Cuenta"
         ]
@@ -1414,12 +1417,32 @@
       "RegistrarCuentaDto": {
         "type": "object",
         "properties": {
+          "fechaNacimiento": {
+            "type": "string",
+            "description": "Fecha de nacimiento, AAAA-MM-DD. Obligatoria para crear la cuenta y para completar la de quien se registró antes de que se pidiera. VSD Health es solo para mayores de 18 años: con menos, la respuesta es 403 MENOR_DE_EDAD y no se guarda nada. La edad la calcula el servidor.",
+            "example": "1998-03-14"
+          },
           "versionPolitica": {
             "type": "string",
-            "description": "Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "description": "Versión del aviso de tratamiento de datos que la persona aceptó. No basta un sí o un no: las políticas cambian, y ante una reclamación hay que poder demostrar a qué se dio permiso y cuándo. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
             "example": "2026-09-1",
             "minLength": 1,
             "maxLength": 20
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-1",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "aceptaAviso": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla del aviso de privacidad. Tiene que ser true: enviar la versión sola ya no cuenta como aceptarlo."
+          },
+          "aceptaTerminos": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla de los términos. Tiene que ser true."
           },
           "nombre": {
             "type": "string",
@@ -1429,14 +1452,11 @@
           },
           "zonaHoraria": {
             "type": "string",
-            "description": "Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.",
+            "description": "Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona, y con ella se cuenta su edad. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.",
             "example": "America/Bogota",
             "maxLength": 64
           }
-        },
-        "required": [
-          "versionPolitica"
-        ]
+        }
       },
       "ConsentimientoDto": {
         "type": "object",
@@ -1549,6 +1569,20 @@
               }
             ]
           },
+          "terminos": {
+            "description": "Los términos que aceptó con su casilla, o null en las cuentas anteriores a que se pidieran.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsentimientoDto"
+              }
+            ]
+          },
+          "registroCompleto": {
+            "type": "boolean",
+            "description": "Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro»."
+          },
           "registradoEn": {
             "type": "string",
             "description": "Cuando se creo la cuenta.",
@@ -1611,6 +1645,8 @@
           "correo",
           "rol",
           "consentimiento",
+          "terminos",
+          "registroCompleto",
           "registradoEn",
           "modulosActivos",
           "mascota",
@@ -1659,6 +1695,31 @@
             "example": false
           }
         }
+      },
+      "ConsentimientoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "aviso_de_privacidad",
+              "terminos"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-10-1"
+          },
+          "aceptadoEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tipo",
+          "version",
+          "aceptadoEn"
+        ]
       },
       "EntradaDelDiarioDto": {
         "type": "object",
@@ -1903,6 +1964,19 @@
           "cuenta": {
             "$ref": "#/components/schemas/CuentaRespuestaDto"
           },
+          "fechaNacimiento": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "La fecha de nacimiento que declaraste, o null si tu cuenta es anterior a que se pidiera. Solo sale aquí: el resto de la API no la devuelve."
+          },
+          "consentimientos": {
+            "description": "Todo lo que aceptaste, versión por versión, de lo más antiguo a lo más reciente: el aviso de privacidad y los términos. Solo se añade; nunca se reescribe.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentimientoExportadoDto"
+            }
+          },
           "resultados": {
             "type": "array",
             "items": {
@@ -1949,6 +2023,8 @@
         "required": [
           "generadoEn",
           "cuenta",
+          "fechaNacimiento",
+          "consentimientos",
           "resultados",
           "entradasDeDiario",
           "pendientes",
@@ -1975,12 +2051,18 @@
         "properties": {
           "version": {
             "type": "string",
-            "description": "Version vigente del aviso. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
+            "description": "Version vigente del aviso de privacidad. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
             "example": "2026-09-1"
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Version vigente de los terminos. Es la que hay que enviar en `versionTerminos` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
+            "example": "2026-10-1"
           }
         },
         "required": [
-          "version"
+          "version",
+          "versionTerminos"
         ]
       },
       "EscribirEnElDiarioDto": {

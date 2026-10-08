@@ -154,8 +154,8 @@ IndexedDB, ni nada de la persona en la Cache Storage; en `localStorage` solo
 
 ### 11. Un equipo compartido
 
-1. Entra con la cuenta A, **desmarcando** «Recordar en este dispositivo». Cierra la pestaña.
-   **Debería:** no seguir con la sesión abierta.
+1. Entra con la cuenta A **sin marcar** «Mantener la sesión en este equipo» (así viene
+   desde SCRUM-164). Cierra la pestaña. **Debería:** no seguir con la sesión abierta.
 2. Entra con la A, haz algo sin enviar y deja que **su sesión termine sola** (que
    caduque o se revoque desde el panel de Supabase). Entra después con la cuenta B.
 
@@ -242,5 +242,5 @@ cada cosa que falle se anota aquí con su caso, el entorno y lo que se vio.
   requisito cubre cada cosa y qué no se ha podido comprobar.
 - [Divergencias con el entregable](divergencias-con-el-entregable.md)
 - [ADR 0019](adr/0019-el-modo-sin-conexion-guarda-en-el-dispositivo-y-envia-una-cola-idempotente.md)
-  y [ADR 0022](adr/0022-lo-que-exige-conexion-se-ve-deshabilitado-y-no-se-guarda-para-despues.md)
+  y [ADR 0023](adr/0023-lo-que-exige-conexion-se-ve-deshabilitado-y-no-se-guarda-para-despues.md)
 - [Ambientes](ambientes.md): el arranque en frío y las migraciones de PRE.

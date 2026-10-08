@@ -4,6 +4,8 @@ import type { AsistentePort } from '../../domain/ports/in/AsistentePort.js';
 import type { User } from '../../domain/model/User.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { ASISTENTE } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DEL_ASISTENTE } from '../limites/limites.js';
 import { AsistenteRespuestaDto } from './dto/AsistenteRespuestaDto.js';
 import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
 
@@ -27,6 +29,7 @@ export class AsistenteController {
   ) {}
 
   @Post()
+  @LimitePorCuenta(LIMITE_DEL_ASISTENTE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Preguntar al asistente',

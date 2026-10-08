@@ -24,6 +24,8 @@ import type { User } from '../../domain/model/User.js';
 import type { FotoDePerfilUseCase } from '../../domain/ports/in/FotoDePerfilUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { FOTO_DE_PERFIL } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_ESCRIBIR_ARCHIVOS } from '../limites/limites.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
 
 /**
@@ -49,6 +51,7 @@ export class FotoDePerfilController {
   ) {}
 
   @Put()
+  @LimitePorCuenta(LIMITE_DE_ESCRIBIR_ARCHIVOS)
   @ApiOperation({
     summary: 'Guardar la foto de perfil',
     description:
@@ -110,6 +113,7 @@ export class FotoDePerfilController {
   }
 
   @Delete()
+  @LimitePorCuenta(LIMITE_DE_ESCRIBIR_ARCHIVOS)
   @ApiOperation({
     summary: 'Quitar la foto de perfil',
     description:

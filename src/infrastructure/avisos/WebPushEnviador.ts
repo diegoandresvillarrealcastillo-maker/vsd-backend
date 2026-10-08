@@ -1,10 +1,24 @@
 import webPush from 'web-push';
-import type { MensajeDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
+import {
+  esLaDireccionDeUnServicioDePush,
+  type MensajeDeAviso,
+  type SuscripcionPush,
+} from '../../domain/model/Aviso.js';
 import type { Entrega, EnviadorDePushPort } from '../../domain/ports/out/EnviadorDePushPort.js';
 import type { ClavesVapid } from '../config/environment.js';
 
 /** Cuanto guarda el servicio de push un aviso para un telefono apagado. */
 const VIGENCIA_EN_SEGUNDOS = 60 * 60 * 6;
+
+/**
+ * Cuanto se espera la respuesta del servicio de push (SCRUM-153).
+ *
+ * Sin limite, un servicio que no contesta deja la conexion abierta y detiene
+ * la revision de avisos, que entrega de a un navegador. Diez segundos sobran
+ * para uno sano; pasado ese tiempo la entrega falla y se reintenta en la
+ * siguiente revision.
+ */
+const ESPERA_MAXIMA_EN_MS = 10_000;
 
 /**
  * Error de la entrega, sin nada de la persona. El de `web-push` lleva la
@@ -41,6 +55,13 @@ export class WebPushEnviador implements EnviadorDePushPort {
       throw new EntregaFallidaError(undefined);
     }
 
+    // Defensa en profundidad (SCRUM-153): una suscripcion guardada antes de que
+    // existiera la lista de servicios no se salva de ella. No se le manda nada
+    // y se cuenta como caducada, que es lo que la quita de la base.
+    if (!esLaDireccionDeUnServicioDePush(suscripcion.endpoint)) {
+      return 'caducada';
+    }
+
     try {
       await webPush.sendNotification(
         {
@@ -55,6 +76,7 @@ export class WebPushEnviador implements EnviadorDePushPort {
         }),
         {
           TTL: VIGENCIA_EN_SEGUNDOS,
+          timeout: ESPERA_MAXIMA_EN_MS,
           // Un aviso nuevo del mismo tipo reemplaza al que no llego: si el
           // telefono estuvo apagado, al encenderlo ve uno, no tres.
           topic: mensaje.tipo,

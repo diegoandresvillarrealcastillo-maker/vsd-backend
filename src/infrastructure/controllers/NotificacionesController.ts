@@ -102,10 +102,14 @@ export class NotificacionesController {
   @ApiOperation({
     summary: 'Recibir los avisos en este navegador',
     description:
-      'Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo.',
+      'Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo. Solo se aceptan los servicios de push de Google, Mozilla, Apple y Windows. Una cuenta guarda hasta 10 navegadores: al pasar de 10, sale el más antiguo.',
   })
   @ApiResponse({ status: 204, description: 'Suscrito.' })
-  @ApiResponse({ status: 400, description: 'La suscripción no es válida.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'La suscripción no es válida, o su dirección no es la de un servicio de push conocido (AVISO_INVALIDO).',
+  })
   async suscribir(@Body() dto: SuscribirDto, @CuentaActual() cuenta: User): Promise<void> {
     await this.avisos.suscribir(cuenta.id.value, {
       endpoint: dto.endpoint,

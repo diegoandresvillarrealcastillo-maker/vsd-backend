@@ -17,6 +17,7 @@ import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseC
 import type { ExportarDatosUseCase } from '../../domain/ports/in/ExportarDatosUseCase.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
+import { PermiteRegistroIncompleto } from '../auth/PermiteRegistroIncompleto.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
 import { UsuarioActual } from '../auth/UsuarioActual.js';
 import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
@@ -63,9 +64,9 @@ export class CuentaController {
   @SinCuenta()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Dar de alta la cuenta, o recuperar la que ya existe',
+    summary: 'Dar de alta la cuenta, completar el registro, o recuperar la que ya existe',
     description:
-      'Se invoca despues de iniciar sesion. Si la persona ya tenia cuenta se devuelve tal cual, sin volver a pedir el consentimiento ni sobrescribir el que hay: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.',
+      'Se invoca despues de iniciar sesion. Crear una cuenta exige la fecha de nacimiento, ser mayor de 18 anos y las dos casillas (aviso de privacidad y terminos) con las versiones vigentes; la edad la calcula el servidor. Un menor no queda registrado: su identidad se borra y la respuesta es 403 MENOR_DE_EDAD. Si la persona ya tenia cuenta se devuelve tal cual, sin sobrescribir lo que acepto: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Las cuentas anteriores a que se pidiera la fecha y las casillas vienen con `registroCompleto: false`; mandar aqui el registro lo completa. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.',
   })
   @ApiBody({ type: RegistrarCuentaDto })
   @ApiResponse({
@@ -76,12 +77,18 @@ export class CuentaController {
   @ApiResponse({
     status: 400,
     description:
-      'El cuerpo no es valido, o falta el consentimiento. Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012).',
+      'El cuerpo no es valido, falta o no sirve la fecha de nacimiento (FECHA_DE_NACIMIENTO_INVALIDA), o falta el consentimiento (CONSENTIMIENTO_NO_REGISTRADO). Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012).',
   })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
   @ApiResponse({
+    status: 403,
+    description:
+      'MENOR_DE_EDAD: la plataforma es solo para mayores de 18 anos. No se guarda nada y la identidad se borra.',
+  })
+  @ApiResponse({
     status: 409,
-    description: 'Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso.',
+    description:
+      'Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso, o la version del aviso o de los terminos ya no es la vigente.',
   })
   async registrar(
     @Body() dto: RegistrarCuentaDto,
@@ -91,7 +98,11 @@ export class CuentaController {
       // Los dos salen del token verificado, no del cuerpo.
       idProveedorAuth: identidad.id,
       correo: identidad.correo ?? '',
-      versionPolitica: dto.versionPolitica,
+      ...(dto.fechaNacimiento === undefined ? {} : { fechaNacimiento: dto.fechaNacimiento }),
+      ...(dto.versionPolitica === undefined ? {} : { versionPolitica: dto.versionPolitica }),
+      ...(dto.versionTerminos === undefined ? {} : { versionTerminos: dto.versionTerminos }),
+      ...(dto.aceptaAviso === undefined ? {} : { aceptaAviso: dto.aceptaAviso }),
+      ...(dto.aceptaTerminos === undefined ? {} : { aceptaTerminos: dto.aceptaTerminos }),
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
       ...(dto.zonaHoraria === undefined ? {} : { zonaHoraria: dto.zonaHoraria }),
     });
@@ -100,6 +111,8 @@ export class CuentaController {
   }
 
   @Get()
+  // Es como el frontend se entera de que le falta completar el registro.
+  @PermiteRegistroIncompleto()
   // Nombre, correo y preferencias: no deben quedar en la cache del navegador,
   // que no se borra al cerrar sesion (SCRUM-133).
   @Header('Cache-Control', 'no-store')
@@ -147,6 +160,8 @@ export class CuentaController {
   }
 
   @Get('exportacion')
+  // Un derecho: no depende de haber completado el registro.
+  @PermiteRegistroIncompleto()
   // Son datos personales: ni el navegador ni un proxy deben guardar copia.
   @Header('Cache-Control', 'no-store')
   @Header('Content-Disposition', 'attachment; filename="vsd-health-mis-datos.json"')
@@ -163,6 +178,8 @@ export class CuentaController {
   }
 
   @Delete()
+  // Un derecho: quien no quiere completar el registro tiene que poder irse.
+  @PermiteRegistroIncompleto()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Borrar la cuenta propia con todo lo suyo',

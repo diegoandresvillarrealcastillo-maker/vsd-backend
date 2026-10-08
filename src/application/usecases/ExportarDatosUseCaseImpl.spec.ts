@@ -60,6 +60,7 @@ function armar(
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
     save: () => Promise.resolve(),
+    consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
   };
 

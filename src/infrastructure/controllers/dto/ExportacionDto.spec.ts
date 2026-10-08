@@ -13,6 +13,7 @@ function datosConAvisos(
   return {
     generadoEn: new Date('2026-10-08T15:00:00.000Z'),
     cuenta: unaCuenta(),
+    consentimientos: [],
     resultados: [],
     entradasDeDiario: [],
     pendientes: [],

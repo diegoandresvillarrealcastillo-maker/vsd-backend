@@ -3,12 +3,12 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  REGISTRO_DE_PRUEBA,
   SESIONES,
   VerificadorFalso,
   comoUsuario,
   darDeAlta,
 } from '../../pruebas/sesionDePrueba.js';
-import { VERSION_VIGENTE_DEL_AVISO } from '../../domain/model/AvisoDePrivacidad.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
@@ -218,7 +218,7 @@ describe('Las lineas de atencion segun el pais de la cuenta', () => {
     return request(app.getHttpServer())
       .post('/api/cuenta')
       .set(...comoUsuario(token))
-      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO, zonaHoraria });
+      .send({ ...REGISTRO_DE_PRUEBA, zonaHoraria });
   }
 
   beforeAll(async () => {

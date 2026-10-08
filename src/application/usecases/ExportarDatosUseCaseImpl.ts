@@ -49,6 +49,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     }
 
     const [
+      consentimientos,
       resultados,
       entradasDeDiario,
       pendientes,
@@ -57,6 +58,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       foto,
       mascotaPropia,
     ] = await Promise.all([
+      this.cuentas.consentimientosDe(id),
       this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
       this.diario.todasDe(id),
       this.pendientes.todosDe(id),
@@ -69,6 +71,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     return {
       generadoEn: this.reloj(),
       cuenta,
+      consentimientos,
       resultados,
       entradasDeDiario,
       pendientes,

@@ -7,6 +7,7 @@ import {
   InvalidTimeZoneError,
   MissingConsentError,
 } from './DomainError.js';
+import type { FechaDeNacimiento } from './FechaDeNacimiento.js';
 import { UserId } from './Identifier.js';
 import {
   crearMascota,
@@ -34,6 +35,26 @@ export type Rol = (typeof Rol)[keyof typeof Rol];
 /** Edad minima para usar VSD Health. */
 export const EDAD_MINIMA = 18;
 
+/** Lo que una persona puede aceptar: son dos documentos y cada uno cambia por su lado. */
+export const TipoDeConsentimiento = {
+  AVISO_DE_PRIVACIDAD: 'aviso_de_privacidad',
+  TERMINOS: 'terminos',
+} as const;
+
+export type TipoDeConsentimiento = (typeof TipoDeConsentimiento)[keyof typeof TipoDeConsentimiento];
+
+/**
+ * Una aceptacion del historial: que se acepto, que version y cuando.
+ *
+ * La cuenta guarda lo vigente; el historial guarda todo lo que se acepto
+ * alguna vez, y solo admite altas (L-05 de la auditoria 360).
+ */
+export interface ConsentimientoAceptado {
+  readonly tipo: TipoDeConsentimiento;
+  readonly version: string;
+  readonly aceptadoEn: Date;
+}
+
 /**
  * Consentimiento de tratamiento de datos.
  *
@@ -49,6 +70,19 @@ export interface Consentimiento {
   readonly aceptadoEn: Date;
 }
 
+/**
+ * Lo que una persona declara y acepta para quedar registrada: su fecha de
+ * nacimiento y, con casillas explicitas, el aviso de privacidad y los terminos.
+ *
+ * Una cuenta que no lo tiene —las anteriores a que se pidiera— no esta
+ * completa y no puede usar nada hasta tenerlo (`User.registroCompleto`).
+ */
+export interface RegistroDeLaPersona {
+  readonly fechaDeNacimiento: FechaDeNacimiento;
+  readonly consentimiento: Consentimiento;
+  readonly terminos: Consentimiento;
+}
+
 /** Datos necesarios para registrar una cuenta. */
 export interface DatosDeUsuario {
   readonly id: UserId;
@@ -56,6 +90,13 @@ export interface DatosDeUsuario {
   readonly idProveedorAuth: string;
   readonly rol: Rol;
   readonly consentimiento?: Consentimiento | undefined;
+  /**
+   * Los terminos que acepto, con su version y su fecha, igual que el aviso. Sin
+   * ellos —las cuentas anteriores— el registro esta incompleto.
+   */
+  readonly terminos?: Consentimiento | undefined;
+  /** Lo que declaro. Sin ella —las cuentas anteriores— el registro esta incompleto. */
+  readonly fechaDeNacimiento?: FechaDeNacimiento | undefined;
   readonly registradoEn: Date;
   readonly nombre?: string | undefined;
   /**
@@ -81,6 +122,9 @@ export interface DatosDeUsuario {
  * como estaba; uno que viene como `undefined` se vacia.
  */
 interface Cambios {
+  readonly consentimiento?: Consentimiento | undefined;
+  readonly terminos?: Consentimiento | undefined;
+  readonly fechaDeNacimiento?: FechaDeNacimiento | undefined;
   readonly nombre?: string | undefined;
   readonly modulosActivos?: readonly Modulo[] | undefined;
   readonly mascota?: Mascota | undefined;
@@ -145,6 +189,8 @@ export class User {
   readonly idProveedorAuth: string;
   readonly rol: Rol;
   readonly consentimiento: Consentimiento | undefined;
+  readonly terminos: Consentimiento | undefined;
+  readonly fechaDeNacimiento: FechaDeNacimiento | undefined;
   readonly registradoEn: Date;
   readonly nombre: string | undefined;
   readonly modulosActivos: readonly Modulo[];
@@ -195,6 +241,8 @@ export class User {
     this.idProveedorAuth = datos.idProveedorAuth;
     this.rol = datos.rol;
     this.consentimiento = datos.consentimiento;
+    this.terminos = datos.terminos;
+    this.fechaDeNacimiento = datos.fechaDeNacimiento;
     this.registradoEn = new Date(datos.registradoEn.getTime());
     this.nombre = datos.nombre;
     this.modulosActivos = [...datos.modulosActivos];
@@ -216,12 +264,18 @@ export class User {
       throw new InvalidRoleError(String(datos.rol));
     }
 
-    if (datos.consentimiento !== undefined) {
-      if (datos.consentimiento.versionPolitica.trim() === '') {
+    // Los terminos se validan como el aviso: una version vacia o una fecha del
+    // futuro no son una aceptacion.
+    for (const aceptado of [datos.consentimiento, datos.terminos]) {
+      if (aceptado === undefined) {
+        continue;
+      }
+
+      if (aceptado.versionPolitica.trim() === '') {
         throw new MissingConsentError();
       }
 
-      if (datos.consentimiento.aceptadoEn.getTime() > ahora.getTime()) {
+      if (aceptado.aceptadoEn.getTime() > ahora.getTime()) {
         throw new FutureConsentDateError();
       }
     }
@@ -250,6 +304,44 @@ export class User {
    */
   haElegidoModulos(): boolean {
     return this.modulosActivos.length > 0;
+  }
+
+  /**
+   * Si la persona declaro su fecha de nacimiento y acepto, con casillas, el aviso
+   * y los terminos.
+   *
+   * Es lo que separa una cuenta que puede usar la aplicacion de una que primero
+   * tiene que completar su registro. Las cuentas anteriores a que se pidiera no
+   * lo estan: la fecha no existia, y el consentimiento de muchas se registro
+   * solo al entrar, sin que nadie marcara nada (S-02 de la auditoria 360).
+   */
+  registroCompleto(): boolean {
+    return this.fechaDeNacimiento !== undefined && this.terminos !== undefined;
+  }
+
+  /**
+   * La misma cuenta con su registro completado.
+   *
+   * Reemplaza el consentimiento que hubiera por el nuevo, que es el que la
+   * persona dio con una casilla. El anterior no se pierde: queda en el
+   * historial de consentimientos, que solo admite altas.
+   */
+  conRegistroCompleto(registro: RegistroDeLaPersona, ahora: Date = new Date()): User {
+    for (const aceptado of [registro.consentimiento, registro.terminos]) {
+      if (aceptado.versionPolitica.trim() === '') {
+        throw new MissingConsentError();
+      }
+
+      if (aceptado.aceptadoEn.getTime() > ahora.getTime()) {
+        throw new FutureConsentDateError();
+      }
+    }
+
+    return this.copiaCon({
+      fechaDeNacimiento: registro.fechaDeNacimiento,
+      consentimiento: registro.consentimiento,
+      terminos: registro.terminos,
+    });
   }
 
   /**
@@ -363,7 +455,11 @@ export class User {
       correo: this.correo,
       idProveedorAuth: this.idProveedorAuth,
       rol: this.rol,
-      consentimiento: this.consentimiento,
+      consentimiento: cambia('consentimiento') ? cambios.consentimiento : this.consentimiento,
+      terminos: cambia('terminos') ? cambios.terminos : this.terminos,
+      fechaDeNacimiento: cambia('fechaDeNacimiento')
+        ? cambios.fechaDeNacimiento
+        : this.fechaDeNacimiento,
       registradoEn: this.registradoEn,
       nombre: cambia('nombre') ? cambios.nombre : this.nombre,
       modulosActivos: cambia('modulosActivos')

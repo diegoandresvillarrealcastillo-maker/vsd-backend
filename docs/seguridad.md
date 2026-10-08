@@ -303,6 +303,20 @@ El funcionamiento sin conexion usa **IndexedDB** a traves de un
 adaptador. `localStorage` queda reservado para preferencias no sensibles
 como el tema visual o el idioma.
 
+**La excepcion es el token de la sesion** (SCRUM-143): el de acceso (una hora) y
+el de refresco (treinta dias) de Supabase viven en `localStorage`, bajo
+`vsd.sesion`, y es una divergencia deliberada de HU_MF09_001, que pide no
+guardar tokens ahi. Sin la sesion guardada no se puede abrir la aplicacion sin
+conexion. Que cosas lo acotan, que cuesta y que falta (**la politica de contenido,
+CSP, esta puesta en modo «solo informar» pero todavia no bloquea**, SCRUM-152) esta en
+el [ADR 0022](adr/0022-la-sesion-de-supabase-vive-en-localstorage.md). Por omision la
+sesion vive en `sessionStorage` y se cierra con la pestana: solo pasa a `localStorage`
+si la persona marca «Mantener la sesion en este equipo» (SCRUM-164) o se registra con
+correo.
+
+Lo que **si es de una persona** nunca va ahi: se borra al cerrar sesion o al
+borrar la cuenta (IndexedDB, su clave y lo que la mascota ya le dijo).
+
 ### La cache HTTP del navegador es otra cosa (SCRUM-133)
 
 Las copias propias de la aplicacion viven en IndexedDB, por persona, y se borran

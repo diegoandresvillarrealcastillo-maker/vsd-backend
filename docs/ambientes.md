@@ -215,6 +215,59 @@ Render, no de haberlos abierto: si algo no coincide, manda el panel.
 Mientras tanto el servicio de Node actual sigue funcionando: el `Dockerfile` en el
 repositorio no cambia nada de lo desplegado hasta que alguien haga estos pasos.
 
+**Fecha del cambio: pendiente.** Al 08/10/2026 nadie ha hecho este cambio ni lo ha
+anotado aqui; el servicio de PRE sigue siendo el de Node.
+
+## El modo sin conexion en cada ambiente (SCRUM-143)
+
+El modo sin conexion (ADR 0019) **no se configura**: no agrega ninguna variable de
+entorno, ni al backend ni al frontend. Es el mismo codigo en los tres ambientes,
+como todo lo demas. Lo que si cambia con el ambiente es lo que se guarda y donde.
+
+| Que                                         | Como se comporta                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **La aplicacion guardada** (service worker) | Cada ambiente tiene su propio dominio, asi que su propio service worker y su propia copia. Precarga unos 204 archivos, unos **9,4 MiB** (`npm run build` lo imprime). No guarda nada de la API                                                                                                                                              |
+| **Lo de cada persona** (IndexedDB)          | Una base por persona **y por dominio** (`vsd-<id>`): lo hecho en PRE no se mezcla con lo de PROD, aunque sea el mismo navegador                                                                                                                                                                                                             |
+| **`index.html` y `sw.js`**                  | En la imagen de nginx van con `no-cache` (`nginx/default.conf` del frontend): se revalidan en cada visita, y por eso una version nueva se ve. En Vercel **no hay cabeceras propias** (`vercel.json` solo reescribe rutas): se confia en lo que Vercel hace por omision, y **no se ha comprobado en PRE** que `sw.js` llegue sin cache larga |
+| **`GET /health`**                           | Es lo que dice si hay conexion con la API (ADR 0019): responde sin tocar la base. Debe seguir existiendo y sin sesion                                                                                                                                                                                                                       |
+| **`GET /api/asistente/reglas-locales`**     | Publica, con `ETag`, para que VSD IA responda sin red (SCRUM-141). Se despliega **antes** que el frontend: si el frontend llega primero, lo unico que pasa es que no hay reglas guardadas y el asistente se comporta como antes                                                                                                             |
+| **CORS**                                    | La API **expone `ETag`** (SCRUM-133) para que la PWA pueda leerlo y preguntar «¿cambio?» con `If-None-Match`. Sin eso, cada lectura con copia bajaria todo de nuevo. `CORS_ORIGIN` sigue siendo el dominio exacto de la PWA de cada ambiente                                                                                                |
+
+### El arranque en frio y el modo sin conexion
+
+En el plan gratuito, Render apaga el servicio tras 15 minutos sin peticiones y
+despertarlo tarda cerca de un minuto. Para quien usa la aplicacion eso se parece
+mucho a no tener conexion, y la aplicacion lo trata asi a proposito:
+
+- La comprobacion de conexion (`GET /health`) espera **15 segundos**. Un servidor
+  dormido no contesta a tiempo, y **no cuenta como conexion**: la aplicacion puede
+  decir «Sin conexion» hasta que el servicio despierte, **aunque haya internet**. La
+  misma peticion ya lo esta despertando, y en cuanto responde vuelve a «con conexion» y
+  se envia lo guardado.
+- Un `503` o un tiempo agotado se tratan como un fallo **pasajero**: espera creciente
+  (5 s, 10 s... hasta 15 min) y no se descarta nada.
+- Las lecturas con copia (catalogo, diario, panel, perfil) usan la copia si la API
+  tarda mas de 2,5 s o no responde, y dicen de cuando es.
+- La PWA llama a `/health` en cuanto se abre (SCRUM-111), y el workflow
+  `mantener-el-api-despierto.yml` lo hace cada 10 minutos.
+
+**No se ha medido en PRE** cuanto dura exactamente ese minuto visto desde la
+aplicacion, ni se ha comprobado a mano que el indicador diga lo que debe mientras el
+servicio despierta: ver la [guia de prueba](guia-de-prueba-sin-conexion.md), caso 9.
+
+### Los limites del plan gratuito que importan aqui
+
+- **Render:** 750 horas al mes y se duerme a los 15 minutos. Con un solo servicio
+  despierto todo el mes, se usan unas 744; **no caben PRE y PROD despiertos a la vez**
+  (ver «Lo que falta para PROD»).
+- **Supabase:** dos proyectos activos por cuenta, y un proyecto sin actividad durante
+  siete dias queda en pausa.
+- **Lo que no tiene limite propio:** lo guardado en el navegador de cada persona. Su
+  cuota la decide el navegador y es finita: un almacen lleno se informa
+  (`AlmacenLleno`) y no se pierde nada en silencio. **Safari puede borrar** lo guardado
+  de un sitio que no se abre en una semana, salvo que este instalado en la pantalla de
+  inicio.
+
 ## La base de datos de cada ambiente
 
 | Ambiente | Donde vive                                | Estado                                 |
@@ -236,6 +289,19 @@ distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
 - **PROD** sigue como quedo el 21/09: 5 de 13, hasta
   `20260921120000_catalogo_inicial`. Le faltan las ocho siguientes, que tienen
   que estar aplicadas antes del primer despliegue de PROD. Ver "Estado actual".
+
+> **Despues del 06/10/2026 llegaron diez migraciones mas** (`20261007120000_zona_horaria_por_persona`
+> hasta `20261015120000_edad_y_consentimiento_explicito`): ya son **23** en el
+> repositorio. Cuales estan aplicadas en cada base lo dice `npm run db:revisar`, y **las
+> aplica una persona**, en orden, antes de desplegar el backend. Tres importan para lo
+> que se acaba de construir: `20261013120000_version_del_pendiente` (SCRUM-134: el codigo
+> nuevo necesita esa columna), `20261014120000_hora_del_dispositivo_en_el_diario`
+> (SCRUM-144: cambia el disparador y la politica del diario) y
+> `20261015120000_edad_y_consentimiento_explicito` (SCRUM-147, de la Auditoria 360: agrega
+> la fecha de nacimiento, los terminos aceptados y la tabla `consentimiento`; es aditiva,
+> y las cuentas que ya existen quedan como registro incompleto hasta que lo completen,
+> ADR 0021). **Sin ellas, desplegar el backend rompe los pendientes, el diario y el
+> registro.** Esta tabla refleja lo comprobado el 06/10; no se ha vuelto a comprobar.
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
 ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas

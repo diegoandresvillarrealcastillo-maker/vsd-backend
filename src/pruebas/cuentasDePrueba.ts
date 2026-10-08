@@ -1,5 +1,5 @@
 import type { UserId } from '../domain/model/Identifier.js';
-import type { User } from '../domain/model/User.js';
+import type { ConsentimientoAceptado, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
 
 /**
@@ -29,6 +29,10 @@ export class RepositorioDeCuentasDoble implements UserRepositoryPort {
     this.porId.set(user.id.value, user);
 
     return Promise.resolve();
+  }
+
+  consentimientosDe(): Promise<readonly ConsentimientoAceptado[]> {
+    return Promise.resolve([]);
   }
 
   async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {

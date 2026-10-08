@@ -1,12 +1,16 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
-import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import {
+  AccountNotProvisionedError,
+  IncompleteRegistrationError,
+} from '../../domain/model/DomainError.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
 import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import type { PeticionConCuenta } from './CuentaActual.js';
+import { PERMITE_REGISTRO_INCOMPLETO } from './PermiteRegistroIncompleto.js';
 import { ES_PUBLICO } from './Publico.js';
 import { NO_EXIGE_CUENTA } from './SinCuenta.js';
 
@@ -27,6 +31,11 @@ import { NO_EXIGE_CUENTA } from './SinCuenta.js';
  * Asi que entre autenticar y operar hay una traduccion, y este guardia es esa
  * traduccion. Ponerla aqui y no en cada controlador significa que no se puede
  * olvidar en una ruta nueva.
+ *
+ * ## Que ocurre si el registro esta incompleto
+ *
+ * Se responde 403 con `REGISTRO_INCOMPLETO`, salvo en las rutas marcadas con
+ * `@PermiteRegistroIncompleto()`. Ver ese decorador.
  *
  * ## Que ocurre si la cuenta no existe
  *
@@ -77,6 +86,17 @@ export class GuardiaDeCuenta implements CanActivate {
       });
 
       throw new AccountNotProvisionedError();
+    }
+
+    // Una cuenta sin su registro completo —anterior a que se pidiera la fecha
+    // de nacimiento y las casillas— solo entra a lo que se le marco como
+    // permitido. Se comprueba aqui y no en cada caso de uso para que una ruta
+    // nueva no pueda olvidarlo: lo que no se marca, lo exige.
+    if (
+      !cuenta.registroCompleto() &&
+      this.reflector.getAllAndOverride<boolean>(PERMITE_REGISTRO_INCOMPLETO, marcas) !== true
+    ) {
+      throw new IncompleteRegistrationError();
     }
 
     peticion.cuenta = cuenta;

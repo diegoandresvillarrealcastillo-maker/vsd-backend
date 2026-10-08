@@ -98,6 +98,7 @@
               "    throw error;",
               "  }",
               "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
               "});"
             ]
           }
@@ -148,7 +149,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -160,7 +161,7 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "cuenta"]
         },
-        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia."
+        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia.\n\nPara crear la cuenta hay que declarar la fecha de nacimiento y marcar las dos casillas, aviso de privacidad y terminos. La plataforma es solo para mayores de 18 anos: con menos, la respuesta es 403 MENOR_DE_EDAD, no se guarda nada y se borra la identidad de quien lo intento. Por eso esta peticion siempre manda una fecha de adulto. Enviar solo las versiones, sin las casillas, ya no basta."
       }
     },
     {
@@ -179,6 +180,7 @@
               "    throw error;",
               "  }",
               "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
               "});"
             ]
           }
@@ -207,7 +209,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"rol\": \"administrador\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true,\n  \"rol\": \"administrador\"\n}",
           "options": {
             "raw": {
               "language": "json"

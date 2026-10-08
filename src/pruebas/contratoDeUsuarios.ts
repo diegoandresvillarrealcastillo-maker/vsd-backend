@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { VERSION_VIGENTE_DEL_AVISO } from '../domain/model/AvisoDePrivacidad.js';
+import {
+  VERSION_VIGENTE_DE_LOS_TERMINOS,
+  VERSION_VIGENTE_DEL_AVISO,
+} from '../domain/model/AvisoDePrivacidad.js';
+import { FechaDeNacimiento } from '../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../domain/model/Identifier.js';
 import type { Mascota } from '../domain/model/Preferencias.js';
-import { Rol, User } from '../domain/model/User.js';
+import { Rol, TipoDeConsentimiento, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
 
 /**
@@ -36,7 +40,14 @@ export interface BancoDePruebas {
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 const OTRA_PERSONA = '22222222-2222-4222-9222-222222222222';
 
-/** Una cuenta valida, con lo que se quiera cambiar. */
+/**
+ * Una cuenta valida, con lo que se quiera cambiar.
+ *
+ * Por defecto tiene el registro completo —fecha de nacimiento y los terminos
+ * aceptados—, que es lo normal. `anteriorAlRegistro` da una de las que se
+ * crearon antes de que se pidieran, que no puede usar la aplicacion hasta
+ * completarlo.
+ */
 export function unaCuenta(
   cambios: {
     id?: string;
@@ -45,13 +56,15 @@ export function unaCuenta(
     rol?: Rol;
     nombre?: string;
     versionPolitica?: string;
+    aceptadoEn?: Date;
+    anteriorAlRegistro?: boolean;
     modulosActivos?: readonly string[];
     mascota?: Mascota;
     fotoActualizadaEl?: Date;
     mascotaPropiaActualizadaEl?: Date;
   } = {},
 ): User {
-  const aceptadoEn = new Date('2026-09-01T10:00:00.000Z');
+  const aceptadoEn = cambios.aceptadoEn ?? new Date('2026-09-01T10:00:00.000Z');
 
   return User.create({
     id: new UserId(cambios.id ?? PERSONA),
@@ -62,6 +75,12 @@ export function unaCuenta(
       versionPolitica: cambios.versionPolitica ?? VERSION_VIGENTE_DEL_AVISO,
       aceptadoEn,
     },
+    ...(cambios.anteriorAlRegistro === true
+      ? {}
+      : {
+          terminos: { versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS, aceptadoEn },
+          fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+        }),
     registradoEn: new Date('2026-09-01T10:00:00.000Z'),
     ...(cambios.nombre === undefined ? {} : { nombre: cambios.nombre }),
     ...(cambios.modulosActivos === undefined ? {} : { modulosActivos: cambios.modulosActivos }),
@@ -142,6 +161,133 @@ export function pruebasDelPuertoDeUsuarios(
       expect(encontrada?.consentimiento?.versionPolitica).toBe('2.1');
       expect(encontrada?.consentimiento?.aceptadoEn.toISOString()).toBe('2026-09-01T10:00:00.000Z');
       expect(encontrada?.puedeTratarDatosDeSalud()).toBe(true);
+    });
+
+    it('conserva la fecha de nacimiento y los terminos aceptados', async () => {
+      await banco.repositorio.save(unaCuenta());
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.fechaDeNacimiento?.valor).toBe('1998-03-14');
+      expect(encontrada?.terminos?.versionPolitica).toBe(VERSION_VIGENTE_DE_LOS_TERMINOS);
+      expect(encontrada?.terminos?.aceptadoEn.toISOString()).toBe('2026-09-01T10:00:00.000Z');
+      expect(encontrada?.registroCompleto()).toBe(true);
+    });
+
+    it('una cuenta anterior a que se pidiera el registro vuelve incompleta, sin inventar nada', async () => {
+      await banco.repositorio.save(unaCuenta({ anteriorAlRegistro: true }));
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.fechaDeNacimiento).toBeUndefined();
+      expect(encontrada?.terminos).toBeUndefined();
+      expect(encontrada?.registroCompleto()).toBe(false);
+    });
+
+    it('completar el registro de una cuenta anterior lo guarda, y cambiar otras cosas no lo pierde', async () => {
+      await banco.repositorio.save(unaCuenta({ anteriorAlRegistro: true }));
+
+      const antigua = await banco.repositorio.findById(new UserId(PERSONA));
+      const completa = antigua?.conRegistroCompleto({
+        fechaDeNacimiento: FechaDeNacimiento.restaurar('1990-12-31'),
+        consentimiento: {
+          versionPolitica: VERSION_VIGENTE_DEL_AVISO,
+          aceptadoEn: new Date('2026-10-05T10:00:00.000Z'),
+        },
+        terminos: {
+          versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS,
+          aceptadoEn: new Date('2026-10-05T10:00:00.000Z'),
+        },
+      });
+
+      await banco.repositorio.save(completa ?? unaCuenta());
+      await banco.repositorio.save(
+        (await banco.repositorio.findById(new UserId(PERSONA)))?.conPreferencias({
+          nombre: 'Ana',
+        }) ?? unaCuenta(),
+      );
+
+      const encontrada = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(encontrada?.registroCompleto()).toBe(true);
+      expect(encontrada?.fechaDeNacimiento?.valor).toBe('1990-12-31');
+      expect(encontrada?.consentimiento?.aceptadoEn.toISOString()).toBe('2026-10-05T10:00:00.000Z');
+    });
+
+    describe('el historial de lo aceptado (L-05)', () => {
+      it('guardar una cuenta anota el aviso y los terminos', async () => {
+        await banco.repositorio.save(unaCuenta());
+
+        const historial = await banco.repositorio.consentimientosDe(new UserId(PERSONA));
+
+        expect(historial.map((fila) => [fila.tipo, fila.version])).toEqual(
+          expect.arrayContaining([
+            [TipoDeConsentimiento.AVISO_DE_PRIVACIDAD, VERSION_VIGENTE_DEL_AVISO],
+            [TipoDeConsentimiento.TERMINOS, VERSION_VIGENTE_DE_LOS_TERMINOS],
+          ]),
+        );
+        expect(historial).toHaveLength(2);
+        expect(historial[0]?.aceptadoEn.toISOString()).toBe('2026-09-01T10:00:00.000Z');
+      });
+
+      it('guardar de nuevo la misma cuenta, o cambiarle otras cosas, no repite lo anotado', async () => {
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+
+        await expect(
+          banco.repositorio.consentimientosDe(new UserId(PERSONA)),
+        ).resolves.toHaveLength(2);
+      });
+
+      it('aceptar otra version anade una fila y deja la anterior', async () => {
+        await banco.repositorio.save(unaCuenta({ versionPolitica: '2026-09-1' }));
+        await banco.repositorio.save(
+          unaCuenta({
+            versionPolitica: '2026-10-1b',
+            aceptadoEn: new Date('2026-10-02T10:00:00.000Z'),
+          }),
+        );
+
+        const historial = await banco.repositorio.consentimientosDe(new UserId(PERSONA));
+        const avisos = historial.filter(
+          (fila) => fila.tipo === TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+        );
+
+        expect(avisos.map((fila) => fila.version)).toEqual(['2026-09-1', '2026-10-1b']);
+      });
+
+      it('aceptar de nuevo la misma version otro dia tambien queda anotado', async () => {
+        // Es lo que pasa cuando una cuenta anterior completa su registro con las
+        // casillas: la version es la misma y lo que cambia es que ahora la dio.
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.save(
+          unaCuenta({ aceptadoEn: new Date('2026-10-05T10:00:00.000Z') }),
+        );
+
+        const historial = await banco.repositorio.consentimientosDe(new UserId(PERSONA));
+
+        expect(
+          historial
+            .filter((fila) => fila.tipo === TipoDeConsentimiento.AVISO_DE_PRIVACIDAD)
+            .map((fila) => fila.aceptadoEn.toISOString()),
+        ).toEqual(['2026-09-01T10:00:00.000Z', '2026-10-05T10:00:00.000Z']);
+      });
+
+      it('lo de una persona no aparece en el historial de otra', async () => {
+        await banco.repositorio.save(unaCuenta());
+
+        await expect(
+          banco.repositorio.consentimientosDe(new UserId(OTRA_PERSONA)),
+        ).resolves.toEqual([]);
+      });
+
+      it('borrar la cuenta borra tambien su historial', async () => {
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+
+        await expect(banco.repositorio.consentimientosDe(new UserId(PERSONA))).resolves.toEqual([]);
+      });
     });
 
     it('conserva el rol', async () => {

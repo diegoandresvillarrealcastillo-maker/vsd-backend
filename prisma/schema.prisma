@@ -120,6 +120,14 @@ model Usuario {
   /// demostrar a que dio permiso cada quien. Ley 1581 de 2012.
   versionPoliticaAceptada String   @map("version_politica_aceptada") @db.VarChar(20)
   fechaAceptacionPolitica DateTime @map("fecha_aceptacion_politica") @db.Timestamptz(3)
+  /// La fecha de nacimiento que declaro la persona. NULL en las cuentas
+  /// anteriores a que se pidiera: no pueden usar la aplicacion hasta completarla.
+  /// Solo se escribe una vez que la API comprobo que es mayor de 18 anos.
+  fechaNacimiento         DateTime? @map("fecha_nacimiento") @db.Date
+  /// Los terminos que acepto con su casilla: version y fecha, como el aviso.
+  /// NULL en las cuentas anteriores.
+  versionTerminosAceptada String?  @map("version_terminos_aceptada") @db.VarChar(20)
+  fechaAceptacionTerminos DateTime? @map("fecha_aceptacion_terminos") @db.Timestamptz(3)
   fechaRegistro           DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(3)
   /// Claves estables: cognicion, bienestar, emociones. Vacia mientras la
   /// persona no ha elegido con cuales empezar. SCRUM-88.
@@ -143,8 +151,33 @@ model Usuario {
   pendientes       Pendiente[]
   suscripcionesPush SuscripcionPush[]
   preferenciaAviso PreferenciaAviso?
+  consentimientos  Consentimiento[]
 
   @@map("usuario")
+}
+
+/// Todo lo que una persona ha aceptado, version por version: el aviso de
+/// privacidad y los terminos. Solo admite altas (la aplicacion no tiene permiso
+/// de UPDATE ni de DELETE): cuando cambia un texto y la persona lo vuelve a
+/// aceptar, se anade una fila y la anterior queda como prueba de lo que acepto
+/// antes. Ley 1581 de 2012. Se borra con la cuenta, por la clave foranea.
+model Consentimiento {
+  id         String   @id @default(uuid()) @map("id_consentimiento") @db.Uuid
+  idUsuario  String   @map("id_usuario") @db.Uuid
+  /// `aviso_de_privacidad` o `terminos`.
+  tipo       String   @db.VarChar(30)
+  version    String   @db.VarChar(20)
+  aceptadoEn DateTime @map("aceptado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  /// Una fila por cada vez que la persona acepto. Guardar la cuenta otra vez con
+  /// el mismo consentimiento no duplica nada (misma version, misma fecha); aceptar
+  /// de nuevo la misma version —por ejemplo al completar el registro con las
+  /// casillas— anade una fila y deja la anterior.
+  @@unique([idUsuario, tipo, version, aceptadoEn])
+  @@index([idUsuario])
+  @@map("consentimiento")
 }
 
 /// Un navegador donde la persona acepto los avisos (SCRUM-102).

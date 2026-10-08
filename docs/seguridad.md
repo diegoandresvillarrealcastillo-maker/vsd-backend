@@ -167,6 +167,12 @@ Hay ademas una ruta que **si exige token pero no exige cuenta**, marcada con
 la que crea la cuenta que todas las demas exigen; sin esa marca, darse de alta
 requeriria estar ya dado de alta.
 
+Y una tercera marca, `@PermiteRegistroIncompleto()`, para lo que se le puede
+hacer a una cuenta que todavia no declaro su fecha de nacimiento ni marco las
+casillas: consultarla, exportarla y borrarla. Lo que no lleva la marca la
+rechaza con 403 `REGISTRO_INCOMPLETO`, de modo que una ruta nueva exige el
+registro completo sin que nadie tenga que acordarse (ADR 0021).
+
 Es al reves de proteger ruta por ruta, y es deliberado: olvidar el
 decorador deja una ruta publica cerrada, que se nota en cuanto alguien la
 usa; olvidar proteger deja una ruta privada abierta, que no se nota nunca.

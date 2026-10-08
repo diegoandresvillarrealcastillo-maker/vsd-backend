@@ -4,9 +4,13 @@ import type { User } from '../../model/User.js';
  * Orden de dar de alta una cuenta de VSD Health.
  *
  * Los datos salen del token ya verificado, no del cuerpo de la peticion. Lo
- * unico que aporta quien llama es el consentimiento, porque es lo unico que
- * el token no puede saber: aceptar una politica es un acto de la persona, no
- * un dato de su identidad.
+ * unico que aporta quien llama es lo que el token no puede saber porque es un
+ * acto de la persona y no un dato de su identidad: su fecha de nacimiento y la
+ * aceptacion del aviso de privacidad y de los terminos.
+ *
+ * Todo eso es opcional en la orden, porque la misma llamada sirve para entrar
+ * de nuevo (una cuenta ya registrada no necesita nada de esto). Para **crear**
+ * una cuenta, o completar la de quien no lo hizo, es obligatorio.
  */
 export interface RegistrarCuentaCommand {
   /** El `sub` del token: quien es esta persona para el proveedor. */
@@ -16,6 +20,15 @@ export interface RegistrarCuentaCommand {
   readonly correo: string;
 
   /**
+   * Fecha de nacimiento declarada, AAAA-MM-DD.
+   *
+   * VSD Health es solo para mayores de 18 anos. Quien declara menos no queda
+   * registrado: se borra su identidad y se rechaza con `MENOR_DE_EDAD`. La
+   * edad se calcula en el servidor, con el dia local de la persona.
+   */
+  readonly fechaNacimiento?: string | undefined;
+
+  /**
    * Version del aviso de tratamiento de datos que la persona acepto.
    *
    * No basta con un si o un no. Las politicas cambian, y ante una reclamacion
@@ -23,7 +36,19 @@ export interface RegistrarCuentaCommand {
    * lo que exige la Ley 1581 de 2012 para datos sensibles, categoria en la que
    * entra la informacion relacionada con salud.
    */
-  readonly versionPolitica: string;
+  readonly versionPolitica?: string | undefined;
+
+  /** Version de los terminos que la persona acepto. Misma razon que el aviso. */
+  readonly versionTerminos?: string | undefined;
+
+  /**
+   * Que marco la casilla del aviso de privacidad. Tiene que ser `true`: la
+   * version sola no es una aceptacion, y antes bastaba con enviarla.
+   */
+  readonly aceptaAviso?: boolean | undefined;
+
+  /** Que marco la casilla de los terminos. Tiene que ser `true`. */
+  readonly aceptaTerminos?: boolean | undefined;
 
   /** Como quiere que la llamen. Opcional. */
   readonly nombre?: string | undefined;
@@ -57,12 +82,22 @@ export interface RegistrarCuentaCommand {
  */
 export interface RegistrarCuentaUseCase {
   /**
-   * Devuelve la cuenta existente o crea una nueva.
+   * Devuelve la cuenta existente, crea una nueva o completa la de quien aun no
+   * tenia su registro completo.
    *
    * Es idempotente a proposito: llamarlo dos veces con el mismo identificador
    * del proveedor devuelve la misma cuenta en lugar de fallar. El frontend
    * puede invocarlo en cada inicio de sesion sin tener que averiguar antes si
    * es la primera vez.
+   *
+   * - Cuenta nueva: exige la fecha de nacimiento, ser mayor de 18 anos y las
+   *   dos casillas. Un menor no queda registrado y su identidad se borra.
+   * - Cuenta con el registro completo: se devuelve tal cual. Lo que traiga la
+   *   orden sobre edad y consentimiento se ignora, de modo que no se puede
+   *   cambiar la fecha ni reescribir lo aceptado por aqui.
+   * - Cuenta con el registro incompleto (anterior a que se pidiera): si la
+   *   orden trae el registro, se completa; si no, se devuelve tal cual y
+   *   `registroCompleto()` dice que falta.
    */
   execute(command: RegistrarCuentaCommand): Promise<User>;
 

@@ -135,9 +135,59 @@ Al darse de alta solo se acepta la version vigente: cualquier otra responde
 conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
 lo que acepto aquel dia.
 
-**Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
-sensibles de menores exige garantias adicionales que quedan fuera del alcance
-de esta version.
+#### La edad minima es de 18 anos, y la comprueba el servidor
+
+El tratamiento de datos sensibles de menores exige garantias adicionales que
+quedan fuera del alcance de esta version. Hasta la auditoria 360, `EDAD_MINIMA`
+existia pero nada la usaba: el registro ni siquiera pedia una fecha. Ahora:
+
+- **Se declara la fecha de nacimiento** (`FechaDeNacimiento`): una fecha real,
+  que ya paso y de no mas de 120 anos. Se guarda el dia completo, no un "es
+  mayor de edad", porque es la prueba de lo que declaro, sale en su exportacion
+  y se borra con la cuenta.
+- **La edad se cuenta en el servidor**, con el dia local de la persona
+  (`Calendario`) y no con el de UTC: quien cumple 18 hoy en Bogota a las 8 p. m.
+  ya es mayor aunque en UTC sea manana. Los nacidos un 29 de febrero cumplen el
+  1 de marzo en los anos que no son bisiestos, que no adelanta la mayoria de
+  edad ni un dia.
+- **Un menor no queda registrado.** `POST /api/cuenta` responde 403
+  `MENOR_DE_EDAD`, no crea la cuenta, y borra su identidad en Supabase Auth
+  (la via que ya usa el borrado de cuenta). El rechazo se anota sin su fecha,
+  su correo ni su identificador. Si el proveedor no deja borrar la identidad,
+  igual se rechaza y se anota que hay que limpiarla a mano.
+- **La base es la ultima defensa**: un `CHECK` impide guardar la fecha de un
+  menor, con un dia de margen por la diferencia entre la fecha UTC de la base y
+  la de la persona.
+
+#### El consentimiento lo da la persona, con una casilla
+
+Antes bastaba con enviar la version: el panel la mandaba solo, en cada carga, y
+quien entraba con Google quedaba con consentimiento registrado sin haber
+marcado nada. Ahora el alta exige `aceptaAviso: true` y `aceptaTerminos: true`
+ademas de las versiones vigentes; sin ellas responde 400
+`CONSENTIMIENTO_NO_REGISTRADO` y no crea nada.
+
+Los **terminos** se aceptan aparte del aviso, con su propia version y su propia
+fecha: son dos documentos y cada uno cambia por su lado.
+
+#### El historial de lo aceptado
+
+`usuario` guarda lo vigente; la tabla `consentimiento` guarda **todo** lo que se
+acepto alguna vez, una fila por cada vez. Solo admite altas: la aplicacion no
+tiene permiso de `UPDATE` ni de `DELETE`, porque un historial que ella misma
+pudiera reescribir no probaria nada. Se borra con la cuenta, por la clave
+foranea. Sale en la exportacion.
+
+#### Las cuentas anteriores
+
+Las creadas antes de que se pidiera la fecha y las casillas tienen
+`registroCompleto: false`. `GuardiaDeCuenta` les responde 403
+`REGISTRO_INCOMPLETO` en todo menos en lo que lleva `@PermiteRegistroIncompleto()`:
+consultar la cuenta, **exportarla y borrarla**, que son derechos que no se
+condicionan. Mandar el registro a `POST /api/cuenta` lo completa, con las mismas
+comprobaciones que un alta. Lo que habian aceptado antes queda en el historial.
+
+Ver [ADR 0021](adr/0021-la-edad-y-el-consentimiento-se-comprueban-en-el-servidor.md).
 
 ### El administrador gestiona contenidos, no personas
 
@@ -252,11 +302,14 @@ del servidor.
 Desde el Ciclo 5 la regla se aplica en tres puntos, y ninguna peticion con
 datos de salud puede saltarselos:
 
-- **El alta lo exige.** `POST /api/cuenta` sin consentimiento responde 400
-  `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada (`RegistrarCuentaUseCaseImpl`).
+- **El alta lo exige.** `POST /api/cuenta` sin las dos casillas marcadas
+  responde 400 `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada
+  (`RegistrarCuentaUseCaseImpl`). Y antes de pedirlas comprueba la edad.
 - **Sin cuenta no se opera.** `GuardiaDeCuenta` traduce la identidad del token
   a la cuenta propia en cada ruta, y si no existe responde 403
-  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta.
+  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta. Con
+  la cuenta pero sin el registro completo responde 403 `REGISTRO_INCOMPLETO`,
+  salvo en consultar, exportar y borrar la cuenta.
 - **La base no lo admite.** Las columnas del consentimiento son `NOT NULL`, y
   `PrismaUserRepository` se niega a guardar una cuenta sin el antes de llegar
   a PostgreSQL.

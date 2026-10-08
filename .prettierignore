@@ -11,3 +11,7 @@ openapi.json
 # necesita; Prettier los reescribiria. Los generados se comparan byte a byte con
 # lo que produce `npm run correos`.
 correos/**/*.html
+
+# El contrato de las reglas locales del asistente (SCRUM-141) es un archivo generado:
+# se compara byte a byte con lo que produce la prueba, y Prettier lo reescribiria.
+docs/contratos/*.json

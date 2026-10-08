@@ -70,7 +70,7 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   }
 
   marcarRevisado() {
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 }
 

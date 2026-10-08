@@ -53,6 +53,14 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve(suyos);
   }
 
+  hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
+    return Promise.resolve(
+      [...this.porOperacion.values()].some(
+        (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
+      ),
+    );
+  }
+
   private clave(clientOperationId: ClientOperationId, userId: UserId): string {
     return `${userId.value}/${clientOperationId.value}`;
   }

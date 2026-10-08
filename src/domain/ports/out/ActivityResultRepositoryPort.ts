@@ -47,4 +47,15 @@ export interface ActivityResultRepositoryPort {
    * vez que no cuadre con lo que la persona recuerda, deja de creerse el resto.
    */
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]>;
+
+  /**
+   * Si esa persona hizo alguna actividad desde una fecha.
+   *
+   * Es lo unico que necesitan los recordatorios de la racha y de la noche:
+   * saber si hoy hubo algo, no que fue. Con `ultimosDe` se traian y se
+   * reconstruian todas las filas del dia, y se consultaba el catalogo por cada
+   * actividad distinta, para despues mirar solo si la lista estaba vacia. Aqui
+   * basta una fila.
+   */
+  hayActividadDesde(userId: UserId, desde: Date): Promise<boolean>;
 }

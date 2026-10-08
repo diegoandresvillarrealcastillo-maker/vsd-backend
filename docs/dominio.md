@@ -642,11 +642,24 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
 - **La revision** (`RevisarAvisosUseCaseImpl`) corre cada minuto dentro del
   API (`RelojDeAvisos`):
   - busca a quien le toca: su hora cae en la ultima media hora y ese aviso no
-    se reviso hoy;
-  - lo marca revisado **antes** de mandar: si algo falla, se pierde un aviso,
-    pero nunca se manda dos veces;
-  - entrega a cada navegador de la persona, y suelta los que ya no existen
-    (404 o 410).
+    se reviso hoy (lo unico que se mira de todos a la vez, y solo identificadores);
+  - atiende a **varias personas a la vez** (`PERSONAS_A_LA_VEZ`, 4), cada una en
+    su nombre y con el aislamiento intacto;
+  - a cada una le **reclama** el aviso de hoy **antes** de mandar
+    (`marcarRevisado` devuelve `true` solo a quien lo gana): si algo falla, se
+    pierde un aviso, pero nunca se manda dos veces. El reclamo es una sola
+    sentencia de la base, asi que tampoco hay aviso doble si dos revisiones
+    corren a la vez (dos instancias del API durante un despliegue). Con la racha
+    y la noche, reclamar una cierra la otra;
+  - decide el mensaje (la racha y la noche solo necesitan saber si hubo
+    actividad hoy: `hayActividadDesde`, una fila y no todas las del dia);
+  - entrega a cada navegador de la persona, todos a la vez (son diez como mucho),
+    y suelta los que ya no existen (404 o 410).
+- **La revision se mide.** Cada una que hizo algo deja una linea con las personas
+  atendidas, lo entregado, los navegadores soltados, los fallos y cuanto tardo;
+  solo cuentas, ni quien ni que mensaje. Avisa si tarda la mitad del minuto o mas
+  (`REVISION_LENTA_MS`), y si una revision se salta un minuto porque la anterior
+  sigue, lo dice y cuenta los seguidos. Ver [Cuanto aguanta la revision](#cuanto-aguanta-la-revision-de-avisos).
 - **Solo a servicios de push conocidos** (SCRUM-153). `suscripcionValida` acepta
   unicamente las direcciones de Google (`fcm.googleapis.com`), Mozilla
   (`*.push.services.mozilla.com`), Apple (`web.push.apple.com`) y Windows
@@ -659,6 +672,62 @@ para no confundirla con `/api/aviso`, el aviso de privacidad.
 - **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
   gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
   manda solo lo de la ultima media hora.
+
+### Cuanto aguanta la revision de avisos
+
+La revision tiene un minuto. Si dura mas, el siguiente se salta (no corren dos a
+la vez) y los avisos llegan tarde, hasta la media hora de gracia; pasada esa, se
+pierden. Lo que la hace lenta no es la base sino **esperar al servicio de push**
+(Google, Mozilla, Apple), y eso es lo que se reparte entre varias personas.
+
+**Medicion** (SCRUM-160): 2000 cuentas a las que les toca el aviso de las 8:00 en
+el mismo minuto, un navegador cada una, contra PostgreSQL local con el rol
+`vsd_app` y el aislamiento intacto, con un servicio de push de mentira que tarda
+50 ms:
+
+| Personas a la vez  | Revision de 2000 | Avisos por segundo |
+| ------------------ | ---------------- | ------------------ |
+| 1 (como antes)     | 125 s            | 16                 |
+| **4 (de fabrica)** | **31 s**         | **64**             |
+| 8                  | 16 s             | 126                |
+| 2 instancias x 4   | 16 s             | 126                |
+
+En serie, 2000 cuentas tardaban dos minutos: mas del doble de lo que tiene la
+revision. La ultima fila son dos instancias del API revisando a la vez, como en un
+despliegue: se entregaron los 2000 avisos, ninguno repetido.
+
+**La cuenta para otros servicios de push.** Cada persona cuesta lo que tarda el
+servicio de push mas unos 12 ms de base. Con 4 a la vez y un servicio que contesta
+en 200 ms, caben unos **19 avisos por segundo, es decir, unos 1100 por minuto**. Mas
+alla, la revision empieza a saltarse minutos: el registro lo avisa antes
+(`REVISION_LENTA_MS`: la mitad del minuto) y cuando ocurre.
+
+**Por que 4 y no 8.** El pool de conexiones del API es de 10 y es el mismo de las
+peticiones de la gente; Supabase en el plan gratuito tiene pocas conexiones. Cada
+persona usa una conexion solo unos milisegundos (reclamar, leer lo suyo) y la suelta
+antes de esperar al servicio de push, asi que 4 dejan de sobra para las peticiones.
+Si algun dia hace falta mas, se sube `PERSONAS_A_LA_VEZ` **junto con el pool**, no
+solo.
+
+**Repetir la medicion.** Es una prueba opcional que no corre en el CI y se niega a
+correr fuera de la base local, porque crea y borra miles de cuentas falsas:
+
+```powershell
+npm run db:local          # en otra terminal
+$env:CARGA_DE_AVISOS_PERSONAS = '2000'
+$env:CARGA_DE_AVISOS_LATENCIA_MS = '50'   # lo que tarda el servicio de push
+npx vitest run RevisarAvisos.carga
+```
+
+`CARGA_DE_AVISOS_A_LA_VEZ` (`1,4,8` por defecto) elige las configuraciones. Las
+cifras de arriba son de un equipo de desarrollo: sirven para comparar entre
+configuraciones, no como promesa de lo que hara Render.
+
+**Lo que no se hizo, a proposito.** Leer en un solo paso los pendientes, los
+resultados y las suscripciones de todas las cuentas habria sido mas rapido, pero
+exige una politica de acceso que deje a la tarea de avisos leer los datos de todas
+las personas. Hoy solo lee las horas. Con la concurrencia acotada se gana lo que
+hacia falta sin abrir esa puerta.
 
 ## Las lineas de ayuda segun el pais
 

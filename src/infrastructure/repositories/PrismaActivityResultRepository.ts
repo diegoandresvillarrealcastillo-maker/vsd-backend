@@ -106,6 +106,19 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
   }
 
+  async hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
+    // Una sola fila y solo la columna que ya se conoce: no hace falta
+    // reconstruir nada ni consultar el catalogo para saber si hubo algo.
+    const fila = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findFirst({
+        where: { idUsuario: userId.value, fecha: { gte: desde } },
+        select: { idUsuario: true },
+      }),
+    );
+
+    return fila !== null;
+  }
+
   /**
    * Reconstruye la entidad a partir de la fila.
    *

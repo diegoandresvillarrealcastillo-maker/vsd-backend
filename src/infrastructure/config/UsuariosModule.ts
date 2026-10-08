@@ -13,7 +13,9 @@ import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonal
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { AlmacenPersonalEnMemoria } from '../almacenamiento/AlmacenPersonalEnMemoria.js';
 import { AlmacenPersonalEnSupabase } from '../almacenamiento/AlmacenPersonalEnSupabase.js';
@@ -50,6 +52,7 @@ import {
   PRISMA,
   PROVEEDOR_DE_IDENTIDAD,
   REGISTRAR_CUENTA,
+  REGISTRO_DE_SEGURIDAD,
   USER_REPOSITORY,
 } from './tokens.js';
 
@@ -96,8 +99,30 @@ import {
     },
     {
       provide: REGISTRAR_CUENTA,
-      useFactory: (cuentas: UserRepositoryPort) => new RegistrarCuentaUseCaseImpl(cuentas),
-      inject: [USER_REPOSITORY],
+      useFactory: (
+        cuentas: UserRepositoryPort,
+        identidades: ProveedorDeIdentidadPort,
+        borrado: BorrarCuentaUseCase,
+      ) => {
+        const registro = new Logger('Registro');
+
+        return new RegistrarCuentaUseCaseImpl(cuentas, identidades, borrado, {
+          // Sin fecha, sin correo y sin identificador: lo que importa es saber
+          // que paso y si hay que limpiar algo a mano. Es el rastro minimo de
+          // un rechazo por edad mientras no hay registro de eventos de seguridad
+          // (A-01 de la auditoria 360).
+          menorDeEdad: (identidadBorrada) => {
+            if (identidadBorrada) {
+              registro.warn('MENOR_DE_EDAD: registro rechazado y su identidad borrada.');
+            } else {
+              registro.error(
+                'MENOR_DE_EDAD: registro rechazado, pero NO se pudo borrar su identidad en el proveedor. Hay que limpiarla a mano.',
+              );
+            }
+          },
+        });
+      },
+      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, BORRAR_CUENTA],
     },
     {
       provide: ACTUALIZAR_PREFERENCIAS,
@@ -223,9 +248,12 @@ import {
     },
     {
       provide: APP_GUARD,
-      useFactory: (cuentas: RegistrarCuentaUseCaseImpl, reflector: Reflector) =>
-        new GuardiaDeCuenta(cuentas, reflector),
-      inject: [REGISTRAR_CUENTA, Reflector],
+      useFactory: (
+        cuentas: RegistrarCuentaUseCaseImpl,
+        reflector: Reflector,
+        seguridad: RegistroDeSeguridadPort,
+      ) => new GuardiaDeCuenta(cuentas, reflector, seguridad),
+      inject: [REGISTRAR_CUENTA, Reflector, REGISTRO_DE_SEGURIDAD],
     },
   ],
   exports: [USER_REPOSITORY, REGISTRAR_CUENTA],

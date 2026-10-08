@@ -7,8 +7,12 @@ import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { VERSION_VIGENTE_DEL_AVISO } from '../../domain/model/AvisoDePrivacidad.js';
-import { SESIONES, VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import {
+  REGISTRO_DE_PRUEBA,
+  SESIONES,
+  VerificadorFalso,
+  comoUsuario,
+} from '../../pruebas/sesionDePrueba.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
@@ -129,7 +133,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
       const respuesta = await request(app.getHttpServer())
         .post('/api/cuenta')
         .set(...comoUsuario(token))
-        .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
+        .send(REGISTRO_DE_PRUEBA)
         .expect(200);
 
       cuentas.set(token, (respuesta.body as { id: string }).id);
@@ -246,7 +250,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     const respuesta = await request(app.getHttpServer())
       .post('/api/cuenta')
       .set(...comoUsuario(A))
-      .send({ versionPolitica: VERSION_VIGENTE_DEL_AVISO })
+      .send(REGISTRO_DE_PRUEBA)
       .expect(200);
 
     expect((respuesta.body as { id: string }).id).toBe(cuentas.get(A));

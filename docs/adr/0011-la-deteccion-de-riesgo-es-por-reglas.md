@@ -123,3 +123,95 @@ respuesta no cierra nada: dice que el asistente sigue ahi cuando la persona
 quiera volver.
 
 Los textos nuevos estan en `docs/textos-del-asistente.md`.
+
+## Actualizacion: el asistente mixto, sin conexion (SCRUM-141, 2026-10-08)
+
+Esta decision dice, desde el principio, que el adaptador de reglas "funciona sin
+conexion": las reglas y los recursos caben en el dispositivo. Era cierto del
+codigo y no de la aplicacion: la pantalla de VSD IA siempre llamaba al servidor,
+y sin red solo decia "no pude responderte". Con el modo sin conexion (ADR 0019)
+hay que decidir **que** responde el asistente cuando no hay red.
+
+**La deteccion de riesgo no cambia.** Es la misma lista, la misma normalizacion
+(sin tildes, en minusculas), se sigue ejecutando primero y aparte, y sigue
+siendo por reglas. Lo que cambia es **donde** se aplica.
+
+### Decision
+
+**Un asistente mixto.** Sin conexion responde lo que no necesita nada del
+servidor, y todo lo demas exige conexion y lo dice.
+
+| Sin conexion, la persona escribe                   | Pasa                                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Una expresion de riesgo                            | El mismo mensaje y las lineas de su pais, **sin esperar red**                    |
+| "¿Donde busco ayuda?", "¿que lineas de ayuda hay?" | El mismo mensaje y las lineas de su pais                                         |
+| Un saludo, un agradecimiento, una despedida        | Su respuesta, de un solo mensaje                                                 |
+| Cualquier otra cosa                                | "Esto lo puedo responder cuando tengas conexion." Nunca se inventa una respuesta |
+
+- **Un solo origen.** El servidor publica **los mismos datos** que usa para
+  responder, en una ruta publica y versionada: `GET /api/asistente/reglas-locales`
+  (la deteccion de riesgo, las reglas de la charla, los paises con sus zonas y las
+  lineas de cada uno). No hay una segunda lista escrita en el frontend. Las reglas y
+  los textos viven en un solo archivo del dominio (`ReglasDelAsistente.ts`), que
+  importan tanto el adaptador de reglas como el caso de uso que las publica.
+- **Una prueba que falla si se separan.** `ReglasLocalesYAsistente.spec.ts` le
+  pregunta lo mismo al asistente de verdad y a un motor de referencia que **solo
+  conoce el paquete publicado**: cada expresion de riesgo, cada patron de cada
+  regla, cada zona y un conjunto de frases dificiles. Si algo se agrega en un sitio
+  y no en el otro, se rompe y dice cual. El paquete y las respuestas que debe dar el
+  dispositivo se guardan ademas como archivo (`docs/contratos/reglas-locales.json`):
+  el frontend prueba su motor contra una copia, y cambiar lo que se publica sin
+  regenerarlo hace fallar la prueba.
+- **Que se responde sin conexion lo dice el dato**, no el cliente: cada regla lleva
+  `sinConexion`. Una regla que no se responde sin red **se publica igual**, porque su
+  sitio en el orden es lo que impide que "hola, ¿como estas?" se lea como un saludo.
+- **Lo que se escribe sin conexion no se envia despues.** No entra a la cola de
+  ADR 0019. Un mensaje a un asistente no tiene sentido horas mas tarde, y es lo mas
+  intimo que escribe alguien: se queda en la pantalla, la persona decide si lo
+  reenvia, y al cerrar el asistente se olvida, como siempre.
+- **El paquete se guarda en el dispositivo, por persona, con ETag**, como el resto
+  de las lecturas con copia (ADR 0019). Sin red y sin paquete, el asistente se
+  comporta como antes: lo dice, y deja a mano las lineas de respaldo.
+
+### Alternativas descartadas
+
+**Una copia de las reglas escrita en el frontend.** Es lo mas facil y es justo lo
+que este ADR evita desde el principio: dos listas que alguien tiene que acordarse de
+mantener juntas, en un asunto en el que una diferencia es una persona sin telefono.
+
+**Guardar la ruta en la cache del service worker.** El service worker no toca la API
+por diseno (SCRUM-135): ninguna respuesta de la API pasa por su cache, y esta
+garantia es mas facil de sostener sin excepciones. El paquete no es personal, pero
+las copias de la aplicacion viven todas en el mismo sitio.
+
+**Encolar lo que se escribe sin red y enviarlo despues.** Ver arriba.
+
+**Responder sin conexion tambien "¿como estas?" y "¿que puedes hacer?".** Es
+posible, y es cambiar un valor en un solo archivo. No se hizo porque no es lo que
+se decidio: sin conexion el asistente es honesto sobre lo poco que hace.
+
+### Consecuencias
+
+**A favor**
+
+- Quien esta mal y sin red recibe sus lineas **sin esperar**, que es lo que el RF9
+  prometia desde el principio.
+- Sin conexion el asistente nunca inventa: o responde lo basico, o dice que lo
+  respondera cuando haya conexion.
+- La deteccion de riesgo sigue siendo una lista que se lee entera y se prueba frase
+  por frase, ahora tambien en el dispositivo.
+
+**En contra, y hay que decirlo**
+
+- **Hay que haber abierto la aplicacion con conexion al menos una vez** para tener
+  el paquete. Quien nunca lo tuvo recibe lo de antes.
+- **Las lineas del dispositivo pueden estar desactualizadas.** Llevan fecha de
+  verificacion en el servidor y se renuevan solas, con ETag, al volver la red.
+- **El algoritmo existe dos veces** (servidor y aplicacion). Los datos no: el
+  algoritmo se comprueba con el contrato y el conjunto de frases.
+- Cambiar una regla, un texto o una linea cambia el contrato: hay que regenerarlo y
+  copiarlo al frontend, y la prueba lo recuerda.
+- Los falsos positivos del riesgo siguen siendo los de siempre, y ahora tambien
+  ocurren sin red.
+
+Los textos nuevos estan en `docs/textos-del-asistente.md`, seccion 6.

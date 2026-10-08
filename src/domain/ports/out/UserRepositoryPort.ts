@@ -1,5 +1,5 @@
 import type { UserId } from '../../model/Identifier.js';
-import type { User } from '../../model/User.js';
+import type { ConsentimientoAceptado, User } from '../../model/User.js';
 
 /**
  * Puerto de salida para las cuentas.
@@ -43,6 +43,16 @@ export interface UserRepositoryPort {
    * crea otra. Es lo que permite reintentar sin mirar antes si existia.
    */
   save(user: User): Promise<void>;
+
+  /**
+   * Todo lo que la persona ha aceptado, version por version, de la mas antigua
+   * a la mas reciente.
+   *
+   * `save` anade al historial el aviso y los terminos de la cuenta y nunca
+   * reescribe ni quita una fila: cuando la persona acepta un texto nuevo, el
+   * anterior sigue ahi como prueba de lo que acepto antes.
+   */
+  consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]>;
 
   /**
    * Borra la cuenta y todo lo que cuelga de ella: resultados, entradas de

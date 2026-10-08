@@ -1,5 +1,5 @@
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
-import { TipoDeAviso } from '../../domain/model/Aviso.js';
+import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
@@ -90,7 +90,23 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
   }
 
   suscribir(userId: UserId, suscripcion: SuscripcionPush): Promise<void> {
+    // Se borra antes de poner: una suscripcion renovada pasa a ser la mas
+    // reciente, como en la base, donde se reemplaza la fila.
+    this.suscripciones.delete(suscripcion.endpoint);
     this.suscripciones.set(suscripcion.endpoint, { userId: userId.value, suscripcion });
+
+    // El `Map` recuerda el orden en que se agrego cada una: las primeras de la
+    // persona son las mas antiguas, y son las que salen al pasar el tope.
+    const deLaPersona = [...this.suscripciones.entries()].filter(
+      ([, fila]) => fila.userId === userId.value,
+    );
+
+    for (const [endpoint] of deLaPersona.slice(
+      0,
+      Math.max(0, deLaPersona.length - MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA),
+    )) {
+      this.suscripciones.delete(endpoint);
+    }
 
     return Promise.resolve();
   }

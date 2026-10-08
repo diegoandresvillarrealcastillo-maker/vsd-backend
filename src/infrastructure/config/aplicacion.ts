@@ -39,6 +39,15 @@ export const LIMITE_DEL_CUERPO_DE_LA_FOTO = '60kb';
  */
 export const LIMITE_DEL_CUERPO_DE_LA_MASCOTA = '120kb';
 
+/** Los metodos que el frontend usa contra la API (SCRUM-155). */
+export const METODOS_PERMITIDOS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+/**
+ * Las cabeceras que el frontend escribe a mano en sus peticiones: el tipo del
+ * cuerpo, lo que acepta y el token. Cualquier otra no pasa el preflight.
+ */
+export const CABECERAS_PERMITIDAS = ['Authorization', 'Content-Type', 'Accept'] as const;
+
 /**
  * Aplica a la aplicacion todo lo que no son rutas: protecciones, validacion
  * de entrada y politica de origenes.
@@ -152,7 +161,21 @@ export function configurarAplicacion(
   app.enableCors({
     // Se copia porque enableCors espera un arreglo mutable.
     origin: [...configuracion.origenesAutorizados],
-    credentials: true,
+
+    // Sin `credentials` (SCRUM-155). La API autentica con la cabecera
+    // `Authorization`, no con cookies, asi que permitir credenciales no hacia
+    // falta y le daba a un origen autorizado mas alcance del necesario: que el
+    // navegador adjunte cookies y certificados a sus peticiones.
+    credentials: false,
+
+    // Lo que usa el frontend y nada mas. TRACE y CONNECT, por ejemplo, no.
+    methods: [...METODOS_PERMITIDOS],
+    allowedHeaders: [...CABECERAS_PERMITIDAS],
+
+    // El navegador recuerda la respuesta del preflight diez minutos. Sin esto
+    // pregunta antes de cada PATCH o DELETE: una peticion de mas por cada
+    // escritura.
+    maxAge: 600,
 
     // Sin esto el navegador **no deja leer** la cabecera desde otro origen,
     // aunque el servidor la envie. Es un detalle que se olvida con facilidad y

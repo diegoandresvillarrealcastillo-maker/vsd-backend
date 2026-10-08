@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MINUTO_DE_LA_MANANA, MINUTO_DE_LA_NOCHE, TipoDeAviso } from '../../domain/model/Aviso.js';
+import {
+  MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+  MINUTO_DE_LA_MANANA,
+  MINUTO_DE_LA_NOCHE,
+  TipoDeAviso,
+} from '../../domain/model/Aviso.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { InMemoryAvisosRepository } from './InMemoryAvisosRepository.js';
 
@@ -163,5 +168,64 @@ describe('InMemoryAvisosRepository: los recordatorios (SCRUM-126)', () => {
 
       expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([BETO.value]);
     });
+  });
+});
+
+describe('InMemoryAvisosRepository: el tope de navegadores por cuenta (SCRUM-153)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  const navegador = (numero: number) => ({
+    endpoint: `https://fcm.googleapis.com/fcm/send/navegador-${numero}`,
+    p256dh: 'clave-p256dh',
+    auth: 'clave-auth',
+  });
+
+  async function suscribirVarios(persona: UserId, cuantos: number, desde = 1): Promise<void> {
+    for (let numero = desde; numero < desde + cuantos; numero += 1) {
+      await repositorio.suscribir(persona, navegador(numero));
+    }
+  }
+
+  beforeEach(() => {
+    repositorio = new InMemoryAvisosRepository();
+  });
+
+  it('guarda hasta el tope sin quitar ninguno', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+  });
+
+  it('al pasar el tope entra la nueva y sale la mas antigua, no se rechaza', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 1);
+
+    const quedan = (await repositorio.suscripcionesDe(ANA)).map((una) => una.endpoint);
+
+    expect(quedan).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+    expect(quedan).not.toContain(navegador(1).endpoint);
+    expect(quedan).toContain(navegador(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 1).endpoint);
+  });
+
+  it('renovar uno ya guardado lo vuelve el mas reciente y no hace salir a otro', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+    await repositorio.suscribir(ANA, navegador(1));
+
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+
+    // Ahora el mas antiguo es el 2, no el 1.
+    await repositorio.suscribir(ANA, navegador(99));
+
+    const quedan = (await repositorio.suscripcionesDe(ANA)).map((una) => una.endpoint);
+
+    expect(quedan).toContain(navegador(1).endpoint);
+    expect(quedan).not.toContain(navegador(2).endpoint);
+  });
+
+  it('el tope es de cada cuenta: lo de una no saca lo de otra', async () => {
+    await suscribirVarios(BETO, 3);
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 5, 100);
+
+    expect(await repositorio.suscripcionesDe(BETO)).toHaveLength(3);
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
   });
 });

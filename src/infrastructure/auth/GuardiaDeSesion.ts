@@ -6,6 +6,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { Request, Response } from 'express';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
+import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
+import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import { ES_PUBLICO } from './Publico.js';
 import type { PeticionConIdentidad } from './UsuarioActual.js';
 import { TokenInvalidoError, VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
@@ -35,6 +39,7 @@ export class GuardiaDeSesion implements CanActivate {
   constructor(
     private readonly verificador: VerificadorDeIdentidad,
     private readonly reflector: Reflector,
+    private readonly seguridad: RegistroDeSeguridadPort = new RegistroDeSeguridadNulo(),
   ) {}
 
   async canActivate(contexto: ExecutionContext): Promise<boolean> {
@@ -77,6 +82,18 @@ export class GuardiaDeSesion implements CanActivate {
         // la firma, aceptar el token equivaldria a no verificar nada.
         this.registro.error('No se pudo verificar el token.', error);
       }
+
+      // Para reconstruir un incidente (alguien probando tokens) hace falta
+      // saber cuantos y desde donde, no cuales: el token nunca se anota.
+      this.seguridad.registrar({
+        tipo: 'TOKEN_RECHAZADO',
+        motivo:
+          error instanceof TokenInvalidoError ? 'TOKEN_INVALIDO' : 'VERIFICACION_NO_DISPONIBLE',
+        ...contextoDeLaPeticion(
+          contexto.switchToHttp().getRequest<Request>(),
+          contexto.switchToHttp().getResponse<Response>(),
+        ),
+      });
 
       throw new UnauthorizedException({
         codigo: 'SESION_INVALIDA',

@@ -98,6 +98,7 @@
               "    throw error;",
               "  }",
               "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
               "});"
             ]
           }
@@ -148,7 +149,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -160,7 +161,7 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "cuenta"]
         },
-        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia."
+        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia.\n\nPara crear la cuenta hay que declarar la fecha de nacimiento y marcar las dos casillas, aviso de privacidad y terminos. La plataforma es solo para mayores de 18 anos: con menos, la respuesta es 403 MENOR_DE_EDAD, no se guarda nada y se borra la identidad de quien lo intento. Por eso esta peticion siempre manda una fecha de adulto. Enviar solo las versiones, sin las casillas, ya no basta."
       }
     },
     {
@@ -179,6 +180,7 @@
               "    throw error;",
               "  }",
               "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
               "});"
             ]
           }
@@ -207,7 +209,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"rol\": \"administrador\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true,\n  \"rol\": \"administrador\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1029,6 +1031,62 @@
           "path": ["api", "asistente"]
         },
         "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Línea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
+      }
+    },
+    {
+      "name": "15a. Reglas del asistente sin conexion (ruta publica)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 sin sesion', function () { pm.response.to.have.status(200); });",
+              "",
+              "const r = pm.response.json();",
+              "",
+              "pm.test('Dice la version de su forma', function () {",
+              "  pm.expect(r.esquema).to.equal(1);",
+              "});",
+              "",
+              "pm.test('Lleva ETag, para no volver a bajar lo que no cambio', function () {",
+              "  pm.expect(pm.response.headers.get('ETag')).to.be.a('string').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('Trae la deteccion de riesgo y la charla de todos los dias', function () {",
+              "  pm.expect(r.riesgo.expresiones).to.be.an('array').that.is.not.empty;",
+              "  const intenciones = r.charla.reglas.map(function (regla) { return regla.intencion; });",
+              "  pm.expect(intenciones).to.include.members(['saludo', 'agradecimiento', 'despedida']);",
+              "});",
+              "",
+              "pm.test('Trae las lineas de cada pais y el directorio internacional', function () {",
+              "  pm.expect(Object.keys(r.paises)).to.have.members(['CO', 'MX', 'ES', 'US']);",
+              "  Object.values(r.paises).forEach(function (pais) {",
+              "    pm.expect(pais.lineas).to.be.an('array').that.is.not.empty;",
+              "  });",
+              "  pm.expect(r.internacional).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/asistente/reglas-locales",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "asistente", "reglas-locales"]
+        },
+        "description": "Lo que la aplicacion necesita para que VSD IA responda lo basico sin conexion (SCRUM-141): un saludo, un agradecimiento, una despedida y las lineas de atencion.\n\nSon los MISMOS datos que usa el servidor para responder con conexion: la deteccion de riesgo, las reglas de la charla, los paises y la tabla de recursos. No hay una segunda lista.\n\nEs publica a proposito: se pide justo cuando algo falla, y las lineas de ayuda no pueden quedarse detras de un inicio de sesion. Lleva ETag, asi que una lectura condicional responde 304 si nada cambio.\n\nEsta ruta solo baja. Lo que una persona escribe sin conexion no se envia despues."
       }
     },
     {

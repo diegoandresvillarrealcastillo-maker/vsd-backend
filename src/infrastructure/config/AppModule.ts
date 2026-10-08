@@ -13,6 +13,7 @@ import { ConfiguracionModule } from './ConfiguracionModule.js';
 import { DiarioModule } from './DiarioModule.js';
 import { PendientesModule } from './PendientesModule.js';
 import { ProgresoModule } from './ProgresoModule.js';
+import { SeguridadModule } from './SeguridadModule.js';
 import { UsuariosModule } from './UsuariosModule.js';
 
 /**
@@ -28,6 +29,9 @@ import { UsuariosModule } from './UsuariosModule.js';
     // validacion la hace el proveedor de abajo.
     ConfigModule.forRoot({ isGlobal: true, cache: true }),
     ConfiguracionModule,
+    // El registro de seguridad lo usan los guardias, el filtro de errores y la
+    // cuenta, asi que se declara antes que todos ellos.
+    SeguridadModule,
     // Antes que los modulos con rutas: el guardia que registra se aplica a
     // todas ellas.
     AutenticacionModule,

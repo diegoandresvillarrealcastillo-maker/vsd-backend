@@ -25,7 +25,9 @@ primero.
 lo único que hace falta y poner los teléfonos delante. No usa la palabra
 "crisis", no nombra ninguna condición y no pide que la persona explique nada.
 
-**Origen:** `MENSAJE_DE_RIESGO` en `src/infrastructure/asistente/AsistentePorReglas.ts`
+**Origen:** `MENSAJE_DE_RIESGO` en `src/domain/model/ReglasDelAsistente.ts` (hasta SCRUM-141 estaba en
+`src/infrastructure/asistente/AsistentePorReglas.ts`; se movió para que lo compartan el asistente y la
+ruta que lo publica para responder sin conexión).
 
 ## 2. Respuestas por intención
 
@@ -37,7 +39,7 @@ lo único que hace falta y poner los teléfonos delante. No usa la palabra
 | Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                      |
 | Algo que no se reconoce    | No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma. |
 
-**Origen:** `MENSAJES` en el mismo archivo.
+**Origen:** `MENSAJES` en `src/domain/model/ReglasDelAsistente.ts`.
 
 ### La charla de todos los días (SCRUM-128)
 
@@ -59,8 +61,9 @@ sabría contestar un «bien» o un «más o menos».
 el día; su respuesta está escrita para servir también a quien lo escribe al
 llegar.
 
-**Origen:** `MENSAJES` y `MENSAJE_DE_LAS_NOCHES` en el mismo archivo. Las
-palabras que las disparan están en `REGLAS_DE_CHARLA`.
+**Origen:** `MENSAJES` y la variante de «buenas noches» (dentro de la despedida de
+`REGLAS_DE_CHARLA`), en `src/domain/model/ReglasDelAsistente.ts`. Las palabras que
+las disparan están en `REGLAS_DE_CHARLA`.
 
 #### Cuándo cuenta como charla, y cuándo no
 
@@ -252,6 +255,61 @@ dolor serio sin usar ninguna de estas frases. Por eso el asistente nunca es la
 
 ---
 
+## 6. Sin conexión (SCRUM-141)
+
+La aplicación guarda en el dispositivo las reglas del asistente y las aplica cuando
+no hay conexión. Son **los mismos datos** que usa el servidor (la lista del punto 5,
+las reglas de la charla, los países y las líneas del punto 4): el servidor los
+publica en `GET /api/asistente/reglas-locales` y hay una prueba que falla si lo que
+se publica y lo que el asistente responde se separan. Ver el ADR 0011.
+
+**El asistente es mixto.** Sin conexión responde lo que no necesita nada del
+servidor, y todo lo demás exige conexión y lo dice. **Nunca inventa una respuesta.**
+
+| Sin conexión, la persona escribe                           | Qué pasa                                                                          |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Una frase del punto 5                                      | El mensaje del punto 1 y las líneas de su país, **sin esperar la red**            |
+| «¿Dónde busco ayuda?», «¿qué líneas de ayuda hay?»         | El mensaje de «dónde buscar ayuda» y las líneas de su país                        |
+| Un saludo                                                  | El saludo de abajo, que **no** invita a preguntar lo que sin conexión no se puede |
+| Un agradecimiento, una despedida o «buenas noches»         | Lo mismo que con conexión                                                         |
+| «¿Cómo estás?», «¿qué puedes hacer?»                       | «Esto lo puedo responder cuando tengas conexión.»                                 |
+| Cualquier otra cosa (descanso, resultado, cómo se siente…) | «Esto lo puedo responder cuando tengas conexión.»                                 |
+
+**El saludo sin conexión** (el de con conexión invita a preguntar por el descanso o
+por un resultado, y eso sin red no se puede responder; prometerlo sería engañar):
+
+> ¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde
+> buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión.
+
+**Lo que dice la pantalla** (son textos de la aplicación, no del servidor, y se revisan aquí):
+
+| Dónde                                                                      | Texto                                                                                                                    |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Aviso en la parte de arriba, mientras no hay conexión                      | Sin conexión. Puedo saludarte y decirte dónde buscar ayuda; lo demás lo respondo cuando vuelvas a tener conexión.        |
+| Bajo una respuesta dada sin conexión                                       | Respondido sin conexión                                                                                                  |
+| Cuando lo escrito exige conexión                                           | Esto lo puedo responder cuando tengas conexión. _(con el botón «Reintentar» y las líneas del país de la persona debajo)_ |
+| Sin conexión y sin haber guardado las reglas (nunca se abrió con conexión) | No tienes conexión, así que no pude responderte. _(con las líneas de respaldo, como antes)_                              |
+
+**Qué se buscó al decidirlo**
+
+- **La detección de riesgo es la misma**: la misma lista, la misma normalización, y
+  sigue yendo primero. Cambia dónde se aplica, no qué detecta. Con ella, sin red, la
+  persona recibe sus líneas sin esperar una respuesta que no va a llegar.
+- **Lo escrito sin conexión no se envía después.** No entra a la cola de lo que se
+  sincroniza: un mensaje a un asistente no tiene sentido horas más tarde, y es lo más
+  íntimo que escribe alguien. Se queda en la pantalla, y la persona decide si lo
+  reenvía. Al cerrar el asistente se olvida, como siempre.
+- **Una respuesta con líneas de otro país es el peor error posible**, igual que con
+  conexión: el país sale de la zona horaria de la cuenta y nunca se pide ubicación.
+- **Lo que se ve puede estar desactualizado.** Las líneas se guardan con la fecha de
+  su última verificación y se renuevan solas al volver la red.
+
+**Origen:** las reglas y los textos, en `src/domain/model/ReglasDelAsistente.ts`; el
+paquete que se publica, en `ConsultarLasReglasLocalesUseCaseImpl`; el contrato, en
+`docs/contratos/reglas-locales.json`.
+
+---
+
 ## Qué mirar al revisar
 
 1. **¿Algún texto suena a diagnóstico?** Hay una prueba automática que falla
@@ -269,6 +327,11 @@ dolor serio sin usar ninguna de estas frases. Por eso el asistente nunca es la
 6. **¿Cada número del punto 4 sigue siendo cierto?** Abrir la fuente de cada
    línea y comprobar número, horario y que sea gratuita. La fecha de
    verificación dice cuánto hace de la última vez; nada la hace envejecer sola.
+7. **¿El saludo sin conexión promete algo que sin conexión no se puede cumplir?**
+   Debe decir lo poco que se hace y nada más. Y **¿cambió algo de lo que se
+   responde sin conexión?** Entonces cambió el contrato
+   (`docs/contratos/reglas-locales.json`): la prueba falla hasta regenerarlo, y el
+   frontend tiene que copiarlo.
 
 ## Pendiente: el recurso de la universidad
 

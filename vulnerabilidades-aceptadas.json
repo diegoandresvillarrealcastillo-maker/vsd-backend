@@ -1,0 +1,14 @@
+{
+  "aceptadas": [
+    {
+      "id": "GHSA-ggr8-5vv4-36mx",
+      "motivo": "deepmerge-ts llega por @prisma/config, que solo lo usa la CLI de Prisma para combinar su configuracion al migrar. La entrada es nuestro prisma.config.ts, no datos de nadie. La CLI no esta en la imagen que se despliega, y npm solo ofrece como arreglo bajar a prisma 6.",
+      "vence": "2026-12-31"
+    },
+    {
+      "id": "GHSA-3f6p-5ww8-9rcr",
+      "motivo": "mysql2 llega por la CLI de Prisma. VSD Health solo usa PostgreSQL: el codigo de MySQL no se ejecuta en ningun ambiente. La CLI no esta en la imagen que se despliega, y npm solo ofrece como arreglo bajar a prisma 6.",
+      "vence": "2026-12-31"
+    }
+  ]
+}

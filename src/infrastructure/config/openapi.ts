@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import type { Configuracion } from './environment.js';
+import { Ambiente, type Configuracion } from './environment.js';
 
 /**
  * Contrato de la API en formato OpenAPI.
@@ -44,14 +44,16 @@ export function construirDocumento(app: INestApplication): Record<string, unknow
 }
 
 /**
- * Publica la documentacion navegable, salvo en produccion.
+ * Publica la documentacion navegable, solo al desarrollar en local (SCRUM-155).
  *
  * Un catalogo completo de la API, con todos sus esquemas y ejemplos, le
- * ahorra trabajo a quien busque debilidades. En produccion el contrato lo
- * consume el frontend desde el archivo generado, no desde una ruta publica.
+ * ahorra trabajo a quien busque debilidades. Antes solo se ocultaba en
+ * produccion, y preproduccion —con cuentas reales de prueba— la publicaba a
+ * cualquiera que probara `/api/docs`. El contrato no se pierde: vive en
+ * `openapi.json` del repositorio, y el frontend lo consume de ahi.
  */
 export function configurarDocumentacion(app: INestApplication, configuracion: Configuracion): void {
-  if (configuracion.esProduccion) {
+  if (configuracion.ambiente !== Ambiente.DESARROLLO) {
     return;
   }
 

@@ -50,6 +50,21 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // Ley 1581 de 2012.
   CONSENTIMIENTO_NO_REGISTRADO: HttpStatus.BAD_REQUEST,
 
+  // La edad (auditoria 360, S-01). La fecha que no sirve es un error de quien
+  // llama: 400. Ser menor es otra cosa: la peticion esta bien hecha y la
+  // identidad es autentica, pero la regla de negocio no admite a esa persona.
+  // 403 y no 400, porque no se arregla corrigiendo el formato.
+  FECHA_DE_NACIMIENTO_INVALIDA: HttpStatus.BAD_REQUEST,
+  MENOR_DE_EDAD: HttpStatus.FORBIDDEN,
+
+  // La cuenta existe y el token vale, pero le falta aceptar y declarar su edad.
+  // 403 como CUENTA_NO_REGISTRADA: repetir el inicio de sesion no lo arregla,
+  // completar el registro si.
+  REGISTRO_INCOMPLETO: HttpStatus.FORBIDDEN,
+
+  // Igual que el aviso, 409: se arregla pidiendo la version vigente y repitiendo.
+  VERSION_DE_LOS_TERMINOS_NO_VIGENTE: HttpStatus.CONFLICT,
+
   // 409 y no 400: la peticion esta bien formada. Lo que pasa es que choca con
   // el estado del servidor, que tiene otra version vigente. Se arregla pidiendo
   // la vigente y repitiendo, no corrigiendo el formato.

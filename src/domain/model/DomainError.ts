@@ -164,6 +164,82 @@ export class OutdatedPrivacyNoticeError extends DomainError {
 }
 
 /**
+ * Se intento aceptar unos terminos que ya no son los vigentes.
+ *
+ * Igual que con el aviso de privacidad: aceptarlos en silencio dejaria
+ * registrado que la persona dio su acuerdo a un texto distinto del que esta en
+ * vigor. Solo aplica al dar de alta; las cuentas que ya existen conservan la
+ * version con la que se crearon.
+ */
+export class OutdatedTermsError extends DomainError {
+  readonly code = 'VERSION_DE_LOS_TERMINOS_NO_VIGENTE';
+
+  constructor() {
+    super(
+      'La versión de los términos que se envió ya no está vigente. Vuelve a cargar la página y acepta la versión actual.',
+    );
+  }
+}
+
+/**
+ * La fecha de nacimiento no sirve: falta, no es una fecha real, esta en el
+ * futuro o es de hace mas de lo que vive una persona.
+ *
+ * La edad se calcula **a partir de ella**, asi que una fecha dudosa no se
+ * corrige ni se supone: se pide otra vez.
+ */
+export class InvalidBirthDateError extends DomainError {
+  readonly code = 'FECHA_DE_NACIMIENTO_INVALIDA';
+
+  constructor() {
+    super('Revisa tu fecha de nacimiento: tiene que ser una fecha real y que ya haya pasado.');
+  }
+}
+
+/**
+ * Quien se registra es menor de 18 anos.
+ *
+ * VSD Health es solo para personas mayores de edad: la Ley 1581 de 2012 exige
+ * garantias adicionales para tratar datos de menores, y mas aun si son de
+ * salud. No se crea la cuenta ni se guarda nada de esa persona.
+ *
+ * El mensaje es lo que ve quien lo recibe, y a quien lo recibe puede estarle
+ * pasando algo. Por eso explica el motivo sin culparle y no deja la puerta
+ * cerrada del todo: dice que se puede volver, y que si necesita hablar con
+ * alguien ahora no tiene que esperar a cumplir 18.
+ */
+export class UnderageError extends DomainError {
+  readonly code = 'MENOR_DE_EDAD';
+
+  constructor() {
+    super(
+      'VSD Health es solo para personas mayores de 18 años, así que no pudimos crear tu cuenta. ' +
+        'No guardamos ningún dato tuyo. Cuando cumplas 18 te daremos la bienvenida. ' +
+        'Si necesitas hablar con alguien ahora, acércate a un adulto de confianza o a un servicio de salud.',
+    );
+  }
+}
+
+/**
+ * La cuenta existe pero le falta completar el registro: su fecha de nacimiento
+ * y la aceptacion explicita del aviso y de los terminos.
+ *
+ * Lo viven las cuentas creadas antes de que se pidieran (y las de Google, que
+ * quedaron con un consentimiento que nadie dio con una casilla). Hasta que lo
+ * completan no pueden usar nada mas, pero si ver, exportar y borrar lo suyo:
+ * son derechos que no se condicionan.
+ */
+export class IncompleteRegistrationError extends DomainError {
+  readonly code = 'REGISTRO_INCOMPLETO';
+
+  constructor() {
+    super(
+      'Antes de seguir tienes que completar tu registro: tu fecha de nacimiento y la aceptación del aviso de privacidad y de los términos.',
+    );
+  }
+}
+
+/**
  * Quien llama tiene un token valido pero todavia no tiene cuenta aqui.
  *
  * Supabase y VSD Health guardan identidades distintas a proposito: el token

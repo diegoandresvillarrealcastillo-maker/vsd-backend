@@ -20,10 +20,15 @@ sintoma de que caduco es que todo empieza a responder 401 de golpe sin que
 nadie haya tocado nada. Con este esquema, se vuelve a lanzar la peticion 0 y
 listo.
 
-**La version del aviso tampoco se escribe a mano.** Las dos peticiones de alta
-la piden antes a `GET /api/aviso` y la guardan en `versionAviso`. La API es la
-unica fuente de ese valor: el dia que el aviso cambie, la coleccion sigue
-valiendo sin tocarla.
+**Las versiones del aviso y de los terminos tampoco se escriben a mano.** Las
+dos peticiones de alta las piden antes a `GET /api/aviso` y las guardan en
+`versionAviso` y `versionTerminos`. La API es la unica fuente de esos valores:
+el dia que un texto cambie, la coleccion sigue valiendo sin tocarla.
+
+**El alta manda una fecha de adulto, a proposito.** La plataforma es solo para
+mayores de 18 anos, y un menor no solo es rechazado: se borra su identidad en
+Supabase (ADR 0021). Por eso no hay una peticion de ejemplo con una fecha de
+menor. Mandarla desde aqui borraria la cuenta con la que se inicio sesion.
 
 **Cada peticion comprueba su propio resultado.** Son 56 comprobaciones
 automaticas, asi que la coleccion se puede ejecutar entera y mostrar el

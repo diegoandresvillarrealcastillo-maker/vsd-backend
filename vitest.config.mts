@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.spec.ts'],
+    // Los guiones de `scripts/` que deciden algo (SCRUM-155) tienen su prueba al lado.
+    include: ['src/**/*.spec.ts', 'scripts/**/*.spec.mjs'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

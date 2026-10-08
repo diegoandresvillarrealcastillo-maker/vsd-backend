@@ -107,7 +107,9 @@ npm run start:dev
 Ya puedes abrir:
 
 - **http://localhost:3000/health** — comprueba que responde
-- **http://localhost:3000/api/docs** — documentacion navegable de la API
+- **http://localhost:3000/api/docs** — documentacion navegable de la API. Solo
+  se publica con `NODE_ENV=development`; en PRE y PROD el contrato es el
+  archivo `openapi.json`
 
 Para probarla hay tres caminos, y los tres llaman a lo mismo: la pagina de
 Swagger de arriba, el archivo `peticiones.http` con la extension REST Client de

@@ -26,6 +26,71 @@ Borrar un secreto en un commit posterior no lo elimina del historial.
 2. Avisar al equipo.
 3. Solo despues limpiar el repositorio.
 
+### Dependencias y analisis del codigo (SCRUM-155)
+
+Lo que se instala con `npm` es codigo de otras personas que corre con los
+mismos permisos que el nuestro. Tres controles, ademas de Gitleaks:
+
+| Control                    | Archivo                              | Que hace                                                                                   |
+| -------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Dependabot                 | `.github/dependabot.yml`             | Abre cada lunes los Pull Request de dependencias, agrupados, contra `desarrollo`.          |
+| Avisos de las dependencias | `.github/workflows/dependencias.yml` | Falla si produccion trae un aviso `high` o `critical` que nadie haya aceptado por escrito. |
+| Analisis del codigo        | `.github/workflows/codeql.yml`       | CodeQL (`security-extended`) sobre TypeScript; los hallazgos salen en Code scanning.       |
+
+- **Un aviso se acepta por escrito, con fecha.** Si no hay arreglo posible (la
+  correccion que ofrece npm es bajar una version mayor, o el paquete afectado
+  es una herramienta que no se despliega), el aviso se agrega a
+  `vulnerabilidades-aceptadas.json` con su identificador `GHSA`, el motivo y la
+  fecha en que deja de valer. Pasada la fecha el control vuelve a fallar y
+  alguien tiene que decidir otra vez: un riesgo aceptado sin fecha es un riesgo
+  olvidado. Se acepta el **aviso**, no el paquete, para no tapar el que salga la
+  semana siguiente.
+- **Solo produccion.** `npm audit --omit=dev`: las herramientas de desarrollo
+  no llegan a la imagen que se despliega.
+- **Va aparte del CI** para que un aviso publicado hoy no ponga en rojo un Pull
+  Request que no toca las dependencias. Corre en los que si las tocan, al
+  entrar a una rama de ambiente, cada lunes y a mano.
+- **`scripts/revisar-dependencias.mjs`** es la logica, sin dependencias y con sus
+  pruebas (`revisar-dependencias.spec.mjs`). Se corre igual en local:
+  `node scripts/revisar-dependencias.mjs`.
+- **Las tareas programadas y `dependabot.yml` solo funcionan desde la rama por
+  defecto**, que aqui es `produccion`. Hasta que lleguen ahi por la cadena de
+  promociones, los controles corren en los Pull Request pero Dependabot no abre
+  nada.
+- Los commits de Dependabot no citan un ticket; `commitlint.config.mjs` los
+  reconoce por su firma y los deja pasar.
+
+### Lo que la API deja ver y a quien deja llamarla (SCRUM-155)
+
+- **La documentacion de la API solo se publica con `NODE_ENV=development`.**
+  Antes solo se ocultaba en produccion, y PRE —con cuentas reales de prueba— la
+  servia en `/api/docs` a cualquiera. Es un mapa completo de la API, con todos
+  sus esquemas. El contrato no se pierde: es `openapi.json`, que el frontend
+  consume del repositorio. Lo comprueba `corsYDocumentacion.spec.ts`: `/api/docs`,
+  `/api/docs-json` y el script de la pagina dan `404` en PRE, PROD y pruebas.
+- **CORS sin credenciales y con lo justo.** La API autentica con la cabecera
+  `Authorization`, no con cookies, asi que `credentials: true` no hacia falta y
+  le daba a un origen autorizado mas alcance del necesario. Ahora los origenes
+  autorizados pueden usar solo `GET`, `HEAD`, `POST`, `PUT`, `PATCH` y `DELETE`,
+  con las cabeceras `Authorization`, `Content-Type` y `Accept`; el navegador
+  recuerda el preflight diez minutos. Si el frontend empieza a mandar otra
+  cabecera propia, hay que agregarla a `CABECERAS_PERMITIDAS` en
+  `aplicacion.ts`: el preflight la rechaza hasta entonces.
+- **Un corpus de ataques conocidos contra el saneador de SVG.** El saneador de
+  la mascota propia es codigo nuestro (ADR 0017). Ademas de sus pruebas por regla
+  y del barrido de 6000 variaciones al azar, `SvgDeMascota.corpus.spec.ts`
+  reune casi noventa ataques de las familias que documentan OWASP (evasion de
+  filtros, XXE, billion laughs) y PortSwigger (eventos, animaciones, `use`,
+  `foreignObject`, mXSS), escritos para este saneador. Todos tienen que
+  rechazarse con un error del dominio; si uno se aceptara, la prueba muestra lo
+  que habria salido. Agregar un ataque nuevo es agregar una fila. La alternativa
+  de convertir el SVG a PNG en el servidor ya se estudio y se descarto en el
+  ADR 0017.
+- **Lo que hoy no esta y nadie deberia agregar.** ESLint prohibe en `src/`
+  (salvo en las pruebas) `$queryRawUnsafe`, `$executeRawUnsafe`, `Prisma.raw`,
+  `eval` y `new Function`: reciben texto sin parametrizar. Las plantillas de
+  Prisma (`` $queryRaw`...${valor}` ``) van parametrizadas y siguen permitidas.
+
 ---
 
 ## 2. Que puede ver el navegador

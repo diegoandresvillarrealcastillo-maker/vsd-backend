@@ -1163,6 +1163,32 @@
           "Asistente"
         ]
       }
+    },
+    "/api/asistente/reglas-locales": {
+      "get": {
+        "description": "Los mismos datos que usa el asistente del servidor, para aplicarlos en el dispositivo: la deteccion de riesgo, la charla de todos los dias (saludo, agradecimiento y despedida), la pregunta por donde buscar ayuda y las lineas de atencion de cada pais. Es publica y lleva ETag: una lectura condicional con If-None-Match responde 304 si nada cambio. Todo lo demas que pregunte una persona exige conexion.",
+        "operationId": "ReglasLocalesDelAsistenteController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Las reglas y las lineas de ayuda de cada pais.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglasLocalesDelAsistenteDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Nada cambio desde el ETag que se envio."
+          }
+        },
+        "summary": "Consultar las reglas que responden lo basico sin conexion",
+        "tags": [
+          "Asistente"
+        ]
+      }
     }
   },
   "info": {
@@ -2662,6 +2688,215 @@
           "recursos",
           "senalDeRiesgo",
           "incluyeLineasDeAtencion"
+        ]
+      },
+      "PaisConLineasDto": {
+        "type": "object",
+        "properties": {
+          "zonas": {
+            "description": "Las zonas horarias de ese pais. El pais de una persona sale de la zona de su cuenta: nunca se pide ubicacion.",
+            "example": [
+              "America/Bogota"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lineas": {
+            "description": "Ordenadas por alcance: lo nacional va primero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "zonas",
+          "lineas"
+        ]
+      },
+      "RiesgoLocalDto": {
+        "type": "object",
+        "properties": {
+          "expresiones": {
+            "description": "Las expresiones que obligan a mostrar las lineas de atencion, ya normalizadas. Se buscan dentro del texto normalizado (sin tildes, en minusculas, espacios colapsados).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "El mensaje que acompana a las lineas. Es el mismo con conexion."
+          }
+        },
+        "required": [
+          "expresiones",
+          "mensaje"
+        ]
+      },
+      "VarianteDeCharlaDto": {
+        "type": "object",
+        "properties": {
+          "patrones": {
+            "example": [
+              "buenas noches"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "¡Buenas noches! Aquí estoy si quieres preguntarme algo."
+          }
+        },
+        "required": [
+          "patrones",
+          "mensaje"
+        ]
+      },
+      "ReglaDeCharlaDto": {
+        "type": "object",
+        "properties": {
+          "intencion": {
+            "type": "string",
+            "example": "saludo"
+          },
+          "patrones": {
+            "description": "Palabras completas, sin tildes y en minusculas. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz que admite terminaciones.",
+            "example": [
+              "hola",
+              "buenas tardes",
+              "saludo*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lo que se responde sin conexion, o null si esa intencion no se puede responder sin conexion. Una regla sin mensaje se publica igual: su sitio en el orden es lo que decide que \"hola, como estas\" no sea un saludo."
+          },
+          "variantes": {
+            "description": "Respuestas distintas segun el mensaje. La primera cuyo patron aparezca gana.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VarianteDeCharlaDto"
+            }
+          }
+        },
+        "required": [
+          "intencion",
+          "patrones",
+          "mensaje",
+          "variantes"
+        ]
+      },
+      "CharlaLocalDto": {
+        "type": "object",
+        "properties": {
+          "reglas": {
+            "description": "En el orden en que se evaluan: la primera que coincide gana.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReglaDeCharlaDto"
+            }
+          },
+          "relleno": {
+            "description": "Palabras que pueden acompanar a la charla sin dejar de serlo.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "reglas",
+          "relleno"
+        ]
+      },
+      "ReglaDeIntencionDto": {
+        "type": "object",
+        "properties": {
+          "intencion": {
+            "type": "string",
+            "example": "donde_busco_ayuda"
+          },
+          "patrones": {
+            "example": [
+              "ayud*",
+              "psicolog*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lo que se responde sin conexion, o null si esa intencion exige conexion."
+          },
+          "conLineas": {
+            "type": "boolean",
+            "description": "Cierto si la respuesta lleva las lineas de atencion del pais de la persona."
+          }
+        },
+        "required": [
+          "intencion",
+          "patrones",
+          "mensaje",
+          "conLineas"
+        ]
+      },
+      "ReglasLocalesDelAsistenteDto": {
+        "type": "object",
+        "properties": {
+          "esquema": {
+            "type": "number",
+            "example": 1,
+            "description": "La version de la forma de este paquete. Una aplicacion que no conozca el esquema que llega debe seguir con lo que ya tenia."
+          },
+          "riesgo": {
+            "$ref": "#/components/schemas/RiesgoLocalDto"
+          },
+          "charla": {
+            "$ref": "#/components/schemas/CharlaLocalDto"
+          },
+          "intenciones": {
+            "description": "Lo demas que el servidor reconoce, en su orden.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReglaDeIntencionDto"
+            }
+          },
+          "paises": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PaisConLineasDto"
+            },
+            "description": "Los paises con lineas verificadas, por su codigo ISO de dos letras."
+          },
+          "internacional": {
+            "description": "Lo que recibe quien esta en una zona de un pais sin lineas verificadas: el directorio internacional, y ningun telefono.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "esquema",
+          "riesgo",
+          "charla",
+          "intenciones",
+          "paises",
+          "internacional"
         ]
       }
     }

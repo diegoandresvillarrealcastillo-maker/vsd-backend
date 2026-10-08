@@ -319,3 +319,11 @@ Authorization: Bearer {{token}}
 {
   "texto": "ya no aguanto mas"
 }
+
+
+### 15a. Las reglas del asistente para responder sin conexion
+# Publica, igual que el catalogo: no necesita sesion ni cuenta, porque se
+# pide justo cuando algo falla. Son los mismos datos que usa el servidor
+# (SCRUM-141): la deteccion de riesgo, la charla de todos los dias, los
+# paises y sus lineas. Lleva ETag; con If-None-Match responde 304.
+GET {{host}}/api/asistente/reglas-locales

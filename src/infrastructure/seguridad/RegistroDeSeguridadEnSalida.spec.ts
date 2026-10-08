@@ -125,7 +125,7 @@ describe('RegistroDeSeguridadEnSalida', () => {
         nombre: 'Una Persona',
         fechaDeNacimiento: '1999-05-04',
         contenido: 'lo que escribio en su diario',
-        token: 'eyJhbGciOiJFUzI1NiJ9.secreto.firma',
+        token: 'token-falso-de-prueba',
       } as unknown as EventoDeSeguridad;
 
       registro.registrar(colado);
@@ -137,7 +137,7 @@ describe('RegistroDeSeguridadEnSalida', () => {
         'Una Persona',
         '1999-05-04',
         'diario',
-        'eyJ',
+        'token-falso-de-prueba',
       ]) {
         expect(texto).not.toContain(prohibido);
       }

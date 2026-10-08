@@ -23,6 +23,14 @@ regexes = [
   # esta prohibido en este proyecto.
   '''proveedor-abc-123''',
 
+  # Un token inventado en la prueba del registro de seguridad (SCRUM-163), que
+  # comprueba que un campo de sobra con forma de token no llega a la linea
+  # escrita. Es una cadena armada a mano, sin firma de nadie.
+  #
+  # Ya no esta en el archivo (la prueba usa ahora un valor que no se parece a una
+  # clave), pero sigue en el commit a9e3b87 y no se reescribe el historial.
+  '''eyJhbGciOiJFUzI1NiJ9\.secreto\.firma''',
+
   # Cadenas de conexion de ejemplo en la documentacion y en .env.example.
   # Son marcadores de posicion: usuario, clave, host y x:y@z no existen.
   '''postgresql://USUARIO:CONTRASENA@HOST''',

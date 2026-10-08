@@ -27,6 +27,8 @@ import {
   EXPORTAR_DATOS,
   REGISTRAR_CUENTA,
 } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_EXPORTAR } from '../limites/limites.js';
 import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
@@ -162,6 +164,7 @@ export class CuentaController {
   @Get('exportacion')
   // Un derecho: no depende de haber completado el registro.
   @PermiteRegistroIncompleto()
+  @LimitePorCuenta(LIMITE_DE_EXPORTAR)
   // Son datos personales: ni el navegador ni un proxy deben guardar copia.
   @Header('Cache-Control', 'no-store')
   @Header('Content-Disposition', 'attachment; filename="vsd-health-mis-datos.json"')

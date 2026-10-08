@@ -15,6 +15,8 @@ import type { User } from '../../domain/model/User.js';
 import type { AvisosUseCase } from '../../domain/ports/in/AvisosUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { AVISOS } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DE_SUSCRIBIR_AVISOS } from '../limites/limites.js';
 import {
   CambiarHorasDto,
   CambiarRecordatoriosDto,
@@ -98,6 +100,7 @@ export class NotificacionesController {
   }
 
   @Post('suscripciones')
+  @LimitePorCuenta(LIMITE_DE_SUSCRIBIR_AVISOS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Recibir los avisos en este navegador',
@@ -119,6 +122,7 @@ export class NotificacionesController {
   }
 
   @Delete('suscripciones')
+  @LimitePorCuenta(LIMITE_DE_SUSCRIBIR_AVISOS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Dejar de recibir los avisos en este navegador',

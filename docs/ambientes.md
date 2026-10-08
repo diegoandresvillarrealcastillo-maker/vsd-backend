@@ -99,6 +99,45 @@ avisos por Web Push (SCRUM-102).
 Cada ambiente tiene su propia base de datos. Los datos de prueba nunca
 se mezclan con los de personas reales.
 
+## El limite de peticiones detras del proxy de Render (`TRUST_PROXY_HOPS`)
+
+El limite general cuenta peticiones por direccion IP. Detras de un proxy —y en
+Render hay uno— Express ve la direccion del proxy para todo el mundo, y entonces
+las 120 peticiones por minuto no son de cada persona sino de **todas juntas**:
+una sola persona abusiva deja a las demas en 429 (S-03 de la auditoria 360).
+
+`TRUST_PROXY_HOPS` le dice a Express cuantos proxies de confianza hay delante.
+Vale 0 si no se pone, que es lo correcto en local y en las pruebas. En Render se
+pone un numero, **nunca** `true`:
+
+- Render **no reescribe** la cabecera `X-Forwarded-For`: anade al final la
+  direccion que ve, detras de lo que haya escrito quien llama.
+- Con un numero, Express cuenta saltos desde la derecha y se queda con la
+  direccion que anadio el proxy. Con `true` toma la de la izquierda, que escribio
+  quien llama, y el limite se esquiva cambiando una cabecera.
+- Contar de menos es seguro: el limite sigue siendo compartido. Contar **de mas**
+  no, porque se toma una direccion que escribio quien llama.
+
+### Como comprobar el numero en PRE (hay que hacerlo, no se supone)
+
+1. Pon `TRUST_PROXY_HOPS=1` en las variables de entorno del servicio y reinicia.
+2. Desde **dos conexiones con direccion distinta** (por ejemplo, el computador y el
+   celular con datos moviles) haz peticiones a `GET /api/aviso` y mira la cabecera
+   `RateLimit` de cada respuesta (`remaining`).
+3. Si los dos contadores bajan **por separado**, el numero esta bien. Si bajan
+   **juntos**, siguen compartiendo el cupo: sube a 2 y repite.
+4. Para descartar que se pueda esquivar, manda una peticion con la cabecera
+   `X-Forwarded-For: 203.0.113.9` y comprueba que el contador no se reinicia ni se
+   separa del que ya tenias.
+5. Anota el numero que funciono aqui. Cualquier cambio de infraestructura delante
+   de Render (un CDN, otro proxy) cambia la cuenta: repetir la comprobacion.
+
+Ademas del limite general, las rutas que cuestan llevan un tope **por cuenta**
+(`@LimitePorCuenta`, valores en `src/infrastructure/limites/limites.ts`): exportar
+los datos, preguntar al asistente, guardar o quitar la foto y la mascota propia, y
+registrar un navegador para los avisos. Ese tope cuenta por el identificador del
+token ya verificado, asi que no depende de la direccion IP ni de este numero.
+
 ## Los principios que aplicamos
 
 Esta forma de trabajar viene de los _doce factores_, un conjunto de

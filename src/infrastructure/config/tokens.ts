@@ -50,6 +50,9 @@ export const ALMACEN_DE_FOTOS = Symbol('AlmacenDeFotos');
 export const MASCOTA_PROPIA = Symbol('MascotaPropiaUseCase');
 export const ALMACEN_DE_MASCOTAS = Symbol('AlmacenDeMascotas');
 
+/** Donde se anotan los hechos de seguridad (SCRUM-163). */
+export const REGISTRO_DE_SEGURIDAD = Symbol('RegistroDeSeguridadPort');
+
 /** La identidad en el proveedor de autenticacion. */
 export const PROVEEDOR_DE_IDENTIDAD = Symbol('ProveedorDeIdentidadPort');
 

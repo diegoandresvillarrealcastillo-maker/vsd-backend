@@ -443,7 +443,10 @@ la racha, si ese día no se hizo ninguna actividad; y los recordatorios de las
 8:00 (siempre) y las 20:00 (solo si ese día no hubo actividad) de SCRUM-126.
 Ninguna de las dos tablas guarda datos de salud.
 
-`SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos.
+`SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos. La
+aplicación guarda hasta diez por cuenta (si llega otra, sale la más antigua) y
+solo de servicios de push conocidos: Google, Mozilla, Apple y Windows. Ver
+[seguridad](seguridad.md) (SCRUM-153).
 
 | Campo            | Tipo        | Nulo | Descripción                                                          |
 | ---------------- | ----------- | ---- | -------------------------------------------------------------------- |

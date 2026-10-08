@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   horaDeMinuto,
+  MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
   mensajeDeLaManana,
   mensajeDeLaNoche,
   mensajeDeLaRacha,
@@ -49,15 +50,70 @@ describe('las suscripciones', () => {
   });
 
   it.each([
+    ['Chrome, Edge, Brave y Opera', 'https://fcm.googleapis.com/fcm/send/abc123'],
+    ['Chrome con la direccion nueva', 'https://fcm.googleapis.com/wp/abc123'],
+    ['Firefox', 'https://updates.push.services.mozilla.com/wpush/v2/abc123'],
+    ['Firefox en Android', 'https://updates-autopush.push.services.mozilla.com/wpush/v2/abc'],
+    ['Safari y iOS', 'https://web.push.apple.com/QGxyz123'],
+    ['Windows', 'https://wns2-par02p.notify.windows.com/w/?token=abc123'],
+  ])('acepta la direccion de %s', (_servicio, endpoint) => {
+    expect(suscripcionValida({ ...SUSCRIPCION, endpoint })).toEqual({ ...SUSCRIPCION, endpoint });
+  });
+
+  it.each([
     ['sin https', { ...SUSCRIPCION, endpoint: 'http://fcm.googleapis.com/fcm/send/abc' }],
     ['que no es una URL', { ...SUSCRIPCION, endpoint: 'no es una direccion' }],
     ['con claves raras', { ...SUSCRIPCION, auth: 'tiene espacios y <html>' }],
     [
       'demasiado larga',
-      { ...SUSCRIPCION, endpoint: `https://push.example.com/${'a'.repeat(1000)}` },
+      { ...SUSCRIPCION, endpoint: `https://fcm.googleapis.com/${'a'.repeat(1000)}` },
     ],
   ])('rechaza una %s', (_motivo, suscripcion) => {
     expect(() => suscripcionValida(suscripcion)).toThrow(InvalidNotificationSettingError);
+  });
+
+  describe('solo a servicios de push conocidos (SCRUM-153)', () => {
+    // El API hace una peticion a esta direccion. Si pudiera ser cualquiera,
+    // una cuenta lograria que el servidor llamara a donde quisiera.
+    it.each([
+      ['un sitio cualquiera', 'https://push.example.com/abc'],
+      ['la red interna', 'https://localhost/fcm/send/abc'],
+      ['una direccion de la red local', 'https://10.0.0.5/fcm/send/abc'],
+      ['el servicio de metadatos de la nube', 'https://169.254.169.254/latest/meta-data/'],
+      ['una direccion IPv6', 'https://[::1]/fcm/send/abc'],
+      ['un dominio que solo lo parece', 'https://fcm.googleapis.com.ajeno.test/fcm/send/abc'],
+      ['un dominio que termina igual', 'https://xfcm.googleapis.com/fcm/send/abc'],
+      ['el dominio de Mozilla sin nombre delante', 'https://push.services.mozilla.com/abc'],
+      ['un dominio pegado al de Windows', 'https://ajeno-notify.windows.com/abc'],
+      ['el servicio con un punto al final', 'https://fcm.googleapis.com./fcm/send/abc'],
+      ['usuario y contrasena', 'https://usuario:clave@fcm.googleapis.com/fcm/send/abc'],
+      ['solo usuario', 'https://fcm.googleapis.com@ajeno.test/fcm/send/abc'],
+      ['un puerto', 'https://fcm.googleapis.com:8443/fcm/send/abc'],
+      ['el puerto por defecto escrito', 'https://fcm.googleapis.com:443/fcm/send/abc'],
+      [
+        'una barra invertida que dos lectores entienden distinto',
+        'https://fcm.googleapis.com\\@ajeno.test/',
+      ],
+      ['mayusculas', 'HTTPS://FCM.GOOGLEAPIS.COM/fcm/send/abc'],
+      ['sin ruta', 'https://fcm.googleapis.com'],
+    ])('rechaza %s', (_motivo, endpoint) => {
+      expect(() => suscripcionValida({ ...SUSCRIPCION, endpoint })).toThrow(
+        InvalidNotificationSettingError,
+      );
+    });
+
+    it('el mensaje no repite la direccion recibida', () => {
+      try {
+        suscripcionValida({ ...SUSCRIPCION, endpoint: 'https://ajeno-secreto.test/abc' });
+        expect.unreachable('deberia haber lanzado');
+      } catch (error) {
+        expect((error as Error).message).not.toContain('ajeno-secreto');
+      }
+    });
+  });
+
+  it('el tope por cuenta es de diez', () => {
+    expect(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA).toBe(10);
   });
 });
 

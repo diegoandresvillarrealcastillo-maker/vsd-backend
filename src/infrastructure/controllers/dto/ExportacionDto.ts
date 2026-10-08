@@ -6,6 +6,18 @@ import { EntradaDelDiarioDto } from './EntradaDelDiarioDto.js';
 import { PendienteDto } from './PendienteDto.js';
 import { ResultadoRespuestaDto } from './ResultadoRespuestaDto.js';
 
+/** Una aceptacion del historial, en la exportacion: que, que version y cuando. */
+export class ConsentimientoExportadoDto {
+  @ApiProperty({ enum: ['aviso_de_privacidad', 'terminos'] })
+  tipo!: string;
+
+  @ApiProperty({ example: '2026-10-1' })
+  version!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  aceptadoEn!: string;
+}
+
 /** Los avisos, en la exportacion: las horas y en cuantos navegadores (SCRUM-102). */
 export class AvisosExportadosDto {
   @ApiProperty({ type: String, nullable: true, example: '08:00' })
@@ -73,6 +85,22 @@ export class ExportacionDto {
   @ApiProperty({ type: CuentaRespuestaDto })
   cuenta!: CuentaRespuestaDto;
 
+  @ApiProperty({
+    type: String,
+    format: 'date',
+    nullable: true,
+    description:
+      'La fecha de nacimiento que declaraste, o null si tu cuenta es anterior a que se pidiera. Solo sale aquí: el resto de la API no la devuelve.',
+  })
+  fechaNacimiento!: string | null;
+
+  @ApiProperty({
+    type: [ConsentimientoExportadoDto],
+    description:
+      'Todo lo que aceptaste, versión por versión, de lo más antiguo a lo más reciente: el aviso de privacidad y los términos. Solo se añade; nunca se reescribe.',
+  })
+  consentimientos!: ConsentimientoExportadoDto[];
+
   @ApiProperty({ type: [ResultadoRespuestaDto] })
   resultados!: ResultadoRespuestaDto[];
 
@@ -104,6 +132,12 @@ export class ExportacionDto {
 
     dto.generadoEn = datos.generadoEn.toISOString();
     dto.cuenta = CuentaRespuestaDto.desde(datos.cuenta);
+    dto.fechaNacimiento = datos.cuenta.fechaDeNacimiento?.valor ?? null;
+    dto.consentimientos = datos.consentimientos.map((aceptado) => ({
+      tipo: aceptado.tipo,
+      version: aceptado.version,
+      aceptadoEn: aceptado.aceptadoEn.toISOString(),
+    }));
     dto.resultados = datos.resultados.map((resultado) => ResultadoRespuestaDto.desde(resultado));
     dto.entradasDeDiario = datos.entradasDeDiario.map((entrada) =>
       EntradaDelDiarioDto.desde(entrada),

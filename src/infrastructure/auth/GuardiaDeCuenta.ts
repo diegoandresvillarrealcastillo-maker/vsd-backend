@@ -1,8 +1,16 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import type { Request, Response } from 'express';
+import {
+  AccountNotProvisionedError,
+  IncompleteRegistrationError,
+} from '../../domain/model/DomainError.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
+import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
+import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import type { PeticionConCuenta } from './CuentaActual.js';
+import { PERMITE_REGISTRO_INCOMPLETO } from './PermiteRegistroIncompleto.js';
 import { ES_PUBLICO } from './Publico.js';
 import { NO_EXIGE_CUENTA } from './SinCuenta.js';
 
@@ -24,6 +32,11 @@ import { NO_EXIGE_CUENTA } from './SinCuenta.js';
  * traduccion. Ponerla aqui y no en cada controlador significa que no se puede
  * olvidar en una ruta nueva.
  *
+ * ## Que ocurre si el registro esta incompleto
+ *
+ * Se responde 403 con `REGISTRO_INCOMPLETO`, salvo en las rutas marcadas con
+ * `@PermiteRegistroIncompleto()`. Ver ese decorador.
+ *
  * ## Que ocurre si la cuenta no existe
  *
  * Se responde 403 con `CUENTA_NO_REGISTRADA`, no 401. La distincion importa:
@@ -36,6 +49,7 @@ export class GuardiaDeCuenta implements CanActivate {
   constructor(
     private readonly cuentas: RegistrarCuentaUseCase,
     private readonly reflector: Reflector,
+    private readonly seguridad: RegistroDeSeguridadPort = new RegistroDeSeguridadNulo(),
   ) {}
 
   async canActivate(contexto: ExecutionContext): Promise<boolean> {
@@ -50,7 +64,7 @@ export class GuardiaDeCuenta implements CanActivate {
       return true;
     }
 
-    const peticion = contexto.switchToHttp().getRequest<PeticionConCuenta>();
+    const peticion = contexto.switchToHttp().getRequest<PeticionConCuenta & Request>();
     const identidad = peticion.identidad;
 
     if (identidad === undefined) {
@@ -63,7 +77,26 @@ export class GuardiaDeCuenta implements CanActivate {
     const cuenta = await this.cuentas.buscarPorProveedor(identidad.id);
 
     if (cuenta === null) {
+      // Un token autentico sin cuenta: lo normal es una persona que aun no
+      // termino el alta. Muchos seguidos de la misma identidad dicen otra cosa.
+      this.seguridad.registrar({
+        tipo: 'CUENTA_NO_REGISTRADA',
+        idProveedor: identidad.id,
+        ...contextoDeLaPeticion(peticion, contexto.switchToHttp().getResponse<Response>()),
+      });
+
       throw new AccountNotProvisionedError();
+    }
+
+    // Una cuenta sin su registro completo —anterior a que se pidiera la fecha
+    // de nacimiento y las casillas— solo entra a lo que se le marco como
+    // permitido. Se comprueba aqui y no en cada caso de uso para que una ruta
+    // nueva no pueda olvidarlo: lo que no se marca, lo exige.
+    if (
+      !cuenta.registroCompleto() &&
+      this.reflector.getAllAndOverride<boolean>(PERMITE_REGISTRO_INCOMPLETO, marcas) !== true
+    ) {
+      throw new IncompleteRegistrationError();
     }
 
     peticion.cuenta = cuenta;

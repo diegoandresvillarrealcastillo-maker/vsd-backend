@@ -26,6 +26,71 @@ Borrar un secreto en un commit posterior no lo elimina del historial.
 2. Avisar al equipo.
 3. Solo despues limpiar el repositorio.
 
+### Dependencias y analisis del codigo (SCRUM-155)
+
+Lo que se instala con `npm` es codigo de otras personas que corre con los
+mismos permisos que el nuestro. Tres controles, ademas de Gitleaks:
+
+| Control                    | Archivo                              | Que hace                                                                                   |
+| -------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Dependabot                 | `.github/dependabot.yml`             | Abre cada lunes los Pull Request de dependencias, agrupados, contra `desarrollo`.          |
+| Avisos de las dependencias | `.github/workflows/dependencias.yml` | Falla si produccion trae un aviso `high` o `critical` que nadie haya aceptado por escrito. |
+| Analisis del codigo        | `.github/workflows/codeql.yml`       | CodeQL (`security-extended`) sobre TypeScript; los hallazgos salen en Code scanning.       |
+
+- **Un aviso se acepta por escrito, con fecha.** Si no hay arreglo posible (la
+  correccion que ofrece npm es bajar una version mayor, o el paquete afectado
+  es una herramienta que no se despliega), el aviso se agrega a
+  `vulnerabilidades-aceptadas.json` con su identificador `GHSA`, el motivo y la
+  fecha en que deja de valer. Pasada la fecha el control vuelve a fallar y
+  alguien tiene que decidir otra vez: un riesgo aceptado sin fecha es un riesgo
+  olvidado. Se acepta el **aviso**, no el paquete, para no tapar el que salga la
+  semana siguiente.
+- **Solo produccion.** `npm audit --omit=dev`: las herramientas de desarrollo
+  no llegan a la imagen que se despliega.
+- **Va aparte del CI** para que un aviso publicado hoy no ponga en rojo un Pull
+  Request que no toca las dependencias. Corre en los que si las tocan, al
+  entrar a una rama de ambiente, cada lunes y a mano.
+- **`scripts/revisar-dependencias.mjs`** es la logica, sin dependencias y con sus
+  pruebas (`revisar-dependencias.spec.mjs`). Se corre igual en local:
+  `node scripts/revisar-dependencias.mjs`.
+- **Las tareas programadas y `dependabot.yml` solo funcionan desde la rama por
+  defecto**, que aqui es `produccion`. Hasta que lleguen ahi por la cadena de
+  promociones, los controles corren en los Pull Request pero Dependabot no abre
+  nada.
+- Los commits de Dependabot no citan un ticket; `commitlint.config.mjs` los
+  reconoce por su firma y los deja pasar.
+
+### Lo que la API deja ver y a quien deja llamarla (SCRUM-155)
+
+- **La documentacion de la API solo se publica con `NODE_ENV=development`.**
+  Antes solo se ocultaba en produccion, y PRE —con cuentas reales de prueba— la
+  servia en `/api/docs` a cualquiera. Es un mapa completo de la API, con todos
+  sus esquemas. El contrato no se pierde: es `openapi.json`, que el frontend
+  consume del repositorio. Lo comprueba `corsYDocumentacion.spec.ts`: `/api/docs`,
+  `/api/docs-json` y el script de la pagina dan `404` en PRE, PROD y pruebas.
+- **CORS sin credenciales y con lo justo.** La API autentica con la cabecera
+  `Authorization`, no con cookies, asi que `credentials: true` no hacia falta y
+  le daba a un origen autorizado mas alcance del necesario. Ahora los origenes
+  autorizados pueden usar solo `GET`, `HEAD`, `POST`, `PUT`, `PATCH` y `DELETE`,
+  con las cabeceras `Authorization`, `Content-Type` y `Accept`; el navegador
+  recuerda el preflight diez minutos. Si el frontend empieza a mandar otra
+  cabecera propia, hay que agregarla a `CABECERAS_PERMITIDAS` en
+  `aplicacion.ts`: el preflight la rechaza hasta entonces.
+- **Un corpus de ataques conocidos contra el saneador de SVG.** El saneador de
+  la mascota propia es codigo nuestro (ADR 0017). Ademas de sus pruebas por regla
+  y del barrido de 6000 variaciones al azar, `SvgDeMascota.corpus.spec.ts`
+  reune casi noventa ataques de las familias que documentan OWASP (evasion de
+  filtros, XXE, billion laughs) y PortSwigger (eventos, animaciones, `use`,
+  `foreignObject`, mXSS), escritos para este saneador. Todos tienen que
+  rechazarse con un error del dominio; si uno se aceptara, la prueba muestra lo
+  que habria salido. Agregar un ataque nuevo es agregar una fila. La alternativa
+  de convertir el SVG a PNG en el servidor ya se estudio y se descarto en el
+  ADR 0017.
+- **Lo que hoy no esta y nadie deberia agregar.** ESLint prohibe en `src/`
+  (salvo en las pruebas) `$queryRawUnsafe`, `$executeRawUnsafe`, `Prisma.raw`,
+  `eval` y `new Function`: reciben texto sin parametrizar. Las plantillas de
+  Prisma (`` $queryRaw`...${valor}` ``) van parametrizadas y siguen permitidas.
+
 ---
 
 ## 2. Que puede ver el navegador
@@ -169,6 +234,12 @@ Hay ademas una ruta que **si exige token pero no exige cuenta**, marcada con
 la que crea la cuenta que todas las demas exigen; sin esa marca, darse de alta
 requeriria estar ya dado de alta.
 
+Y una tercera marca, `@PermiteRegistroIncompleto()`, para lo que se le puede
+hacer a una cuenta que todavia no declaro su fecha de nacimiento ni marco las
+casillas: consultarla, exportarla y borrarla. Lo que no lleva la marca la
+rechaza con 403 `REGISTRO_INCOMPLETO`, de modo que una ruta nueva exige el
+registro completo sin que nadie tenga que acordarse (ADR 0021).
+
 Es al reves de proteger ruta por ruta, y es deliberado: olvidar el
 decorador deja una ruta publica cerrada, que se nota en cuanto alguien la
 usa; olvidar proteger deja una ruta privada abierta, que no se nota nunca.
@@ -178,6 +249,46 @@ usa; olvidar proteger deja una ruta privada abierta, que no se nota nunca.
 Ocultar un boton no es un control de acceso. Toda restriccion visible en
 la interfaz debe existir tambien en el backend. La interfaz mejora la
 experiencia; el backend es quien decide.
+
+### A donde llama el API: los avisos push (SCRUM-153)
+
+Para mandar un aviso, el API hace una peticion HTTPS a la direccion que el
+navegador le entrego al suscribirse. Esa direccion llega de la persona, asi que
+es entrada no confiable: si cualquiera pudiera ser, una cuenta lograria que el
+servidor llamara a donde quisiera (SSRF), por ejemplo a la red interna del
+proveedor o a un servicio de metadatos.
+
+`suscripcionValida` (en `Aviso.ts`) solo acepta direcciones de los servicios de
+push que existen de verdad:
+
+| Servicio                     | Direccion                     | Navegadores                |
+| ---------------------------- | ----------------------------- | -------------------------- |
+| Firebase Cloud Messaging     | `fcm.googleapis.com`          | Chrome, Edge, Brave, Opera |
+| Mozilla autopush             | `*.push.services.mozilla.com` | Firefox                    |
+| Apple                        | `web.push.apple.com`          | Safari, aplicaciones iOS   |
+| Windows Notification Service | `*.notify.windows.com`        | Windows                    |
+
+Ademas rechaza lo que no tiene un servicio de push de verdad: usuario,
+contrasena, puerto, direcciones IP, un punto al final del nombre y todo lo que
+`URL` y el `url.parse` de `web-push` puedan leer distinto (como `\@`). El
+nombre tiene que ser, letra por letra, el del texto recibido. El mensaje de
+error no repite la direccion.
+
+- **Un servicio nuevo.** Si aparece otro servicio legitimo, se agrega a la lista
+  de `Aviso.ts`, con su prueba en `Aviso.spec.ts`, y se anota en esta tabla. Un
+  navegador cuyo servicio no este en la lista recibe un `400` (`AVISO_INVALIDO`)
+  al activar los avisos y el resto de la aplicacion sigue igual.
+- **Las suscripciones que ya estaban guardadas** se revisan antes de cada envio
+  con la misma regla: si la direccion no es de uno de estos servicios no se manda
+  nada y se cuenta como caducada, que es lo que la quita de la base.
+- **Un tope de diez navegadores por cuenta.** Al pasar de diez, entra el nuevo y
+  sale el mas antiguo; no se rechaza, para que quien dejo navegadores viejos sin
+  cerrar sesion pueda activar los avisos en el de hoy. Sin el tope, una cuenta
+  podia guardar suscripciones sin limite y volver lenta la revision de avisos.
+- **Diez segundos de espera.** `WebPushEnviador` pasa `timeout` a `web-push`: un
+  servicio que no contesta no deja la conexion abierta, que detendria la
+  revision (entrega de a un navegador). Es un limite de inactividad del
+  socket, no del total de la respuesta.
 
 ---
 
@@ -313,3 +424,106 @@ En consecuencia:
 - **Ley 1616 de 2013** — salud mental en Colombia.
 - Concepto de la Superintendencia de Industria y Comercio sobre datos
   sensibles de salud.
+
+---
+
+## 8. Registro de eventos de seguridad (SCRUM-163)
+
+Cuando algo sale mal, la pregunta es **que paso, a quien y desde donde**. Este
+registro la responde sin convertirse en otra fuga: no guarda lo que la persona
+escribio, solo que hizo algo.
+
+### Que se registra
+
+Un catalogo **cerrado** (`src/domain/model/EventoDeSeguridad.ts`). No hay
+mensajes libres: cada tipo declara los unicos campos que lleva.
+
+| Evento                        | Cuando                                          | Campos propios          |
+| ----------------------------- | ----------------------------------------------- | ----------------------- |
+| `CUENTA_BORRADA`              | Termina el borrado de una cuenta (204)          | `idUsuario`             |
+| `DATOS_EXPORTADOS`            | Se entrega la exportacion de los datos          | `idUsuario`             |
+| `PERMISO_DEL_DIARIO_CAMBIADO` | El permiso de recomendaciones del diario cambia | `idUsuario`, `activado` |
+| `TOKEN_RECHAZADO`             | Un token no pasa la verificacion                | `motivo`                |
+| `CUENTA_NO_REGISTRADA`        | Sesion valida de alguien sin cuenta (403)       | `idProveedor`           |
+| `ARCHIVO_PELIGROSO_RECHAZADO` | Una foto o un SVG que no es lo que dice ser     | `idUsuario`, `motivo`   |
+
+Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente`,
+`tipo`, y cuando se conocen `idPeticion` (el `x-request-id` de la respuesta) y
+`huellaDeIp`. Ejemplo de una linea:
+
+```json
+{
+  "canal": "seguridad",
+  "version": 1,
+  "en": "2026-10-08T15:00:00.000Z",
+  "ambiente": "preproduction",
+  "tipo": "DATOS_EXPORTADOS",
+  "idUsuario": "8f14e45f-ceea-467a-9575-0d9a1c3c7b11",
+  "idPeticion": "b1e7a5a4-1f0e-4a43-9d2c-5a3f6b1c9d11",
+  "huellaDeIp": "3fa91c0b7d2e4a56"
+}
+```
+
+`TOKEN_RECHAZADO` distingue solo dos motivos: `TOKEN_INVALIDO` y
+`VERIFICACION_NO_DISPONIBLE` (el servicio de claves no respondio; no es culpa de
+quien llama). No se registra una peticion **sin** cabecera: es ruido, no un
+intento.
+
+### Que nunca lleva
+
+Correo, nombre, fecha de nacimiento, contenido del diario, resultados, tokens
+ni la IP. Lo garantizan cuatro cosas, no la buena voluntad:
+
+1. El tipo del evento (TypeScript) no tiene esos campos.
+2. El adaptador copia **solo** los campos que `CAMPOS_POR_TIPO` declara para ese
+   tipo; lo demas se descarta aunque alguien lo cuele con un `as`.
+3. Los valores que no son texto corto o booleano se descartan.
+4. La IP nunca se escribe: se escribe `huellaDeIp`, un HMAC-SHA256 con clave
+   (`REGISTRO_SEGURIDAD_CLAVE_IP`), truncado a 16 caracteres. Un hash sin clave
+   se revertiria probando las 4 mil millones de IPv4.
+
+Las pruebas de `RegistroDeSeguridad.spec.ts` recorren todos los hechos por HTTP y
+comprueban que ni el correo, ni el nombre, ni el token, ni `127.0.0.1` aparecen en
+ninguna linea.
+
+### Adonde va (decision D8)
+
+- **Siempre**: una linea JSON por la salida estandar. Render la conserva y puede
+  reenviarla a un servicio externo con sus flujos de registros (se configura en
+  el panel de Render).
+- **Opcional**: una copia por HTTP a un servicio de registros con **retencion de
+  90 dias**, si una persona define `REGISTRO_SEGURIDAD_URL` (y el token). No hay
+  proveedor fijado: manda un `POST` con un arreglo JSON y una cabecera. La
+  eleccion del servicio, la cuenta y la retencion de 90 dias son de una persona
+  del equipo, nunca de Claude.
+
+Nunca estorba: `registrar` no espera, no lanza y, si el servicio no responde, el
+envio por HTTP guarda como maximo 500 eventos y descarta los mas viejos. La
+direccion, la clave y el contenido de los eventos no aparecen en ningun aviso.
+
+### Como leerlo
+
+1. Busca `"canal":"seguridad"` en los registros del servicio (o en Render).
+2. Para seguir un caso: filtra por `idUsuario` (el identificador interno) o por
+   `idPeticion`, que coincide con el `[id]` de la linea de la peticion en el
+   registro de peticiones y con lo que ve la persona cuando algo falla.
+3. Para saber si dos eventos vienen del mismo sitio, compara `huellaDeIp`. Sin
+   `REGISTRO_SEGURIDAD_CLAVE_IP` la clave cambia en cada arranque y solo se puede
+   comparar dentro del mismo despliegue; ponla (un secreto de 16+ caracteres) para
+   poder comparar entre despliegues. Cambiarla rompe la comparacion con lo anterior.
+4. La IP es la que Express da por buena. Detras de Render solo es la del cliente
+   si `TRUST_PROXY_HOPS` esta bien puesta (SCRUM-151); si no, todas las huellas
+   seran la misma, la del proxy.
+
+### Lo que este registro **no** cubre
+
+- **Inicios de sesion, registros, cambios de contrasena y correos de recuperacion**
+  los hace Supabase Auth, no esta API. Su rastro esta en el panel de Supabase:
+  _Logs > Auth_, con retencion segun el plan: en el gratuito es muy corta (un
+  dia segun la documentacion de Supabase al escribir esto; confirmarlo en el
+  panel). Si hace falta mas, hay que exportarlos desde alli.
+- **Eventos que dependen de PR aun abiertos** y que se agregaran al catalogo
+  cuando se fusionen: cuenta creada, menor rechazado y consentimiento registrado
+  (edad y consentimiento, backend #92) y limite de peticiones superado (#93).
+- **Quien lo lee**: la lectura del registro es de una persona del equipo con
+  acceso al servicio elegido; no hay pantalla ni endpoint para consultarlo.

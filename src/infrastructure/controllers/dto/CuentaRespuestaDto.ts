@@ -56,6 +56,20 @@ export class CuentaRespuestaDto {
   @ApiProperty({ description: 'Consentimiento registrado.', type: ConsentimientoDto })
   consentimiento!: ConsentimientoDto;
 
+  @ApiProperty({
+    description:
+      'Los términos que aceptó con su casilla, o null en las cuentas anteriores a que se pidieran.',
+    type: ConsentimientoDto,
+    nullable: true,
+  })
+  terminos!: ConsentimientoDto | null;
+
+  @ApiProperty({
+    description:
+      'Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro».',
+  })
+  registroCompleto!: boolean;
+
   @ApiProperty({ description: 'Cuando se creo la cuenta.', type: String, format: 'date-time' })
   registradoEn!: Date;
 
@@ -133,6 +147,14 @@ export class CuentaRespuestaDto {
     consentimiento.aceptadoEn = cuenta.consentimiento?.aceptadoEn ?? cuenta.registradoEn;
 
     dto.consentimiento = consentimiento;
+    dto.registroCompleto = cuenta.registroCompleto();
+    dto.terminos =
+      cuenta.terminos === undefined
+        ? null
+        : {
+            versionPolitica: cuenta.terminos.versionPolitica,
+            aceptadoEn: cuenta.terminos.aceptadoEn,
+          };
 
     return dto;
   }

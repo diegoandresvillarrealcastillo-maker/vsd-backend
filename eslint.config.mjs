@@ -20,6 +20,9 @@ const MENSAJE_DOMINIO_EXTERNO =
 const MENSAJE_APLICACION_A_INFRA =
   'application/ no puede depender de infrastructure/. Depende del puerto que declara domain/, y es infrastructure/config quien decide que implementacion se inyecta.';
 
+const MENSAJE_SQL_SUELTO =
+  'Nada de SQL armado a mano: $queryRawUnsafe, $executeRawUnsafe y Prisma.raw reciben texto sin parametrizar, y con un dato de la persona es una inyeccion SQL. Usa las plantillas de Prisma ($queryRaw`...${valor}`), que van parametrizadas, o el cliente tipado.';
+
 export default tseslint.config(
   {
     // Los archivos de configuracion en .mjs quedan fuera del analisis con
@@ -126,6 +129,32 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
           destructuredArrayIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+
+  // ---------- Lo que hoy no esta y nadie deberia agregar (SCRUM-155) ----------
+  {
+    files: ['src/**/*.ts'],
+    // Las pruebas pueden armar su base con SQL suelto: no se despliegan.
+    ignores: ['src/**/*.spec.ts'],
+    rules: {
+      'no-eval': 'error',
+      'no-new-func': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'MemberExpression[property.name=/^\\$(query|execute)RawUnsafe$/]',
+          message: MENSAJE_SQL_SUELTO,
+        },
+        {
+          selector: 'Literal[value=/^\\$(query|execute)RawUnsafe$/]',
+          message: MENSAJE_SQL_SUELTO,
+        },
+        {
+          selector: "CallExpression[callee.object.name='Prisma'][callee.property.name='raw']",
+          message: MENSAJE_SQL_SUELTO,
         },
       ],
     },

@@ -210,7 +210,8 @@ describe('/api/notificaciones', () => {
   });
 
   it.each([
-    ['sin https', { ...SUSCRIPCION, endpoint: 'http://push.example.com/abc' }],
+    ['sin https', { ...SUSCRIPCION, endpoint: 'http://fcm.googleapis.com/fcm/send/abc' }],
+    ['de un servicio desconocido', { ...SUSCRIPCION, endpoint: 'https://push.example.com/abc' }],
     ['sin claves', { endpoint: SUSCRIPCION.endpoint }],
   ])('no acepta una suscripcion %s', async (_caso, cuerpo) => {
     await request(app.getHttpServer())

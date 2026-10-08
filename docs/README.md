@@ -5,15 +5,18 @@ proyecto, y cubre tanto `vsd-backend` como `vsd-frontend`.
 
 ## Indice
 
-| Documento                                | Para que sirve                                        |
-| ---------------------------------------- | ----------------------------------------------------- |
-| [arquitectura.md](arquitectura.md)       | Como se organiza el codigo y por que                  |
-| [ambientes.md](ambientes.md)             | Los tres ambientes DEV, PRE y PROD y su configuracion |
-| [dominio.md](dominio.md)                 | Que reglas viven en el dominio y por que              |
-| [modelo-de-datos.md](modelo-de-datos.md) | Las seis tablas, sus campos y quien puede verlas      |
-| [convenciones.md](convenciones.md)       | Nombres, carpetas y estilo                            |
-| [seguridad.md](seguridad.md)             | Reglas de seguridad y privacidad que no se negocian   |
-| [adr/](adr/)                             | Decisiones de arquitectura y su justificacion         |
+| Documento                                                                      | Para que sirve                                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| [arquitectura.md](arquitectura.md)                                             | Como se organiza el codigo y por que                                |
+| [ambientes.md](ambientes.md)                                                   | Los tres ambientes DEV, PRE y PROD y su configuracion               |
+| [dominio.md](dominio.md)                                                       | Que reglas viven en el dominio y por que                            |
+| [modelo-de-datos.md](modelo-de-datos.md)                                       | Las seis tablas, sus campos y quien puede verlas                    |
+| [convenciones.md](convenciones.md)                                             | Nombres, carpetas y estilo                                          |
+| [seguridad.md](seguridad.md)                                                   | Reglas de seguridad y privacidad que no se negocian                 |
+| [divergencias-con-el-entregable.md](divergencias-con-el-entregable.md)         | Donde el sistema se aparta del entregable, y por que                |
+| [trazabilidad-del-modo-sin-conexion.md](trazabilidad-del-modo-sin-conexion.md) | Que requisito cubre el modo sin conexion y que no se pudo comprobar |
+| [guia-de-prueba-sin-conexion.md](guia-de-prueba-sin-conexion.md)               | Como probar a mano el modo sin conexion, y los resultados           |
+| [adr/](adr/)                                                                   | Decisiones de arquitectura y su justificacion                       |
 
 ## Como se mantiene
 

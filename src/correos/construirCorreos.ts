@@ -50,7 +50,10 @@ export const REGLAS_OSCURAS: readonly (readonly [
   ['enlace', 'color', 'enlace'],
   ['linea', 'border-top-color', 'borde'],
   ['boton', 'background-color', 'boton'],
+  ['boton-texto', 'background-color', 'boton'],
   ['boton-texto', 'color', 'sobre_boton'],
+  ['halo', 'background-color', 'halo'],
+  ['halo', 'border-color', 'borde'],
 ];
 
 export const CLASES_CON_MODO_OSCURO: readonly string[] = [
@@ -114,6 +117,25 @@ function parrafo(texto: string): string {
   );
 }
 
+/**
+ * Los pasos, como lista numerada: un lector de pantalla la anuncia como lista y
+ * el numero lo pone el cliente de correo, sin tablas ni imagenes de por medio.
+ */
+function listaDePasos(pasos: readonly string[]): string {
+  const elementos = pasos
+    .map(
+      (paso) =>
+        `<li class="texto" style="margin: 0 0 8px 0; padding-left: 4px; font-family: ${FUENTE}; ` +
+        `font-size: 16px; line-height: 26px; color: ${CLARO.texto}">${escaparTexto(paso)}</li>`,
+    )
+    .join('\n                  ');
+
+  return (
+    `<ol style="margin: 0 0 24px 0; padding: 0 0 0 24px">\n                  ${elementos}\n` +
+    `                </ol>`
+  );
+}
+
 /** Las reglas del modo oscuro, una por linea. `prefijo` es el selector que antecede a la clase. */
 function reglasDelModoOscuro(prefijo: (propiedad: string) => string, sangria: string): string {
   return REGLAS_OSCURAS.map(
@@ -137,8 +159,16 @@ function valoresDeLaPlantilla(contenido: ContenidoDelCorreo): Record<string, str
     (Object.keys(CLARO) as (keyof Paleta)[]).map((nombre) => [`claro.${nombre}`, CLARO[nombre]]),
   );
 
+  const cuerpo = [
+    ...contenido.parrafos.map(parrafo),
+    ...(contenido.pasos === undefined ? [] : [listaDePasos(contenido.pasos)]),
+  ];
+
   return {
     ...colores,
+    // El modo oscuro del boton y del foco vive en el bloque <style>, no en una clase.
+    'oscuro.boton_hover': OSCURO.boton_hover,
+    'oscuro.enlace': OSCURO.enlace,
     marca: VERDE_DE_LA_MARCA,
     fuente: FUENTE,
     fuente_titulos: FUENTE_DE_TITULOS,
@@ -146,7 +176,9 @@ function valoresDeLaPlantilla(contenido: ContenidoDelCorreo): Record<string, str
     preencabezado: escaparTexto(contenido.preencabezado),
     relleno_del_preencabezado: RELLENO_DEL_PREENCABEZADO,
     titulo: escaparTexto(contenido.titulo),
-    cuerpo: contenido.parrafos.map(parrafo).join('\n                '),
+    'mascota.nombre': escaparTexto(contenido.mascota.nombre),
+    'mascota.archivo': contenido.mascota.archivo,
+    cuerpo: cuerpo.join('\n                '),
     boton: escaparTexto(contenido.boton),
     nota: escaparTexto(contenido.nota),
     reglas_oscuras: reglasDelModoOscuro(() => '', '        '),

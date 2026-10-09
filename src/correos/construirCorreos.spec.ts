@@ -114,7 +114,7 @@ describe('los correos generados', () => {
     });
 
     it('trae sus estilos dentro de cada etiqueta, porque los clientes ignoran las hojas', () => {
-      const etiquetas = [...limpio.matchAll(/<(h1|p|a|img|td|div|body)\b[^>]*>/g)];
+      const etiquetas = [...limpio.matchAll(/<(h1|p|a|img|td|div|body|ol|li)\b[^>]*>/g)];
 
       expect(etiquetas.length).toBeGreaterThan(15);
 
@@ -144,16 +144,92 @@ describe('los correos generados', () => {
       expect(limpio).not.toMatch(/fonts\.googleapis|@font-face/i);
     });
 
-    it('la unica imagen es el logo del propio sitio, con tamano y sin texto alternativo ruidoso', () => {
+    it('solo trae dos imagenes, las dos del propio sitio y con tamano: el logo y la mascota', () => {
       const imagenes = [...limpio.matchAll(/<img\b[^>]*>/g)].map((coincidencia) => coincidencia[0]);
 
-      expect(imagenes).toHaveLength(1);
-      expect(imagenes[0]).toContain('src="{{ .SiteURL }}/icono-192.png"');
-      expect(imagenes[0]).toMatch(/width="44"/);
-      expect(imagenes[0]).toMatch(/height="44"/);
-      // El nombre va al lado en texto: la imagen es decorativa.
-      expect(imagenes[0]).toContain('alt=""');
+      expect(imagenes).toHaveLength(2);
+
+      const [logo, mascota] = imagenes as [string, string];
+
+      expect(logo).toContain('src="{{ .SiteURL }}/icono-192.png"');
+      expect(logo).toMatch(/width="44"/);
+      expect(logo).toMatch(/height="44"/);
+      // El nombre va al lado en texto: el logo es decorativo.
+      expect(logo).toContain('alt=""');
       expect(textoVisible(html)).toContain('VSD Health');
+
+      // La mascota se pide al sitio de la aplicacion; Outlook de escritorio exige width y height.
+      expect(mascota).toMatch(/src="\{\{ \.SiteURL \}\}\/correo\/[a-z-]+\.gif"/);
+      expect(mascota).toMatch(/width="140"/);
+      expect(mascota).toMatch(/height="140"/);
+    });
+
+    it('la mascota es la de este correo y, sin la imagen, se lee su nombre', () => {
+      const contenido = CORREOS.find((uno) => uno.archivo === correo.archivo)!;
+      const mascota = [...limpio.matchAll(/<img\b[^>]*>/g)][1]![0];
+
+      expect(mascota).toContain(`src="{{ .SiteURL }}/correo/${contenido.mascota.archivo}.gif"`);
+      expect(mascota).toContain(`alt="${contenido.mascota.nombre}"`);
+      // El texto alternativo hereda el color del texto, tambien en modo oscuro.
+      expect(mascota).toContain('class="texto"');
+      expect(mascota).toMatch(/color: #[0-9a-f]{6}/);
+    });
+
+    it('el boton es grande y redondo, y se estira a todo el ancho en el celular', () => {
+      const enlace = limpio.match(/<a\s[^>]*class="boton-texto"[^>]*>/)![0];
+      const alto = enlace.match(/padding: (\d+)px (\d+)px/)!;
+      const lineaDeTexto = Number(enlace.match(/line-height: (\d+)px/)![1]);
+
+      // 44 px es lo minimo que piden los dedos; aqui son 52.
+      expect(Number(alto[1]) * 2 + lineaDeTexto).toBeGreaterThanOrEqual(48);
+      expect(Number(alto[2])).toBeGreaterThanOrEqual(28);
+      expect(Number(enlace.match(/font-size: (\d+)px/)![1])).toBeGreaterThanOrEqual(16);
+      expect(enlace).toContain('border-radius: 9999px');
+      expect(html).toMatch(/\.boton-tabla \{\s*width: 100% !important;/);
+      expect(html).toMatch(/\.boton-texto \{\s*display: block !important;/);
+    });
+
+    it('el movimiento es solo una mejora: transicion en el bloque <style>, nunca en las etiquetas', () => {
+      const css = html.match(/<style>([\s\S]*?)<\/style>/)![1]!;
+
+      expect(css).toMatch(/\.boton-texto \{\s*transition:/);
+      expect(css).toContain('.boton-texto:hover {');
+      expect(css).toContain('.boton-texto:focus-visible {');
+      // Quien pide menos movimiento no recibe transiciones ni desplazamiento.
+      expect(css).toMatch(
+        /@media \(prefers-reduced-motion: reduce\) \{\s*\.boton-texto \{\s*transition: none !important;/,
+      );
+      // Un cliente que no entiende `transition` no debe perder nada: nada esencial depende de ella.
+      expect(limpio).not.toMatch(/style="[^"]*(transition|animation|@keyframes)/);
+      expect(css).not.toMatch(/@keyframes|animation:/);
+    });
+
+    it('al pasar el cursor, el boton pasa al color de la paleta de cada modo', () => {
+      const css = html.match(/<style>([\s\S]*?)<\/style>/)![1]!;
+      const [antesDelOscuro, deElOscuro] = css.split('@media (prefers-color-scheme: dark)') as [
+        string,
+        string,
+      ];
+
+      expect(antesDelOscuro).toContain(`background-color: ${CLARO.boton_hover} !important`);
+      expect(deElOscuro).toContain(`background-color: ${OSCURO.boton_hover} !important`);
+    });
+
+    it('trae la lista de pasos solo cuando el correo la tiene, y cada paso llega al HTML', () => {
+      const contenido = CORREOS.find((uno) => uno.archivo === correo.archivo)!;
+      const listas = [...limpio.matchAll(/<ol\b/g)];
+
+      if (contenido.pasos === undefined) {
+        expect(listas).toHaveLength(0);
+        return;
+      }
+
+      expect(listas).toHaveLength(1);
+      expect(limpio.match(/<li\b/g)).toHaveLength(contenido.pasos.length);
+
+      for (const paso of contenido.pasos) {
+        expect(textoVisible(html)).toContain(paso);
+      }
     });
 
     it('las tablas de maquetacion no se anuncian como tablas de datos', () => {
@@ -253,6 +329,20 @@ describe('los correos generados', () => {
     }
   });
 
+  it('cada correo lo encabeza una mascota distinta, con el nombre que lleva en la aplicacion', () => {
+    expect(CORREOS.map((contenido) => contenido.mascota)).toEqual([
+      { nombre: 'Fungito', archivo: 'fungito' },
+      { nombre: 'Obsidian', archivo: 'obsidian' },
+      { nombre: 'Ojo de Gato', archivo: 'ojo-de-gato' },
+    ]);
+  });
+
+  it('solo el de recuperar la contrasena trae pasos', () => {
+    expect(
+      CORREOS.filter((contenido) => contenido.pasos !== undefined).map((c) => c.archivo),
+    ).toEqual(['recuperar-contrasena']);
+  });
+
   it('solo el del cambio de correo nombra el correo nuevo', () => {
     const conNuevoCorreo = correos
       .filter((correo) => correo.html.includes('{{ .NewEmail }}'))
@@ -270,6 +360,8 @@ describe('la paleta', () => {
     ['texto de apoyo sobre el lienzo', paleta.suave, paleta.fondo],
     ['enlace sobre la tarjeta', paleta.enlace, paleta.tarjeta],
     ['texto del boton sobre el boton', paleta.sobre_boton, paleta.boton],
+    ['texto del boton sobre el boton al pasar el cursor', paleta.sobre_boton, paleta.boton_hover],
+    ['nombre de la mascota (texto alternativo) sobre la cabecera', paleta.texto, paleta.halo],
   ];
 
   it.each([

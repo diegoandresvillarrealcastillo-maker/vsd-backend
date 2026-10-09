@@ -15,8 +15,13 @@
     solo mejora (modo oscuro, pantallas pequenas): sin el, el correo se ve bien.
   - La estructura es de tablas, porque Outlook de escritorio dibuja el correo
     con el motor de Word y no entiende flex ni grid.
-  - Ninguna fuente web, ninguna imagen incrustada, ningun script. El unico
-    archivo externo es el logo, en el sitio de la propia aplicacion.
+  - Ninguna fuente web, ninguna imagen incrustada, ningun script. Los unicos
+    archivos externos son el logo y el GIF de la mascota (SCRUM-171), los dos
+    en el sitio de la propia aplicacion.
+  - El movimiento es una mejora, nunca lo esencial. Los GIF se animan donde el
+    cliente los anima (Outlook de escritorio muestra solo el primer cuadro), y
+    la transicion del boton solo la dibujan los clientes que entienden
+    `transition` y `:hover`. En los demas el boton queda quieto y funciona igual.
 -->
 <html
   lang="es"
@@ -58,9 +63,50 @@
           font-size: 24px !important;
           line-height: 30px !important;
         }
+        .boton-tabla {
+          width: 100% !important;
+        }
+        .boton-texto {
+          display: block !important;
+          text-align: center !important;
+        }
+      }
+      .boton-texto {
+        transition:
+          background-color 0.25s ease,
+          box-shadow 0.25s ease,
+          transform 0.25s ease;
+      }
+      .boton-texto:hover {
+        background-color: %%claro.boton_hover%% !important;
+        box-shadow: 0 8px 20px rgba(29, 36, 32, 0.18);
+        transform: translateY(-2px);
+      }
+      .boton-texto:active {
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      .boton-texto:focus-visible {
+        outline: 3px solid %%claro.enlace%%;
+        outline-offset: 3px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boton-texto {
+          transition: none !important;
+        }
+        .boton-texto:hover {
+          transform: none !important;
+        }
       }
       @media (prefers-color-scheme: dark) {
         %%reglas_oscuras%%
+        .boton-texto:hover {
+          background-color: %%oscuro.boton_hover%% !important;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+        }
+        .boton-texto:focus-visible {
+          outline-color: %%oscuro.enlace%%;
+        }
       }
       %%reglas_outlook_oscuras%%
     </style>
@@ -128,12 +174,33 @@
               </td>
             </tr>
 
+            <!-- La cabecera de la tarjeta: la mascota de este correo. Es un GIF que pone el
+                 equipo en el sitio de la aplicacion; con width y height porque Outlook de
+                 escritorio los exige. Si no carga, se lee el nombre de la mascota. -->
+            <tr>
+              <td
+                class="halo"
+                align="center"
+                bgcolor="%%claro.halo%%"
+                style="background-color: %%claro.halo%%; border: 1px solid %%claro.borde%%; border-bottom: 0; border-radius: 16px 16px 0 0; padding: 28px 24px 20px 24px"
+              >
+                <img
+                  src="{{ .SiteURL }}/correo/%%mascota.archivo%%.gif"
+                  width="140"
+                  height="140"
+                  alt="%%mascota.nombre%%"
+                  class="texto"
+                  style="display: block; margin: 0 auto; width: 140px; height: 140px; border: 0; font-family: %%fuente%%; font-size: 16px; line-height: 20px; font-weight: 600; text-align: center; color: %%claro.texto%%"
+                />
+              </td>
+            </tr>
+
             <!-- La tarjeta con lo que se dice -->
             <tr>
               <td
                 class="tarjeta relleno"
                 bgcolor="%%claro.tarjeta%%"
-                style="background-color: %%claro.tarjeta%%; border: 1px solid %%claro.borde%%; border-radius: 16px; padding: 40px"
+                style="background-color: %%claro.tarjeta%%; border: 1px solid %%claro.borde%%; border-top: 0; border-radius: 0 0 16px 16px; padding: 32px 40px 40px 40px"
               >
                 <h1
                   class="texto titulo"
@@ -144,21 +211,31 @@
 
                 %%cuerpo%%
 
-                <!-- El boton. Padding en la celda ademas de en el enlace: Outlook de
-                     escritorio ignora el del enlace. -->
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 28px 0">
+                <!-- El boton: grande (52 px de alto, por encima de los 44 que piden los
+                     dedos), de esquinas redondas y de ancho completo en el celular.
+                     Padding en la celda ademas de en el enlace: Outlook de escritorio
+                     ignora el del enlace, y el color va en los dos porque al pasar el
+                     cursor solo cambia el del enlace. -->
+                <table
+                  role="presentation"
+                  class="boton-tabla"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="margin: 12px 0 28px 0"
+                >
                   <tr>
                     <td
                       class="boton"
                       align="center"
                       bgcolor="%%claro.boton%%"
-                      style="background-color: %%claro.boton%%; border-radius: 12px; mso-padding-alt: 14px 28px"
+                      style="background-color: %%claro.boton%%; border-radius: 9999px; mso-padding-alt: 16px 36px"
                     >
                       <a
                         href="{{ .ConfirmationURL }}"
                         target="_blank"
                         class="boton-texto"
-                        style="display: inline-block; padding: 14px 28px; font-family: %%fuente%%; font-size: 16px; line-height: 20px; font-weight: 700; color: %%claro.sobre_boton%%; text-decoration: none; border-radius: 12px"
+                        style="display: inline-block; padding: 16px 36px; background-color: %%claro.boton%%; font-family: %%fuente%%; font-size: 17px; line-height: 20px; font-weight: 700; color: %%claro.sobre_boton%%; text-decoration: none; border-radius: 9999px"
                       >
                         %%boton%%
                       </a>

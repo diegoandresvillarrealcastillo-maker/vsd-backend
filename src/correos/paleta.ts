@@ -24,6 +24,10 @@ export interface Paleta {
   /** El fondo del boton y el color de su texto. */
   readonly boton: string;
   readonly sobre_boton: string;
+  /** El fondo del boton al pasar el cursor; el texto es el mismo `sobre_boton`. */
+  readonly boton_hover: string;
+  /** El fondo de la cabecera donde posa la mascota. El texto alternativo va en `texto`. */
+  readonly halo: string;
 }
 
 export const CLARO: Paleta = {
@@ -35,6 +39,8 @@ export const CLARO: Paleta = {
   enlace: '#2f6b55',
   boton: '#3d7a6b',
   sobre_boton: '#ffffff',
+  boton_hover: '#2f6355',
+  halo: '#e7f0ea',
 };
 
 export const OSCURO: Paleta = {
@@ -46,6 +52,8 @@ export const OSCURO: Paleta = {
   enlace: '#a5cbb2',
   boton: '#87b89b',
   sobre_boton: '#15271d',
+  boton_hover: '#a3cdb4',
+  halo: '#26352c',
 };
 
 /**

@@ -18,9 +18,26 @@
  *   anterior, y con "cambio seguro" el mismo correo llega a las dos
  *   direcciones) ni `{{ .Data }}` (metadatos de la persona).
  *
+ * ## La mascota (SCRUM-171)
+ *
+ * Cada correo abre con una mascota distinta, la que acompana ese momento en la
+ * aplicacion: Fungito da la bienvenida, Obsidian protege la cuenta al
+ * recuperarla y Ojo de Gato vigila el cambio de correo. La imagen es un GIF
+ * animado que aporta el equipo y vive en el sitio de la aplicacion
+ * (`vsd-frontend/public/correo/<archivo>.gif`); el correo la pide a
+ * `{{ .SiteURL }}/correo/<archivo>.gif`. Si el GIF no esta o el cliente bloquea
+ * las imagenes, se lee el nombre de la mascota y el correo funciona igual.
+ *
  * Los textos de aqui son los que se pegan en Supabase: si cambia uno, hay que
  * volver a generar (`npm run correos`) y pegarlo de nuevo.
  */
+
+export interface MascotaDelCorreo {
+  /** Su nombre, tal cual: es el texto alternativo de la imagen. */
+  readonly nombre: string;
+  /** El GIF, sin extension, dentro de `correo/` en el sitio de la aplicacion. */
+  readonly archivo: string;
+}
 
 export interface ContenidoDelCorreo {
   /** Nombre del archivo en `correos/generados/`, sin extension. */
@@ -34,7 +51,11 @@ export interface ContenidoDelCorreo {
   /** Lo que se lee en la lista de correos junto al asunto. */
   readonly preencabezado: string;
   readonly titulo: string;
+  /** Quien encabeza el correo. */
+  readonly mascota: MascotaDelCorreo;
   readonly parrafos: readonly string[];
+  /** Los pasos a seguir, como lista numerada bajo los parrafos. Solo si hay mas de uno que dar. */
+  readonly pasos?: readonly string[];
   /** El texto del boton, que lleva al enlace de confirmacion. */
   readonly boton: string;
   /** Lo de debajo: que hacer si la persona no pidio el correo. */
@@ -50,8 +71,9 @@ export const CORREOS: readonly ContenidoDelCorreo[] = [
     asunto: 'Confirma tu cuenta en VSD Health',
     preencabezado: 'Un último paso para empezar: confirma que este correo es tuyo.',
     titulo: 'Te damos la bienvenida a VSD Health',
+    mascota: { nombre: 'Fungito', archivo: 'fungito' },
     parrafos: [
-      'Gracias por crear tu cuenta. Para terminar, confirma que este correo es tuyo.',
+      'Fungito ya te espera. Gracias por crear tu cuenta: para terminar, confirma que este correo es tuyo.',
       'Toca el botón y entrarás directo a tu cuenta.',
     ],
     boton: 'Confirmar mi cuenta',
@@ -64,10 +86,16 @@ export const CORREOS: readonly ContenidoDelCorreo[] = [
     campoDelContenido: 'mailer_templates_recovery_content',
     asunto: 'Elige una contraseña nueva en VSD Health',
     preencabezado: 'Usa este enlace para elegir una contraseña nueva.',
-    titulo: 'Elige una contraseña nueva',
+    titulo: 'Recupera el acceso a tu cuenta',
+    mascota: { nombre: 'Obsidian', archivo: 'obsidian' },
     parrafos: [
-      'Recibimos una solicitud para cambiar la contraseña de tu cuenta. Toca el botón para elegir una nueva.',
-      'Por tu seguridad, el enlace funciona una sola vez y caduca en poco tiempo.',
+      'No pasa nada: recuperar el acceso toma un minuto. Recibimos una solicitud para cambiar la contraseña de tu cuenta de VSD Health.',
+      'Por tu seguridad, el enlace funciona una sola vez y caduca en poco tiempo. Estos son los pasos:',
+    ],
+    pasos: [
+      'Toca el botón de abajo.',
+      'Escribe la contraseña nueva que quieras usar.',
+      'Entra de nuevo a tu cuenta con ella.',
     ],
     boton: 'Elegir contraseña nueva',
     nota: 'Si no lo pediste tú, ignora este correo: tu contraseña actual sigue igual.',
@@ -80,9 +108,10 @@ export const CORREOS: readonly ContenidoDelCorreo[] = [
     asunto: 'Confirma tu nuevo correo en VSD Health',
     preencabezado: 'Confirma el cambio para que quede hecho.',
     titulo: 'Confirma tu nuevo correo',
+    mascota: { nombre: 'Ojo de Gato', archivo: 'ojo-de-gato' },
     parrafos: [
       'Pediste usar {{ .NewEmail }} como el correo de tu cuenta de VSD Health.',
-      'Toca el botón para confirmar el cambio y dejarlo hecho.',
+      'Por seguridad, el cambio no se hace hasta que lo confirmes. Toca el botón y quedará hecho.',
     ],
     boton: 'Confirmar el cambio',
     nota: 'Si no pediste este cambio, ignora este correo: tu cuenta sigue con el correo de antes. Si crees que alguien más entró a tu cuenta, cambia tu contraseña.',

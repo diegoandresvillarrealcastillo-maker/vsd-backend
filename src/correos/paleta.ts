@@ -71,6 +71,9 @@ export const VERDE_DE_LA_MARCA = '#3d7a6b';
 export const FUENTE =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 export const FUENTE_DE_TITULOS = "Georgia, 'Times New Roman', Times, serif";
+/** Para el codigo de verificacion: de ancho fijo, para que las cifras no se confundan. */
+export const FUENTE_MONOESPACIADA =
+  "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace";
 
 /** La razon de contraste WCAG entre dos colores `#rrggbb`: de 1 a 21. */
 export function contraste(uno: string, otro: string): number {

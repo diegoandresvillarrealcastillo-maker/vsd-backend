@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { CORREOS, type ContenidoDelCorreo } from './contenidos.js';
+import { CORREOS, type ContenidoDelCorreo, type TipoDeCorreo } from './contenidos.js';
 import {
   CLARO,
   FUENTE,
   FUENTE_DE_TITULOS,
+  FUENTE_MONOESPACIADA,
   OSCURO,
   VERDE_DE_LA_MARCA,
   type Paleta,
@@ -22,6 +23,19 @@ import {
 /** Desde `src/correos` y desde `dist/correos` la raiz del repositorio queda dos niveles arriba. */
 export const RUTA_DE_LA_PLANTILLA = new URL('../../correos/plantilla.html', import.meta.url);
 export const CARPETA_DE_GENERADOS = new URL('../../correos/generados/', import.meta.url);
+/** Los trozos que la plantilla toma segun el tipo de correo: el boton y el codigo. */
+export const CARPETA_DE_PIEZAS = new URL('../../correos/piezas/', import.meta.url);
+
+/** Que pieza va en `%%accion%%`. Los avisos no llevan ninguna: solo informan. */
+export const PIEZA_DE_CADA_TIPO: Readonly<Record<TipoDeCorreo, 'enlace' | 'codigo' | null>> = {
+  enlace: 'enlace',
+  codigo: 'codigo',
+  aviso: null,
+};
+
+/** Lo que solo usa la pieza de cada tipo: sin esa pieza, la plantilla no lo menciona. */
+const SOLO_DEL_BOTON = ['claro.boton', 'claro.sobre_boton', 'boton'];
+const SOLO_DEL_CODIGO = ['fuente_mono'];
 
 export interface CorreoGenerado {
   readonly archivo: string;
@@ -50,7 +64,10 @@ export const REGLAS_OSCURAS: readonly (readonly [
   ['enlace', 'color', 'enlace'],
   ['linea', 'border-top-color', 'borde'],
   ['boton', 'background-color', 'boton'],
+  ['boton-texto', 'background-color', 'boton'],
   ['boton-texto', 'color', 'sobre_boton'],
+  ['halo', 'background-color', 'halo'],
+  ['halo', 'border-color', 'borde'],
 ];
 
 export const CLASES_CON_MODO_OSCURO: readonly string[] = [
@@ -82,8 +99,16 @@ export function escaparTexto(texto: string): string {
  * Es estricta en los dos sentidos: un marcador sin valor y un valor sin
  * marcador lanzan. La primera es una plantilla con un hueco que llegaria a
  * Supabase tal cual; la segunda, un texto que se escribio y nunca saldria.
+ *
+ * `puedenQuedarSinUsar` nombra los valores que, segun el tipo de correo, la
+ * plantilla puede no mencionar (el color del boton en un aviso, que no lleva
+ * boton). Es la unica excepcion: cualquier otro valor sin marcador sigue lanzando.
  */
-export function rellenar(plantilla: string, valores: Readonly<Record<string, string>>): string {
+export function rellenar(
+  plantilla: string,
+  valores: Readonly<Record<string, string>>,
+  puedenQuedarSinUsar: readonly string[] = [],
+): string {
   const usados = new Set<string>();
 
   const resultado = plantilla.replace(/%%([a-z_.]+)%%/g, (_marcador, nombre: string) => {
@@ -98,7 +123,9 @@ export function rellenar(plantilla: string, valores: Readonly<Record<string, str
     return valor;
   });
 
-  const sinUsar = Object.keys(valores).filter((nombre) => !usados.has(nombre));
+  const sinUsar = Object.keys(valores).filter(
+    (nombre) => !usados.has(nombre) && !puedenQuedarSinUsar.includes(nombre),
+  );
 
   if (sinUsar.length > 0) {
     throw new Error(`La plantilla no usa: ${sinUsar.map((nombre) => `%%${nombre}%%`).join(', ')}.`);
@@ -111,6 +138,25 @@ function parrafo(texto: string): string {
   return (
     `<p class="texto" style="margin: 0 0 16px 0; font-family: ${FUENTE}; font-size: 16px; ` +
     `line-height: 26px; color: ${CLARO.texto}">${escaparTexto(texto)}</p>`
+  );
+}
+
+/**
+ * Los pasos, como lista numerada: un lector de pantalla la anuncia como lista y
+ * el numero lo pone el cliente de correo, sin tablas ni imagenes de por medio.
+ */
+function listaDePasos(pasos: readonly string[]): string {
+  const elementos = pasos
+    .map(
+      (paso) =>
+        `<li class="texto" style="margin: 0 0 8px 0; padding-left: 4px; font-family: ${FUENTE}; ` +
+        `font-size: 16px; line-height: 26px; color: ${CLARO.texto}">${escaparTexto(paso)}</li>`,
+    )
+    .join('\n                  ');
+
+  return (
+    `<ol style="margin: 0 0 24px 0; padding: 0 0 0 24px">\n                  ${elementos}\n` +
+    `                </ol>`
   );
 }
 
@@ -133,29 +179,86 @@ function sinComentariosDeMantenimiento(html: string): string {
 }
 
 function valoresDeLaPlantilla(contenido: ContenidoDelCorreo): Record<string, string> {
+  // Solo los de tipo `enlace` tienen boton, y todos ellos: un texto de boton en un
+  // aviso no saldria nunca, y un enlace sin texto saldria con el boton vacio.
+  if ((contenido.tipo === 'enlace') !== (contenido.boton !== undefined)) {
+    throw new Error(
+      `${contenido.archivo}: solo los correos de tipo enlace llevan boton, y todos los de ese tipo.`,
+    );
+  }
+
   const colores = Object.fromEntries(
     (Object.keys(CLARO) as (keyof Paleta)[]).map((nombre) => [`claro.${nombre}`, CLARO[nombre]]),
   );
 
+  const cuerpo = [
+    ...contenido.parrafos.map(parrafo),
+    ...(contenido.pasos === undefined ? [] : [listaDePasos(contenido.pasos)]),
+  ];
+
   return {
     ...colores,
+    // El modo oscuro del boton y del foco vive en el bloque <style>, no en una clase.
+    'oscuro.boton_hover': OSCURO.boton_hover,
+    'oscuro.enlace': OSCURO.enlace,
     marca: VERDE_DE_LA_MARCA,
     fuente: FUENTE,
+    fuente_mono: FUENTE_MONOESPACIADA,
     fuente_titulos: FUENTE_DE_TITULOS,
     asunto: escaparTexto(contenido.asunto),
     preencabezado: escaparTexto(contenido.preencabezado),
     relleno_del_preencabezado: RELLENO_DEL_PREENCABEZADO,
     titulo: escaparTexto(contenido.titulo),
-    cuerpo: contenido.parrafos.map(parrafo).join('\n                '),
-    boton: escaparTexto(contenido.boton),
+    'mascota.nombre': escaparTexto(contenido.mascota.nombre),
+    'mascota.archivo': contenido.mascota.archivo,
+    cuerpo: cuerpo.join('\n                '),
+    boton: escaparTexto(contenido.boton ?? ''),
     nota: escaparTexto(contenido.nota),
     reglas_oscuras: reglasDelModoOscuro(() => '', '        '),
     reglas_outlook_oscuras: reglasDelModoOscuro(selectorDeOutlook, '      '),
   };
 }
 
-export function construirCorreo(contenido: ContenidoDelCorreo, plantilla: string): CorreoGenerado {
-  const html = rellenar(sinComentariosDeMantenimiento(plantilla), valoresDeLaPlantilla(contenido))
+/** Lo que la pieza de este tipo no usa: la plantilla no lo menciona y no es un error. */
+function valoresQueQuedanSinUsar(tipo: TipoDeCorreo): readonly string[] {
+  switch (tipo) {
+    case 'enlace':
+      return SOLO_DEL_CODIGO;
+    case 'codigo':
+      return SOLO_DEL_BOTON;
+    case 'aviso':
+      return [...SOLO_DEL_BOTON, ...SOLO_DEL_CODIGO];
+  }
+}
+
+/** El texto de cada pieza de `correos/piezas/`, por nombre. */
+export type PiezasDeLaPlantilla = Readonly<Record<'enlace' | 'codigo', string>>;
+
+export function construirCorreo(
+  contenido: ContenidoDelCorreo,
+  plantilla: string,
+  piezas: PiezasDeLaPlantilla,
+): CorreoGenerado {
+  if (!plantilla.includes('%%accion%%')) {
+    throw new Error(
+      'La plantilla no tiene %%accion%%: no habria donde poner el boton o el codigo.',
+    );
+  }
+
+  const nombreDeLaPieza = PIEZA_DE_CADA_TIPO[contenido.tipo];
+  const accion =
+    nombreDeLaPieza === null ? '' : sinComentariosDeMantenimiento(piezas[nombreDeLaPieza]).trim();
+
+  // La pieza entra antes de rellenar, para que sus marcadores se reemplacen con los
+  // mismos valores que los de la plantilla. `() => accion` evita que `$&` y similares
+  // se interpreten como patrones.
+  const maestra = sinComentariosDeMantenimiento(plantilla).replace('%%accion%%', () => accion);
+
+  const html = rellenar(
+    maestra,
+    valoresDeLaPlantilla(contenido),
+    valoresQueQuedanSinUsar(contenido.tipo),
+  )
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
@@ -169,9 +272,13 @@ export function construirCorreo(contenido: ContenidoDelCorreo, plantilla: string
   };
 }
 
-/** Los tres correos, listos para pegar en Supabase. */
+/** Los correos de Supabase Auth, listos para pegar. */
 export function construirCorreos(): readonly CorreoGenerado[] {
   const plantilla = readFileSync(RUTA_DE_LA_PLANTILLA, 'utf8');
+  const piezas: PiezasDeLaPlantilla = {
+    enlace: readFileSync(new URL('enlace.html', CARPETA_DE_PIEZAS), 'utf8'),
+    codigo: readFileSync(new URL('codigo.html', CARPETA_DE_PIEZAS), 'utf8'),
+  };
 
-  return CORREOS.map((contenido) => construirCorreo(contenido, plantilla));
+  return CORREOS.map((contenido) => construirCorreo(contenido, plantilla, piezas));
 }

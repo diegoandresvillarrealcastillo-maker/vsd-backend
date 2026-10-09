@@ -24,6 +24,10 @@ export interface Paleta {
   /** El fondo del boton y el color de su texto. */
   readonly boton: string;
   readonly sobre_boton: string;
+  /** El fondo del boton al pasar el cursor; el texto es el mismo `sobre_boton`. */
+  readonly boton_hover: string;
+  /** El fondo de la cabecera donde posa la mascota. El texto alternativo va en `texto`. */
+  readonly halo: string;
 }
 
 export const CLARO: Paleta = {
@@ -35,6 +39,8 @@ export const CLARO: Paleta = {
   enlace: '#2f6b55',
   boton: '#3d7a6b',
   sobre_boton: '#ffffff',
+  boton_hover: '#2f6355',
+  halo: '#e7f0ea',
 };
 
 export const OSCURO: Paleta = {
@@ -46,6 +52,8 @@ export const OSCURO: Paleta = {
   enlace: '#a5cbb2',
   boton: '#87b89b',
   sobre_boton: '#15271d',
+  boton_hover: '#a3cdb4',
+  halo: '#26352c',
 };
 
 /**
@@ -63,6 +71,9 @@ export const VERDE_DE_LA_MARCA = '#3d7a6b';
 export const FUENTE =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 export const FUENTE_DE_TITULOS = "Georgia, 'Times New Roman', Times, serif";
+/** Para el codigo de verificacion: de ancho fijo, para que las cifras no se confundan. */
+export const FUENTE_MONOESPACIADA =
+  "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace";
 
 /** La razon de contraste WCAG entre dos colores `#rrggbb`: de 1 a 21. */
 export function contraste(uno: string, otro: string): number {

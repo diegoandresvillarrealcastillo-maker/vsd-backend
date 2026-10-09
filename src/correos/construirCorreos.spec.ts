@@ -2,12 +2,16 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CARPETA_DE_GENERADOS,
+  CARPETA_DE_PIEZAS,
   CLASES_CON_MODO_OSCURO,
+  RUTA_DE_LA_PLANTILLA,
+  construirCorreo,
   construirCorreos,
   escaparTexto,
   rellenar,
+  type PiezasDeLaPlantilla,
 } from './construirCorreos.js';
-import { CORREOS } from './contenidos.js';
+import { CORREOS, type ContenidoDelCorreo } from './contenidos.js';
 import { CLARO, OSCURO, contraste, type Paleta } from './paleta.js';
 
 /**
@@ -19,6 +23,21 @@ import { CLARO, OSCURO, contraste, type Paleta } from './paleta.js';
  */
 
 const correos = construirCorreos();
+
+/**
+ * Las variables de Supabase que lleva cada correo ademas de `{{ .SiteURL }}`. Se
+ * escriben aqui aparte de `contenidos.ts`, a proposito: la prueba es la que
+ * dice que cada plantilla de Supabase recibe solo lo que Supabase le da.
+ */
+const VARIABLES_PROPIAS: Readonly<Record<string, readonly string[]>> = {
+  'confirmar-cuenta': ['.ConfirmationURL'],
+  'recuperar-contrasena': ['.ConfirmationURL'],
+  'cambiar-correo': ['.ConfirmationURL', '.NewEmail'],
+  'codigo-de-verificacion': ['.Token'],
+  'aviso-contrasena-cambiada': [],
+  'aviso-correo-cambiado': ['.OldEmail', '.Email'],
+  'aviso-metodo-vinculado': ['.Provider'],
+};
 
 /** Sin los comentarios condicionales de Outlook, que son otro documento para otro motor. */
 function sinCondicionales(html: string): string {
@@ -40,18 +59,46 @@ function textoVisible(html: string): string {
 }
 
 describe('los correos generados', () => {
-  it('son los tres de la primera etapa, cada uno con su plantilla de Supabase', () => {
+  it('son siete, cada uno con su plantilla de Supabase y sus dos campos de la API', () => {
     expect(correos.map((correo) => correo.plantillaEnSupabase)).toEqual([
       'Confirm sign up',
       'Reset password',
       'Change email address',
+      'Reauthentication',
+      'Password changed',
+      'Email address changed',
+      'Sign-in method linked',
     ]);
-    expect(new Set(correos.map((correo) => correo.asunto)).size).toBe(3);
+    expect(new Set(correos.map((correo) => correo.asunto)).size).toBe(7);
+    expect(new Set(correos.map((correo) => correo.campoDelContenido)).size).toBe(7);
+    expect(correos.map((correo) => correo.campoDelContenido)).toEqual([
+      'mailer_templates_confirmation_content',
+      'mailer_templates_recovery_content',
+      'mailer_templates_email_change_content',
+      'mailer_templates_reauthentication_content',
+      'mailer_templates_password_changed_notification_content',
+      'mailer_templates_email_changed_notification_content',
+      'mailer_templates_identity_linked_notification_content',
+    ]);
+  });
+
+  it('cada tipo hace una cosa: el enlace se toca, el codigo se escribe y el aviso solo se lee', () => {
+    expect(CORREOS.map((contenido) => [contenido.archivo, contenido.tipo])).toEqual([
+      ['confirmar-cuenta', 'enlace'],
+      ['recuperar-contrasena', 'enlace'],
+      ['cambiar-correo', 'enlace'],
+      ['codigo-de-verificacion', 'codigo'],
+      ['aviso-contrasena-cambiada', 'aviso'],
+      ['aviso-correo-cambiado', 'aviso'],
+      ['aviso-metodo-vinculado', 'aviso'],
+    ]);
   });
 
   describe.each(correos)('$archivo', (correo) => {
     const { html } = correo;
     const limpio = sinCondicionales(html);
+    const contenido = CORREOS.find((uno) => uno.archivo === correo.archivo)!;
+    const conBoton = contenido.tipo === 'enlace';
 
     it('es lo mismo que hay guardado en correos/generados (si falla: npm run correos)', () => {
       const guardado = readFileSync(
@@ -77,26 +124,35 @@ describe('los correos generados', () => {
     it('lleva el enlace de confirmacion en el boton y, escrito, por si el boton no funciona', () => {
       const botones = [...limpio.matchAll(/<a\s[^>]*href="\{\{ \.ConfirmationURL \}\}"[^>]*>/g)];
 
+      if (!conBoton) {
+        // Ni el codigo ni un aviso llevan enlace de confirmacion: no hay nada que confirmar.
+        expect(botones).toHaveLength(0);
+        expect(limpio).not.toContain('Si el botón no funciona');
+        expect(limpio).not.toContain('class="boton-texto"');
+        return;
+      }
+
       expect(botones).toHaveLength(2);
       expect(limpio).toMatch(/>\s*\{\{ \.ConfirmationURL \}\}\s*<\/a/);
       expect(limpio).toContain('Si el botón no funciona');
     });
 
-    it('usa solo variables de Supabase que existen y sirven aqui', () => {
+    it('usa solo variables de Supabase que existen y sirven en su plantilla', () => {
       const usadas = new Set(variablesDe(html));
-      const permitidas = new Set(['.ConfirmationURL', '.SiteURL']);
-
-      if (correo.archivo === 'cambiar-correo') {
-        permitidas.add('.NewEmail');
-      }
+      const propias = VARIABLES_PROPIAS[correo.archivo]!;
+      const permitidas = new Set(['.SiteURL', ...propias]);
 
       for (const variable of usadas) {
         expect(permitidas, `${variable} no se puede usar en ${correo.archivo}`).toContain(variable);
       }
 
-      expect(usadas).toContain('.ConfirmationURL');
-      // Ni el correo anterior, ni los metadatos de la persona, ni el codigo.
-      for (const prohibida of ['.Email', '.Data', '.Token', '.TokenHash', '.RedirectTo']) {
+      // Y las que le corresponden, las usa: un aviso sin su variable diria menos de lo que debe.
+      for (const variable of propias) {
+        expect(usadas, `${correo.archivo} no usa ${variable}`).toContain(variable);
+      }
+
+      // Ni los metadatos de la persona, ni el hash del codigo, ni la ruta de retorno.
+      for (const prohibida of ['.Data', '.TokenHash', '.RedirectTo']) {
         expect(usadas).not.toContain(prohibida);
       }
     });
@@ -109,12 +165,19 @@ describe('los correos generados', () => {
       expect(enlaces.length).toBeGreaterThan(0);
 
       for (const enlace of enlaces) {
-        expect(['{{ .ConfirmationURL }}', '{{ .SiteURL }}']).toContain(enlace);
+        expect(
+          conBoton ? ['{{ .ConfirmationURL }}', '{{ .SiteURL }}'] : ['{{ .SiteURL }}'],
+        ).toContain(enlace);
       }
     });
 
+    it('no pone variables en el asunto: se leeria en la pantalla bloqueada', () => {
+      // El codigo de verificacion, en particular, no tiene por que verse sin abrir el correo.
+      expect(correo.asunto).not.toContain('{{');
+    });
+
     it('trae sus estilos dentro de cada etiqueta, porque los clientes ignoran las hojas', () => {
-      const etiquetas = [...limpio.matchAll(/<(h1|p|a|img|td|div|body)\b[^>]*>/g)];
+      const etiquetas = [...limpio.matchAll(/<(h1|p|a|img|td|div|body|ol|li)\b[^>]*>/g)];
 
       expect(etiquetas.length).toBeGreaterThan(15);
 
@@ -144,16 +207,94 @@ describe('los correos generados', () => {
       expect(limpio).not.toMatch(/fonts\.googleapis|@font-face/i);
     });
 
-    it('la unica imagen es el logo del propio sitio, con tamano y sin texto alternativo ruidoso', () => {
+    it('solo trae dos imagenes, las dos del propio sitio y con tamano: el logo y la mascota', () => {
       const imagenes = [...limpio.matchAll(/<img\b[^>]*>/g)].map((coincidencia) => coincidencia[0]);
 
-      expect(imagenes).toHaveLength(1);
-      expect(imagenes[0]).toContain('src="{{ .SiteURL }}/icono-192.png"');
-      expect(imagenes[0]).toMatch(/width="44"/);
-      expect(imagenes[0]).toMatch(/height="44"/);
-      // El nombre va al lado en texto: la imagen es decorativa.
-      expect(imagenes[0]).toContain('alt=""');
+      expect(imagenes).toHaveLength(2);
+
+      const [logo, mascota] = imagenes as [string, string];
+
+      expect(logo).toContain('src="{{ .SiteURL }}/icono-192.png"');
+      expect(logo).toMatch(/width="44"/);
+      expect(logo).toMatch(/height="44"/);
+      // El nombre va al lado en texto: el logo es decorativo.
+      expect(logo).toContain('alt=""');
       expect(textoVisible(html)).toContain('VSD Health');
+
+      // La mascota se pide al sitio de la aplicacion; Outlook de escritorio exige width y height.
+      expect(mascota).toMatch(/src="\{\{ \.SiteURL \}\}\/correo\/[a-z-]+\.gif"/);
+      expect(mascota).toMatch(/width="140"/);
+      expect(mascota).toMatch(/height="140"/);
+    });
+
+    it('la mascota es la de este correo y, sin la imagen, se lee su nombre', () => {
+      const mascota = [...limpio.matchAll(/<img\b[^>]*>/g)][1]![0];
+
+      expect(mascota).toContain(`src="{{ .SiteURL }}/correo/${contenido.mascota.archivo}.gif"`);
+      expect(mascota).toContain(`alt="${contenido.mascota.nombre}"`);
+      // El texto alternativo hereda el color del texto, tambien en modo oscuro.
+      expect(mascota).toContain('class="texto"');
+      expect(mascota).toMatch(/color: #[0-9a-f]{6}/);
+    });
+
+    it('el boton es grande y redondo, y se estira a todo el ancho en el celular', () => {
+      if (!conBoton) {
+        return;
+      }
+
+      const enlace = limpio.match(/<a\s[^>]*class="boton-texto"[^>]*>/)![0];
+      const alto = enlace.match(/padding: (\d+)px (\d+)px/)!;
+      const lineaDeTexto = Number(enlace.match(/line-height: (\d+)px/)![1]);
+
+      // 44 px es lo minimo que piden los dedos; aqui son 52.
+      expect(Number(alto[1]) * 2 + lineaDeTexto).toBeGreaterThanOrEqual(48);
+      expect(Number(alto[2])).toBeGreaterThanOrEqual(28);
+      expect(Number(enlace.match(/font-size: (\d+)px/)![1])).toBeGreaterThanOrEqual(16);
+      expect(enlace).toContain('border-radius: 9999px');
+      expect(html).toMatch(/\.boton-tabla \{\s*width: 100% !important;/);
+      expect(html).toMatch(/\.boton-texto \{\s*display: block !important;/);
+    });
+
+    it('el movimiento es solo una mejora: transicion en el bloque <style>, nunca en las etiquetas', () => {
+      const css = html.match(/<style>([\s\S]*?)<\/style>/)![1]!;
+
+      expect(css).toMatch(/\.boton-texto \{\s*transition:/);
+      expect(css).toContain('.boton-texto:hover {');
+      expect(css).toContain('.boton-texto:focus-visible {');
+      // Quien pide menos movimiento no recibe transiciones ni desplazamiento.
+      expect(css).toMatch(
+        /@media \(prefers-reduced-motion: reduce\) \{\s*\.boton-texto \{\s*transition: none !important;/,
+      );
+      // Un cliente que no entiende `transition` no debe perder nada: nada esencial depende de ella.
+      expect(limpio).not.toMatch(/style="[^"]*(transition|animation|@keyframes)/);
+      expect(css).not.toMatch(/@keyframes|animation:/);
+    });
+
+    it('al pasar el cursor, el boton pasa al color de la paleta de cada modo', () => {
+      const css = html.match(/<style>([\s\S]*?)<\/style>/)![1]!;
+      const [antesDelOscuro, deElOscuro] = css.split('@media (prefers-color-scheme: dark)') as [
+        string,
+        string,
+      ];
+
+      expect(antesDelOscuro).toContain(`background-color: ${CLARO.boton_hover} !important`);
+      expect(deElOscuro).toContain(`background-color: ${OSCURO.boton_hover} !important`);
+    });
+
+    it('trae la lista de pasos solo cuando el correo la tiene, y cada paso llega al HTML', () => {
+      const listas = [...limpio.matchAll(/<ol\b/g)];
+
+      if (contenido.pasos === undefined) {
+        expect(listas).toHaveLength(0);
+        return;
+      }
+
+      expect(listas).toHaveLength(1);
+      expect(limpio.match(/<li\b/g)).toHaveLength(contenido.pasos.length);
+
+      for (const paso of contenido.pasos) {
+        expect(textoVisible(html)).toContain(paso);
+      }
     });
 
     it('las tablas de maquetacion no se anuncian como tablas de datos', () => {
@@ -181,6 +322,13 @@ describe('los correos generados', () => {
       );
 
       for (const clase of CLASES_CON_MODO_OSCURO) {
+        // Un aviso o un codigo no llevan boton: sus clases no estan en el HTML, aunque la
+        // regla este en el bloque <style>.
+        if (!conBoton && clase.startsWith('boton')) {
+          expect(html).toContain(`.${clase} {`);
+          continue;
+        }
+
         expect(clasesDelHtml, `.${clase} no se usa en el HTML`).toContain(clase);
         expect(html).toContain(`.${clase} {`);
       }
@@ -227,13 +375,41 @@ describe('los correos generados', () => {
       }
     });
 
-    it('no culpa ni mete miedo: dice que no pasa nada si no fue la persona', () => {
+    it('no culpa ni mete miedo: dice que no pasa nada, o que hacer, si no fue la persona', () => {
       const texto = textoVisible(html).toLowerCase();
 
-      expect(texto).toMatch(/ignora este correo|puedes ignorar este correo/);
+      if (contenido.tipo === 'aviso') {
+        // Un aviso de seguridad no puede decir "ignoralo": si no fue ella, tiene que actuar.
+        // Dice que hacer, sin alarma, y deja tranquila a quien si fue.
+        expect(texto).toContain('si fuiste tú, no tienes que hacer nada más');
+        expect(texto).toMatch(/si no fuiste tú, [^.]*cambia tu contraseña|si no fuiste tú, entra/);
+        expect(texto).not.toMatch(/ignora este correo|puedes ignorar este correo/);
+      } else {
+        expect(texto).toMatch(/ignora este correo|puedes ignorar este correo/);
+      }
+
       expect(texto).not.toMatch(
         /urgente|inmediatamente|cuenta (será )?(bloqueada|suspendida|eliminada)/,
       );
+    });
+
+    it('el codigo va escrito en el correo, una sola vez y en una caja que se lee bien', () => {
+      const cajas = [
+        ...limpio.matchAll(/<td\b[^>]*class="halo texto"[^>]*>\s*\{\{ \.Token \}\}\s*<\/td>/g),
+      ];
+
+      if (contenido.tipo !== 'codigo') {
+        expect(limpio).not.toContain('{{ .Token }}');
+        return;
+      }
+
+      expect(limpio.match(/\{\{ \.Token \}\}/g)).toHaveLength(1);
+      expect(cajas).toHaveLength(1);
+      // Letra de ancho fijo y grande: las cifras no se confunden y se leen en el celular.
+      expect(cajas[0]![0]).toMatch(/font-family: ui-monospace/);
+      expect(Number(cajas[0]![0].match(/font-size: (\d+)px/)![1])).toBeGreaterThanOrEqual(28);
+      // Sin boton ni enlace de confirmacion: el codigo se escribe en la aplicacion.
+      expect(limpio).not.toContain('{{ .ConfirmationURL }}');
     });
   });
 
@@ -243,7 +419,7 @@ describe('los correos generados', () => {
       const texto = textoVisible(correo.html);
 
       expect(texto).toContain(contenido.titulo);
-      expect(texto).toContain(contenido.boton);
+      expect(texto).toContain(contenido.boton ?? contenido.titulo);
       expect(texto).toContain(contenido.nota.slice(0, 40));
 
       for (const parrafo of contenido.parrafos) {
@@ -251,6 +427,30 @@ describe('los correos generados', () => {
         expect(texto).toContain((parrafo.split('{{')[0] ?? '').trim().slice(0, 25));
       }
     }
+  });
+
+  it('los tres de siempre los encabeza una mascota distinta, con el nombre que lleva en la app', () => {
+    expect(CORREOS.slice(0, 3).map((contenido) => contenido.mascota)).toEqual([
+      { nombre: 'Fungito', archivo: 'fungito' },
+      { nombre: 'Obsidian', archivo: 'obsidian' },
+      { nombre: 'Ojo de Gato', archivo: 'ojo-de-gato' },
+    ]);
+  });
+
+  it('los nuevos usan las mismas tres mascotas: no piden ningun GIF mas', () => {
+    // Obsidian protege la cuenta; Ojo de Gato vigila el cambio de correo y de metodo.
+    expect(CORREOS.slice(3).map((contenido) => contenido.mascota.archivo)).toEqual([
+      'obsidian',
+      'obsidian',
+      'ojo-de-gato',
+      'ojo-de-gato',
+    ]);
+  });
+
+  it('solo el de recuperar la contrasena trae pasos', () => {
+    expect(
+      CORREOS.filter((contenido) => contenido.pasos !== undefined).map((c) => c.archivo),
+    ).toEqual(['recuperar-contrasena']);
   });
 
   it('solo el del cambio de correo nombra el correo nuevo', () => {
@@ -270,6 +470,8 @@ describe('la paleta', () => {
     ['texto de apoyo sobre el lienzo', paleta.suave, paleta.fondo],
     ['enlace sobre la tarjeta', paleta.enlace, paleta.tarjeta],
     ['texto del boton sobre el boton', paleta.sobre_boton, paleta.boton],
+    ['texto del boton sobre el boton al pasar el cursor', paleta.sobre_boton, paleta.boton_hover],
+    ['nombre de la mascota (texto alternativo) sobre la cabecera', paleta.texto, paleta.halo],
   ];
 
   it.each([
@@ -298,6 +500,56 @@ describe('rellenar', () => {
 
   it('lanza si se escribio un valor que la plantilla no usa: nunca saldria', () => {
     expect(() => rellenar('sin marcadores', { sobra: 'x' })).toThrow('%%sobra%%');
+  });
+
+  it('deja sin usar solo lo que se nombra como opcional, y nada mas', () => {
+    expect(rellenar('sin marcadores', { sobra: 'x' }, ['sobra'])).toBe('sin marcadores');
+    expect(() => rellenar('sin marcadores', { sobra: 'x', otra: 'y' }, ['sobra'])).toThrow(
+      '%%otra%%',
+    );
+  });
+});
+
+describe('construirCorreo', () => {
+  const plantilla = readFileSync(RUTA_DE_LA_PLANTILLA, 'utf8');
+  const piezas: PiezasDeLaPlantilla = {
+    enlace: readFileSync(new URL('enlace.html', CARPETA_DE_PIEZAS), 'utf8'),
+    codigo: readFileSync(new URL('codigo.html', CARPETA_DE_PIEZAS), 'utf8'),
+  };
+  const deEnlace = CORREOS.find((contenido) => contenido.tipo === 'enlace')!;
+  const aviso = CORREOS.find((contenido) => contenido.tipo === 'aviso')!;
+
+  it('lanza si un aviso trae texto de boton: no saldria nunca', () => {
+    expect(() => construirCorreo({ ...aviso, boton: 'Ir' }, plantilla, piezas)).toThrow(
+      'solo los correos de tipo enlace',
+    );
+  });
+
+  it('lanza si un correo de enlace no trae texto de boton: saldria con el boton vacio', () => {
+    const sinBoton = Object.fromEntries(
+      Object.entries(deEnlace).filter(([nombre]) => nombre !== 'boton'),
+    ) as unknown as ContenidoDelCorreo;
+
+    expect(() => construirCorreo(sinBoton, plantilla, piezas)).toThrow(
+      'solo los correos de tipo enlace',
+    );
+  });
+
+  it('lanza si la plantilla ya no tiene donde poner el boton o el codigo', () => {
+    expect(() => construirCorreo(deEnlace, plantilla.replace('%%accion%%', ''), piezas)).toThrow(
+      '%%accion%%',
+    );
+  });
+
+  it('no interpreta como patron lo que haya en una pieza ($& se queda como esta)', () => {
+    const rara: PiezasDeLaPlantilla = {
+      ...piezas,
+      enlace: 'a $& b %%claro.boton%% %%claro.sobre_boton%% %%boton%%',
+    };
+
+    expect(construirCorreo(deEnlace, plantilla, rara).html).toContain(
+      `a $& b ${CLARO.boton} ${CLARO.sobre_boton} ${deEnlace.boton}`,
+    );
   });
 });
 

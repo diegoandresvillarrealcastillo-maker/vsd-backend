@@ -1,0 +1,21 @@
+<!--
+  La pieza del correo de reautenticacion: el codigo de seis cifras que Supabase
+  manda al cambiar la contrasena desde el perfil (SCRUM-171). No lleva boton ni
+  enlace: el codigo se escribe en la aplicacion. Va donde la plantilla maestra
+  tiene %%accion%%.
+-->
+                <!-- El codigo, en una caja del color de la cabecera y con letra de ancho fijo
+                     para que las cifras se distingan. El espacio entre cifras deja un hueco
+                     de mas a la derecha: el relleno izquierdo lo compensa. -->
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 28px 0">
+                  <tr>
+                    <td
+                      class="halo texto"
+                      align="center"
+                      bgcolor="%%claro.halo%%"
+                      style="background-color: %%claro.halo%%; border: 1px solid %%claro.borde%%; border-radius: 12px; padding: 16px 20px 16px 28px; font-family: %%fuente_mono%%; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: 8px; text-align: center; color: %%claro.texto%%"
+                    >
+                      {{ .Token }}
+                    </td>
+                  </tr>
+                </table>

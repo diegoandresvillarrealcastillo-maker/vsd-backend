@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { CARPETA_DE_GENERADOS, construirCorreos } from './construirCorreos.js';
 
 /**
- * Escribe los tres correos en `correos/generados/` (SCRUM-125).
+ * Escribe los correos de Supabase Auth en `correos/generados/` (SCRUM-125).
  *
  * Lo usa `npm run correos`. Despues de tocar la plantilla, la paleta o un
  * texto, se corre esto y se sube el resultado junto con el cambio: una prueba

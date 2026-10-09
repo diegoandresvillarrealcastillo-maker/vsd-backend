@@ -452,13 +452,15 @@ ningun chat.
 
 ### Los correos de Supabase Auth
 
-Confirmar la cuenta, recuperar la contrasena y cambiar el correo los manda
-Supabase, y cada proyecto guarda **sus propias plantillas**: no viajan con las
-migraciones. Las del equipo estan en [`correos/`](../correos/README.md) (SCRUM-125)
-y las **pega una persona** en cada ambiente, en _Authentication → Emails →
-Templates_. Salen de una sola plantilla y usan `{{ .SiteURL }}` para el logo, asi
-que la **Site URL** de cada proyecto tiene que ser la de su PWA (PRE:
-`https://vsd-health-pre.vercel.app`).
+Confirmar la cuenta, recuperar la contrasena, el codigo al cambiarla desde el
+perfil, cambiar el correo y los avisos de seguridad (contrasena cambiada, correo
+cambiado, metodo de acceso vinculado) los manda Supabase, y cada proyecto guarda
+**sus propias plantillas**: no viajan con las migraciones. Las del equipo estan
+en [`correos/`](../correos/README.md) (SCRUM-125 y SCRUM-171), que explica cuales
+pegar y cuales avisos activar, y las **pega una persona** en cada ambiente, en
+_Authentication → Emails → Templates_. Salen de una sola plantilla y usan
+`{{ .SiteURL }}` para el logo y las mascotas, asi que la **Site URL** de cada
+proyecto tiene que ser la de su PWA (PRE: `https://vsd-health-pre.vercel.app`).
 
 ### Lo que falta para PROD
 
@@ -470,7 +472,8 @@ que la **Site URL** de cada proyecto tiene que ser la de su PWA (PRE:
    variables: `CORS_ORIGIN` con el dominio exacto de PROD, su propio par de
    claves VAPID y la `DATABASE_URL` de `vsd_app` en PROD.
 3. **Pegar las plantillas de correo** de [`correos/generados/`](../correos/README.md)
-   en `vsd-health-prod`, con la Site URL de la PWA de PROD.
+   en `vsd-health-prod`, con la Site URL de la PWA de PROD, y activar los tres
+   avisos de seguridad que ahi se indican.
 4. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
    en el mismo espacio de trabajo: uno solo usa unas 744 de las 750 horas del
    mes. Ver el encabezado de `mantener-el-api-despierto.yml`.

@@ -133,6 +133,64 @@ describe('InMemoryActivityResultRepository', () => {
       }
     });
   });
+
+  describe('diasConActividad (SCRUM-186)', () => {
+    /** Un resultado de otro dia: cambia la operacion, el resultado y el dia guardado. */
+    function enElDia(dia: string, operacion: string, resultado: string, usuario = USUARIO) {
+      return ActivityResult.create({
+        id: new ResultId(resultado),
+        userId: new UserId(usuario),
+        activityId: new ActivityId(ACTIVIDAD),
+        clientOperationId: new ClientOperationId(operacion),
+        score: OrientativeScore.create(8, actividad()),
+        completedAt: new Date(`${dia}T15:00:00.000Z`),
+        dia,
+      });
+    }
+
+    const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+
+    it('devuelve los dias sin repetir y del mas antiguo al mas reciente', async () => {
+      await repositorio.save(enElDia('2026-09-16', OP(1), RES(1)));
+      await repositorio.save(enElDia('2026-09-14', OP(2), RES(2)));
+      // Dos resultados el mismo dia son un solo dia.
+      await repositorio.save(enElDia('2026-09-16', OP(3), RES(3)));
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([
+        '2026-09-14',
+        '2026-09-16',
+      ]);
+    });
+
+    it('sin actividad devuelve una lista vacia', async () => {
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([]);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await repositorio.save(enElDia('2026-09-14', OP(4), RES(4), OTRO_USUARIO));
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([]);
+      expect(await repositorio.diasConActividad(new UserId(OTRO_USUARIO))).toEqual(['2026-09-14']);
+    });
+
+    it('usa el dia guardado, no el instante: un resultado de las 8 p. m. es de ese dia', async () => {
+      // 01:00 UTC del 15 es la noche del 14 en Colombia: el dia guardado manda.
+      await repositorio.save(
+        ActivityResult.create({
+          id: new ResultId(RES(5)),
+          userId: new UserId(USUARIO),
+          activityId: new ActivityId(ACTIVIDAD),
+          clientOperationId: new ClientOperationId(OP(5)),
+          score: OrientativeScore.create(8, actividad()),
+          completedAt: new Date('2026-09-15T01:00:00.000Z'),
+          dia: '2026-09-14',
+        }),
+      );
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual(['2026-09-14']);
+    });
+  });
 });
 
 describe('Cableado completo', () => {

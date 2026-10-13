@@ -1,6 +1,7 @@
 import type { Resultado } from '@prisma/client';
 import { Activity } from '../../domain/model/Activity.js';
 import { ActivityResult, type Metadata } from '../../domain/model/ActivityResult.js';
+import type { Dia } from '../../domain/model/Calendario.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
@@ -117,6 +118,22 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     );
 
     return fila !== null;
+  }
+
+  async diasConActividad(userId: UserId): Promise<readonly Dia[]> {
+    // Solo la columna `dia`, sin repetir y ordenada en la base: no hace falta reconstruir
+    // resultados ni consultar el catalogo para saber en que dias hizo algo.
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findMany({
+        where: { idUsuario: userId.value },
+        select: { dia: true },
+        distinct: ['dia'],
+        orderBy: { dia: 'asc' },
+      }),
+    );
+
+    // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+    return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
   }
 
   /**

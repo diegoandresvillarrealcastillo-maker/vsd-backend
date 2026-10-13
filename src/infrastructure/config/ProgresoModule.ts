@@ -1,14 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConsultarProgresoUseCaseImpl } from '../../application/usecases/ConsultarProgresoUseCaseImpl.js';
+import { ConsultarRachaUseCaseImpl } from '../../application/usecases/ConsultarRachaUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { ProgresoController } from '../controllers/ProgresoController.js';
+import { RachaController } from '../controllers/RachaController.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
 import {
   ACTIVITY_REPOSITORY,
   ACTIVITY_RESULT_REPOSITORY,
   CONSULTAR_PROGRESO,
+  CONSULTAR_RACHA,
   USER_REPOSITORY,
 } from './tokens.js';
 import { UsuariosModule } from './UsuariosModule.js';
@@ -22,7 +25,7 @@ import { UsuariosModule } from './UsuariosModule.js';
  */
 @Module({
   imports: [ActivityResultModule, UsuariosModule],
-  controllers: [ProgresoController],
+  controllers: [ProgresoController, RachaController],
   providers: [
     {
       provide: CONSULTAR_PROGRESO,
@@ -32,6 +35,12 @@ import { UsuariosModule } from './UsuariosModule.js';
         resultados: ActivityResultRepositoryPort,
       ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados),
       inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
+    },
+    {
+      provide: CONSULTAR_RACHA,
+      useFactory: (cuentas: UserRepositoryPort, resultados: ActivityResultRepositoryPort) =>
+        new ConsultarRachaUseCaseImpl(cuentas, resultados),
+      inject: [USER_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
     },
   ],
 })

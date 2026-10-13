@@ -1077,6 +1077,40 @@
         ]
       }
     },
+    "/api/datos-curiosos/hoy": {
+      "get": {
+        "description": "Una frase corta de cultura general, distinta cada dia hasta recorrer todo el catalogo una vez, en un orden propio de cada persona. Es el mismo dato durante todo el dia, contado en la zona horaria de la persona. El dato es null solo si todavia no hay ningun dato publicado.",
+        "operationId": "DatosCuriososController_hoy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatoCuriosoDelDiaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el dato curioso de hoy",
+        "tags": [
+          "Datos curiosos"
+        ]
+      }
+    },
     "/api/progreso": {
       "get": {
         "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
@@ -1987,6 +2021,23 @@
           "contenido"
         ]
       },
+      "DatoCuriosoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El día, AAAA-MM-DD, en el calendario de la persona."
+          },
+          "texto": {
+            "type": "string",
+            "example": "Los pulpos tienen tres corazones."
+          }
+        },
+        "required": [
+          "dia",
+          "texto"
+        ]
+      },
       "ExportacionDto": {
         "type": "object",
         "properties": {
@@ -2052,6 +2103,16 @@
                 "$ref": "#/components/schemas/MascotaPropiaExportadaDto"
               }
             ]
+          },
+          "datoCurioso": {
+            "nullable": true,
+            "description": "El ultimo dato curioso que se le dio y el dia (SCRUM-185).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatoCuriosoExportadoDto"
+              }
+            ]
           }
         },
         "required": [
@@ -2064,7 +2125,8 @@
           "pendientes",
           "avisos",
           "foto",
-          "mascotaPropia"
+          "mascotaPropia",
+          "datoCurioso"
         ]
       },
       "BorrarCuentaDto": {
@@ -2542,6 +2604,53 @@
         },
         "required": [
           "endpoint"
+        ]
+      },
+      "DatoCuriosoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "example": "Los pulpos tienen tres corazones."
+          },
+          "tema": {
+            "type": "string",
+            "description": "De que trata. Sirve para revisar el catalogo; no es para mostrar.",
+            "example": "animales"
+          }
+        },
+        "required": [
+          "id",
+          "texto",
+          "tema"
+        ]
+      },
+      "DatoCuriosoDelDiaRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El dia, en el calendario de la persona, al que pertenece este dato. AAAA-MM-DD.",
+            "example": "2026-10-13"
+          },
+          "dato": {
+            "nullable": true,
+            "description": "El dato de hoy, o `null` si todavia no hay ningun dato publicado.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatoCuriosoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dia",
+          "dato"
         ]
       },
       "EtapaDto": {

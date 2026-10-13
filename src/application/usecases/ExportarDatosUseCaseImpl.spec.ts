@@ -15,6 +15,7 @@ import {
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { DatoCuriosoRepositoryPort } from '../../domain/ports/out/DatoCuriosoRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
@@ -48,11 +49,18 @@ const PENDIENTE = Pendiente.nuevo(
   AHORA,
 );
 
+const DATO = {
+  id: '77777777-7777-4777-a777-777777777777',
+  texto: 'Los pulpos tienen tres corazones.',
+  tema: 'animales',
+};
+
 /** Arma el caso de uso con dobles que anotan por quien les preguntaron. */
 function armar(
   cuenta: User | null,
   fotos: AlmacenPersonalPort = new AlmacenDoble(),
   mascotas: AlmacenPersonalPort = new AlmacenDoble(),
+  conDatoCurioso = true,
 ) {
   const preguntas: { resultados?: string; desde?: Date; diario?: string; pendientes?: string } = {};
 
@@ -96,6 +104,12 @@ function armar(
       Promise.resolve([{ endpoint: 'https://push.example.com/a', p256dh: 'p', auth: 'a' }]),
   } as unknown as AvisosRepositoryPort;
 
+  const datosCuriosos = {
+    cursorDe: () =>
+      Promise.resolve(conDatoCurioso ? { idDato: DATO.id, clave: 7n, dia: '2026-10-12' } : null),
+    porId: () => Promise.resolve(conDatoCurioso ? DATO : null),
+  } as unknown as DatoCuriosoRepositoryPort;
+
   return {
     preguntas,
     casoDeUso: new ExportarDatosUseCaseImpl(
@@ -106,6 +120,7 @@ function armar(
       avisos,
       fotos,
       mascotas,
+      datosCuriosos,
       () => AHORA,
     ),
   };
@@ -329,5 +344,26 @@ describe('la mascota propia (SCRUM-122)', () => {
         mascotas,
       ).casoDeUso.execute(new UserId(PERSONA)),
     ).rejects.toThrow(FileStorageUnavailableError);
+  });
+
+  describe('el dato curioso (SCRUM-185)', () => {
+    it('incluye el ultimo que se le dio, con su texto y el dia, no su identificador', async () => {
+      const { casoDeUso } = armar(unaCuenta());
+
+      const datos = await casoDeUso.execute(new UserId(PERSONA));
+
+      expect(datos.datoCurioso).toEqual({
+        dia: '2026-10-12',
+        texto: 'Los pulpos tienen tres corazones.',
+      });
+    });
+
+    it('si todavia no se le dio ninguno, es nulo', async () => {
+      const { casoDeUso } = armar(unaCuenta(), new AlmacenDoble(), new AlmacenDoble(), false);
+
+      const datos = await casoDeUso.execute(new UserId(PERSONA));
+
+      expect(datos.datoCurioso).toBeNull();
+    });
   });
 });

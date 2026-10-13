@@ -32,6 +32,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0022](0022-la-sesion-de-supabase-vive-en-localstorage.md)                                 | La sesion de Supabase vive en localStorage                                 | Aceptada                                                                       |
 | [0023](0023-lo-que-exige-conexion-se-ve-deshabilitado-y-no-se-guarda-para-despues.md)      | Lo que exige conexion se ve deshabilitado y no se guarda para despues      | Aceptada                                                                       |
 | [0024](0024-la-racha-se-calcula-en-el-servidor-y-sin-estado.md)                            | La racha se calcula en el servidor y sin estado                            | Aceptada                                                                       |
+| [0025](0025-los-datos-curiosos-recorren-su-ciclo-sin-repetirse.md)                         | Los datos curiosos recorren su ciclo sin repetirse                         | Aceptada                                                                       |
 
 ## Reglas
 

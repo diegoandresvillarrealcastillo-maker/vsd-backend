@@ -31,6 +31,7 @@ function datosConAvisos(
     },
     foto: null,
     mascotaPropia: null,
+    datoCurioso: null,
   };
 }
 
@@ -138,5 +139,24 @@ describe('ExportacionDto: la mascota propia (SCRUM-122)', () => {
     });
 
     expect(dto.mascotaPropia?.contenido).toBe('<svg><g id="ñandú-áé"/></svg>');
+  });
+});
+
+/** El cursor de los datos curiosos es un dato personal (SCRUM-185): sale en la exportacion. */
+describe('ExportacionDto: el dato curioso', () => {
+  it('sin ninguno, es nulo', () => {
+    expect(ExportacionDto.desde(datosConAvisos({})).datoCurioso).toBeNull();
+  });
+
+  it('con uno, sale el texto y el dia, no el identificador', () => {
+    const datos: DatosExportados = {
+      ...datosConAvisos({}),
+      datoCurioso: { dia: '2026-10-12', texto: 'Los pulpos tienen tres corazones.' },
+    };
+
+    expect(ExportacionDto.desde(datos).datoCurioso).toEqual({
+      dia: '2026-10-12',
+      texto: 'Los pulpos tienen tres corazones.',
+    });
   });
 });

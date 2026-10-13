@@ -12,6 +12,7 @@ import { AvisosModule } from './AvisosModule.js';
 import { ConfiguracionModule } from './ConfiguracionModule.js';
 import { DiarioModule } from './DiarioModule.js';
 import { PendientesModule } from './PendientesModule.js';
+import { DatosCuriososModule } from './DatosCuriososModule.js';
 import { ProgresoModule } from './ProgresoModule.js';
 import { SeguridadModule } from './SeguridadModule.js';
 import { UsuariosModule } from './UsuariosModule.js';
@@ -38,6 +39,7 @@ import { UsuariosModule } from './UsuariosModule.js';
     ActivityResultModule,
     UsuariosModule,
     ProgresoModule,
+    DatosCuriososModule,
     DiarioModule,
     PendientesModule,
     AvisosModule,

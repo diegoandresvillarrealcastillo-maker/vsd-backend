@@ -3,6 +3,7 @@ import type { PreferenciasDeAviso } from '../../model/Aviso.js';
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { Pendiente } from '../../model/Pendiente.js';
+import type { Dia } from '../../model/Calendario.js';
 import type { ConsentimientoAceptado, User } from '../../model/User.js';
 import type { FotoLeida } from './FotoDePerfilUseCase.js';
 import type { MascotaPropiaLeida } from './MascotaPropiaUseCase.js';
@@ -33,6 +34,12 @@ export interface DatosExportados {
   readonly foto: FotoLeida | null;
   /** La mascota propia, el SVG ya saneado, si tiene (SCRUM-122). */
   readonly mascotaPropia: MascotaPropiaLeida | null;
+  /**
+   * El ultimo dato curioso que se le dio y el dia (SCRUM-185). El cursor lleva su identificador
+   * y es un dato personal como cualquiera; `null` si todavia no se le ha dado ninguno o si el
+   * dato se borro del catalogo.
+   */
+  readonly datoCurioso: { readonly dia: Dia; readonly texto: string } | null;
 }
 
 /**

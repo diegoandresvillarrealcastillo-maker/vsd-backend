@@ -15,6 +15,7 @@ import type {
   ArchivoPersonal,
 } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
+import type { DatoCuriosoRepositoryPort } from '../../domain/ports/out/DatoCuriosoRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -38,6 +39,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly avisos: AvisosRepositoryPort,
     private readonly fotos: AlmacenPersonalPort,
     private readonly mascotas: AlmacenPersonalPort,
+    private readonly datosCuriosos: DatoCuriosoRepositoryPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -57,6 +59,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       navegadores,
       foto,
       mascotaPropia,
+      datoCurioso,
     ] = await Promise.all([
       this.cuentas.consentimientosDe(id),
       this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
@@ -66,6 +69,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       this.avisos.suscripcionesDe(id),
       this.archivoDe(this.fotos, cuenta, cuenta.fotoActualizadaEl),
       this.archivoDe(this.mascotas, cuenta, cuenta.mascotaPropiaActualizadaEl),
+      this.datoCuriosoDe(id),
     ]);
 
     return {
@@ -78,7 +82,21 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       avisos: { preferencias, navegadores: navegadores.length },
       foto,
       mascotaPropia,
+      datoCurioso,
     };
+  }
+
+  /** Lo ultimo que se le dio, con su texto: el identificador no le dice nada a la persona. */
+  private async datoCuriosoDe(id: UserId): Promise<DatosExportados['datoCurioso']> {
+    const cursor = await this.datosCuriosos.cursorDe(id);
+
+    if (cursor === null || cursor.idDato === null) {
+      return null;
+    }
+
+    const dato = await this.datosCuriosos.porId(cursor.idDato);
+
+    return dato === null ? null : { dia: cursor.dia, texto: dato.texto };
   }
 
   /**

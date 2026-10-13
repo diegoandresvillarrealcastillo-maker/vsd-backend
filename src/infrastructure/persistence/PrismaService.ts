@@ -22,6 +22,7 @@ export type ClienteConSesion = Pick<
   | 'suscripcionPush'
   | 'preferenciaAviso'
   | 'consentimiento'
+  | 'datoCuriosoCursor'
 >;
 
 /**

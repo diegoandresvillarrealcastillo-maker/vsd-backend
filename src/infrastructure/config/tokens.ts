@@ -38,6 +38,12 @@ export const EDITAR_ANOTACION = Symbol('EditarAnotacionUseCase');
 export const PENDIENTES_REPOSITORY = Symbol('PendientesRepositoryPort');
 export const PENDIENTES = Symbol('PendientesUseCase');
 export const AVISOS_REPOSITORY = Symbol('AvisosRepositoryPort');
+
+/** El catalogo de datos curiosos y el cursor de cada persona (SCRUM-185). */
+export const DATO_CURIOSO_REPOSITORY = Symbol('DatoCuriosoRepositoryPort');
+
+/** El dato curioso del dia (SCRUM-185). */
+export const CONSULTAR_DATO_CURIOSO = Symbol('ConsultarDatoCuriosoUseCase');
 export const ENVIADOR_PUSH = Symbol('EnviadorDePushPort');
 export const AVISOS = Symbol('AvisosUseCase');
 export const REVISAR_AVISOS = Symbol('RevisarAvisosUseCase');

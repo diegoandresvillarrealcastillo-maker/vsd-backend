@@ -68,6 +68,15 @@ export class MascotaPropiaExportadaDto {
   contenido!: string;
 }
 
+/** El último dato curioso que se le dio (SCRUM-185): lo que vio y el día, no su identificador. */
+export class DatoCuriosoExportadoDto {
+  @ApiProperty({ description: 'El día, AAAA-MM-DD, en el calendario de la persona.' })
+  dia!: string;
+
+  @ApiProperty({ example: 'Los pulpos tienen tres corazones.' })
+  texto!: string;
+}
+
 /**
  * Todo lo que VSD Health guarda de una persona, en JSON.
  *
@@ -127,6 +136,13 @@ export class ExportacionDto {
   })
   mascotaPropia!: MascotaPropiaExportadaDto | null;
 
+  @ApiProperty({
+    type: DatoCuriosoExportadoDto,
+    nullable: true,
+    description: 'El ultimo dato curioso que se le dio y el dia (SCRUM-185).',
+  })
+  datoCurioso!: DatoCuriosoExportadoDto | null;
+
   static desde(datos: DatosExportados): ExportacionDto {
     const dto = new ExportacionDto();
 
@@ -172,6 +188,8 @@ export class ExportacionDto {
             actualizadaEl: datos.mascotaPropia.actualizadaEl.toISOString(),
             contenido: new TextDecoder().decode(datos.mascotaPropia.contenido),
           };
+
+    dto.datoCurioso = datos.datoCurioso;
 
     return dto;
   }

@@ -11,6 +11,7 @@ import { PESO_MAXIMO_DEL_SVG, TIPO_DEL_SVG } from '../../domain/model/svg/SvgDeM
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
+import type { DatoCuriosoRepositoryPort } from '../../domain/ports/out/DatoCuriosoRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
@@ -33,6 +34,7 @@ import { InMemoryUserRepository } from '../repositories/InMemoryUserRepository.j
 import { PrismaUserRepository } from '../repositories/PrismaUserRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
 import { AvisosModule } from './AvisosModule.js';
+import { DatosCuriososModule } from './DatosCuriososModule.js';
 import { DiarioModule } from './DiarioModule.js';
 import type { Configuracion } from './environment.js';
 import { PendientesModule } from './PendientesModule.js';
@@ -44,6 +46,7 @@ import {
   AVISOS_REPOSITORY,
   BORRAR_CUENTA,
   CONFIGURACION,
+  DATO_CURIOSO_REPOSITORY,
   DIARIO_REPOSITORY,
   EXPORTAR_DATOS,
   FOTO_DE_PERFIL,
@@ -77,7 +80,13 @@ import {
  */
 @Module({
   // El diario y los pendientes, para la exportacion de datos.
-  imports: [ActivityResultModule, DiarioModule, PendientesModule, AvisosModule],
+  imports: [
+    ActivityResultModule,
+    DiarioModule,
+    PendientesModule,
+    AvisosModule,
+    DatosCuriososModule,
+  ],
   controllers: [CuentaController, FotoDePerfilController, MascotaPropiaController, AvisoController],
   providers: [
     {
@@ -226,6 +235,7 @@ import {
         avisos: AvisosRepositoryPort,
         fotos: AlmacenPersonalPort,
         mascotas: AlmacenPersonalPort,
+        datosCuriosos: DatoCuriosoRepositoryPort,
       ) =>
         new ExportarDatosUseCaseImpl(
           cuentas,
@@ -235,6 +245,7 @@ import {
           avisos,
           fotos,
           mascotas,
+          datosCuriosos,
         ),
       inject: [
         USER_REPOSITORY,
@@ -244,6 +255,7 @@ import {
         AVISOS_REPOSITORY,
         ALMACEN_DE_FOTOS,
         ALMACEN_DE_MASCOTAS,
+        DATO_CURIOSO_REPOSITORY,
       ],
     },
     {

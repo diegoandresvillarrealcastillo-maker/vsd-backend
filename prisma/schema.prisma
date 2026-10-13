@@ -110,6 +110,43 @@ model Pendiente {
   @@map("pendiente")
 }
 
+/// Un dato curioso del catalogo (SCRUM-185, ADR 0025). Es de todos, no de una persona:
+/// lectura abierta y escritura de administrador, como RecursoApoyo.
+model DatoCurioso {
+  id String @id @default(uuid()) @map("id_dato") @db.Uuid
+  texto String @db.VarChar(280)
+  /// De que trata. Para revisar y filtrar, no para mostrar.
+  tema String @db.VarChar(40)
+  /// Solo se sirven los publicados. Retirar uno no lo borra: quien ya lo tiene como el del dia
+  /// lo conserva hasta que termine el dia.
+  publicado Boolean @default(false)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cursores DatoCuriosoCursor[]
+
+  @@index([publicado])
+  @@map("dato_curioso")
+}
+
+/// Por donde va cada persona en el ciclo de datos curiosos: el ultimo que se le dio y el dia.
+/// Una fila por persona. Datos personales: RLS forzado, sale en la exportacion y se borra con la
+/// cuenta. El orden en que ve los datos no se guarda: sale de un hash de su identificador.
+model DatoCuriosoCursor {
+  idUsuario String @id @map("id_usuario") @db.Uuid
+  /// NULL si el dato se borro del catalogo: el cursor sigue sirviendo por su clave.
+  idDato String? @map("id_dato") @db.Uuid
+  /// Donde cayo ese dato en el orden de esta persona. El siguiente es el de clave mayor mas cercana.
+  clave BigInt
+  /// El dia, en el calendario de la persona, en que se le dio.
+  dia DateTime @db.Date
+  actualizadoEn DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  dato DatoCurioso? @relation(fields: [idDato], references: [id], onDelete: SetNull)
+
+  @@map("dato_curioso_cursor")
+}
+
 model Usuario {
   id                      String   @id @default(uuid()) @map("id_usuario") @db.Uuid
   nombre                  String?  @db.VarChar(100)
@@ -152,6 +189,7 @@ model Usuario {
   suscripcionesPush SuscripcionPush[]
   preferenciaAviso PreferenciaAviso?
   consentimientos  Consentimiento[]
+  datoCuriosoCursor DatoCuriosoCursor?
 
   @@map("usuario")
 }

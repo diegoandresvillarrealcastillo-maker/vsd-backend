@@ -436,6 +436,22 @@ conflicto están en `dominio.md` ("Editar un pendiente desde dos dispositivos").
 y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
 `20261004120000_semaforo_de_pendientes`.
 
+## DATO_CURIOSO y DATO_CURIOSO_CURSOR
+
+Los datos curiosos del día (SCRUM-185, [ADR 0025](adr/0025-los-datos-curiosos-recorren-su-ciclo-sin-repetirse.md)).
+
+**`DATO_CURIOSO`** es el catálogo, igual para todas las personas: `id_dato`, `texto` (hasta 280),
+`tema` (para revisar, no para mostrar), `publicado` y `creado_en`. Solo se sirven los publicados; retirar
+uno no lo borra. Lectura abierta y escritura de administrador, como `RECURSO_APOYO`.
+
+**`DATO_CURIOSO_CURSOR`** es una fila por persona (`id_usuario` es la clave primaria): el último dato que
+se le dio (`id_dato`, `NULL` si se borró del catálogo), `clave` (dónde cayó en el orden de esa persona) y
+`dia` (en su calendario). Es un dato personal: RLS forzado, sale en la exportación y se borra con la
+cuenta (`ON DELETE CASCADE`).
+
+El orden en que cada persona ve los datos **no se guarda**: sale de `hashtextextended(id_dato || ':' ||
+id_usuario, 0)` en cada consulta. El siguiente es el de clave mayor más cercana a la del cursor.
+
 ## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
 
 Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
@@ -494,15 +510,17 @@ Ver la migración `20261005120000_avisos_push` y
 
 ## Resumen de políticas de acceso
 
-| Tabla            | Persona dueña                                       | Otra persona | Administrador |
-| ---------------- | --------------------------------------------------- | ------------ | ------------- |
-| `USUARIO`        | lee y escribe su fila                               | nada         | nada          |
-| `CATEGORIA`      | lee                                                 | lee          | lee y escribe |
-| `ACTIVIDAD`      | lee                                                 | lee          | lee y escribe |
-| `RESULTADO`      | lee y escribe los suyos                             | nada         | **nada**      |
-| `RECURSO_APOYO`  | lee                                                 | lee          | lee y escribe |
-| `ENTRADA_DIARIO` | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
-| `PENDIENTE`      | lee y escribe los suyos                             | nada         | **nada**      |
+| Tabla                 | Persona dueña                                       | Otra persona | Administrador |
+| --------------------- | --------------------------------------------------- | ------------ | ------------- |
+| `USUARIO`             | lee y escribe su fila                               | nada         | nada          |
+| `CATEGORIA`           | lee                                                 | lee          | lee y escribe |
+| `ACTIVIDAD`           | lee                                                 | lee          | lee y escribe |
+| `RESULTADO`           | lee y escribe los suyos                             | nada         | **nada**      |
+| `RECURSO_APOYO`       | lee                                                 | lee          | lee y escribe |
+| `ENTRADA_DIARIO`      | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
+| `PENDIENTE`           | lee y escribe los suyos                             | nada         | **nada**      |
+| `DATO_CURIOSO`        | lee                                                 | lee          | lee y escribe |
+| `DATO_CURIOSO_CURSOR` | lee y escribe el suyo                               | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

@@ -61,6 +61,18 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     );
   }
 
+  diasConActividad(userId: UserId): Promise<readonly string[]> {
+    return Promise.resolve(
+      [
+        ...new Set(
+          [...this.porOperacion.values()]
+            .filter((resultado) => resultado.perteneceA(userId))
+            .map((resultado) => resultado.dia),
+        ),
+      ].sort(),
+    );
+  }
+
   get cantidad(): number {
     return this.porOperacion.size;
   }

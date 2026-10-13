@@ -1,4 +1,5 @@
 import type { ActivityResult } from '../../model/ActivityResult.js';
+import type { Dia } from '../../model/Calendario.js';
 import type { ClientOperationId, UserId } from '../../model/Identifier.js';
 
 /**
@@ -58,4 +59,15 @@ export interface ActivityResultRepositoryPort {
    * basta una fila.
    */
   hayActividadDesde(userId: UserId, desde: Date): Promise<boolean>;
+
+  /**
+   * Los dias del calendario local en que esa persona hizo algo, sin repetir y del mas
+   * antiguo al mas reciente (SCRUM-186).
+   *
+   * Es lo unico que necesita la racha: `resultado.dia`, el dia que quedo fijado al
+   * registrar el resultado, en la zona que la persona tenia entonces (SCRUM-123). Con
+   * `ultimosDe` se traian y reconstruian todas las filas, y se consultaba el catalogo
+   * por cada actividad, para despues quedarse solo con un dia por fila.
+   */
+  diasConActividad(userId: UserId): Promise<readonly Dia[]>;
 }

@@ -459,4 +459,59 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       }
     });
   });
+
+  describe('diasConActividad (SCRUM-186)', () => {
+    async function guardarEnElDia(
+      usuario: string,
+      numero: number,
+      dia: string,
+      completedAt: Date,
+    ): Promise<void> {
+      await repositorio.save(
+        await unResultado({
+          id: `40000000-0000-4000-8000-0000000000f${numero}`,
+          usuario,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: `50000000-0000-4000-8000-0000000000f${numero}`,
+          puntajeCrudo: 8,
+          completedAt,
+          dia,
+        }),
+      );
+    }
+
+    it('devuelve los dias sin repetir y del mas antiguo al mas reciente', async () => {
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-16', new Date('2026-09-16T15:00:00.000Z'));
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-14', new Date('2026-09-14T15:00:00.000Z'));
+      // Dos resultados el mismo dia son un solo dia.
+      await guardarEnElDia(USUARIO_A, 3, '2026-09-16', new Date('2026-09-16T18:00:00.000Z'));
+
+      await expect(repositorio.diasConActividad(new UserId(USUARIO_A))).resolves.toEqual([
+        '2026-09-14',
+        '2026-09-16',
+      ]);
+    });
+
+    it('usa el dia guardado y no el instante: lo de las 8 p. m. es de ese dia', async () => {
+      // 01:00 UTC del 15 es la noche del 14 en Colombia.
+      await guardarEnElDia(USUARIO_A, 4, '2026-09-14', new Date('2026-09-15T01:00:00.000Z'));
+
+      await expect(repositorio.diasConActividad(new UserId(USUARIO_A))).resolves.toEqual([
+        '2026-09-14',
+      ]);
+    });
+
+    it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
+      await guardarEnElDia(USUARIO_B, 5, '2026-09-14', new Date('2026-09-14T15:00:00.000Z'));
+
+      await expect(repositorio.diasConActividad(new UserId(USUARIO_A))).resolves.toEqual([]);
+      await expect(repositorio.diasConActividad(new UserId(USUARIO_B))).resolves.toEqual([
+        '2026-09-14',
+      ]);
+    });
+
+    it('sin resultados, una lista vacia', async () => {
+      await expect(repositorio.diasConActividad(new UserId(USUARIO_A))).resolves.toEqual([]);
+    });
+  });
 });

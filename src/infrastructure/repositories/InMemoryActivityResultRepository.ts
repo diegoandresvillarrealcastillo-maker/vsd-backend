@@ -1,4 +1,5 @@
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
+import type { Dia } from '../../domain/model/Calendario.js';
 import type { ClientOperationId, UserId } from '../../domain/model/Identifier.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 
@@ -59,6 +60,17 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
         (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
       ),
     );
+  }
+
+  diasConActividad(userId: UserId): Promise<readonly Dia[]> {
+    const dias = new Set(
+      [...this.porOperacion.values()]
+        .filter((resultado) => resultado.perteneceA(userId))
+        .map((resultado) => resultado.dia),
+    );
+
+    // AAAA-MM-DD: el orden de texto es el del calendario.
+    return Promise.resolve([...dias].sort());
   }
 
   private clave(clientOperationId: ClientOperationId, userId: UserId): string {

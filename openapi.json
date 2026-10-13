@@ -1114,6 +1114,40 @@
         ]
       }
     },
+    "/api/racha": {
+      "get": {
+        "description": "Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte.",
+        "operationId": "RachaController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RachaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar la racha de quien firma el token",
+        "tags": [
+          "Racha"
+        ]
+      }
+    },
     "/api/asistente": {
       "post": {
         "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
@@ -2638,6 +2672,65 @@
           "sesiones",
           "etapa",
           "hoy"
+        ]
+      },
+      "RachaRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "dias": {
+            "type": "number",
+            "description": "Dias con al menos una actividad en la cadena de ahora. Los dias cubiertos por un congelamiento no suman.",
+            "example": 12
+          },
+          "nivel": {
+            "type": "number",
+            "description": "Nivel de la llama: 0 es el ascua (menos de 7 dias); 1 desde 7 dias, 2 desde 30, 3 desde 90 y 4 desde 365.",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "example": 1
+          },
+          "hechoHoy": {
+            "type": "boolean",
+            "description": "Si ya hizo algo hoy, en el dia local de la persona."
+          },
+          "enDescanso": {
+            "type": "boolean",
+            "description": "La llama descansa: no hay cadena en pie. Es un estado, no un castigo: con la siguiente actividad vuelve con un dia."
+          },
+          "congelamientosUsados": {
+            "type": "number",
+            "description": "Congelamientos usados en el mes de hoy.",
+            "example": 1
+          },
+          "congelamientosPorMes": {
+            "type": "number",
+            "description": "Congelamientos que trae cada mes calendario.",
+            "example": 3
+          },
+          "diasCubiertos": {
+            "description": "Los dias de la cadena de ahora que se cubrieron con un congelamiento, AAAA-MM-DD, del mas viejo al mas nuevo.",
+            "example": [
+              "2026-10-11"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dias",
+          "nivel",
+          "hechoHoy",
+          "enDescanso",
+          "congelamientosUsados",
+          "congelamientosPorMes",
+          "diasCubiertos"
         ]
       },
       "ConsultarAsistenteDto": {

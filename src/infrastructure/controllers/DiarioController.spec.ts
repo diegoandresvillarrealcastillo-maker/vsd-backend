@@ -125,8 +125,8 @@ describe('/api/diario', () => {
         adjuntos: [],
         version: 1,
         sugiereAcompanamiento: false,
-        lineasDeAtencion: [],
       });
+      expect(cuerpo).not.toHaveProperty('lineasDeAtencion');
       expect(cuerpo['dia']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(
         Date.parse(String(cuerpo['editableHasta'])) - Date.parse(String(cuerpo['creadaEn'])),
@@ -245,13 +245,11 @@ describe('/api/diario', () => {
         contenido: documentoCon('Hoy pense que ya no puedo mas'),
       }).expect(201);
 
-      expect(cuerpoDe(respuesta)).toMatchObject({
-        sugiereAcompanamiento: false,
-        lineasDeAtencion: [],
-      });
+      expect(cuerpoDe(respuesta)).toMatchObject({ sugiereAcompanamiento: false });
+      expect(cuerpoDe(respuesta)).not.toHaveProperty('lineasDeAtencion');
     });
 
-    it('con el permiso dado en el perfil, una senal trae las lineas, y el texto no queda en ningun registro', async () => {
+    it('con el permiso dado en el perfil, una senal sugiere acompanar sin lineas, y el texto no queda en ningun registro', async () => {
       const preferencias = (valor: boolean) =>
         request(app.getHttpServer())
           .patch('/api/cuenta/preferencias')
@@ -275,14 +273,11 @@ describe('/api/diario', () => {
         contenido: documentoCon('Hoy pense que ya no puedo mas'),
       }).expect(201);
 
-      const cuerpo = cuerpoDe(respuesta) as {
-        sugiereAcompanamiento: boolean;
-        lineasDeAtencion: { cobertura?: string }[];
-      };
+      const cuerpo = cuerpoDe(respuesta) as { sugiereAcompanamiento: boolean };
 
       expect(cuerpo.sugiereAcompanamiento).toBe(true);
-      expect(cuerpo.lineasDeAtencion.length).toBeGreaterThan(0);
-      expect(cuerpo.lineasDeAtencion[0]?.cobertura).toBe('nacional');
+      // Las lineas viven en Recursos (SCRUM-194): el diario ofrece ir alli y no las manda.
+      expect(cuerpo).not.toHaveProperty('lineasDeAtencion');
 
       // El registro si anoto la peticion: la prueba escucha donde de verdad
       // se escribe, y aun asi el texto no aparece.

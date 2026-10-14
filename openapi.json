@@ -637,7 +637,7 @@
         ]
       },
       "post": {
-        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.",
+        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si la persona lo permitió en su perfil y lo escrito trae una señal de riesgo, la respuesta lo indica (sugiereAcompanamiento) y nada más: las líneas de atención no viajan aquí, viven en Recursos. No se guarda ninguna marca.",
         "operationId": "DiarioController_escribir",
         "parameters": [],
         "requestBody": {
@@ -2283,14 +2283,7 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Si lo escrito trae una señal de riesgo. Se calcula en cada respuesta y no se guarda con la anotación."
-          },
-          "lineasDeAtencion": {
-            "description": "Las líneas de atención, ordenadas por alcance (lo nacional primero), cuando sugiereAcompanamiento es cierto. Vacía en otro caso.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RecursoDto"
-            }
+            "description": "Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ir a Recursos."
           }
         },
         "required": [
@@ -2303,8 +2296,7 @@
           "creadaEn",
           "editadaEn",
           "editableHasta",
-          "sugiereAcompanamiento",
-          "lineasDeAtencion"
+          "sugiereAcompanamiento"
         ]
       },
       "EditarAnotacionDto": {

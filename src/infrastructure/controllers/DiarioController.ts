@@ -74,7 +74,7 @@ export class DiarioController {
   @ApiOperation({
     summary: 'Escribir una anotación',
     description:
-      'Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si lo escrito trae una señal de riesgo, la respuesta lo indica y trae las líneas de atención; no se guarda ninguna marca.',
+      'Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si la persona lo permitió en su perfil y lo escrito trae una señal de riesgo, la respuesta lo indica (sugiereAcompanamiento) y nada más: las líneas de atención no viajan aquí, viven en Recursos. No se guarda ninguna marca.',
   })
   @ApiResponse({ status: 201, type: AnotacionGuardadaDto })
   @ApiResponse({
@@ -128,7 +128,6 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.editarAnotacion.execute({
       userId: cuenta.id.value,
-      zonaHoraria: cuenta.zonaHoraria,
       conRecomendaciones: cuenta.diarioConRecomendaciones,
       entradaId: id,
       version: dto.version,

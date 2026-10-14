@@ -161,6 +161,31 @@ siguen mostrándolas. Si prefieren el falso positivo, basta con añadir esas tre
 **Origen:** `MENSAJES` y `SUGERENCIAS_DEL_ASISTENTE` en `src/domain/model/ReglasDelAsistente.ts`.
 Ver el [ADR 0027](adr/0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md).
 
+### La burbuja del diario (SCRUM-194, decisión D6)
+
+Es de la **mascota**, no del asistente de chat, y aparece al guardar o corregir una anotación del
+diario. Solo si la persona dio el permiso de su perfil (SCRUM-108) **y** lo escrito trae una frase de
+la lista de riesgo. Sin permiso no se lee nada y no aparece nada.
+
+**Nunca lleva líneas de atención**: ofrece ir a Recursos con un toque, donde están las del país de la
+persona.
+
+| Dónde                           | Texto                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| La mascota dice                 | «Gracias por escribirlo. Lo que sientes importa, y no tienes que pasarlo sin compañía. ¿Quieres ver algunos consejos o hablar con alguien?» |
+| Botón principal (abre Recursos) | «Ver recursos»                                                                                                                              |
+| Botón para cerrarla             | «Ahora no»                                                                                                                                  |
+
+**Alternativa del encargo original**, por si se prefiere un tono más sobrio:
+«Noté que escribiste algo en tu diario. ¿Quieres recibir algunos consejos o hablar con alguien sobre
+eso?». Se cambia en una sola constante del frontend.
+
+**Lo que no hace:** no diagnostica, no pone nombre a lo que se siente, no repite lo que la persona
+escribió y no se vuelve a mostrar por la misma anotación una vez cerrada.
+
+**Origen:** `TEXTO_DE_LA_BURBUJA` en `src/paginas/diario/BurbujaDelDiario.tsx` (frontend). Ver el
+[ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-ofrece-ir-a-recursos.md).
+
 ### Las erratas (SCRUM-193)
 
 La gente escribe de prisa, desde el teléfono. «ola», «cómo bamos», «grasias» y «sicologo» se leen

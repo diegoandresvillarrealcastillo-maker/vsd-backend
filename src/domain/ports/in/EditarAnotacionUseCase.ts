@@ -17,11 +17,6 @@ export interface EditarAnotacionCommand {
   readonly editadaEn?: unknown;
   /** Ver `EscribirEnElDiarioCommand.conRecomendaciones`. */
   readonly conRecomendaciones: boolean;
-  /**
-   * La zona de la cuenta. De ella sale el pais de las lineas de atencion
-   * (SCRUM-124).
-   */
-  readonly zonaHoraria: string;
 }
 
 /**

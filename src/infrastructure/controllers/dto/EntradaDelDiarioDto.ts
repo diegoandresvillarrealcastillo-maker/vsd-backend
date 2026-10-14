@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import type { Adjunto, NodoDelDocumento } from '../../../domain/model/DocumentoDelDiario.js';
 import type { EntradaDeDiario } from '../../../domain/model/EntradaDeDiario.js';
 import type { AnotacionGuardada } from '../../../domain/ports/in/EscribirEnElDiarioUseCase.js';
-import { RecursoDto } from './RecursoDto.js';
 
 const EJEMPLO_DE_DOCUMENTO = {
   type: 'doc',
@@ -91,30 +90,24 @@ export class EntradaDelDiarioDto {
 }
 
 /**
- * Lo que responden escribir y editar: la anotacion y su acompanamiento.
+ * Lo que responden escribir y editar: la anotacion y si conviene acompanarla.
  *
- * Los mismos dos campos que un resultado (SCRUM-94), con el mismo sentido,
- * para que el cliente los trate igual vengan de donde vengan.
+ * `sugiereAcompanamiento` tiene el sentido que en un resultado (SCRUM-94), pero
+ * aqui **no viajan lineas de atencion** (SCRUM-194): el diario es lo mas
+ * personal que hay, y el telefono pegado a lo recien escrito se siente como una
+ * alarma. El cliente ofrece ir a Recursos, donde estan las del pais.
  */
 export class AnotacionGuardadaDto extends EntradaDelDiarioDto {
   @ApiProperty({
     description:
-      'Si lo escrito trae una señal de riesgo. Se calcula en cada respuesta y no se guarda con la anotación.',
+      'Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ir a Recursos.',
   })
   sugiereAcompanamiento!: boolean;
-
-  @ApiProperty({
-    type: [RecursoDto],
-    description:
-      'Las líneas de atención, ordenadas por alcance (lo nacional primero), cuando sugiereAcompanamiento es cierto. Vacía en otro caso.',
-  })
-  lineasDeAtencion!: RecursoDto[];
 
   static deLaGuardada(guardada: AnotacionGuardada): AnotacionGuardadaDto {
     const dto = EntradaDelDiarioDto.llenar(new AnotacionGuardadaDto(), guardada.entrada);
 
     dto.sugiereAcompanamiento = guardada.sugiereAcompanamiento;
-    dto.lineasDeAtencion = guardada.lineasDeAtencion.map((recurso) => RecursoDto.desde(recurso));
 
     return dto;
   }

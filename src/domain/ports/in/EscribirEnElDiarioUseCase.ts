@@ -1,18 +1,19 @@
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
-import type { RecursoApoyo } from '../../model/RecursoApoyo.js';
 
 /**
  * Una anotacion recien guardada, con lo que conviene ensenar junto a ella.
  *
- * Lo devuelven escribir y editar. `sugiereAcompanamiento` y las lineas se
- * calculan en cada respuesta y no se guardan: la anotacion no lleva ninguna
- * marca de lo que se detecto en ella. Y solo se calculan si la persona lo
- * permitio (SCRUM-108); si no, van en falso y vacias.
+ * Lo devuelven escribir y editar. `sugiereAcompanamiento` se calcula en cada
+ * respuesta y no se guarda: la anotacion no lleva ninguna marca de lo que se
+ * detecto en ella. Y solo se calcula si la persona lo permitio (SCRUM-108); si
+ * no, va en falso.
+ *
+ * **No lleva lineas de atencion** (SCRUM-194): el diario ofrece ir a Recursos,
+ * no las pone en la respuesta.
  */
 export interface AnotacionGuardada {
   readonly entrada: EntradaDeDiario;
   readonly sugiereAcompanamiento: boolean;
-  readonly lineasDeAtencion: readonly RecursoApoyo[];
 }
 
 export interface EscribirEnElDiarioCommand {

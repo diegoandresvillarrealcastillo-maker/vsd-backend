@@ -1,9 +1,7 @@
 import type { Dia } from '../domain/model/Calendario.js';
 import type { EntradaDeDiario } from '../domain/model/EntradaDeDiario.js';
 import type { ClientOperationId, EntradaId, UserId } from '../domain/model/Identifier.js';
-import { Cobertura, RecursoApoyo, TipoDeRecurso } from '../domain/model/RecursoApoyo.js';
 import type { DiarioRepositoryPort } from '../domain/ports/out/DiarioRepositoryPort.js';
-import type { RecursoApoyoRepositoryPort } from '../domain/ports/out/RecursoApoyoRepositoryPort.js';
 
 /**
  * Lo que comparten las pruebas del diario (SCRUM-95).
@@ -87,42 +85,4 @@ export function documentoCon(...parrafos: string[]): Record<string, unknown> {
       content: [{ type: 'text', text: texto }],
     })),
   };
-}
-
-/**
- * Lineas de atencion de prueba, a proposito en desorden: la de Bogota antes
- * que la nacional. Asi se ve que quien las devuelve las ordena.
- */
-export class LineasDePrueba implements RecursoApoyoRepositoryPort {
-  consultas = 0;
-  /** El pais con el que se pidieron las lineas, en el orden en que se pidieron. */
-  paises: (string | undefined)[] = [];
-
-  lineasDeAtencion(pais: string | undefined): Promise<readonly RecursoApoyo[]> {
-    this.consultas += 1;
-    this.paises.push(pais);
-
-    return Promise.resolve([
-      RecursoApoyo.create({
-        id: 'linea-106',
-        titulo: 'Línea 106',
-        tipo: TipoDeRecurso.CONTACTO,
-        cobertura: Cobertura.BOGOTA,
-        fuente: 'https://pruebas.test/106',
-        verificadoEl: '2026-10-06',
-      }),
-      RecursoApoyo.create({
-        id: 'linea-192',
-        titulo: 'Línea 192, opción 4',
-        tipo: TipoDeRecurso.CONTACTO,
-        cobertura: Cobertura.NACIONAL,
-        fuente: 'https://pruebas.test/192',
-        verificadoEl: '2026-10-06',
-      }),
-    ]);
-  }
-
-  porTema(): Promise<readonly RecursoApoyo[]> {
-    return Promise.resolve([]);
-  }
 }

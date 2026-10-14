@@ -1,5 +1,4 @@
 import { Calendario } from '../../domain/model/Calendario.js';
-import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { horaDelDispositivo } from '../../domain/model/HoraDelDispositivo.js';
@@ -11,7 +10,6 @@ import type {
   EscribirEnElDiarioUseCase,
 } from '../../domain/ports/in/EscribirEnElDiarioUseCase.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
-import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { acompanarAnotacion } from './acompanarAnotacion.js';
 
 /**
@@ -24,7 +22,6 @@ import { acompanarAnotacion } from './acompanarAnotacion.js';
 export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase {
   constructor(
     private readonly diario: DiarioRepositoryPort,
-    private readonly recursos: RecursoApoyoRepositoryPort,
     private readonly generarId: () => EntradaId = () =>
       new EntradaId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
@@ -39,12 +36,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
     const existente = await this.diario.porOperacion(userId, clientOperationId);
 
     if (existente !== null) {
-      return acompanarAnotacion(
-        existente,
-        this.recursos,
-        command.conRecomendaciones,
-        paisDeLaZona(command.zonaHoraria),
-      );
+      return acompanarAnotacion(existente, command.conRecomendaciones);
     }
 
     const ahora = this.reloj();
@@ -82,11 +74,6 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
       escritaEn,
     );
 
-    return acompanarAnotacion(
-      await this.diario.guardarNueva(entrada),
-      this.recursos,
-      command.conRecomendaciones,
-      paisDeLaZona(command.zonaHoraria),
-    );
+    return acompanarAnotacion(await this.diario.guardarNueva(entrada), command.conRecomendaciones);
   }
 }

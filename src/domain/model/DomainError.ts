@@ -506,6 +506,18 @@ export class InvalidJournalEntryError extends DomainError {
   }
 }
 
+/**
+ * La pagina del historial que el cliente devolvio no es una que este sistema haya dado
+ * (SCRUM-184). El mensaje no repite lo recibido.
+ */
+export class InvalidHistoryPageError extends DomainError {
+  readonly code = 'PAGINA_DEL_HISTORIAL_INVALIDA';
+
+  constructor() {
+    super('La página del historial que pediste no es válida. Empieza de nuevo desde la primera.');
+  }
+}
+
 /** Se intento escribir en un dia que todavia no ha llegado. */
 export class FutureJournalDayError extends DomainError {
   readonly code = 'DIA_EN_EL_FUTURO';

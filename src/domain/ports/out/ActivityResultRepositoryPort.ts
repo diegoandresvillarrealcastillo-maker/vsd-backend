@@ -1,6 +1,7 @@
 import type { ActivityResult } from '../../model/ActivityResult.js';
 import type { Dia } from '../../model/Calendario.js';
-import type { ClientOperationId, UserId } from '../../model/Identifier.js';
+import type { FilaDelHistorial, PuntoDeLaPagina } from '../../model/HistorialDelModulo.js';
+import type { ActivityId, ClientOperationId, UserId } from '../../model/Identifier.js';
 
 /**
  * Puerto de salida: lo que el dominio necesita del mundo para poder cumplir
@@ -70,4 +71,24 @@ export interface ActivityResultRepositoryPort {
    * por cada actividad, para despues quedarse solo con un dia por fila.
    */
   diasConActividad(userId: UserId): Promise<readonly Dia[]>;
+
+  /**
+   * Una pagina de lo que esa persona hizo en un conjunto de actividades, del mas reciente al
+   * mas antiguo (SCRUM-184). Es el historial de un modulo.
+   *
+   * Devuelve **filas ligeras** (identificador, actividad, dia y hora) y no entidades: el
+   * historial no necesita el puntaje ni lo escrito, y asi ni se leen ni salen de la base.
+   *
+   * La pagina es **por cursor**: `despuesDe` es el ultimo hecho de la anterior, y esta
+   * empieza justo despues en el orden (hora y, a igual hora, identificador). Con numero de
+   * pagina, un hecho nuevo mientras se lee repetiria o saltaria una fila.
+   *
+   * Sin actividades, lista vacia. Solo trae lo de esa persona: como en los demas metodos, el
+   * identificador es parte de la pregunta.
+   */
+  historialDe(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    pagina: { readonly limite: number; readonly despuesDe?: PuntoDeLaPagina | undefined },
+  ): Promise<readonly FilaDelHistorial[]>;
 }

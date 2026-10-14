@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConsultarHistorialDelModuloUseCaseImpl } from '../../application/usecases/ConsultarHistorialDelModuloUseCaseImpl.js';
 import { ConsultarProgresoUseCaseImpl } from '../../application/usecases/ConsultarProgresoUseCaseImpl.js';
 import { ConsultarRachaUseCaseImpl } from '../../application/usecases/ConsultarRachaUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
@@ -10,6 +11,7 @@ import { ActivityResultModule } from './ActivityResultModule.js';
 import {
   ACTIVITY_REPOSITORY,
   ACTIVITY_RESULT_REPOSITORY,
+  CONSULTAR_HISTORIAL_DEL_MODULO,
   CONSULTAR_PROGRESO,
   CONSULTAR_RACHA,
   USER_REPOSITORY,
@@ -34,6 +36,15 @@ import { UsuariosModule } from './UsuariosModule.js';
         catalogo: ActivityRepositoryPort,
         resultados: ActivityResultRepositoryPort,
       ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados),
+      inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
+    },
+    {
+      provide: CONSULTAR_HISTORIAL_DEL_MODULO,
+      useFactory: (
+        cuentas: UserRepositoryPort,
+        catalogo: ActivityRepositoryPort,
+        resultados: ActivityResultRepositoryPort,
+      ) => new ConsultarHistorialDelModuloUseCaseImpl(cuentas, catalogo, resultados),
       inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
     },
     {

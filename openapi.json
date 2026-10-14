@@ -1113,7 +1113,7 @@
     },
     "/api/progreso": {
       "get": {
-        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas y lo que le toca hoy, con lo que ya hizo. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
+        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas, lo que le toca hoy (sin tope) y, en sugeridas, otras abiertas hasta completar un minimo sugerido de tres, que no cuentan para nada. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
         "operationId": "ProgresoController_consultar",
         "parameters": [],
         "responses": {
@@ -1143,6 +1143,79 @@
           }
         ],
         "summary": "Consultar el progreso de cada modulo activo",
+        "tags": [
+          "Progreso"
+        ]
+      }
+    },
+    "/api/progreso/{modulo}/historial": {
+      "get": {
+        "description": "Lo que la persona hizo en ese modulo, del mas reciente al mas antiguo, por paginas que arma el servidor: la actividad, su dia y la hora. Nunca el puntaje, ni el nivel, ni lo que escribio. Paginado por cursor: se pide la siguiente con el texto de siguientePagina. Es de cualquier modulo conocido, este activo o no. Sale de los resultados, asi que entra en la exportacion y se borra con la cuenta.",
+        "operationId": "ProgresoController_historialDelModulo",
+        "parameters": [
+          {
+            "name": "modulo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "bienestar",
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "description": "Cuantos hechos por pagina, de 1 a 50. Por omision 20.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "description": "El texto que dio la pagina anterior en siguientePagina. Es opaco: no se arma ni se interpreta. Sin el, la primera pagina.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDelHistorialDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un modulo que no existe, un limite fuera de rango o una pagina que no es valida."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el historial de un modulo",
         "tags": [
           "Progreso"
         ]
@@ -2769,7 +2842,14 @@
             "$ref": "#/components/schemas/EtapaDto"
           },
           "hoy": {
-            "description": "Lo que toca hoy, con lo hecho.",
+            "description": "Lo que toca hoy, con lo hecho. Sin tope: salen todas las que tocan.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActividadDeHoyDto"
+            }
+          },
+          "sugeridas": {
+            "description": "Otras actividades abiertas del modulo que hoy no tocan, hasta completar un minimo sugerido de tres con lo de hoy (SCRUM-184). Es una sugerencia: no forma parte del plan del dia, no suma sesiones ni cuenta para la racha. Vacia cuando hoy ya llega a tres.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ActividadDeHoyDto"
@@ -2780,7 +2860,75 @@
           "modulo",
           "sesiones",
           "etapa",
-          "hoy"
+          "hoy",
+          "sugeridas"
+        ]
+      },
+      "ActividadDelHechoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cómo dormiste anoche"
+          }
+        },
+        "required": [
+          "id",
+          "nombre"
+        ]
+      },
+      "HechoDelHistorialDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actividad": {
+            "$ref": "#/components/schemas/ActividadDelHechoDto"
+          },
+          "dia": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-02",
+            "description": "El dia, en la zona que la persona tenia al hacerlo."
+          },
+          "hechaEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "La hora a la que termino la actividad."
+          }
+        },
+        "required": [
+          "id",
+          "actividad",
+          "dia",
+          "hechaEn"
+        ]
+      },
+      "PaginaDelHistorialDto": {
+        "type": "object",
+        "properties": {
+          "hechos": {
+            "description": "Del mas reciente al mas antiguo.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HechoDelHistorialDto"
+            }
+          },
+          "siguientePagina": {
+            "type": "string",
+            "nullable": true,
+            "description": "El texto para pedir la pagina siguiente en el parametro pagina, o null si no hay mas."
+          }
+        },
+        "required": [
+          "hechos",
+          "siguientePagina"
         ]
       },
       "RachaRespuestaDto": {

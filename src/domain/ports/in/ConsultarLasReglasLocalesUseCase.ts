@@ -64,6 +64,22 @@ export interface ReglasLocalesDelAsistente {
     readonly reglas: readonly ReglaLocalDeCharla[];
     readonly relleno: readonly string[];
   };
+  /**
+   * El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la
+   * charla, igual que en el servidor. Es **aditivo**: una aplicacion que no lo conozca lo ignora.
+   */
+  readonly ofensivo: {
+    /** Lo que cuenta como insulto. Ya normalizado; un `*` final es una raiz. */
+    readonly terminos: readonly string[];
+    /** Si aparece alguna, el mensaje habla de quien lo escribe y no cuenta como insulto. */
+    readonly desahogo: readonly string[];
+    /** A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. */
+    readonly umbral: number;
+    /** Lo que se responde a un insulto. */
+    readonly mensaje: string;
+    /** Lo que se dice al cerrar la conversacion. */
+    readonly mensajeAlCerrar: string;
+  };
   /** Lo demas que el servidor reconoce, en su orden. */
   readonly intenciones: readonly ReglaLocalDeIntencion[];
   /** Los paises con lineas verificadas, por su codigo de dos letras. */

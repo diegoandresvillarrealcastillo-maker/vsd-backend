@@ -2862,7 +2862,7 @@
         "properties": {
           "intencion": {
             "type": "string",
-            "description": "Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) responde sin recursos ni lineas de atencion.",
+            "description": "Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer, lenguaje_ofensivo o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) y el lenguaje ofensivo responden sin recursos ni lineas de atencion.",
             "example": "como_duermo_mejor"
           },
           "mensaje": {
@@ -3022,6 +3022,45 @@
           "relleno"
         ]
       },
+      "OfensivoLocalDto": {
+        "type": "object",
+        "properties": {
+          "terminos": {
+            "description": "Lo que cuenta como insulto o como orden de callar, ya normalizado. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "desahogo": {
+            "description": "Si el mensaje lleva alguna, habla de quien lo escribe y no cuenta como insulto aunque lleve un termino: «soy un idiota», «me siento una mierda».",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "umbral": {
+            "type": "number",
+            "example": 3,
+            "description": "A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. El servidor no cuenta: la ventana de chat lleva la cuenta."
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Lo que se responde a un insulto, sin lineas de atencion."
+          },
+          "mensajeAlCerrar": {
+            "type": "string",
+            "description": "Lo que se dice al cerrar la conversacion."
+          }
+        },
+        "required": [
+          "terminos",
+          "desahogo",
+          "umbral",
+          "mensaje",
+          "mensajeAlCerrar"
+        ]
+      },
       "ReglaDeIntencionDto": {
         "type": "object",
         "properties": {
@@ -3070,6 +3109,14 @@
           "charla": {
             "$ref": "#/components/schemas/CharlaLocalDto"
           },
+          "ofensivo": {
+            "description": "El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la charla. Una aplicacion que no lo conozca lo ignora.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfensivoLocalDto"
+              }
+            ]
+          },
           "intenciones": {
             "description": "Lo demas que el servidor reconoce, en su orden.",
             "type": "array",
@@ -3096,6 +3143,7 @@
           "esquema",
           "riesgo",
           "charla",
+          "ofensivo",
           "intenciones",
           "paises",
           "internacional"

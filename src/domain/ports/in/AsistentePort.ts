@@ -22,6 +22,11 @@ export const Intencion = {
   DESPEDIDA: 'despedida',
   COMO_ESTAS: 'como_estas',
   QUE_PUEDES_HACER: 'que_puedes_hacer',
+  /**
+   * Un insulto dirigido al asistente (SCRUM-192). Se evalua despues del riesgo, nunca antes, y se
+   * responde sin lineas de atencion. El servidor no cuenta: la ventana de chat lleva la cuenta.
+   */
+  LENGUAJE_OFENSIVO: 'lenguaje_ofensivo',
   /** No se reconocio nada. Se responde igual, con algo util. */
   NO_RECONOCIDA: 'no_reconocida',
 } as const;

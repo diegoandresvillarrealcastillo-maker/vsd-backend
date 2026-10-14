@@ -2,6 +2,7 @@ import { normalizar } from '../domain/model/SenalesDeRiesgo.js';
 import type { ReglasLocalesDelAsistente } from '../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
 import {
   contieneAlguno,
+  esLenguajeOfensivo,
   palabrasDe,
   reconocerCharla,
 } from '../infrastructure/asistente/Reconocimiento.js';
@@ -22,13 +23,15 @@ import {
  * El orden es el del servidor y no se negocia:
  *
  * 1. **El riesgo**, primero y aparte, sobre el texto normalizado.
- * 2. **La charla**, solo si el mensaje entero es charla.
- * 3. **Lo demas que se reconoce**, la primera regla que coincide.
+ * 2. **El lenguaje ofensivo** (SCRUM-192), despues del riesgo y nunca antes.
+ * 3. **La charla**, solo si el mensaje entero es charla.
+ * 4. **Lo demas que se reconoce**, la primera regla que coincide.
  *
  * Y lo que no se puede responder sin conexion **no se inventa**: `exige-conexion`.
  */
 export type ResultadoSinConexion =
   | { readonly tipo: 'riesgo'; readonly mensaje: string; readonly lineas: readonly string[] }
+  | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
   | {
       readonly tipo: 'charla';
       readonly intencion: string;
@@ -87,6 +90,12 @@ export function responderSinConexion(
   }
 
   const palabras = palabrasDe(consulta.texto);
+
+  // Despues del riesgo y antes de la charla (SCRUM-192). Responde sin lineas ni conexion.
+  if (esLenguajeOfensivo(palabras, reglas.ofensivo)) {
+    return { tipo: 'ofensivo', intencion: 'lenguaje_ofensivo', mensaje: reglas.ofensivo.mensaje };
+  }
+
   const relleno = new Set([...reglas.charla.relleno, ...palabrasDe(consulta.mascota ?? '')]);
   const charla = reconocerCharla(palabras, reglas.charla.reglas, relleno);
 

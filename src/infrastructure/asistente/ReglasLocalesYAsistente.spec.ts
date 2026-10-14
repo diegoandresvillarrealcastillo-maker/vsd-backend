@@ -6,6 +6,7 @@ import {
   REGLAS_DE_CHARLA,
   REGLAS_DE_INTENCION,
 } from '../../domain/model/ReglasDelAsistente.js';
+import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
 import { EXPRESIONES_DE_RIESGO, hayRiesgo } from '../../domain/model/SenalesDeRiesgo.js';
 import { Intencion } from '../../domain/ports/in/AsistentePort.js';
 import type { ReglasLocalesDelAsistente } from '../../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
@@ -130,6 +131,54 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
           expect(delPaquete.get(zona), zona).toBe(pais);
         }
       }
+    });
+  });
+
+  describe('el lenguaje ofensivo (SCRUM-192)', () => {
+    it('el paquete trae exactamente la lista que usa el servidor', () => {
+      expect([...reglas.ofensivo.terminos]).toEqual([...LENGUAJE_OFENSIVO.terminos]);
+      expect([...reglas.ofensivo.desahogo]).toEqual([...LENGUAJE_OFENSIVO.desahogo]);
+      expect(reglas.ofensivo.umbral).toBe(LENGUAJE_OFENSIVO.umbral);
+      expect(reglas.ofensivo.mensajeAlCerrar).toBe(LENGUAJE_OFENSIVO.mensajeAlCerrar);
+    });
+
+    it.each(LENGUAJE_OFENSIVO.terminos.map((termino) => [termino, ejemploDe(termino)]))(
+      'el termino "%s" se responde igual en el servidor y en el dispositivo: sin lineas y sin conexion',
+      async (_termino, texto) => {
+        const delServidor = await responder(String(texto));
+        const delDispositivo = responderSinConexion(reglas, { texto: String(texto), zona: BOGOTA });
+
+        expect(delServidor).toMatchObject({
+          intencion: Intencion.LENGUAJE_OFENSIVO,
+          recursos: [],
+          senalDeRiesgo: false,
+          incluyeLineasDeAtencion: false,
+        });
+        expect(delDispositivo).toEqual({
+          tipo: 'ofensivo',
+          intencion: Intencion.LENGUAJE_OFENSIVO,
+          mensaje: delServidor.mensaje,
+        });
+      },
+    );
+
+    it('el desahogo no es un insulto, en ninguno de los dos lados', async () => {
+      for (const texto of ['me siento una mierda', 'soy un idiota', 'odio mi vida']) {
+        const delServidor = await responder(texto);
+        const delDispositivo = responderSinConexion(reglas, { texto, zona: BOGOTA });
+
+        expect(delServidor.intencion, texto).not.toBe(Intencion.LENGUAJE_OFENSIVO);
+        expect(delDispositivo.tipo, texto).not.toBe('ofensivo');
+      }
+    });
+
+    it('el riesgo gana en los dos lados', async () => {
+      const texto = 'eres un idiota, quiero morirme';
+      const delServidor = await responder(texto);
+      const delDispositivo = responderSinConexion(reglas, { texto, zona: BOGOTA });
+
+      expect(delServidor.senalDeRiesgo).toBe(true);
+      expect(delDispositivo.tipo).toBe('riesgo');
     });
   });
 
@@ -268,6 +317,17 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
           return;
         }
 
+        if (delServidor.intencion === Intencion.LENGUAJE_OFENSIVO) {
+          // Un insulto se responde igual sin conexion: es una frase fija, sin lineas.
+          expect(delDispositivo).toEqual({
+            tipo: 'ofensivo',
+            intencion: Intencion.LENGUAJE_OFENSIVO,
+            mensaje: delServidor.mensaje,
+          });
+
+          return;
+        }
+
         if (SE_RESPONDE_SIN_CONEXION.includes(delServidor.intencion)) {
           // Lo que el servidor reconoce de esta lista y no se puede responder sin
           // conexion es un hueco: el dispositivo tendria que callar donde el servidor
@@ -287,7 +347,13 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
         CASOS_DE_LAS_REGLAS_LOCALES.map((caso) => responderSinConexion(reglas, caso).tipo),
       );
 
-      expect([...tipos].sort()).toEqual(['ayuda', 'charla', 'exige-conexion', 'riesgo']);
+      expect([...tipos].sort()).toEqual([
+        'ayuda',
+        'charla',
+        'exige-conexion',
+        'ofensivo',
+        'riesgo',
+      ]);
     });
   });
 

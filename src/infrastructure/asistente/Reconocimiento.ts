@@ -69,6 +69,20 @@ export function contieneAlguno(palabras: readonly string[], patrones: readonly s
 }
 
 /**
+ * Cierto si el mensaje es un insulto o una orden de callar dirigida al asistente (SCRUM-192).
+ *
+ * Cuenta solo si lleva alguno de los terminos **y no** habla de quien lo escribe: «soy un idiota»
+ * o «me siento una mierda» son un desahogo, no un insulto. Ante la duda no cuenta. El riesgo se
+ * evalua antes que esto, en quien llama.
+ */
+export function esLenguajeOfensivo(
+  palabras: readonly string[],
+  regla: { readonly terminos: readonly string[]; readonly desahogo: readonly string[] },
+): boolean {
+  return contieneAlguno(palabras, regla.terminos) && !contieneAlguno(palabras, regla.desahogo);
+}
+
+/**
  * Cuando el mensaje entero es charla y no otra cosa.
  *
  * ## Por que "entero"

@@ -91,6 +91,48 @@ Y la señal de riesgo se sigue mirando **antes y aparte** de todo esto, sin
 cambios: hay una prueba que pone cada una de las 23 frases con saludos,
 despedidas y agradecimientos alrededor.
 
+### El lenguaje ofensivo (SCRUM-192, decisión D5)
+
+Cuando alguien le escribe un insulto o una orden de callar al asistente, se responde con
+asertividad, **sin juicio y sin líneas de atención** (no hay una señal de riesgo), y no se añade
+nada del historial.
+
+> Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando.
+> Aquí estoy cuando quieras retomar.
+
+**Si insiste tres veces seguidas** en la misma ventana de chat, la conversación se cierra:
+
+> Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a
+> estar. Y si quieres hablar con alguien, en Recursos encuentras dónde.
+
+Cerrarla **no bloquea a nadie**: se abre otra cuando quiera. Cualquier mensaje que no sea ofensivo
+reinicia la cuenta (son tres **seguidos**, como pedía el requisito). La cuenta la lleva la ventana
+de chat, en memoria: el servidor no guarda conversaciones, así que solo dice que ese mensaje fue
+ofensivo.
+
+**Lo más importante: insulto no es desahogo.** «Me siento una mierda», «odio mi vida» o «soy un
+inútil» no son insultos al asistente: son alguien contando cómo se siente, y es a quien más hay
+que seguir escuchando. Por eso:
+
+- **El riesgo se evalúa antes.** «Eres un idiota, quiero morirme» recibe las líneas de atención,
+  no una advertencia.
+- **Si el mensaje habla de quien lo escribe** («soy», «me siento», «estoy», «fui», «me odio»,
+  «odio mi», «mi vida», «mi culpa»…), no cuenta, aunque lleve un término de la lista.
+- La lista es **corta y conservadora**. Un falso negativo (no ver un insulto) cuesta una respuesta
+  más amable; un falso positivo le cierra la puerta a quien más la necesita. Ante la duda, no
+  cuenta.
+
+**Lista que revisa Diego** (`TERMINOS_OFENSIVOS`, una palabra completa por término; `*` es una
+raíz): idiota\*, imbécil\*, estúpid\*, inútil, tonto, tonta, pendej\*, gilipollas, cabrón\*,
+malparid\*, hijueputa\*, hdp; «eres una mierda», «eres basura», «eres un asco»; «cállate», «cierra
+la boca», «jódete», «lárgate», «vete a la mierda», «vete al carajo»; y en inglés «fuck you», «fuck
+off», «shut up». **No están** a propósito: «marica», «parce» y «gonorrea» (se dicen con cariño),
+ni «basura» o «mierda» sueltas («saca la basura» no es un insulto).
+
+**Origen:** `LenguajeOfensivo.ts` en `src/domain/model/` (la lista, las marcas de desahogo, el
+umbral y los dos mensajes), `esLenguajeOfensivo` en `Reconocimiento.ts` y el orden en
+`AsistentePorReglas.ts`. Se responde también **sin conexión**: sale en el paquete de reglas locales.
+
 ### Palabras completas, no pedazos (SCRUM-128)
 
 Antes, el asistente buscaba pedazos de texto: «mal» coincidía dentro de

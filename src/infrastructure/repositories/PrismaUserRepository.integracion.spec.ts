@@ -71,11 +71,17 @@ async function preparar(): Promise<NonNullable<typeof preparado>> {
 
 /** Borra solo las cuentas de esta prueba, con el dueno y sin politicas de por medio. */
 async function limpiarCon(dueno: Client): Promise<void> {
-  const nuestras = [PERSONA, OTRA_PERSONA];
+  // La tercera es la cuenta nueva con la que se vuelve a registrar quien se dio de baja (SCRUM-190).
+  const nuestras = [PERSONA, OTRA_PERSONA, '33333333-3333-4333-8333-333333333333'];
 
   await dueno.query('DELETE FROM entrada_diario WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM usuario WHERE id_usuario = ANY($1)', [nuestras]);
+  // La constancia de las cuentas dadas de baja (SCRUM-190) no cuelga de `usuario`.
+  await dueno.query('DELETE FROM cuenta_inactiva WHERE id_cuenta = ANY($1)', [nuestras]);
+  await dueno.query('DELETE FROM consentimiento_de_cuenta_inactiva WHERE id_cuenta = ANY($1)', [
+    nuestras,
+  ]);
 }
 
 if (URL_DUENO === undefined) {

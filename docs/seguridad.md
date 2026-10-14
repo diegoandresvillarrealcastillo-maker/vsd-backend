@@ -347,11 +347,18 @@ no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
     base64). De los navegadores suscritos solo dice cuántos son: sus
     direcciones y claves sirven para mandarle avisos a ese equipo, no para
     leerlas.
-  - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, borra la cuenta
-    con todo lo suyo, sus archivos en Storage y su identidad en Supabase
-    Auth. Es todo o nada: si Supabase no responde, la transaccion se deshace
-    y no se borra nada. Los archivos se borran antes que la identidad: lo
-    irreversible va al final.
+  - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, da de baja la
+    cuenta (SCRUM-190, ADR 0026): borra la cuenta con todo lo suyo, sus
+    archivos en Storage y su identidad en Supabase Auth, y **deja una
+    constancia minima** de lo que acepto —que existio, cuando, y las versiones
+    del aviso y de los terminos— sin nombre, correo ni fecha de nacimiento.
+    Es todo o nada: si Supabase no responde, la transaccion se deshace y no
+    queda nada hecho, ni la constancia. Los archivos se borran antes que la
+    identidad: lo irreversible va al final.
+  - **Despues de la baja, el token que no ha caducado no resucita la
+    cuenta**: la API responde `401 CUENTA_INACTIVA` en todo, incluido el alta,
+    y el cliente cierra la sesion. Es la revocacion de las demas sesiones.
+    El mismo correo puede volver a registrarse: es una cuenta nueva y vacia.
   - `SUPABASE_SERVICE_ROLE_KEY` el backend la usa para **dos** cosas: borrar
     la identidad y guardar, leer y borrar los archivos de las personas en
     Supabase Storage (ADR 0016). Nunca para leer ni escribir datos de la

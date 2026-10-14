@@ -1,8 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  REGISTRO_DE_PRUEBA,
   SESIONES,
   VerificadorFalso,
   comoUsuario,
@@ -127,17 +128,134 @@ describe('El perfil propio', () => {
         .expect(400);
     });
 
-    it('con la frase exacta borra la cuenta, y despues ya no existe', async () => {
+    it('con la frase exacta da de baja la cuenta, y despues ya no existe', async () => {
       await request(servidor())
         .delete('/api/cuenta')
         .set(...comoUsuario(A))
         .send({ confirmacion: 'BORRAR MI CUENTA' })
         .expect(204);
 
-      await request(servidor())
+      // 401 y no 403 (SCRUM-190): no falta completar un alta, falta una sesion que sirva. El
+      // cliente la cierra al ver un 401, y asi terminan las de los demas dispositivos.
+      const respuesta = await request(servidor())
         .get('/api/cuenta')
         .set(...comoUsuario(A))
-        .expect(403);
+        .expect(401);
+
+      expect(respuesta.body).toMatchObject({ codigo: 'CUENTA_INACTIVA' });
+    });
+
+    describe('despues de dar de baja la cuenta (SCRUM-190, ADR 0026)', () => {
+      // Cada prueba con su propia aplicacion: la cuenta A se da de baja y no puede repetirse.
+      let appDeBaja: NestExpressApplication;
+
+      const servidorDeBaja = () => appDeBaja.getHttpServer() as Parameters<typeof request>[0];
+
+      beforeEach(async () => {
+        appDeBaja = await levantarAplicacion();
+        await darDeAlta(servidorDeBaja());
+      });
+
+      afterEach(async () => {
+        await appDeBaja.close();
+      });
+
+      async function darDeBajaA(): Promise<void> {
+        await request(servidorDeBaja())
+          .delete('/api/cuenta')
+          .set(...comoUsuario(A))
+          .send({ confirmacion: 'BORRAR MI CUENTA' })
+          .expect(204);
+      }
+
+      it('el mismo token no la resucita: el alta lo rechaza y no crea nada', async () => {
+        await darDeBajaA();
+
+        const respuesta = await request(servidorDeBaja())
+          .post('/api/cuenta')
+          .set(...comoUsuario(A))
+          .send(REGISTRO_DE_PRUEBA)
+          .expect(401);
+
+        expect(respuesta.body).toMatchObject({ codigo: 'CUENTA_INACTIVA' });
+
+        await request(servidorDeBaja())
+          .get('/api/cuenta')
+          .set(...comoUsuario(A))
+          .expect(401);
+      });
+
+      it('tampoco puede exportar ni escribir nada con ese token', async () => {
+        await darDeBajaA();
+
+        await request(servidorDeBaja())
+          .get('/api/cuenta/exportacion')
+          .set(...comoUsuario(A))
+          .expect(401);
+        await request(servidorDeBaja())
+          .get('/api/diario')
+          .set(...comoUsuario(A))
+          .expect(401);
+      });
+
+      it('la respuesta no ensena nada de la cuenta ni dice que existio', async () => {
+        await darDeBajaA();
+
+        const respuesta = await request(servidorDeBaja())
+          .get('/api/cuenta')
+          .set(...comoUsuario(A))
+          .expect(401);
+        const texto = JSON.stringify(respuesta.body);
+
+        expect(texto).not.toContain(SESIONES[A]?.correo);
+        expect(texto).not.toContain(SESIONES[A]?.id);
+      });
+
+      it('la misma persona puede volver a registrarse con el mismo correo', async () => {
+        await darDeBajaA();
+
+        // Una identidad nueva en el proveedor: otro identificador, el mismo correo.
+        const nuevo = 'token-nuevo-de-A';
+
+        SESIONES[nuevo] = {
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          correo: SESIONES[A]?.correo ?? '',
+        };
+
+        try {
+          const respuesta = await request(servidorDeBaja())
+            .post('/api/cuenta')
+            .set(...comoUsuario(nuevo))
+            .send(REGISTRO_DE_PRUEBA)
+            .expect(200);
+
+          expect(respuesta.body).toMatchObject({ correo: SESIONES[A]?.correo });
+          // Es una cuenta nueva y vacia, con otro identificador.
+          expect((respuesta.body as { id: string }).id).not.toBe(SESIONES[A]?.id);
+        } finally {
+          Reflect.deleteProperty(SESIONES, nuevo);
+        }
+      });
+
+      it('lo de la otra persona sigue entero', async () => {
+        await darDeBajaA();
+
+        await request(servidorDeBaja())
+          .get('/api/cuenta')
+          .set(...comoUsuario(B))
+          .expect(200);
+      });
+
+      it('darla de baja otra vez con el mismo token no destruye nada ni deja una cuenta nueva', async () => {
+        await darDeBajaA();
+
+        // Con la cuenta ya dada de baja, el token no pasa la guardia: 401, no 204 ni 500.
+        await request(servidorDeBaja())
+          .delete('/api/cuenta')
+          .set(...comoUsuario(A))
+          .send({ confirmacion: 'BORRAR MI CUENTA' })
+          .expect(401);
+      });
     });
 
     it('la cuenta de otra persona sigue intacta', async () => {

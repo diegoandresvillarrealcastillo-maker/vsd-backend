@@ -43,6 +43,19 @@ class RepositorioDoble implements UserRepositoryPort {
     await antesDeConfirmar();
     this.porId.delete(id.value);
   }
+
+  async inactivarConTodo(
+    id: UserId,
+    _cuando: Date,
+    antesDeConfirmar: () => Promise<void>,
+  ): Promise<void> {
+    await antesDeConfirmar();
+    this.porId.delete(id.value);
+  }
+
+  estaInactivadaPorProveedor(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
 }
 
 describe('ActualizarPreferenciasUseCaseImpl', () => {

@@ -1,3 +1,5 @@
+import type { ConstanciaDeBaja } from '../../domain/model/ConstanciaDeBaja.js';
+import { AccountInactiveError } from '../../domain/model/DomainError.js';
 import type { UserId } from '../../domain/model/Identifier.js';
 import {
   TipoDeConsentimiento,
@@ -29,6 +31,9 @@ export class InMemoryUserRepository implements UserRepositoryPort {
   /** El historial de lo aceptado por cuenta: solo se anade, como en la base. */
   private readonly historial = new Map<string, ConsentimientoAceptado[]>();
 
+  /** Las cuentas dadas de baja (SCRUM-190), por el identificador del proveedor. */
+  private readonly dadasDeBaja = new Map<string, ConstanciaDeBaja>();
+
   findById(id: UserId): Promise<User | null> {
     // El puerto es asincrono porque el adaptador real habla con PostgreSQL.
     // Aqui no hay nada que esperar, asi que se devuelve una promesa resuelta
@@ -45,6 +50,11 @@ export class InMemoryUserRepository implements UserRepositoryPort {
   }
 
   save(user: User): Promise<void> {
+    // Igual que la base: una orden que llega despues de la baja no vuelve a crear la cuenta.
+    if ([...this.dadasDeBaja.values()].some((baja) => baja.idCuenta === user.id.value)) {
+      return Promise.reject(new AccountInactiveError());
+    }
+
     this.porId.set(user.id.value, user);
     this.anotarLoAceptado(user);
 
@@ -96,6 +106,44 @@ export class InMemoryUserRepository implements UserRepositoryPort {
     await antesDeConfirmar();
     this.porId.delete(id.value);
     this.historial.delete(id.value);
+  }
+
+  /**
+   * Da de baja la cuenta con constancia. Igual que `borrarConTodo`, aqui no hay
+   * transaccion que deshacer: primero lo de fuera y, si sale bien, la baja. El
+   * efecto visible es el mismo que en la base.
+   */
+  async inactivarConTodo(
+    id: UserId,
+    inactivadaEl: Date,
+    antesDeConfirmar: () => Promise<void>,
+  ): Promise<void> {
+    const cuenta = this.porId.get(id.value);
+
+    if (cuenta === undefined) {
+      return;
+    }
+
+    await antesDeConfirmar();
+
+    this.dadasDeBaja.set(cuenta.idProveedorAuth, {
+      idCuenta: id.value,
+      idProveedorAuth: cuenta.idProveedorAuth,
+      registradaEn: cuenta.registradoEn,
+      inactivadaEl,
+      consentimientos: [...(this.historial.get(id.value) ?? [])],
+    });
+    this.porId.delete(id.value);
+    this.historial.delete(id.value);
+  }
+
+  estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
+    return Promise.resolve(this.dadasDeBaja.has(idProveedorAuth));
+  }
+
+  /** Las constancias de las cuentas dadas de baja. Solo para pruebas. */
+  get constancias(): readonly ConstanciaDeBaja[] {
+    return [...this.dadasDeBaja.values()];
   }
 
   /** Numero de cuentas guardadas. Solo para pruebas. */

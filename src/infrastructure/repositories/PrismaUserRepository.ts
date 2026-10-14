@@ -1,5 +1,8 @@
 import { Prisma, type Usuario } from '@prisma/client';
-import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
+import {
+  AccountInactiveError,
+  EmailAlreadyRegisteredError,
+} from '../../domain/model/DomainError.js';
 import { FechaDeNacimiento } from '../../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { Mascota } from '../../domain/model/Preferencias.js';
@@ -156,11 +159,29 @@ export class PrismaUserRepository implements UserRepositoryPort {
     // es cuando aparecio la cuenta, y eso ocurrio una sola vez.
     try {
       await this.prisma.comoUsuario(user.id.value, async (cliente) => {
-        await cliente.usuario.upsert({
+        // Primero se intenta actualizar, que es lo normal. Solo si no hay fila se piensa en
+        // crear, y ahi se comprueba que la cuenta no se haya dado de baja: este metodo era un
+        // `upsert`, y una orden que cargo la cuenta antes de la baja y llega despues la habria
+        // vuelto a crear con sus datos personales (SCRUM-190, ADR 0026).
+        const { count } = await cliente.usuario.updateMany({
           where: { id: user.id.value },
-          create: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
-          update: datos,
+          data: datos,
         });
+
+        if (count === 0) {
+          const dadaDeBaja = await cliente.cuentaInactiva.findUnique({
+            where: { id: user.id.value },
+            select: { id: true },
+          });
+
+          if (dadaDeBaja !== null) {
+            throw new AccountInactiveError();
+          }
+
+          await cliente.usuario.create({
+            data: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
+          });
+        }
 
         // Lo aceptado pasa al historial en la misma transaccion que la cuenta:
         // o quedan las dos cosas o ninguna. `skipDuplicates` hace que guardar la
@@ -217,6 +238,83 @@ export class PrismaUserRepository implements UserRepositoryPort {
       version: fila.version,
       aceptadoEn: fila.aceptadoEn,
     }));
+  }
+
+  /**
+   * Da de baja la cuenta (SCRUM-190, ADR 0026): anota la constancia minima y borra todo lo vivo,
+   * en una sola transaccion.
+   *
+   * La constancia se arma **con lo que hay en la base**, no con un objeto que alguien traiga: el
+   * identificador del proveedor, cuando se creo la cuenta y lo aceptado salen de las filas. Y no
+   * lleva nada mas: ni nombre, ni correo, ni fecha de nacimiento.
+   *
+   * Despues se borra la fila de `usuario` y las claves foraneas con `ON DELETE CASCADE` se llevan
+   * el resto, como siempre. Toda tabla nueva que guarde algo de una persona se limpia sola: no hay
+   * una lista de campos que alguien tenga que acordarse de anonimizar.
+   *
+   * `antesDeConfirmar` corre dentro de la transaccion, con todo ya hecho y sin confirmar: si
+   * lanza, PostgreSQL deshace la baja y la constancia. Dar de baja una cuenta que no existe no
+   * hace nada ni llama a `antesDeConfirmar`.
+   */
+  async inactivarConTodo(
+    id: UserId,
+    inactivadaEl: Date,
+    antesDeConfirmar: () => Promise<void>,
+  ): Promise<void> {
+    await this.prisma.comoUsuario(id.value, async (cliente) => {
+      const fila = await cliente.usuario.findUnique({ where: { id: id.value } });
+
+      if (fila === null) {
+        return;
+      }
+
+      const aceptados = await cliente.consentimiento.findMany({ where: { idUsuario: id.value } });
+
+      // `createMany` y no `create`: `create` pide la fila de vuelta (RETURNING), y para leerla
+      // haria falta una politica de lectura que esta tabla no da a quien la escribe. Solo se
+      // puede anadir; encontrarla es cosa de `estaInactivadaPorProveedor`, con el token.
+      await cliente.cuentaInactiva.createMany({
+        data: [
+          {
+            id: fila.id,
+            idProveedorAuth: fila.idProveedorAuth,
+            fechaRegistro: fila.fechaRegistro,
+            inactivadaEl,
+            versionPoliticaAceptada: fila.versionPoliticaAceptada,
+            fechaAceptacionPolitica: fila.fechaAceptacionPolitica,
+            versionTerminosAceptada: fila.versionTerminosAceptada,
+            fechaAceptacionTerminos: fila.fechaAceptacionTerminos,
+          },
+        ],
+      });
+
+      if (aceptados.length > 0) {
+        await cliente.consentimientoDeCuentaInactiva.createMany({
+          data: aceptados.map((aceptado) => ({
+            idCuenta: fila.id,
+            tipo: aceptado.tipo,
+            version: aceptado.version,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+        });
+      }
+
+      await cliente.usuario.deleteMany({ where: { id: id.value } });
+      await antesDeConfirmar();
+    });
+  }
+
+  /**
+   * Si ese identificador del proveedor es de una cuenta dada de baja. Usa `comoProveedor`, como
+   * `findByIdProveedorAuth`: lo unico que se puede leer es la fila cuyo identificador coincide con
+   * el del token verificado.
+   */
+  async estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
+    const fila = await this.prisma.comoProveedor(idProveedorAuth, (cliente) =>
+      cliente.cuentaInactiva.findUnique({ where: { idProveedorAuth }, select: { id: true } }),
+    );
+
+    return fila !== null;
   }
 
   /**

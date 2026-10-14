@@ -3,7 +3,6 @@ import { ConsultarDiarioUseCaseImpl } from '../../application/usecases/Consultar
 import { EditarAnotacionUseCaseImpl } from '../../application/usecases/EditarAnotacionUseCaseImpl.js';
 import { EscribirEnElDiarioUseCaseImpl } from '../../application/usecases/EscribirEnElDiarioUseCaseImpl.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
-import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { DiarioController } from '../controllers/DiarioController.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryDiarioRepository } from '../repositories/InMemoryDiarioRepository.js';
@@ -15,7 +14,6 @@ import {
   EDITAR_ANOTACION,
   ESCRIBIR_EN_EL_DIARIO,
   PRISMA,
-  RECURSO_APOYO_REPOSITORY,
 } from './tokens.js';
 
 /**
@@ -25,8 +23,9 @@ import {
  * exportacion de datos. Ahora el diario tiene sus rutas y su modulo, y es el
  * de cuentas el que lo importa de aqui.
  *
- * Importa el de resultados para alcanzar Prisma y las lineas de atencion: una
- * anotacion con una senal de riesgo las devuelve igual que un resultado.
+ * Importa el de resultados para alcanzar Prisma. Ya no necesita las lineas de
+ * atencion (SCRUM-194): una anotacion con una senal de riesgo lo indica y nada
+ * mas, y las lineas se piden aparte, al asistente.
  */
 @Module({
   imports: [ActivityResultModule],
@@ -56,15 +55,13 @@ import {
     },
     {
       provide: ESCRIBIR_EN_EL_DIARIO,
-      useFactory: (diario: DiarioRepositoryPort, recursos: RecursoApoyoRepositoryPort) =>
-        new EscribirEnElDiarioUseCaseImpl(diario, recursos),
-      inject: [DIARIO_REPOSITORY, RECURSO_APOYO_REPOSITORY],
+      useFactory: (diario: DiarioRepositoryPort) => new EscribirEnElDiarioUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
     },
     {
       provide: EDITAR_ANOTACION,
-      useFactory: (diario: DiarioRepositoryPort, recursos: RecursoApoyoRepositoryPort) =>
-        new EditarAnotacionUseCaseImpl(diario, recursos),
-      inject: [DIARIO_REPOSITORY, RECURSO_APOYO_REPOSITORY],
+      useFactory: (diario: DiarioRepositoryPort) => new EditarAnotacionUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
     },
   ],
   exports: [DIARIO_REPOSITORY],

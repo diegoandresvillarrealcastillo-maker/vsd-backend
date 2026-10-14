@@ -556,12 +556,13 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 - **Senales de riesgo, solo con permiso** (SCRUM-108). Nadie se mete en el
   diario de nadie: si la persona no encendio `diarioConRecomendaciones` en su
   perfil (apagado por defecto), lo escrito no pasa por ninguna deteccion y la
-  respuesta va sin sugerencia ni lineas. Con el permiso,
-  `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el titulo, el texto del
-  documento con las frases enteras aunque el editor las parta por marcas, y el
-  texto de los diagramas, y la respuesta trae `sugiereAcompanamiento` y las
-  lineas de atencion, como un resultado. **No se guarda ninguna marca** en la
-  anotacion.
+  respuesta va sin sugerencia. Con el permiso, `contieneSenalDeRiesgo()` pasa
+  por `hayRiesgo` el titulo, el texto del documento con las frases enteras
+  aunque el editor las parta por marcas, y el texto de los diagramas, y la
+  respuesta trae `sugiereAcompanamiento`. **No trae lineas de atencion**
+  (SCRUM-194, [ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md)):
+  el dispositivo ofrece ayuda y, si la persona acepta, la lleva al asistente.
+  **No se guarda ninguna marca** en la anotacion.
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 

@@ -103,7 +103,7 @@ nada del historial.
 **Si insiste tres veces seguidas** en la misma ventana de chat, la conversación se cierra:
 
 > Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a
-> estar. Y si quieres hablar con alguien, en Recursos encuentras dónde.
+> estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva.
 
 Cerrarla **no bloquea a nadie**: se abre otra cuando quiera. Cualquier mensaje que no sea ofensivo
 reinicia la cuenta (son tres **seguidos**, como pedía el requisito). La cuenta la lleva la ventana
@@ -160,6 +160,37 @@ siguen mostrándolas. Si prefieren el falso positivo, basta con añadir esas tre
 
 **Origen:** `MENSAJES` y `SUGERENCIAS_DEL_ASISTENTE` en `src/domain/model/ReglasDelAsistente.ts`.
 Ver el [ADR 0027](adr/0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md).
+
+### La invitación del diario (SCRUM-194, decisión D6)
+
+Es de la **mascota**, no del chat, y aparece al guardar o corregir una anotación del diario. Solo si
+la persona dio el permiso de su perfil (SCRUM-108) **y** lo escrito trae una frase de la lista de
+riesgo. Sin permiso no se lee nada y no aparece nada. No se va sola: espera a que se responda.
+
+**Nunca lleva líneas de atención.** Aceptarla abre VSD IA con «¿Dónde busco ayuda?» ya preguntado,
+que responde con las líneas del país de la persona, también sin conexión.
+
+| Dónde                                                   | Texto                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| La mascota dice                                         | «Gracias por escribirlo. Lo que sientes importa, y no tienes que pasarlo sin compañía. ¿Quieres ver algunos consejos o hablar con alguien?» |
+| Botón principal (abre VSD IA)                           | «Sí, ver opciones»                                                                                                                          |
+| Botón para dejarla                                      | «Ahora no»                                                                                                                                  |
+| Aviso al sincronizar una anotación escrita sin conexión | «Si te sirve hablarlo con alguien, toca a tu mascota y pregúntale a VSD IA dónde buscar ayuda.»                                             |
+
+**Alternativa del encargo original**, por si se prefiere un tono más sobrio:
+«Noté que escribiste algo en tu diario. ¿Quieres recibir algunos consejos o hablar con alguien sobre
+eso?». Se cambia en una sola constante del frontend.
+
+**Lo que no hace:** no diagnostica, no pone nombre a lo que se siente, no repite lo que la persona
+escribió, no lleva ningún teléfono y no vuelve por la misma anotación una vez respondida.
+
+**Una pregunta abierta para Diego:** el plan decía «abre Recursos», pero **hoy no existe una
+pantalla de Recursos** (ni ruta ni endpoint). Se llevó a VSD IA, que es lo que existe. Si se
+construye esa pantalla (SCRUM-26), basta con cambiar el destino del botón.
+
+**Origen:** `INVITACION_DEL_DIARIO` en `src/paginas/diario/invitacionDelDiario.ts` (frontend) y el
+aviso en `src/conexion/AvisoDeSincronizacion.tsx`. Ver el
+[ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md).
 
 ### Las erratas (SCRUM-193)
 

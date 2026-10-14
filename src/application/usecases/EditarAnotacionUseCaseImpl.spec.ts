@@ -7,7 +7,7 @@ import {
 } from '../../domain/model/DomainError.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
-import { DiarioDePrueba, documentoCon, LineasDePrueba } from '../../pruebas/diarioDePrueba.js';
+import { DiarioDePrueba, documentoCon } from '../../pruebas/diarioDePrueba.js';
 import { EditarAnotacionUseCaseImpl } from './EditarAnotacionUseCaseImpl.js';
 
 const PERSONA = '11111111-1111-4111-8111-111111111111';
@@ -38,10 +38,9 @@ function armar() {
     }),
   );
 
-  const lineas = new LineasDePrueba();
-  const casoDeUso = new EditarAnotacionUseCaseImpl(diario, lineas, () => reloj.ahora);
+  const casoDeUso = new EditarAnotacionUseCaseImpl(diario, () => reloj.ahora);
 
-  return { diario, reloj, casoDeUso, lineas };
+  return { diario, reloj, casoDeUso };
 }
 
 describe('EditarAnotacionUseCaseImpl', () => {
@@ -50,7 +49,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -68,7 +66,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
   describe('La hora del dispositivo (SCRUM-144)', () => {
     const peticion = (extra: Record<string, unknown> = {}) => ({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -224,7 +221,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
-        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -243,7 +239,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     await casoDeUso.execute({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -253,7 +248,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
-        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -272,7 +266,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: OTRA,
-        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -290,7 +283,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
-        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -299,12 +291,11 @@ describe('EditarAnotacionUseCaseImpl', () => {
     ).rejects.toThrow(EditWindowClosedError);
   });
 
-  it('con permiso, una correccion con una senal de riesgo trae las lineas', async () => {
+  it('con permiso, una correccion con una senal de riesgo sugiere acompanar, sin lineas (SCRUM-194)', async () => {
     const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: true,
       entradaId: ENTRADA,
       version: 1,
@@ -312,37 +303,14 @@ describe('EditarAnotacionUseCaseImpl', () => {
     });
 
     expect(guardada.sugiereAcompanamiento).toBe(true);
-    expect(guardada.lineasDeAtencion[0]?.id).toBe('linea-192');
+    expect(guardada).not.toHaveProperty('lineasDeAtencion');
   });
-
-  it.each([
-    ['America/Bogota', 'CO'],
-    ['Europe/Madrid', 'ES'],
-    ['America/Lima', undefined],
-  ])(
-    'las lineas son las del pais de la zona de quien corrige: %s pide las de %s (SCRUM-124)',
-    async (zonaHoraria, pais) => {
-      const { casoDeUso, lineas } = armar();
-
-      await casoDeUso.execute({
-        userId: PERSONA,
-        zonaHoraria,
-        conRecomendaciones: true,
-        entradaId: ENTRADA,
-        version: 1,
-        titulo: 'No aguanto mas',
-      });
-
-      expect(lineas.paises).toEqual([pais]);
-    },
-  );
 
   it('sin permiso, la correccion no se lee', async () => {
     const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -350,7 +318,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     });
 
     expect(guardada.sugiereAcompanamiento).toBe(false);
-    expect(guardada.lineasDeAtencion).toEqual([]);
+    expect(guardada).not.toHaveProperty('lineasDeAtencion');
   });
 
   it('adjuntos null quita los diagramas', async () => {
@@ -358,7 +326,6 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
-      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,

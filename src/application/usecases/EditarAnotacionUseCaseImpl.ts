@@ -6,14 +6,12 @@ import {
 } from '../../domain/model/DomainError.js';
 import { horaDelDispositivo } from '../../domain/model/HoraDelDispositivo.js';
 import { EntradaId, UserId } from '../../domain/model/Identifier.js';
-import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import type {
   EditarAnotacionCommand,
   EditarAnotacionUseCase,
 } from '../../domain/ports/in/EditarAnotacionUseCase.js';
 import type { AnotacionGuardada } from '../../domain/ports/in/EscribirEnElDiarioUseCase.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
-import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { acompanarAnotacion } from './acompanarAnotacion.js';
 
 /**
@@ -26,7 +24,6 @@ import { acompanarAnotacion } from './acompanarAnotacion.js';
 export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
   constructor(
     private readonly diario: DiarioRepositoryPort,
-    private readonly recursos: RecursoApoyoRepositoryPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -64,12 +61,7 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
     const guardada = await this.diario.guardarEdicion(editada, actual.version);
 
     if (guardada !== null) {
-      return acompanarAnotacion(
-        guardada,
-        this.recursos,
-        command.conRecomendaciones,
-        paisDeLaZona(command.zonaHoraria),
-      );
+      return acompanarAnotacion(guardada, command.conRecomendaciones);
     }
 
     // La base no la dejo pasar. Puede que otro dispositivo la editara entre

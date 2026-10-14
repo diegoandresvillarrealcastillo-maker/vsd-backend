@@ -35,6 +35,14 @@ export class AsistenteRespuestaDto {
   })
   incluyeLineasDeAtencion!: boolean;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que el asistente si atiende, como frases que la persona puede tocar y enviar tal cual. Solo hay algo cuando no se reconocio lo que escribio (no_reconocida): en lugar de un telefono de crisis que nadie pidio, un catalogo de lo que si puede responder. Vacio en todo lo demas.',
+    example: ['¿Cómo puedo dormir mejor?', '¿Dónde busco ayuda?'],
+  })
+  sugerencias!: string[];
+
   static desde(respuesta: RespuestaDelAsistente): AsistenteRespuestaDto {
     const dto = new AsistenteRespuestaDto();
 
@@ -43,6 +51,7 @@ export class AsistenteRespuestaDto {
     dto.recursos = respuesta.recursos.map((recurso) => RecursoDto.desde(recurso));
     dto.senalDeRiesgo = respuesta.senalDeRiesgo;
     dto.incluyeLineasDeAtencion = respuesta.incluyeLineasDeAtencion;
+    dto.sugerencias = [...respuesta.sugerencias];
 
     return dto;
   }

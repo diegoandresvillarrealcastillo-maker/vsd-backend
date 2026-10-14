@@ -56,6 +56,12 @@ export interface RespuestaDelAsistente {
    * que lo comprueba una por una.
    */
   readonly incluyeLineasDeAtencion: boolean;
+  /**
+   * Los temas que el asistente si atiende, como frases que la persona puede tocar (SCRUM-176,
+   * SCRUM-193). Solo hay algo cuando **no se reconocio** lo que escribio: en lugar de un telefono
+   * de crisis que nadie pidio, un catalogo de lo que si se puede responder. Vacio en todo lo demas.
+   */
+  readonly sugerencias: readonly string[];
 }
 
 /** Lo que se le pregunta al asistente. */

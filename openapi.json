@@ -2882,6 +2882,17 @@
           "incluyeLineasDeAtencion": {
             "type": "boolean",
             "description": "Cierto cuando la respuesta trae al menos un contacto. Si senalDeRiesgo es cierto, este tambien lo es, siempre."
+          },
+          "sugerencias": {
+            "description": "Los temas que el asistente si atiende, como frases que la persona puede tocar y enviar tal cual. Solo hay algo cuando no se reconocio lo que escribio (no_reconocida): en lugar de un telefono de crisis que nadie pidio, un catalogo de lo que si puede responder. Vacio en todo lo demas.",
+            "example": [
+              "¿Cómo puedo dormir mejor?",
+              "¿Dónde busco ayuda?"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -2889,7 +2900,8 @@
           "mensaje",
           "recursos",
           "senalDeRiesgo",
-          "incluyeLineasDeAtencion"
+          "incluyeLineasDeAtencion",
+          "sugerencias"
         ]
       },
       "PaisConLineasDto": {
@@ -3061,6 +3073,26 @@
           "mensajeAlCerrar"
         ]
       },
+      "FallbackLocalDto": {
+        "type": "object",
+        "properties": {
+          "mensaje": {
+            "type": "string",
+            "description": "Lo que se responde cuando no se reconoce lo que se escribio. Sin lineas de atencion: solo hay lineas ante una senal de riesgo."
+          },
+          "sugerencias": {
+            "description": "Los temas que si se atienden, como frases que la persona puede tocar y enviar tal cual.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mensaje",
+          "sugerencias"
+        ]
+      },
       "ReglaDeIntencionDto": {
         "type": "object",
         "properties": {
@@ -3117,6 +3149,21 @@
               }
             ]
           },
+          "erratas": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Erratas frecuentes, ya normalizadas, hacia la palabra que se quiso escribir (SCRUM-193): «ola» es «hola», «bamos» es «vamos». Con esta tabla y las palabras de las reglas el dispositivo corrige igual que el servidor. Una aplicacion que no la conozca la ignora."
+          },
+          "fallback": {
+            "description": "Lo que se responde cuando no se reconoce nada (SCRUM-176, SCRUM-193): sin lineas de atencion y con el catalogo de temas. Una aplicacion que no lo conozca lo ignora.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FallbackLocalDto"
+              }
+            ]
+          },
           "intenciones": {
             "description": "Lo demas que el servidor reconoce, en su orden.",
             "type": "array",
@@ -3144,6 +3191,8 @@
           "riesgo",
           "charla",
           "ofensivo",
+          "erratas",
+          "fallback",
           "intenciones",
           "paises",
           "internacional"

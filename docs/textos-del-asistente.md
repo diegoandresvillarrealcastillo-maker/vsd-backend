@@ -31,13 +31,13 @@ ruta que lo publica para responder sin conexión).
 
 ## 2. Respuestas por intención
 
-| Cuando la persona pregunta | El asistente responde                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------- |
-| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.         |
-| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                  |
-| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.    |
-| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                      |
-| Algo que no se reconoce    | No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma. |
+| Cuando la persona pregunta | El asistente responde                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.                                                                          |
+| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                                                                                   |
+| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.                                                                     |
+| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                                                                                       |
+| Algo que no se reconoce    | No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte: _(y el catálogo de abajo, sin líneas de atención)_ |
 
 **Origen:** `MENSAJES` en `src/domain/model/ReglasDelAsistente.ts`.
 
@@ -132,6 +132,51 @@ ni «basura» o «mierda» sueltas («saca la basura» no es un insulto).
 **Origen:** `LenguajeOfensivo.ts` en `src/domain/model/` (la lista, las marcas de desahogo, el
 umbral y los dos mensajes), `esLenguajeOfensivo` en `Reconocimiento.ts` y el orden en
 `AsistentePorReglas.ts`. Se responde también **sin conexión**: sale en el paquete de reglas locales.
+
+### Lo que no se reconoce: el catálogo, sin líneas de atención (SCRUM-176, SCRUM-193)
+
+Antes, ante lo que no entendía, el asistente respondía con las líneas de atención, como si hubiera
+una crisis. Ahora **no las muestra**: sin una señal de riesgo no hay crisis, y enseñarlas por una
+pregunta cualquiera las vuelve decorado. Responde con el texto de arriba y un **catálogo de temas**
+que la persona toca (cada uno se envía como un mensaje):
+
+| Sugerencia                   | Lleva a                    |
+| ---------------------------- | -------------------------- |
+| ¿Cómo puedo dormir mejor?    | Cómo dormir mejor          |
+| ¿Qué significa mi resultado? | Qué significa su resultado |
+| Me siento mal                | Que se siente mal          |
+| ¿Qué puedes hacer?           | Qué puede hacer            |
+| ¿Dónde busco ayuda?          | Dónde buscar ayuda         |
+
+**«¿Dónde busco ayuda?» está siempre**: es la puerta de un toque para quien sí la necesita y no la
+dijo con las palabras de la lista. Una prueba comprueba que **cada sugerencia lleva a la intención
+que dice** (que el catálogo no ofrezca nada que el asistente no sepa responder).
+
+**El compromiso que se aceptó:** tres frases que la red de seguridad enseñaba y que son, casi
+siempre, una cortesía o un hecho cotidiano —«gracias por todo», «adiós, y gracias por todo» y «chao, ya
+no estoy»— **dejan de mostrar las líneas por sí solas**. Reciben el catálogo, con «¿Dónde busco
+ayuda?» a un toque. Las **siete** que no dejan duda pasaron a la lista de riesgo (ver el punto 5), y
+siguen mostrándolas. Si prefieren el falso positivo, basta con añadir esas tres a la lista.
+
+**Origen:** `MENSAJES` y `SUGERENCIAS_DEL_ASISTENTE` en `src/domain/model/ReglasDelAsistente.ts`.
+Ver el [ADR 0027](adr/0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md).
+
+### Las erratas (SCRUM-193)
+
+La gente escribe de prisa, desde el teléfono. «ola», «cómo bamos», «grasias» y «sicologo» se leen
+como se quisieron escribir. Hay dos mecanismos, y los dos son cortos:
+
+1. **Una tabla de erratas frecuentes** (`ERRATAS_FRECUENTES` en `src/domain/model/LecturaDelTexto.ts`):
+   «ola», «bamos», «kiero», «grasias», «sicologo»… Para las palabras cortas. Se amplía con una línea.
+2. **Distancia de edición de uno** hacia una palabra que el asistente ya conoce, y solo si la
+   palabra tiene cinco letras o más, empieza y termina con las mismas letras, y hay un único
+   candidato. Lo que cambia al final suele ser de quién se habla: «no aguanta más» (otra persona)
+   no se lee «no aguanto más».
+
+**La tolerancia amplía el riesgo y nunca lo debilita:** «kiero morirme», «quiero morirne» o
+«suisidarme» siguen siendo señales de riesgo. Lo que ya se detectaba, se sigue detectando.
+
+**El lenguaje ofensivo solo usa la tabla**, nunca la distancia: «tanto» no puede volverse «tonto».
 
 ### Palabras completas, no pedazos (SCRUM-128)
 
@@ -273,8 +318,9 @@ deja por escrito para que no se confunda lo que se verificó con lo que no.
 
 ## 5. Las frases que disparan las líneas de atención
 
-Son 23 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
-tildes y en minúscula, porque nadie escribe con tildes cuando está mal.
+Son 30 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
+tildes y en minúscula, porque nadie escribe con tildes cuando está mal. Se buscan en el texto tal
+cual **y** con las erratas leídas como se quisieron escribir (la segunda búsqueda solo suma).
 
 ```
 quiero morir · quiero morirme · me quiero morir · quiero matarme
@@ -284,7 +330,12 @@ no quiero vivir · no vale la pena vivir · estaria mejor muerto
 estaria mejor muerta · seria mejor no estar · hacerme dano
 lastimarme · cortarme · nadie me va a extranar · ya no puedo mas
 no aguanto mas
+quiero desaparecer · no quiero despertar · adios a todo · adios para siempre
+hasta nunca · que nadie me busque · me despido de este mundo
 ```
+
+Las **siete últimas** (SCRUM-176) las protegía la red de «no reconocida», que ya no muestra líneas:
+pasaron aquí para no quedarse sin teléfono.
 
 **Se equivoca por exceso a propósito.** No interpreta negaciones: _"no quiero
 morirme"_ contiene _"quiero morirme"_ y dispara igual. Enseñar teléfonos a quien

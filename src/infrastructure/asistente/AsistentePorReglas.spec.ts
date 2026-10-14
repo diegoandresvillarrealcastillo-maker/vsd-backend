@@ -4,6 +4,7 @@ import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { EXPRESIONES_DE_RIESGO } from '../../domain/model/SenalesDeRiesgo.js';
+import { MENSAJES, SUGERENCIAS_DEL_ASISTENTE } from '../../domain/model/ReglasDelAsistente.js';
 import { Intencion } from '../../domain/ports/in/AsistentePort.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
 import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
@@ -160,7 +161,7 @@ describe('AsistentePorReglas', () => {
       expect(respuesta.recursos.length).toBeGreaterThan(0);
     });
 
-    it('responde algo util cuando no entiende, no un error', async () => {
+    it('responde algo util cuando no entiende, no un error: el catalogo de lo que si atiende', async () => {
       const respuesta = await asistente.responder({
         userId: USUARIO,
         zonaHoraria: ZONA,
@@ -168,8 +169,74 @@ describe('AsistentePorReglas', () => {
       });
 
       expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
-      expect(respuesta.recursos.length).toBeGreaterThan(0);
+      expect(respuesta.mensaje).toBe(MENSAJES[Intencion.NO_RECONOCIDA]);
+      expect(respuesta.sugerencias.length).toBeGreaterThan(0);
       expect(respuesta.senalDeRiesgo).toBe(false);
+    });
+
+    it('lo que no entiende **no** trae lineas de atencion: sin senal de crisis no hay crisis (SCRUM-176)', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'a que hora abre la biblioteca',
+      });
+
+      expect(respuesta.recursos).toEqual([]);
+      expect(respuesta.incluyeLineasDeAtencion).toBe(false);
+      expect(respuesta.senalDeRiesgo).toBe(false);
+    });
+
+    it('el mensaje no pide perdon ni dramatiza: dice lo que no puede y lo que si', () => {
+      const mensaje = MENSAJES[Intencion.NO_RECONOCIDA];
+
+      expect(mensaje).toMatch(/no puedo ayudarte con ese tema/i);
+      expect(mensaje).toMatch(/opciones/i);
+      expect(mensaje).not.toMatch(/crisis|emergencia|urgente|llama/i);
+    });
+
+    it('no le suma el historial: una frase que no se entendio no es una ficha de seguimiento', async () => {
+      await historial.save(unResultado(1, 'aaaaaaaa-0000-4000-8000-000000000001'));
+
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'a que hora abre la biblioteca',
+      });
+
+      expect(respuesta.mensaje).not.toMatch(/registraste/);
+    });
+
+    it('«dónde busco ayuda» siempre esta a un toque en el catalogo', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'a que hora abre la biblioteca',
+      });
+
+      expect(respuesta.sugerencias).toContain('¿Dónde busco ayuda?');
+    });
+
+    it.each(SUGERENCIAS_DEL_ASISTENTE.map((s) => [s.texto, s.intencion]))(
+      'tocar «%s» lleva a %s: el catalogo no ofrece nada que el asistente no sepa responder',
+      async (texto, esperada) => {
+        const respuesta = await asistente.responder({
+          userId: USUARIO,
+          zonaHoraria: ZONA,
+          texto: String(texto),
+        });
+
+        expect(respuesta.intencion).toBe(esperada);
+      },
+    );
+
+    it('lo que ya se entiende no lleva sugerencias', async () => {
+      const respuesta = await asistente.responder({
+        userId: USUARIO,
+        zonaHoraria: ZONA,
+        texto: 'como duermo mejor',
+      });
+
+      expect(respuesta.sugerencias).toEqual([]);
     });
 
     it('funciona igual sin tildes y en mayusculas', async () => {
@@ -181,6 +248,51 @@ describe('AsistentePorReglas', () => {
 
       expect(respuesta.intencion).toBe(Intencion.COMO_DUERMO_MEJOR);
     });
+  });
+
+  describe('las erratas (SCRUM-193)', () => {
+    const responder = (texto: string) =>
+      asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
+
+    it.each([
+      ['ola', Intencion.SALUDO],
+      ['ola!!', Intencion.SALUDO],
+      ['holaaa', Intencion.SALUDO],
+      ['cómo bamos', Intencion.COMO_ESTAS],
+      ['como vamos', Intencion.COMO_ESTAS],
+      ['hola, cómo bamos', Intencion.COMO_ESTAS],
+      ['grasias', Intencion.AGRADECIMIENTO],
+      ['gracais!', Intencion.AGRADECIMIENTO],
+      ['k tal', Intencion.COMO_ESTAS],
+      ['necesito un sicologo', Intencion.DONDE_BUSCO_AYUDA],
+      ['adioss', Intencion.DESPEDIDA],
+    ])('«%s» se entiende', async (texto, esperada) => {
+      const respuesta = await responder(texto);
+
+      expect(respuesta.intencion).toBe(esperada);
+    });
+
+    it('«cómo vamos» es una pregunta por el asistente, no un saludo con relleno', async () => {
+      const respuesta = await responder('hola, como vamos');
+
+      expect(respuesta.intencion).toBe(Intencion.COMO_ESTAS);
+    });
+
+    it('una errata no hace pasar por charla una frase seria', async () => {
+      // «ola» se lee «hola», y «hola, quiero desaparecer» sigue siendo lo que es.
+      const respuesta = await responder('ola, quiero desaparecer');
+
+      expect(respuesta.senalDeRiesgo).toBe(true);
+    });
+
+    it.each(['tanto tiempo', 'quiero tanto', 'tanto'])(
+      '«%s» nunca se lee como un insulto: el lenguaje ofensivo no se corrige por distancia',
+      async (texto) => {
+        const respuesta = await responder(texto);
+
+        expect(respuesta.intencion).not.toBe(Intencion.LENGUAJE_OFENSIVO);
+      },
+    );
   });
 
   describe('palabras completas', () => {
@@ -355,32 +467,49 @@ describe('AsistentePorReglas', () => {
         nombreDeLaMascota: 'Luma',
       });
 
-      expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+      // Ni el saludo ni el nombre de la mascota esconden lo serio: es una senal de riesgo.
+      expect(respuesta.senalDeRiesgo).toBe(true);
       expect(respuesta.incluyeLineasDeAtencion).toBe(true);
     });
 
     describe('si el mensaje trae algo mas, ya no es charla', () => {
-      // Lo que importa de esta prueba: la lista de riesgo es un suelo, no un
-      // techo. Estas frases no estan en ella, y un saludo delante no las puede
-      // dejar sin lineas de atencion.
+      // Lo que importa de esta prueba: un saludo delante no puede dejar sin lineas de atencion a
+      // una frase seria. Hasta SCRUM-176 estas frases las protegia la red de «no reconocida»;
+      // las que no dejan duda pasaron a la lista de riesgo, y siguen ensenando las lineas.
       it.each([
         'hola, quiero desaparecer',
         'hola, no quiero despertar',
         'adiós a todo',
-        'adiós, y gracias por todo',
-        'gracias por todo',
         'adiós para siempre',
         'hasta nunca',
         'buenas noches, que nadie me busque',
         'me despido de este mundo',
-        'chao, ya no estoy',
       ])('"%s" sigue ensenando las lineas de atencion', async (texto) => {
         const respuesta = await asistente.responder({ userId: USUARIO, zonaHoraria: ZONA, texto });
 
-        expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+        expect(respuesta.senalDeRiesgo).toBe(true);
         expect(respuesta.incluyeLineasDeAtencion).toBe(true);
         expect(respuesta.recursos.every((recurso) => recurso.esLineaDeAtencion())).toBe(true);
       });
+
+      // Las ambiguas no estan en la lista: «gracias por todo» es, casi siempre, un agradecimiento.
+      // Dejan de ensenar las lineas por si solas (SCRUM-176) y reciben el catalogo, con «Dónde
+      // busco ayuda» a un toque. Es el compromiso que Diego acepto, y esta fijado aqui a
+      // proposito para que no cambie sin que se vea.
+      it.each(['adiós, y gracias por todo', 'gracias por todo', 'chao, ya no estoy'])(
+        '"%s" no es charla ni una senal de riesgo: recibe el catalogo, con «Dónde busco ayuda»',
+        async (texto) => {
+          const respuesta = await asistente.responder({
+            userId: USUARIO,
+            zonaHoraria: ZONA,
+            texto,
+          });
+
+          expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+          expect(respuesta.incluyeLineasDeAtencion).toBe(false);
+          expect(respuesta.sugerencias).toContain('¿Dónde busco ayuda?');
+        },
+      );
     });
 
     describe('con una pregunta de verdad, la pregunta gana', () => {
@@ -477,7 +606,7 @@ describe('AsistentePorReglas', () => {
       ]);
     });
 
-    it('lo que no se entiende tambien las ensena segun el pais', async () => {
+    it('lo que no se entiende ya no ensena lineas de ningun pais (SCRUM-176)', async () => {
       const respuesta = await asistente.responder({
         userId: USUARIO,
         zonaHoraria: 'America/Mexico_City',
@@ -485,7 +614,7 @@ describe('AsistentePorReglas', () => {
       });
 
       expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
-      expect(respuesta.recursos.every((recurso) => recurso.pais === 'MX')).toBe(true);
+      expect(respuesta.recursos).toEqual([]);
     });
 
     it('"donde busco ayuda" tambien: no tiene lecturas, asi que cae a las lineas del pais', async () => {

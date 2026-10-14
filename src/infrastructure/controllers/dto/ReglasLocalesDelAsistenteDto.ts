@@ -168,6 +168,21 @@ export class OfensivoLocalDto {
   mensajeAlCerrar!: string;
 }
 
+export class FallbackLocalDto {
+  @ApiProperty({
+    description:
+      'Lo que se responde cuando no se reconoce lo que se escribio. Sin lineas de atencion: solo hay lineas ante una senal de riesgo.',
+  })
+  mensaje!: string;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que si se atienden, como frases que la persona puede tocar y enviar tal cual.',
+  })
+  sugerencias!: string[];
+}
+
 /**
  * Lo que hace falta para que VSD IA responda lo basico sin conexion (SCRUM-141).
  *
@@ -194,6 +209,21 @@ export class ReglasLocalesDelAsistenteDto {
       'El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la charla. Una aplicacion que no lo conozca lo ignora.',
   })
   ofensivo!: OfensivoLocalDto;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    description:
+      'Erratas frecuentes, ya normalizadas, hacia la palabra que se quiso escribir (SCRUM-193): «ola» es «hola», «bamos» es «vamos». Con esta tabla y las palabras de las reglas el dispositivo corrige igual que el servidor. Una aplicacion que no la conozca la ignora.',
+  })
+  erratas!: Record<string, string>;
+
+  @ApiProperty({
+    type: FallbackLocalDto,
+    description:
+      'Lo que se responde cuando no se reconoce nada (SCRUM-176, SCRUM-193): sin lineas de atencion y con el catalogo de temas. Una aplicacion que no lo conozca lo ignora.',
+  })
+  fallback!: FallbackLocalDto;
 
   @ApiProperty({
     type: [ReglaDeIntencionDto],
@@ -230,6 +260,11 @@ export class ReglasLocalesDelAsistenteDto {
       umbral: reglas.ofensivo.umbral,
       mensaje: reglas.ofensivo.mensaje,
       mensajeAlCerrar: reglas.ofensivo.mensajeAlCerrar,
+    };
+    dto.erratas = { ...reglas.erratas };
+    dto.fallback = {
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
     };
     dto.intenciones = reglas.intenciones.map((regla) => ReglaDeIntencionDto.desde(regla));
     dto.paises = Object.fromEntries(

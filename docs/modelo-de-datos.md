@@ -60,16 +60,17 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 
 ## Trazabilidad
 
-| Tabla                                   | Requerimientos que sostiene |
-| --------------------------------------- | --------------------------- |
-| `USUARIO`                               | RF1, RF2, RF3, RF12         |
-| `CATEGORIA`                             | RF4, RF11                   |
-| `ACTIVIDAD`                             | RF4, RF5, RF11              |
-| `RESULTADO`                             | RF6, RF7, RF9, RF10         |
-| `RECURSO_APOYO`                         | RF8, RF11                   |
-| `ENTRADA_DIARIO`                        | RF14, RF9, RF10             |
-| `PENDIENTE`                             | SCRUM-97 (semáforo)         |
-| `SUSCRIPCION_PUSH`, `PREFERENCIA_AVISO` | SCRUM-102 (avisos)          |
+| Tabla                                                  | Requerimientos que sostiene     |
+| ------------------------------------------------------ | ------------------------------- |
+| `USUARIO`                                              | RF1, RF2, RF3, RF12             |
+| `CUENTA_INACTIVA`, `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | RF12 (con constancia), Ley 1581 |
+| `CATEGORIA`                                            | RF4, RF11                       |
+| `ACTIVIDAD`                                            | RF4, RF5, RF11                  |
+| `RESULTADO`                                            | RF6, RF7, RF9, RF10             |
+| `RECURSO_APOYO`                                        | RF8, RF11                       |
+| `ENTRADA_DIARIO`                                       | RF14, RF9, RF10                 |
+| `PENDIENTE`                                            | SCRUM-97 (semáforo)             |
+| `SUSCRIPCION_PUSH`, `PREFERENCIA_AVISO`                | SCRUM-102 (avisos)              |
 
 ## USUARIO
 
@@ -452,6 +453,27 @@ cuenta (`ON DELETE CASCADE`).
 El orden en que cada persona ve los datos **no se guarda**: sale de `hashtextextended(id_dato || ':' ||
 id_usuario, 0)` en cada consulta. El siguiente es el de clave mayor más cercana a la del cursor.
 
+## CUENTA_INACTIVA y CONSENTIMIENTO_DE_CUENTA_INACTIVA
+
+La constancia de una cuenta que se dio de baja (SCRUM-190, [ADR 0026](adr/0026-la-baja-de-la-cuenta-borra-todo-y-deja-una-constancia-minima.md)).
+Dar de baja la cuenta **borra todo lo vivo** (la fila de `USUARIO` y, en cascada, todo lo que
+cuelga de ella) y deja esto, para poder demostrar la autorización que exige la Ley 1581 de 2012.
+
+**`CUENTA_INACTIVA`**: `id_cuenta` (el identificador que tuvo la cuenta, ya sin significado fuera de
+aquí), `id_proveedor_auth` (el que el proveedor le dio a la identidad, que ya no existe; es lo que
+permite rechazar un token que todavía no caducó), `fecha_registro`, `inactivada_el` y lo último que
+aceptó (versión y fecha del aviso y de los términos).
+
+**`CONSENTIMIENTO_DE_CUENTA_INACTIVA`**: lo que aceptó, versión por versión: `tipo`, `version` y
+`aceptado_en`. Sin clave foránea: su razón de ser es sobrevivir a la fila de `USUARIO`.
+
+**Ninguna lleva nombre, correo, fecha de nacimiento, foto, mascota, diario ni respuestas.** La clave se
+llama `id_cuenta` y no `id_usuario` a propósito: la prueba de borrado recorre toda tabla con
+`id_usuario` y exige que quede vacía para la persona, y esto no es un dato vivo suyo.
+
+Solo admiten altas: `vsd_app` no tiene `UPDATE` ni `DELETE`, del historial no lee nada y de
+`CUENTA_INACTIVA` solo lee la fila de su propio token. No hay plazo de retención definido todavía.
+
 ## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
 
 Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
@@ -510,17 +532,19 @@ Ver la migración `20261005120000_avisos_push` y
 
 ## Resumen de políticas de acceso
 
-| Tabla                 | Persona dueña                                       | Otra persona | Administrador |
-| --------------------- | --------------------------------------------------- | ------------ | ------------- |
-| `USUARIO`             | lee y escribe su fila                               | nada         | nada          |
-| `CATEGORIA`           | lee                                                 | lee          | lee y escribe |
-| `ACTIVIDAD`           | lee                                                 | lee          | lee y escribe |
-| `RESULTADO`           | lee y escribe los suyos                             | nada         | **nada**      |
-| `RECURSO_APOYO`       | lee                                                 | lee          | lee y escribe |
-| `ENTRADA_DIARIO`      | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
-| `PENDIENTE`           | lee y escribe los suyos                             | nada         | **nada**      |
-| `DATO_CURIOSO`        | lee                                                 | lee          | lee y escribe |
-| `DATO_CURIOSO_CURSOR` | lee y escribe el suyo                               | nada         | **nada**      |
+| Tabla                               | Persona dueña                                       | Otra persona | Administrador |
+| ----------------------------------- | --------------------------------------------------- | ------------ | ------------- |
+| `USUARIO`                           | lee y escribe su fila                               | nada         | nada          |
+| `CATEGORIA`                         | lee                                                 | lee          | lee y escribe |
+| `ACTIVIDAD`                         | lee                                                 | lee          | lee y escribe |
+| `RESULTADO`                         | lee y escribe los suyos                             | nada         | **nada**      |
+| `RECURSO_APOYO`                     | lee                                                 | lee          | lee y escribe |
+| `ENTRADA_DIARIO`                    | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
+| `PENDIENTE`                         | lee y escribe los suyos                             | nada         | **nada**      |
+| `DATO_CURIOSO`                      | lee                                                 | lee          | lee y escribe |
+| `DATO_CURIOSO_CURSOR`               | lee y escribe el suyo                               | nada         | **nada**      |
+| `CUENTA_INACTIVA`                   | **solo añade**; lee la de su propio token           | nada         | **nada**      |
+| `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | **solo añade**; no lee                              | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

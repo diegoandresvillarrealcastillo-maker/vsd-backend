@@ -3,6 +3,7 @@ import {
   VERSION_VIGENTE_DE_LOS_TERMINOS,
   VERSION_VIGENTE_DEL_AVISO,
 } from '../domain/model/AvisoDePrivacidad.js';
+import { AccountInactiveError } from '../domain/model/DomainError.js';
 import { FechaDeNacimiento } from '../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../domain/model/Identifier.js';
 import type { Mascota } from '../domain/model/Preferencias.js';
@@ -516,6 +517,168 @@ export function pruebasDelPuertoDeUsuarios(
 
       expect(una?.puedeLeerDatosDe(new UserId(PERSONA))).toBe(true);
       expect(una?.puedeLeerDatosDe(new UserId(OTRA_PERSONA))).toBe(false);
+    });
+
+    describe('dar de baja la cuenta con constancia (SCRUM-190, ADR 0026)', () => {
+      const CUANDO = new Date('2026-10-14T15:00:00.000Z');
+
+      async function conDosCuentas() {
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+        await banco.repositorio.save(
+          unaCuenta({
+            id: OTRA_PERSONA,
+            correo: 'otra@ejemplo.test',
+            idProveedorAuth: 'supabase|bbbb-2222',
+          }),
+        );
+      }
+
+      it('la cuenta ya no se encuentra, ni por nuestro identificador ni por el del proveedor', async () => {
+        await conDosCuentas();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
+        await expect(
+          banco.repositorio.findByIdProveedorAuth('supabase|aaaa-1111'),
+        ).resolves.toBeNull();
+      });
+
+      it('queda marcada como dada de baja para el identificador que traia su token', async () => {
+        await conDosCuentas();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(true);
+      });
+
+      it('una cuenta que sigue activa, o que nunca existio, no esta dada de baja', async () => {
+        await conDosCuentas();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|bbbb-2222'),
+        ).resolves.toBe(false);
+        await expect(banco.repositorio.estaInactivadaPorProveedor('no-existe')).resolves.toBe(
+          false,
+        );
+      });
+
+      it('lo de la otra persona sigue entero', async () => {
+        await conDosCuentas();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        const otra = await banco.repositorio.findById(new UserId(OTRA_PERSONA));
+
+        expect(otra?.correo).toBe('otra@ejemplo.test');
+        await expect(
+          banco.repositorio.consentimientosDe(new UserId(OTRA_PERSONA)),
+        ).resolves.not.toEqual([]);
+      });
+
+      it('el correo queda libre: la misma persona puede volver a registrarse con el mismo', async () => {
+        await conDosCuentas();
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        // Una identidad nueva en el proveedor y un identificador nuestro nuevo,
+        // con el mismo correo de siempre.
+        await banco.repositorio.save(
+          unaCuenta({
+            id: '33333333-3333-4333-8333-333333333333',
+            correo: 'persona@ejemplo.test',
+            idProveedorAuth: 'supabase|cccc-3333',
+          }),
+        );
+
+        const nueva = await banco.repositorio.findByIdProveedorAuth('supabase|cccc-3333');
+
+        expect(nueva?.correo).toBe('persona@ejemplo.test');
+        expect(nueva?.id.value).toBe('33333333-3333-4333-8333-333333333333');
+        // La de antes sigue dada de baja: otra identidad no la resucita.
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(true);
+      });
+
+      it('si lo de fuera falla, no se da de baja nada y la cuenta sigue entera', async () => {
+        // Todo o nada: si el proveedor no borra la identidad, la cuenta tiene
+        // que seguir aqui para poder reintentar, y sin constancia a medias.
+        await conDosCuentas();
+
+        await expect(
+          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+            Promise.reject(new Error('el proveedor no respondio')),
+          ),
+        ).rejects.toThrow('el proveedor no respondio');
+
+        await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.not.toBeNull();
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(false);
+      });
+
+      it('dar de baja una cuenta que no existe no es un error y no deja constancia', async () => {
+        let seLlamo = false;
+
+        await expect(
+          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () => {
+            seLlamo = true;
+
+            return Promise.resolve();
+          }),
+        ).resolves.toBeUndefined();
+
+        expect(seLlamo).toBe(false);
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(false);
+      });
+
+      it('una orden que llega despues de la baja no vuelve a crear la cuenta', async () => {
+        // La carrera: una peticion cargo la cuenta, la baja termino, y la peticion guarda. Sin
+        // esto, `save` la crearia de nuevo con su nombre y su correo.
+        const cargada = unaCuenta({ nombre: 'Ana' });
+
+        await banco.repositorio.save(cargada);
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        await expect(
+          banco.repositorio.save(cargada.conZonaHoraria('Europe/Madrid')),
+        ).rejects.toThrow(AccountInactiveError);
+
+        await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
+      });
+
+      it('dar de baja dos veces la misma no es un error', async () => {
+        await conDosCuentas();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+        await expect(
+          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () => Promise.resolve()),
+        ).resolves.toBeUndefined();
+
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(true);
+      });
     });
   });
 }

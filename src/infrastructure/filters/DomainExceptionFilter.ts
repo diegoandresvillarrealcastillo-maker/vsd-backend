@@ -49,6 +49,11 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // sesion otra vez, que es justo lo que no arregla el problema.
   CUENTA_NO_REGISTRADA: HttpStatus.FORBIDDEN,
 
+  // Una cuenta dada de baja (SCRUM-190). 401 y no 403: no falta completar nada, falta una sesion
+  // que sirva. El frontend cierra la sesion al verlo, y asi terminan las de los demas
+  // dispositivos. Con un 403 se mandaria a la persona a «Completa tu registro».
+  CUENTA_INACTIVA: HttpStatus.UNAUTHORIZED,
+
   // 409 porque es un conflicto con un recurso que ya existe, no un error de
   // formato. La peticion esta bien escrita; lo que pasa es que ese correo ya
   // esta tomado por una cuenta creada con otro metodo de acceso.

@@ -9,6 +9,7 @@ import {
   RELLENO_DE_LA_CHARLA,
   type ReglaDeCharla,
 } from '../../domain/model/ReglasDelAsistente.js';
+import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
 import { hayRiesgo } from '../../domain/model/SenalesDeRiesgo.js';
 import {
   type AsistentePort,
@@ -18,7 +19,12 @@ import {
 } from '../../domain/ports/in/AsistentePort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
-import { contieneAlguno, palabrasDe, reconocerCharla } from './Reconocimiento.js';
+import {
+  contieneAlguno,
+  esLenguajeOfensivo,
+  palabrasDe,
+  reconocerCharla,
+} from './Reconocimiento.js';
 
 /** Cuantos dias hacia atras se mira para personalizar. */
 const DIAS_DE_HISTORIAL = 30;
@@ -90,10 +96,24 @@ export class AsistentePorReglas implements AsistentePort {
       };
     }
 
+    const palabras = palabrasDe(consulta.texto);
+
+    // Despues del riesgo, y nunca antes: un insulto dirigido al asistente (SCRUM-192). Se responde
+    // con asertividad y sin lineas de atencion, y sin personalizar. El servidor no cuenta cuantas
+    // veces: no guarda la conversacion, y la ventana de chat lleva la cuenta.
+    if (esLenguajeOfensivo(palabras, LENGUAJE_OFENSIVO)) {
+      return {
+        intencion: Intencion.LENGUAJE_OFENSIVO,
+        mensaje: MENSAJES[Intencion.LENGUAJE_OFENSIVO],
+        recursos: [],
+        senalDeRiesgo: false,
+        incluyeLineasDeAtencion: false,
+      };
+    }
+
     // Despues, la charla de todos los dias, que solo cuenta si el mensaje entero
     // es charla. No lleva recursos ni lineas: quien dice "gracias" no necesita
     // un telefono, y ensenarlo en cada saludo lo convertiria en decorado.
-    const palabras = palabrasDe(consulta.texto);
     const charla = reconocerCharla(palabras, REGLAS_DE_CHARLA, relleno(consulta.nombreDeLaMascota));
 
     if (charla !== undefined) {

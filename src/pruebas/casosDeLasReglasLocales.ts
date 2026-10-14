@@ -37,6 +37,21 @@ export const CASOS_DE_LAS_REGLAS_LOCALES: readonly ConsultaSinConexion[] = [
   { texto: 'quiero morirme', zona: 'Atlantic/Canary' },
   { texto: 'donde busco ayuda', zona: 'Asia/Calcutta' },
 
+  // ---- el lenguaje ofensivo (SCRUM-192): se responde sin conexion y sin lineas
+  { texto: 'eres un idiota', zona: BOGOTA },
+  { texto: 'CALLATE', zona: BOGOTA },
+  { texto: 'hola, imbécil', zona: BOGOTA },
+  { texto: 'vete a la mierda', zona: MADRID },
+  // El riesgo va antes que la ofensa.
+  { texto: 'eres un idiota, quiero morirme', zona: BOGOTA },
+  { texto: 'callate, no aguanto mas', zona: BOGOTA },
+  // Desahogo, no insulto: sigue el camino de siempre.
+  { texto: 'me siento una mierda', zona: BOGOTA },
+  { texto: 'odio mi vida', zona: BOGOTA },
+  { texto: 'soy un idiota', zona: BOGOTA },
+  { texto: 'me siento inútil', zona: BOGOTA },
+  { texto: 'saca la basura', zona: BOGOTA },
+
   // ---- la charla que se responde sin conexion
   { texto: 'hola', zona: BOGOTA },
   { texto: 'Hola!!!', zona: BOGOTA },

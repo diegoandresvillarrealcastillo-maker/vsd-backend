@@ -1,4 +1,5 @@
 import { Intencion } from '../ports/in/AsistentePort.js';
+import { MENSAJE_ANTE_LENGUAJE_OFENSIVO } from './LenguajeOfensivo.js';
 
 /**
  * Las reglas de VSD IA y sus textos, en un solo sitio (SCRUM-128, SCRUM-141).
@@ -321,6 +322,7 @@ export const MENSAJES: Readonly<Record<Intencion, string>> = {
     'Gracias por preguntar. Por aquí todo en orden, listo para acompañarte. Si quieres contarme cómo vas tú, te leo.',
   [Intencion.QUE_PUEDES_HACER]:
     'Soy VSD IA. Te puedo explicar qué significa tu nivel en una actividad, darte ideas para descansar mejor y decirte dónde buscar ayuda cuando la necesites. No reemplazo a un profesional: si quieres hablar con alguien, te digo con quién.',
+  [Intencion.LENGUAJE_OFENSIVO]: MENSAJE_ANTE_LENGUAJE_OFENSIVO,
   [Intencion.NO_RECONOCIDA]:
     'No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma.',
 };

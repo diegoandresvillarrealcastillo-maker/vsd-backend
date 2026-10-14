@@ -1,3 +1,4 @@
+import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
 import { PAISES_CON_LINEAS, ZONAS_POR_PAIS } from '../../domain/model/PaisDeAyuda.js';
 import {
   MENSAJES,
@@ -66,6 +67,13 @@ export class ConsultarLasReglasLocalesUseCaseImpl implements ConsultarLasReglasL
           variantes: [...(regla.variantes ?? [])],
         })),
         relleno: [...RELLENO_DE_LA_CHARLA],
+      },
+      ofensivo: {
+        terminos: [...LENGUAJE_OFENSIVO.terminos],
+        desahogo: [...LENGUAJE_OFENSIVO.desahogo],
+        umbral: LENGUAJE_OFENSIVO.umbral,
+        mensaje: LENGUAJE_OFENSIVO.mensaje,
+        mensajeAlCerrar: LENGUAJE_OFENSIVO.mensajeAlCerrar,
       },
       intenciones: REGLAS_DE_INTENCION.map((regla) => ({
         intencion: regla.intencion,

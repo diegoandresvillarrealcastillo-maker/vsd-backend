@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Activity, DireccionEscala, type Frecuencia } from './Activity.js';
 import { ActivityId } from './Identifier.js';
 import { Modulo } from './Preferencias.js';
-import { type Hecho, etapaPara, progresoDelModulo } from './Sendero.js';
+import { type Hecho, MINIMO_SUGERIDO_POR_DIA, etapaPara, progresoDelModulo } from './Sendero.js';
 
 const HOY = '2026-10-02';
 const AYER = '2026-10-01';
@@ -70,6 +70,101 @@ describe('etapaPara', () => {
       });
     },
   );
+});
+
+describe('progresoDelModulo: sin tope y con un minimo sugerido (SCRUM-184)', () => {
+  const nombres = (actividades: readonly { actividad: Activity }[]) =>
+    actividades.map(({ actividad: una }) => una.nombre);
+
+  it('el minimo sugerido es de tres', () => {
+    expect(MINIMO_SUGERIDO_POR_DIA).toBe(3);
+  });
+
+  it('no hay tope: con cinco que tocan hoy salen las cinco', () => {
+    const cinco = [actividad(), actividad(), actividad(), actividad(), actividad()];
+
+    const resultado = progreso(cinco);
+
+    expect(resultado.hoy).toHaveLength(5);
+    expect(resultado.sugeridas).toEqual([]);
+  });
+
+  it('hacer mas de tres el mismo dia es lo normal: todas siguen en la lista, hechas', () => {
+    const cuatro = [actividad(), actividad(), actividad(), actividad()];
+    const hechos = cuatro.map((una) => hecho(una, HOY));
+
+    const resultado = progreso(cuatro, hechos);
+
+    expect(resultado.hoy.filter(({ hecha }) => hecha)).toHaveLength(4);
+    expect(resultado.sesiones).toBe(1);
+  });
+
+  it('con menos de tres hoy, sugiere otras del modulo hasta llegar a tres', () => {
+    const hoyToca = actividad();
+    const otroDia = actividad({ tipo: 'semanal', dias: [1] });
+    const otroDiaMas = actividad({ tipo: 'semanal', dias: [2] });
+    const otraMas = actividad({ tipo: 'semanal', dias: [3] });
+
+    const resultado = progreso([hoyToca, otroDia, otroDiaMas, otraMas]);
+
+    expect(nombres(resultado.hoy)).toEqual([hoyToca.nombre]);
+    // Hasta completar el minimo, en el orden del catalogo.
+    expect(nombres(resultado.sugeridas)).toEqual([otroDia.nombre, otroDiaMas.nombre]);
+  });
+
+  it('no sugiere de mas: con tres que tocan no sugiere ninguna', () => {
+    const tres = [actividad(), actividad(), actividad()];
+    const otra = actividad({ tipo: 'semanal', dias: [1] });
+
+    expect(progreso([...tres, otra]).sugeridas).toEqual([]);
+  });
+
+  it('una sugerida no es una que toca: nunca se mezcla con lo de hoy', () => {
+    const toca = actividad();
+    const noToca = actividad({ tipo: 'semanal', dias: [1] });
+
+    const resultado = progreso([toca, noToca]);
+
+    expect(nombres(resultado.hoy)).toEqual([toca.nombre]);
+    expect(nombres(resultado.sugeridas)).toEqual([noToca.nombre]);
+  });
+
+  it('no sugiere lo que todavia no se abre en la sesion en la que va', () => {
+    const toca = actividad();
+    const cerrada = actividad({ tipo: 'semanal', dias: [1] }, 9);
+
+    expect(progreso([toca, cerrada]).sugeridas).toEqual([]);
+  });
+
+  it('no sugiere una unica que ya hizo otro dia: no vuelve', () => {
+    const toca = actividad();
+    const unica = actividad({ tipo: 'unica' });
+
+    const resultado = progreso([toca, unica], [hecho(unica, AYER)]);
+
+    expect(resultado.hoy.map(({ actividad: una }) => una.id.value)).toEqual([toca.id.value]);
+    expect(resultado.sugeridas).toEqual([]);
+  });
+
+  it('una sugerida que ya hizo hoy se ve como hecha', () => {
+    const toca = actividad();
+    const noToca = actividad({ tipo: 'semanal', dias: [1] });
+
+    const resultado = progreso([toca, noToca], [hecho(noToca, HOY)]);
+
+    expect(resultado.sugeridas).toEqual([{ actividad: noToca, hecha: true }]);
+  });
+
+  it('la sugerencia no cuenta para la sesion: no suma sesiones ni cambia la etapa', () => {
+    const toca = actividad();
+    const noToca = actividad({ tipo: 'semanal', dias: [1] });
+
+    const sin = progreso([toca]);
+    const con = progreso([toca, noToca]);
+
+    expect(con.sesiones).toBe(sin.sesiones);
+    expect(con.etapa).toEqual(sin.etapa);
+  });
 });
 
 describe('progresoDelModulo', () => {

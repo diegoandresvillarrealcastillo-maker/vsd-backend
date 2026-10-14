@@ -1,6 +1,7 @@
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Dia } from '../../domain/model/Calendario.js';
-import type { ClientOperationId, UserId } from '../../domain/model/Identifier.js';
+import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
+import type { ActivityId, ClientOperationId, UserId } from '../../domain/model/Identifier.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 
 /**
@@ -71,6 +72,45 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
 
     // AAAA-MM-DD: el orden de texto es el del calendario.
     return Promise.resolve([...dias].sort());
+  }
+
+  historialDe(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    pagina: { readonly limite: number; readonly despuesDe?: PuntoDeLaPagina | undefined },
+  ): Promise<readonly FilaDelHistorial[]> {
+    const pedidas = new Set(actividades.map((actividad) => actividad.value));
+    const { despuesDe } = pagina;
+
+    const filas = [...this.porOperacion.values()]
+      .filter(
+        (resultado) => resultado.perteneceA(userId) && pedidas.has(resultado.activityId.value),
+      )
+      .map((resultado): FilaDelHistorial => ({
+        id: resultado.id.value,
+        idActividad: resultado.activityId.value,
+        dia: resultado.dia,
+        hechaEn: resultado.completedAt,
+      }))
+      // Del mas reciente al mas antiguo y, a igual hora, por identificador: el mismo orden
+      // total que usa la base, para que el cursor no repita ni salte nada.
+      .sort(
+        (uno, otro) =>
+          otro.hechaEn.getTime() - uno.hechaEn.getTime() ||
+          (otro.id < uno.id ? -1 : otro.id > uno.id ? 1 : 0),
+      )
+      .filter((fila) => {
+        if (despuesDe === undefined) {
+          return true;
+        }
+
+        const lugar = fila.hechaEn.getTime() - despuesDe.hechaEn.getTime();
+
+        return lugar < 0 || (lugar === 0 && fila.id < despuesDe.id);
+      })
+      .slice(0, pagina.limite);
+
+    return Promise.resolve(filas);
   }
 
   private clave(clientOperationId: ClientOperationId, userId: UserId): string {

@@ -81,6 +81,7 @@ export const CONSULTAR_REGLAS_LOCALES = Symbol('ConsultarLasReglasLocalesUseCase
 
 /** El sendero de cada modulo activo. */
 export const CONSULTAR_PROGRESO = Symbol('ConsultarProgresoUseCase');
+export const CONSULTAR_HISTORIAL_DEL_MODULO = Symbol('ConsultarHistorialDelModuloUseCase');
 
 /** La racha: dias seguidos con al menos una actividad (SCRUM-186). */
 export const CONSULTAR_RACHA = Symbol('ConsultarRachaUseCase');

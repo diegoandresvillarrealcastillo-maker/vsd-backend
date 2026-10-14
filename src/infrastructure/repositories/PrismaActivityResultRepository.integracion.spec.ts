@@ -514,4 +514,117 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       await expect(repositorio.diasConActividad(new UserId(USUARIO_A))).resolves.toEqual([]);
     });
   });
+
+  describe('historialDe (SCRUM-184)', () => {
+    async function guardarHecho(
+      n: number,
+      usuario: string,
+      actividad: string,
+      cuando: string,
+      dia = cuando.slice(0, 10),
+    ): Promise<string> {
+      const sufijo = String(n).padStart(12, '0');
+      const id = `41000000-0000-4000-8000-${sufijo}`;
+
+      await repositorio.save(
+        await unResultado({
+          id,
+          usuario,
+          actividad,
+          operacion: `51000000-0000-4000-8000-${sufijo}`,
+          completedAt: new Date(cuando),
+          dia,
+        }),
+      );
+
+      return id;
+    }
+
+    it('devuelve lo de esa persona y de esas actividades, del mas reciente al mas antiguo', async () => {
+      await guardarHecho(1, USUARIO_A, ACTIVIDAD_BITACORA, '2026-10-01T12:00:00.000Z');
+      await guardarHecho(2, USUARIO_A, ACTIVIDAD_BITACORA, '2026-10-02T12:00:00.000Z');
+      await guardarHecho(3, USUARIO_A, ACTIVIDAD_MEMORIA, '2026-10-03T12:00:00.000Z');
+
+      const filas = await repositorio.historialDe(
+        new UserId(USUARIO_A),
+        [new ActivityId(ACTIVIDAD_BITACORA)],
+        { limite: 10 },
+      );
+
+      expect(filas.map((fila) => fila.hechaEn.toISOString())).toEqual([
+        '2026-10-02T12:00:00.000Z',
+        '2026-10-01T12:00:00.000Z',
+      ]);
+      expect(filas.every((fila) => fila.idActividad === ACTIVIDAD_BITACORA)).toBe(true);
+    });
+
+    it('lo de otra persona no aparece: el aislamiento lo pone la base', async () => {
+      await guardarHecho(4, USUARIO_B, ACTIVIDAD_BITACORA, '2026-10-02T12:00:00.000Z');
+
+      await expect(
+        repositorio.historialDe(new UserId(USUARIO_A), [new ActivityId(ACTIVIDAD_BITACORA)], {
+          limite: 10,
+        }),
+      ).resolves.toEqual([]);
+    });
+
+    it('trae el dia guardado, no el que saldria de la hora', async () => {
+      await guardarHecho(
+        5,
+        USUARIO_A,
+        ACTIVIDAD_BITACORA,
+        '2026-09-15T01:00:00.000Z',
+        '2026-09-14',
+      );
+
+      const [fila] = await repositorio.historialDe(
+        new UserId(USUARIO_A),
+        [new ActivityId(ACTIVIDAD_BITACORA)],
+        { limite: 10 },
+      );
+
+      expect(fila?.dia).toBe('2026-09-14');
+    });
+
+    it('la pagina siguiente empieza justo despues del cursor, aunque dos hechos compartan la hora', async () => {
+      const misma = '2026-10-02T12:00:00.000Z';
+
+      for (let n = 10; n < 14; n += 1) {
+        await guardarHecho(n, USUARIO_A, ACTIVIDAD_BITACORA, misma);
+      }
+
+      await guardarHecho(14, USUARIO_A, ACTIVIDAD_BITACORA, '2026-10-01T12:00:00.000Z');
+
+      const vistos: string[] = [];
+      let despuesDe: { hechaEn: Date; id: string } | undefined;
+
+      for (let pagina = 0; pagina < 6; pagina += 1) {
+        const filas = await repositorio.historialDe(
+          new UserId(USUARIO_A),
+          [new ActivityId(ACTIVIDAD_BITACORA)],
+          { limite: 2, ...(despuesDe === undefined ? {} : { despuesDe }) },
+        );
+
+        if (filas.length === 0) {
+          break;
+        }
+
+        vistos.push(...filas.map((fila) => fila.id));
+        const ultima = filas.at(-1)!;
+
+        despuesDe = { hechaEn: ultima.hechaEn, id: ultima.id };
+      }
+
+      expect(vistos).toHaveLength(5);
+      expect(new Set(vistos).size).toBe(5);
+    });
+
+    it('sin actividades pedidas, no hay nada', async () => {
+      await guardarHecho(20, USUARIO_A, ACTIVIDAD_BITACORA, '2026-10-02T12:00:00.000Z');
+
+      await expect(
+        repositorio.historialDe(new UserId(USUARIO_A), [], { limite: 10 }),
+      ).resolves.toEqual([]);
+    });
+  });
 });

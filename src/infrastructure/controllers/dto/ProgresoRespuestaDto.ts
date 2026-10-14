@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { ProgresoDelModulo } from '../../../domain/model/Sendero.js';
+import type { ActividadDeHoy, ProgresoDelModulo } from '../../../domain/model/Sendero.js';
 
 export class EtapaDto {
   @ApiProperty({ description: 'Numero de etapa (1 a 4) o de temporada (desde 1).', example: 2 })
@@ -66,8 +66,18 @@ export class ProgresoRespuestaDto {
   @ApiProperty({ type: EtapaDto })
   etapa!: EtapaDto;
 
-  @ApiProperty({ type: [ActividadDeHoyDto], description: 'Lo que toca hoy, con lo hecho.' })
+  @ApiProperty({
+    type: [ActividadDeHoyDto],
+    description: 'Lo que toca hoy, con lo hecho. Sin tope: salen todas las que tocan.',
+  })
   hoy!: ActividadDeHoyDto[];
+
+  @ApiProperty({
+    type: [ActividadDeHoyDto],
+    description:
+      'Otras actividades abiertas del modulo que hoy no tocan, hasta completar un minimo sugerido de tres con lo de hoy (SCRUM-184). Es una sugerencia: no forma parte del plan del dia, no suma sesiones ni cuenta para la racha. Vacia cuando hoy ya llega a tres.',
+  })
+  sugeridas!: ActividadDeHoyDto[];
 
   static desde(progreso: ProgresoDelModulo): ProgresoRespuestaDto {
     const dto = new ProgresoRespuestaDto();
@@ -75,7 +85,16 @@ export class ProgresoRespuestaDto {
     dto.modulo = progreso.modulo;
     dto.sesiones = progreso.sesiones;
     dto.etapa = { ...progreso.etapa };
-    dto.hoy = progreso.hoy.map(({ actividad, hecha }) => ({
+    dto.hoy = progreso.hoy.map((actividad) => ProgresoRespuestaDto.actividad(actividad));
+    dto.sugeridas = progreso.sugeridas.map((actividad) =>
+      ProgresoRespuestaDto.actividad(actividad),
+    );
+
+    return dto;
+  }
+
+  private static actividad({ actividad, hecha }: ActividadDeHoy): ActividadDeHoyDto {
+    return {
       id: actividad.id.value,
       nombre: actividad.nombre,
       ...(actividad.tipo === undefined ? {} : { tipo: actividad.tipo }),
@@ -85,8 +104,6 @@ export class ProgresoRespuestaDto {
         actividad.frecuencia.tipo === 'semanal'
           ? { tipo: 'semanal', dias: [...actividad.frecuencia.dias] }
           : { tipo: actividad.frecuencia.tipo },
-    }));
-
-    return dto;
+    };
   }
 }

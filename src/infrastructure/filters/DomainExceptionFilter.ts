@@ -41,6 +41,9 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // no existe, y quien llama no puede hacer nada distinto con su peticion.
   ACTIVIDAD_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
 
+  // La pagina del historial no es una que se haya dado (SCRUM-184): un error de quien llama.
+  PAGINA_DEL_HISTORIAL_INVALIDA: HttpStatus.BAD_REQUEST,
+
   CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
   LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
 

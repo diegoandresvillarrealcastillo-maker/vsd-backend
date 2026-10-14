@@ -80,6 +80,20 @@ export interface ReglasLocalesDelAsistente {
     /** Lo que se dice al cerrar la conversacion. */
     readonly mensajeAlCerrar: string;
   };
+  /**
+   * Las erratas que se leen como la palabra que se quiso escribir (SCRUM-193), por la tabla. Con
+   * ellas y con las palabras de las reglas, el dispositivo corrige igual que el servidor. Aditivo.
+   */
+  readonly erratas: Readonly<Record<string, string>>;
+  /**
+   * Lo que se responde cuando no se reconoce lo que se escribio (SCRUM-176, SCRUM-193): sin lineas
+   * de atencion y con el catalogo de lo que si se atiende. Va despues de las intenciones, y se
+   * responde sin conexion: es una frase fija. Aditivo.
+   */
+  readonly fallback: {
+    readonly mensaje: string;
+    readonly sugerencias: readonly string[];
+  };
   /** Lo demas que el servidor reconoce, en su orden. */
   readonly intenciones: readonly ReglaLocalDeIntencion[];
   /** Los paises con lineas verificadas, por su codigo de dos letras. */

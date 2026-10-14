@@ -52,6 +52,31 @@ export const CASOS_DE_LAS_REGLAS_LOCALES: readonly ConsultaSinConexion[] = [
   { texto: 'me siento inútil', zona: BOGOTA },
   { texto: 'saca la basura', zona: BOGOTA },
 
+  // ---- las erratas (SCRUM-193): se leen como se quisieron escribir
+  { texto: 'ola', zona: BOGOTA },
+  { texto: 'ola, como bamos', zona: BOGOTA },
+  { texto: 'grasias', zona: BOGOTA },
+  { texto: 'necesito un sicologo', zona: BOGOTA },
+  // Y el riesgo con una errata sigue siendo riesgo.
+  { texto: 'kiero morirme', zona: BOGOTA },
+  { texto: 'a veces pienso en suisidarme', zona: BOGOTA },
+  { texto: 'no aguanto mass', zona: BOGOTA },
+  // Lo que cambia de quien se habla no se corrige: no es riesgo.
+  { texto: 'mi abuela no aguanta mas', zona: BOGOTA },
+  // Una palabra que se parece a un insulto no lo es.
+  { texto: 'tanto tiempo', zona: BOGOTA },
+
+  // ---- lo que no se reconoce: el catalogo, sin lineas de atencion (SCRUM-176)
+  { texto: 'a que hora abre la biblioteca', zona: BOGOTA },
+  { texto: 'a que hora abre la biblioteca', zona: MADRID },
+  // Los tres que antes ensenaban lineas por la red de seguridad, y no estan en la lista de riesgo.
+  { texto: 'gracias por todo', zona: BOGOTA },
+  { texto: 'adiós, y gracias por todo', zona: BOGOTA },
+  { texto: 'chao, ya no estoy', zona: BOGOTA },
+  // Y los que si pasaron a la lista de riesgo.
+  { texto: 'adiós para siempre', zona: BOGOTA },
+  { texto: 'hola, quiero desaparecer', zona: BOGOTA },
+
   // ---- la charla que se responde sin conexion
   { texto: 'hola', zona: BOGOTA },
   { texto: 'Hola!!!', zona: BOGOTA },

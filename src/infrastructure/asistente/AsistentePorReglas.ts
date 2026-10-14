@@ -7,9 +7,11 @@ import {
   REGLAS_DE_CHARLA,
   REGLAS_DE_INTENCION,
   RELLENO_DE_LA_CHARLA,
+  SUGERENCIAS_DEL_ASISTENTE,
   type ReglaDeCharla,
 } from '../../domain/model/ReglasDelAsistente.js';
 import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
+import { corregirPalabras, vocabularioDe } from '../../domain/model/LecturaDelTexto.js';
 import { hayRiesgo } from '../../domain/model/SenalesDeRiesgo.js';
 import {
   type AsistentePort,
@@ -28,6 +30,23 @@ import {
 
 /** Cuantos dias hacia atras se mira para personalizar. */
 const DIAS_DE_HISTORIAL = 30;
+
+/**
+ * Las palabras que el asistente conoce, contra las que se corrigen las erratas (SCRUM-193): las de
+ * la charla, las de las intenciones y el relleno. El lenguaje ofensivo **no** entra: su lista no se
+ * corrige por distancia (ver `LecturaDelTexto.ts`).
+ */
+const VOCABULARIO = vocabularioDe([
+  ...REGLAS_DE_CHARLA.flatMap((regla) => [
+    regla.patrones,
+    ...(regla.variantes ?? []).map((variante) => variante.patrones),
+  ]),
+  ...REGLAS_DE_INTENCION.map((regla) => regla.patrones),
+  RELLENO_DE_LA_CHARLA,
+]);
+
+/** Sin vocabulario: solo la tabla de erratas, nunca la distancia. Para el lenguaje ofensivo. */
+const SIN_VOCABULARIO: ReadonlySet<string> = new Set();
 
 /** Las palabras de relleno, mas las del nombre que la persona le puso a su mascota. */
 function relleno(nombreDeLaMascota: string | undefined): ReadonlySet<string> {
@@ -93,23 +112,29 @@ export class AsistentePorReglas implements AsistentePort {
         recursos: RecursoApoyo.ordenarPorAlcance(lineas),
         senalDeRiesgo: true,
         incluyeLineasDeAtencion: true,
+        sugerencias: [],
       };
     }
 
-    const palabras = palabrasDe(consulta.texto);
+    const dichas = palabrasDe(consulta.texto);
 
     // Despues del riesgo, y nunca antes: un insulto dirigido al asistente (SCRUM-192). Se responde
     // con asertividad y sin lineas de atencion, y sin personalizar. El servidor no cuenta cuantas
-    // veces: no guarda la conversacion, y la ventana de chat lleva la cuenta.
-    if (esLenguajeOfensivo(palabras, LENGUAJE_OFENSIVO)) {
+    // veces: no guarda la conversacion, y la ventana de chat lleva la cuenta. Solo se leen las
+    // erratas de la tabla: una palabra nunca se acerca por distancia a un insulto.
+    if (esLenguajeOfensivo(corregirPalabras(dichas, SIN_VOCABULARIO), LENGUAJE_OFENSIVO)) {
       return {
         intencion: Intencion.LENGUAJE_OFENSIVO,
         mensaje: MENSAJES[Intencion.LENGUAJE_OFENSIVO],
         recursos: [],
         senalDeRiesgo: false,
         incluyeLineasDeAtencion: false,
+        sugerencias: [],
       };
     }
+
+    // Lo demas se lee con las erratas corregidas («ola», «cómo bamos», «grasias»).
+    const palabras = corregirPalabras(dichas, VOCABULARIO);
 
     // Despues, la charla de todos los dias, que solo cuenta si el mensaje entero
     // es charla. No lleva recursos ni lineas: quien dice "gracias" no necesita
@@ -123,12 +148,29 @@ export class AsistentePorReglas implements AsistentePort {
         recursos: [],
         senalDeRiesgo: false,
         incluyeLineasDeAtencion: false,
+        sugerencias: [],
       };
     }
 
     const regla = this.reconocer(palabras);
-    const intencion = regla?.intencion ?? Intencion.NO_RECONOCIDA;
-    const encontrados = regla === undefined ? [] : await this.recursos.porTema(regla.tema);
+
+    // Lo que no se reconoce (SCRUM-176, SCRUM-193): **sin lineas de atencion** y sin personalizar.
+    // Mostrarlas por una frase que el asistente no entendio las convertia en un mensaje de crisis
+    // para quien solo pregunto otra cosa. Si hubiera una senal de riesgo ya se habria respondido
+    // arriba, antes de llegar aqui. En su lugar, el catalogo de lo que si atiende.
+    if (regla === undefined) {
+      return {
+        intencion: Intencion.NO_RECONOCIDA,
+        mensaje: MENSAJES[Intencion.NO_RECONOCIDA],
+        recursos: [],
+        senalDeRiesgo: false,
+        incluyeLineasDeAtencion: false,
+        sugerencias: SUGERENCIAS_DEL_ASISTENTE.map((sugerencia) => sugerencia.texto),
+      };
+    }
+
+    const intencion = regla.intencion;
+    const encontrados = await this.recursos.porTema(regla.tema);
 
     // Una intencion que no se reconoce no devuelve un error ni una disculpa
     // vacia: devuelve las lineas de atencion, que es lo que sirve siempre.
@@ -141,6 +183,7 @@ export class AsistentePorReglas implements AsistentePort {
       recursos: RecursoApoyo.ordenarPorAlcance(acompanamiento),
       senalDeRiesgo: false,
       incluyeLineasDeAtencion: acompanamiento.some((recurso) => recurso.esLineaDeAtencion()),
+      sugerencias: [],
     };
   }
 

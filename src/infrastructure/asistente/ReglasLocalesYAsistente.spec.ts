@@ -6,6 +6,7 @@ import {
   REGLAS_DE_CHARLA,
   REGLAS_DE_INTENCION,
 } from '../../domain/model/ReglasDelAsistente.js';
+import { ERRATAS_FRECUENTES } from '../../domain/model/LecturaDelTexto.js';
 import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
 import { EXPRESIONES_DE_RIESGO, hayRiesgo } from '../../domain/model/SenalesDeRiesgo.js';
 import { Intencion } from '../../domain/ports/in/AsistentePort.js';
@@ -53,6 +54,65 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
 
   const responder = (texto: string, zona = BOGOTA, nombreDeLaMascota?: string) =>
     asistente.responder({ userId: USUARIO, zonaHoraria: zona, texto, nombreDeLaMascota });
+
+  /**
+   * Que el dispositivo responda a un texto lo que el servidor: lo mismo en lo que se puede
+   * responder sin conexion, y `exige-conexion` en lo que no. Una sola regla para todo el
+   * conjunto de frases y para las erratas.
+   */
+  async function coinciden(texto: string, zona = BOGOTA, mascota?: string): Promise<void> {
+    const delServidor = await responder(texto, zona, mascota);
+    const delDispositivo = responderSinConexion(reglas, {
+      texto,
+      zona,
+      ...(mascota === undefined ? {} : { mascota }),
+    });
+
+    if (delServidor.senalDeRiesgo) {
+      expect(delDispositivo, texto).toEqual({
+        tipo: 'riesgo',
+        mensaje: delServidor.mensaje,
+        lineas: delServidor.recursos.map((recurso) => recurso.id),
+      });
+
+      return;
+    }
+
+    if (delServidor.intencion === Intencion.LENGUAJE_OFENSIVO) {
+      expect(delDispositivo, texto).toEqual({
+        tipo: 'ofensivo',
+        intencion: Intencion.LENGUAJE_OFENSIVO,
+        mensaje: delServidor.mensaje,
+      });
+
+      return;
+    }
+
+    if (delServidor.intencion === Intencion.NO_RECONOCIDA) {
+      // Nada se reconoce: el mismo mensaje y el mismo catalogo, y ninguna linea, en los dos
+      // lados (SCRUM-176, SCRUM-193).
+      expect(delDispositivo, texto).toEqual({
+        tipo: 'fallback',
+        intencion: Intencion.NO_RECONOCIDA,
+        mensaje: delServidor.mensaje,
+        sugerencias: delServidor.sugerencias,
+      });
+      expect(delServidor.recursos, texto).toEqual([]);
+
+      return;
+    }
+
+    if (SE_RESPONDE_SIN_CONEXION.includes(delServidor.intencion)) {
+      // Lo que el servidor reconoce de esta lista y no se puede responder sin conexion es un
+      // hueco: el dispositivo tendria que callar donde el servidor habla, o hablar donde no.
+      expect(delDispositivo.tipo, texto).not.toBe('exige-conexion');
+      expect(delDispositivo, texto).toMatchObject({ intencion: delServidor.intencion });
+
+      return;
+    }
+
+    expect(delDispositivo, texto).toEqual({ tipo: 'exige-conexion' });
+  }
 
   beforeAll(async () => {
     const recursos = new InMemoryRecursoApoyoRepository();
@@ -251,8 +311,10 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
         zona: BOGOTA,
       });
 
+      // Un saludo delante no lo vuelve charla: es una senal de riesgo, en los dos lados.
       expect(delServidor.intencion).not.toBe(Intencion.SALUDO);
-      expect(delDispositivo).toEqual({ tipo: 'exige-conexion' });
+      expect(delServidor.senalDeRiesgo).toBe(true);
+      expect(delDispositivo).toMatchObject({ tipo: 'riesgo' });
     });
   });
 
@@ -304,41 +366,20 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
     it.each(CASOS_DE_LAS_REGLAS_LOCALES.map((caso) => [caso.texto, caso]))(
       'servidor y dispositivo coinciden en "%s"',
       async (_texto, caso) => {
-        const delServidor = await responder(caso.texto, caso.zona, caso.mascota);
-        const delDispositivo = responderSinConexion(reglas, caso);
+        await coinciden(caso.texto, caso.zona, caso.mascota);
+      },
+    );
 
-        if (delServidor.senalDeRiesgo) {
-          expect(delDispositivo).toEqual({
-            tipo: 'riesgo',
-            mensaje: delServidor.mensaje,
-            lineas: delServidor.recursos.map((recurso) => recurso.id),
-          });
+    it('el paquete publica la misma tabla de erratas que usa el servidor', () => {
+      expect({ ...reglas.erratas }).toEqual({ ...ERRATAS_FRECUENTES });
+    });
 
-          return;
-        }
-
-        if (delServidor.intencion === Intencion.LENGUAJE_OFENSIVO) {
-          // Un insulto se responde igual sin conexion: es una frase fija, sin lineas.
-          expect(delDispositivo).toEqual({
-            tipo: 'ofensivo',
-            intencion: Intencion.LENGUAJE_OFENSIVO,
-            mensaje: delServidor.mensaje,
-          });
-
-          return;
-        }
-
-        if (SE_RESPONDE_SIN_CONEXION.includes(delServidor.intencion)) {
-          // Lo que el servidor reconoce de esta lista y no se puede responder sin
-          // conexion es un hueco: el dispositivo tendria que callar donde el servidor
-          // habla, o hablar donde el servidor no.
-          expect(delDispositivo.tipo, caso.texto).not.toBe('exige-conexion');
-          expect(delDispositivo).toMatchObject({ intencion: delServidor.intencion });
-
-          return;
-        }
-
-        expect(delDispositivo, caso.texto).toEqual({ tipo: 'exige-conexion' });
+    it.each(Object.keys(ERRATAS_FRECUENTES))(
+      'la errata «%s», sola o en una frase, se lee igual en el servidor y en el dispositivo',
+      async (errata) => {
+        await coinciden(errata);
+        await coinciden(`${errata}, gracias`);
+        await coinciden(`hola ${errata}`);
       },
     );
 
@@ -351,6 +392,7 @@ describe('lo que se publica y lo que responde el asistente: una sola verdad', ()
         'ayuda',
         'charla',
         'exige-conexion',
+        'fallback',
         'ofensivo',
         'riesgo',
       ]);

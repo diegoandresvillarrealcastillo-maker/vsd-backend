@@ -1,3 +1,4 @@
+import { corregirPalabras, vocabularioDe } from '../domain/model/LecturaDelTexto.js';
 import { normalizar } from '../domain/model/SenalesDeRiesgo.js';
 import type { ReglasLocalesDelAsistente } from '../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
 import {
@@ -26,12 +27,21 @@ import {
  * 2. **El lenguaje ofensivo** (SCRUM-192), despues del riesgo y nunca antes.
  * 3. **La charla**, solo si el mensaje entero es charla.
  * 4. **Lo demas que se reconoce**, la primera regla que coincide.
+ * 5. **El fallback** (SCRUM-176), si nada se reconoce: sin lineas de atencion.
+ *
+ * Antes de todo, las erratas se leen como se quisieron escribir (SCRUM-193).
  *
  * Y lo que no se puede responder sin conexion **no se inventa**: `exige-conexion`.
  */
 export type ResultadoSinConexion =
   | { readonly tipo: 'riesgo'; readonly mensaje: string; readonly lineas: readonly string[] }
   | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
+  | {
+      readonly tipo: 'fallback';
+      readonly intencion: string;
+      readonly mensaje: string;
+      readonly sugerencias: readonly string[];
+    }
   | {
       readonly tipo: 'charla';
       readonly intencion: string;
@@ -80,8 +90,19 @@ export function responderSinConexion(
   consulta: ConsultaSinConexion,
 ): ResultadoSinConexion {
   const limpio = normalizar(consulta.texto);
+  const dichas = palabrasDe(consulta.texto);
+  const erratas = reglas.erratas;
 
-  if (reglas.riesgo.expresiones.some((expresion) => limpio.includes(expresion))) {
+  // El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
+  // busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
+  const vocabularioDelRiesgo = vocabularioDe([reglas.riesgo.expresiones]);
+  const corregidoDelRiesgo = corregirPalabras(dichas, vocabularioDelRiesgo, erratas).join(' ');
+
+  if (
+    reglas.riesgo.expresiones.some(
+      (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
+    )
+  ) {
     return {
       tipo: 'riesgo',
       mensaje: reglas.riesgo.mensaje,
@@ -89,12 +110,22 @@ export function responderSinConexion(
     };
   }
 
-  const palabras = palabrasDe(consulta.texto);
-
-  // Despues del riesgo y antes de la charla (SCRUM-192). Responde sin lineas ni conexion.
-  if (esLenguajeOfensivo(palabras, reglas.ofensivo)) {
+  // Despues del riesgo y antes de la charla (SCRUM-192). Responde sin lineas ni conexion. Solo con
+  // la tabla de erratas: una palabra nunca se acerca por distancia a un insulto.
+  if (esLenguajeOfensivo(corregirPalabras(dichas, new Set(), erratas), reglas.ofensivo)) {
     return { tipo: 'ofensivo', intencion: 'lenguaje_ofensivo', mensaje: reglas.ofensivo.mensaje };
   }
+
+  // Lo demas se lee con las erratas corregidas, con el vocabulario que traen las propias reglas.
+  const vocabulario = vocabularioDe([
+    ...reglas.charla.reglas.flatMap((regla) => [
+      regla.patrones,
+      ...regla.variantes.map((variante) => variante.patrones),
+    ]),
+    ...reglas.intenciones.map((regla) => regla.patrones),
+    reglas.charla.relleno,
+  ]);
+  const palabras = corregirPalabras(dichas, vocabulario, erratas);
 
   const relleno = new Set([...reglas.charla.relleno, ...palabrasDe(consulta.mascota ?? '')]);
   const charla = reconocerCharla(palabras, reglas.charla.reglas, relleno);
@@ -115,7 +146,18 @@ export function responderSinConexion(
 
   const regla = reglas.intenciones.find((una) => contieneAlguno(palabras, una.patrones));
 
-  if (regla?.mensaje == null) {
+  // Nada se reconoce: el fallback (SCRUM-176, SCRUM-193), sin lineas y con el catalogo de temas.
+  // Es una frase fija: se responde igual sin conexion.
+  if (regla === undefined) {
+    return {
+      tipo: 'fallback',
+      intencion: 'no_reconocida',
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
+    };
+  }
+
+  if (regla.mensaje === null) {
     return { tipo: 'exige-conexion' };
   }
 

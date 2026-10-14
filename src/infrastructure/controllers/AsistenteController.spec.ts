@@ -161,15 +161,35 @@ describe('POST /api/asistente', () => {
     expect(JSON.stringify(respuesta.body)).not.toContain('discuti');
   });
 
-  it('responde algo util cuando no entiende', async () => {
+  it('responde algo util cuando no entiende: el catalogo de temas, sin lineas de atencion (SCRUM-176)', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
       .set(...comoUsuario('token-de-A'))
       .send({ texto: 'a que hora abre la biblioteca' });
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body).toMatchObject({ intencion: 'no_reconocida' });
-    expect((cuerpoDe(respuesta).recursos as unknown[]).length).toBeGreaterThan(0);
+    expect(respuesta.body).toMatchObject({
+      intencion: 'no_reconocida',
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      recursos: [],
+    });
+    expect((cuerpoDe(respuesta).sugerencias as string[]).length).toBeGreaterThan(0);
+    expect(cuerpoDe(respuesta).sugerencias).toContain('¿Dónde busco ayuda?');
+  });
+
+  it('una errata no deja sin respuesta ni sin lineas a quien escribe de prisa', async () => {
+    const saludo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'ola' });
+    const riesgo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'kiero morirme' });
+
+    expect(saludo.body).toMatchObject({ intencion: 'saludo' });
+    expect(riesgo.body).toMatchObject({ senalDeRiesgo: true, incluyeLineasDeAtencion: true });
   });
 
   it.each([

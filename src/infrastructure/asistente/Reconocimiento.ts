@@ -1,4 +1,6 @@
-import { normalizar } from '../../domain/model/SenalesDeRiesgo.js';
+// Como se leen las palabras (y como se toleran sus erratas) esta en el dominio desde SCRUM-193:
+// lo comparten este reconocimiento, la deteccion de riesgo y el paquete que se publica.
+export { palabrasDe } from '../../domain/model/LecturaDelTexto.js';
 
 /**
  * Como VSD IA lee lo que escribe una persona (SCRUM-128).
@@ -12,20 +14,6 @@ import { normalizar } from '../../domain/model/SenalesDeRiesgo.js';
  * generosa. Esto solo decide que *intencion* se reconoce una vez descartado el
  * riesgo.
  */
-
-/**
- * Las palabras de un texto: enteras, sin tildes, sin signos y en minuscula.
- *
- * Tres letras iguales seguidas se leen como una ("holaaaa", "graciasss"): en
- * espanol ninguna palabra las lleva, y asi la gente que escribe alargando no
- * queda sin respuesta.
- */
-export function palabrasDe(texto: string): readonly string[] {
-  return normalizar(texto)
-    .replace(/(\p{L})\1{2,}/gu, '$1')
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((palabra) => palabra !== '');
-}
 
 /**
  * Una palabra del patron contra una del texto: la misma, o un comienzo si el

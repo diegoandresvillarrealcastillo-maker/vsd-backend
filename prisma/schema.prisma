@@ -218,6 +218,38 @@ model Consentimiento {
   @@map("consentimiento")
 }
 
+/// Constancia minima de una cuenta dada de baja (SCRUM-190, ADR 0026): que existio, cuando y con
+/// que identificador del proveedor. Sin nombre, correo ni fecha de nacimiento. Sirve para dos cosas:
+/// demostrar la autorizacion que dio (Ley 1581 de 2012) y rechazar un token que todavia no caduco.
+/// La clave se llama `id_cuenta` y no `id_usuario` a proposito: la prueba de borrado recorre toda
+/// tabla con `id_usuario` y exige que quede vacia, y esto no es un dato vivo de la persona.
+model CuentaInactiva {
+  id                      String    @id @map("id_cuenta") @db.Uuid
+  /// El que el proveedor le dio a la identidad, que ya no existe.
+  idProveedorAuth         String    @unique @map("id_proveedor_auth") @db.VarChar(255)
+  fechaRegistro           DateTime  @map("fecha_registro") @db.Timestamptz(3)
+  inactivadaEl            DateTime  @map("inactivada_el") @db.Timestamptz(3)
+  versionPoliticaAceptada String    @map("version_politica_aceptada") @db.VarChar(20)
+  fechaAceptacionPolitica DateTime  @map("fecha_aceptacion_politica") @db.Timestamptz(3)
+  versionTerminosAceptada String?   @map("version_terminos_aceptada") @db.VarChar(20)
+  fechaAceptacionTerminos DateTime? @map("fecha_aceptacion_terminos") @db.Timestamptz(3)
+
+  @@map("cuenta_inactiva")
+}
+
+/// Lo que acepto una cuenta dada de baja, version por version (SCRUM-190, ADR 0026). Solo admite
+/// altas. Sin clave foranea: lo que hace esta tabla es sobrevivir a la fila de `usuario`.
+model ConsentimientoDeCuentaInactiva {
+  id         String   @id @default(uuid()) @map("id_consentimiento") @db.Uuid
+  idCuenta   String   @map("id_cuenta") @db.Uuid
+  tipo       String   @db.VarChar(30)
+  version    String   @db.VarChar(20)
+  aceptadoEn DateTime @map("aceptado_en") @db.Timestamptz(3)
+
+  @@index([idCuenta])
+  @@map("consentimiento_de_cuenta_inactiva")
+}
+
 /// Un navegador donde la persona acepto los avisos (SCRUM-102).
 model SuscripcionPush {
   id            String   @id @default(uuid()) @map("id_suscripcion") @db.Uuid

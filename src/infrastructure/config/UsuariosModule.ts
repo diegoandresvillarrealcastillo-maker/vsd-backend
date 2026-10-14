@@ -2,6 +2,7 @@ import { Logger, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/ActualizarPreferenciasUseCaseImpl.js';
 import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuentaUseCaseImpl.js';
+import { InactivarCuentaUseCaseImpl } from '../../application/usecases/InactivarCuentaUseCaseImpl.js';
 import { ExportarDatosUseCaseImpl } from '../../application/usecases/ExportarDatosUseCaseImpl.js';
 import { FotoDePerfilUseCaseImpl } from '../../application/usecases/FotoDePerfilUseCaseImpl.js';
 import { MascotaPropiaUseCaseImpl } from '../../application/usecases/MascotaPropiaUseCaseImpl.js';
@@ -45,6 +46,7 @@ import {
   ALMACEN_DE_MASCOTAS,
   AVISOS_REPOSITORY,
   BORRAR_CUENTA,
+  BORRAR_SIN_CONSTANCIA,
   CONFIGURACION,
   DATO_CURIOSO_REPOSITORY,
   DIARIO_REPOSITORY,
@@ -131,7 +133,8 @@ import {
           },
         });
       },
-      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, BORRAR_CUENTA],
+      // A un menor se le borra todo sin dejar constancia: no hay autorizacion que demostrar.
+      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, BORRAR_SIN_CONSTANCIA],
     },
     {
       provide: ACTUALIZAR_PREFERENCIAS,
@@ -216,7 +219,19 @@ import {
       inject: [USER_REPOSITORY, ALMACEN_DE_FOTOS],
     },
     {
+      // Lo que pide la persona al borrar su cuenta (SCRUM-190, ADR 0026): se borra todo y queda
+      // una constancia minima de lo que acepto, sin nombre ni correo.
       provide: BORRAR_CUENTA,
+      useFactory: (
+        cuentas: UserRepositoryPort,
+        identidades: ProveedorDeIdentidadPort,
+        fotos: AlmacenPersonalPort,
+        mascotas: AlmacenPersonalPort,
+      ) => new InactivarCuentaUseCaseImpl(cuentas, identidades, [fotos, mascotas]),
+      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, ALMACEN_DE_FOTOS, ALMACEN_DE_MASCOTAS],
+    },
+    {
+      provide: BORRAR_SIN_CONSTANCIA,
       useFactory: (
         cuentas: UserRepositoryPort,
         identidades: ProveedorDeIdentidadPort,

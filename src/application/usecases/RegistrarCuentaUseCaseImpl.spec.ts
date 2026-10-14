@@ -68,6 +68,22 @@ class RepositorioDoble implements UserRepositoryPort {
     this.porId.delete(id.value);
   }
 
+  /** Los identificadores del proveedor de las cuentas dadas de baja (SCRUM-190). */
+  readonly dadasDeBaja = new Set<string>();
+
+  async inactivarConTodo(
+    id: UserId,
+    _cuando: Date,
+    antesDeConfirmar: () => Promise<void>,
+  ): Promise<void> {
+    await antesDeConfirmar();
+    this.porId.delete(id.value);
+  }
+
+  estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
+    return Promise.resolve(this.dadasDeBaja.has(idProveedorAuth));
+  }
+
   get cantidad(): number {
     return this.porId.size;
   }

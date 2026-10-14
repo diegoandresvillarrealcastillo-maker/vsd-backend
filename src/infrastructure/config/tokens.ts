@@ -26,6 +26,11 @@ export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
 
 /** Derechos de supresion y de acceso: borrar la cuenta y exportar los datos. */
 export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');
+/**
+ * Borrar una cuenta sin dejar constancia (SCRUM-190). Es para rechazar a un menor que ya tenia
+ * datos: no hay autorizacion que demostrar, asi que no se conserva nada, ni la constancia.
+ */
+export const BORRAR_SIN_CONSTANCIA = Symbol('BorrarCuentaSinConstanciaUseCase');
 export const EXPORTAR_DATOS = Symbol('ExportarDatosUseCase');
 
 /** El diario: sus anotaciones y los tres casos de uso (SCRUM-95). */

@@ -22,6 +22,35 @@ pruebasDelPuertoDeUsuarios('InMemoryUserRepository', () => {
   };
 });
 
+describe('InMemoryUserRepository, la constancia de la baja (SCRUM-190)', () => {
+  it('guarda lo que acepto y cuando, y nada que identifique a la persona', async () => {
+    const repositorio = new InMemoryUserRepository();
+    const cuando = new Date('2026-10-14T15:00:00.000Z');
+
+    await repositorio.save(unaCuenta({ nombre: 'Ana', correo: 'ana@ejemplo.test' }));
+    await repositorio.inactivarConTodo(
+      new UserId('11111111-1111-4111-8111-111111111111'),
+      cuando,
+      () => Promise.resolve(),
+    );
+
+    const [constancia] = repositorio.constancias;
+
+    expect(repositorio.constancias).toHaveLength(1);
+    expect(constancia?.inactivadaEl).toEqual(cuando);
+    expect(constancia?.consentimientos.map((c) => c.tipo).sort()).toEqual([
+      'aviso_de_privacidad',
+      'terminos',
+    ]);
+
+    const texto = JSON.stringify(constancia);
+
+    expect(texto).not.toContain('Ana');
+    expect(texto).not.toContain('ana@ejemplo.test');
+    expect(texto).not.toContain('1998-03-14');
+  });
+});
+
 describe('InMemoryUserRepository, detalles propios del adaptador', () => {
   it('encuentra por proveedor aunque haya muchas cuentas', async () => {
     // Recorre los valores en lugar de mantener un segundo indice. Con dos

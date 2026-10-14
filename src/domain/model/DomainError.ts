@@ -258,6 +258,26 @@ export class AccountNotProvisionedError extends DomainError {
 }
 
 /**
+ * La cuenta se dio de baja (SCRUM-190, ADR 0026).
+ *
+ * El token puede seguir siendo autentico un rato —Supabase lo firmo y todavia no caduco— pero la
+ * cuenta ya no existe y su identidad tampoco. Se responde 401 y no 403 a proposito: no falta
+ * completar un alta (eso es `CUENTA_NO_REGISTRADA`), falta una sesion que sirva. El frontend, al
+ * ver un 401, cierra la sesion en ese dispositivo: asi las demas sesiones de la persona terminan
+ * solas la proxima vez que preguntan.
+ *
+ * Y es lo que impide resucitar la cuenta: sin este rechazo, el alta con ese mismo token crearia una
+ * cuenta nueva para una identidad que ya no existe.
+ */
+export class AccountInactiveError extends DomainError {
+  readonly code = 'CUENTA_INACTIVA';
+
+  constructor() {
+    super('Esta cuenta ya no existe. Si quieres volver a usar VSD Health, crea una cuenta nueva.');
+  }
+}
+
+/**
  * Ese correo ya pertenece a otra cuenta.
  *
  * Ocurre cuando alguien se registro con correo y despues entra con Google, o

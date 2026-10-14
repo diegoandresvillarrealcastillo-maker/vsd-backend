@@ -31,13 +31,13 @@ ruta que lo publica para responder sin conexión).
 
 ## 2. Respuestas por intención
 
-| Cuando la persona pregunta | El asistente responde                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------- |
-| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.         |
-| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                  |
-| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.    |
-| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                      |
-| Algo que no se reconoce    | No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma. |
+| Cuando la persona pregunta | El asistente responde                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.                                                                          |
+| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                                                                                   |
+| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.                                                                     |
+| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                                                                                       |
+| Algo que no se reconoce    | No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte: _(y el catálogo de abajo, sin líneas de atención)_ |
 
 **Origen:** `MENSAJES` en `src/domain/model/ReglasDelAsistente.ts`.
 
@@ -90,6 +90,124 @@ delante no puede dejar sin teléfonos a una frase seria que la lista no tiene.
 Y la señal de riesgo se sigue mirando **antes y aparte** de todo esto, sin
 cambios: hay una prueba que pone cada una de las 23 frases con saludos,
 despedidas y agradecimientos alrededor.
+
+### El lenguaje ofensivo (SCRUM-192, decisión D5)
+
+Cuando alguien le escribe un insulto o una orden de callar al asistente, se responde con
+asertividad, **sin juicio y sin líneas de atención** (no hay una señal de riesgo), y no se añade
+nada del historial.
+
+> Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando.
+> Aquí estoy cuando quieras retomar.
+
+**Si insiste tres veces seguidas** en la misma ventana de chat, la conversación se cierra:
+
+> Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a
+> estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva.
+
+Cerrarla **no bloquea a nadie**: se abre otra cuando quiera. Cualquier mensaje que no sea ofensivo
+reinicia la cuenta (son tres **seguidos**, como pedía el requisito). La cuenta la lleva la ventana
+de chat, en memoria: el servidor no guarda conversaciones, así que solo dice que ese mensaje fue
+ofensivo.
+
+**Lo más importante: insulto no es desahogo.** «Me siento una mierda», «odio mi vida» o «soy un
+inútil» no son insultos al asistente: son alguien contando cómo se siente, y es a quien más hay
+que seguir escuchando. Por eso:
+
+- **El riesgo se evalúa antes.** «Eres un idiota, quiero morirme» recibe las líneas de atención,
+  no una advertencia.
+- **Si el mensaje habla de quien lo escribe** («soy», «me siento», «estoy», «fui», «me odio»,
+  «odio mi», «mi vida», «mi culpa»…), no cuenta, aunque lleve un término de la lista.
+- La lista es **corta y conservadora**. Un falso negativo (no ver un insulto) cuesta una respuesta
+  más amable; un falso positivo le cierra la puerta a quien más la necesita. Ante la duda, no
+  cuenta.
+
+**Lista que revisa Diego** (`TERMINOS_OFENSIVOS`, una palabra completa por término; `*` es una
+raíz): idiota\*, imbécil\*, estúpid\*, inútil, tonto, tonta, pendej\*, gilipollas, cabrón\*,
+malparid\*, hijueputa\*, hdp; «eres una mierda», «eres basura», «eres un asco»; «cállate», «cierra
+la boca», «jódete», «lárgate», «vete a la mierda», «vete al carajo»; y en inglés «fuck you», «fuck
+off», «shut up». **No están** a propósito: «marica», «parce» y «gonorrea» (se dicen con cariño),
+ni «basura» o «mierda» sueltas («saca la basura» no es un insulto).
+
+**Origen:** `LenguajeOfensivo.ts` en `src/domain/model/` (la lista, las marcas de desahogo, el
+umbral y los dos mensajes), `esLenguajeOfensivo` en `Reconocimiento.ts` y el orden en
+`AsistentePorReglas.ts`. Se responde también **sin conexión**: sale en el paquete de reglas locales.
+
+### Lo que no se reconoce: el catálogo, sin líneas de atención (SCRUM-176, SCRUM-193)
+
+Antes, ante lo que no entendía, el asistente respondía con las líneas de atención, como si hubiera
+una crisis. Ahora **no las muestra**: sin una señal de riesgo no hay crisis, y enseñarlas por una
+pregunta cualquiera las vuelve decorado. Responde con el texto de arriba y un **catálogo de temas**
+que la persona toca (cada uno se envía como un mensaje):
+
+| Sugerencia                   | Lleva a                    |
+| ---------------------------- | -------------------------- |
+| ¿Cómo puedo dormir mejor?    | Cómo dormir mejor          |
+| ¿Qué significa mi resultado? | Qué significa su resultado |
+| Me siento mal                | Que se siente mal          |
+| ¿Qué puedes hacer?           | Qué puede hacer            |
+| ¿Dónde busco ayuda?          | Dónde buscar ayuda         |
+
+**«¿Dónde busco ayuda?» está siempre**: es la puerta de un toque para quien sí la necesita y no la
+dijo con las palabras de la lista. Una prueba comprueba que **cada sugerencia lleva a la intención
+que dice** (que el catálogo no ofrezca nada que el asistente no sepa responder).
+
+**El compromiso que se aceptó:** tres frases que la red de seguridad enseñaba y que son, casi
+siempre, una cortesía o un hecho cotidiano —«gracias por todo», «adiós, y gracias por todo» y «chao, ya
+no estoy»— **dejan de mostrar las líneas por sí solas**. Reciben el catálogo, con «¿Dónde busco
+ayuda?» a un toque. Las **siete** que no dejan duda pasaron a la lista de riesgo (ver el punto 5), y
+siguen mostrándolas. Si prefieren el falso positivo, basta con añadir esas tres a la lista.
+
+**Origen:** `MENSAJES` y `SUGERENCIAS_DEL_ASISTENTE` en `src/domain/model/ReglasDelAsistente.ts`.
+Ver el [ADR 0027](adr/0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md).
+
+### La invitación del diario (SCRUM-194, decisión D6)
+
+Es de la **mascota**, no del chat, y aparece al guardar o corregir una anotación del diario. Solo si
+la persona dio el permiso de su perfil (SCRUM-108) **y** lo escrito trae una frase de la lista de
+riesgo. Sin permiso no se lee nada y no aparece nada. No se va sola: espera a que se responda.
+
+**Nunca lleva líneas de atención.** Aceptarla abre VSD IA con «¿Dónde busco ayuda?» ya preguntado,
+que responde con las líneas del país de la persona, también sin conexión.
+
+| Dónde                                                   | Texto                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| La mascota dice                                         | «Gracias por escribirlo. Lo que sientes importa, y no tienes que pasarlo sin compañía. ¿Quieres ver algunos consejos o hablar con alguien?» |
+| Botón principal (abre VSD IA)                           | «Sí, ver opciones»                                                                                                                          |
+| Botón para dejarla                                      | «Ahora no»                                                                                                                                  |
+| Aviso al sincronizar una anotación escrita sin conexión | «Si te sirve hablarlo con alguien, toca a tu mascota y pregúntale a VSD IA dónde buscar ayuda.»                                             |
+
+**Alternativa del encargo original**, por si se prefiere un tono más sobrio:
+«Noté que escribiste algo en tu diario. ¿Quieres recibir algunos consejos o hablar con alguien sobre
+eso?». Se cambia en una sola constante del frontend.
+
+**Lo que no hace:** no diagnostica, no pone nombre a lo que se siente, no repite lo que la persona
+escribió, no lleva ningún teléfono y no vuelve por la misma anotación una vez respondida.
+
+**Una pregunta abierta para Diego:** el plan decía «abre Recursos», pero **hoy no existe una
+pantalla de Recursos** (ni ruta ni endpoint). Se llevó a VSD IA, que es lo que existe. Si se
+construye esa pantalla (SCRUM-26), basta con cambiar el destino del botón.
+
+**Origen:** `INVITACION_DEL_DIARIO` en `src/paginas/diario/invitacionDelDiario.ts` (frontend) y el
+aviso en `src/conexion/AvisoDeSincronizacion.tsx`. Ver el
+[ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md).
+
+### Las erratas (SCRUM-193)
+
+La gente escribe de prisa, desde el teléfono. «ola», «cómo bamos», «grasias» y «sicologo» se leen
+como se quisieron escribir. Hay dos mecanismos, y los dos son cortos:
+
+1. **Una tabla de erratas frecuentes** (`ERRATAS_FRECUENTES` en `src/domain/model/LecturaDelTexto.ts`):
+   «ola», «bamos», «kiero», «grasias», «sicologo»… Para las palabras cortas. Se amplía con una línea.
+2. **Distancia de edición de uno** hacia una palabra que el asistente ya conoce, y solo si la
+   palabra tiene cinco letras o más, empieza y termina con las mismas letras, y hay un único
+   candidato. Lo que cambia al final suele ser de quién se habla: «no aguanta más» (otra persona)
+   no se lee «no aguanto más».
+
+**La tolerancia amplía el riesgo y nunca lo debilita:** «kiero morirme», «quiero morirne» o
+«suisidarme» siguen siendo señales de riesgo. Lo que ya se detectaba, se sigue detectando.
+
+**El lenguaje ofensivo solo usa la tabla**, nunca la distancia: «tanto» no puede volverse «tonto».
 
 ### Palabras completas, no pedazos (SCRUM-128)
 
@@ -231,8 +349,9 @@ deja por escrito para que no se confunda lo que se verificó con lo que no.
 
 ## 5. Las frases que disparan las líneas de atención
 
-Son 23 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
-tildes y en minúscula, porque nadie escribe con tildes cuando está mal.
+Son 30 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
+tildes y en minúscula, porque nadie escribe con tildes cuando está mal. Se buscan en el texto tal
+cual **y** con las erratas leídas como se quisieron escribir (la segunda búsqueda solo suma).
 
 ```
 quiero morir · quiero morirme · me quiero morir · quiero matarme
@@ -242,7 +361,12 @@ no quiero vivir · no vale la pena vivir · estaria mejor muerto
 estaria mejor muerta · seria mejor no estar · hacerme dano
 lastimarme · cortarme · nadie me va a extranar · ya no puedo mas
 no aguanto mas
+quiero desaparecer · no quiero despertar · adios a todo · adios para siempre
+hasta nunca · que nadie me busque · me despido de este mundo
 ```
+
+Las **siete últimas** (SCRUM-176) las protegía la red de «no reconocida», que ya no muestra líneas:
+pasaron aquí para no quedarse sin teléfono.
 
 **Se equivoca por exceso a propósito.** No interpreta negaciones: _"no quiero
 morirme"_ contiene _"quiero morirme"_ y dispara igual. Enseñar teléfonos a quien

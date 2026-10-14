@@ -513,6 +513,37 @@ hoy (SCRUM-91). Se expone en `GET /api/progreso`.
   o no: hacer la primera actividad del dia no abre otras a mitad del dia.
 - Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve hecha
   hasta manana.
+- **No hay tope diario** (SCRUM-184). Lo que toca hoy sale entero, y nada impide
+  registrar mas: el servidor nunca limito cuantos resultados se guardan en un
+  dia (la unica unicidad es por `clientOperationId`). El "3" que se veia era el
+  tamano del catalogo, tres actividades por modulo.
+- **Un minimo sugerido de tres, sin imponerlo.** Si por frecuencia tocan menos
+  de tres, `sugeridas` trae otras actividades abiertas del modulo (que hoy no
+  tocan) hasta completar tres con lo de hoy, en el orden del catalogo. Es una
+  **sugerencia**: va aparte de `hoy`, no entra al plan del dia, no suma
+  sesiones ni cuenta para la racha (la racha es un dia con algo hecho; ver
+  ADR 0024). Con el catalogo de hoy, todas diarias, casi nunca hay sugeridas:
+  es el piso para cuando contenido ajuste frecuencias.
+
+### El historial de un modulo (SCRUM-184)
+
+`GET /api/progreso/:modulo/historial` devuelve lo que la persona hizo en un
+modulo, del mas reciente al mas antiguo, por paginas que arma el servidor.
+
+- **Solo que hizo y cuando**: la actividad, su dia y la hora. Nunca el puntaje,
+  el nivel ni lo que escribio (`metadata`): es una lista de lo hecho, no una
+  lectura de como le fue.
+- **Paginado por cursor**, no por numero de pagina. El cursor es la hora y el
+  identificador del ultimo hecho, en un texto opaco; la pagina siguiente empieza
+  justo despues, y un hecho nuevo mientras se lee no repite ni salta filas.
+  Limite de 1 a 50, por omision 20. Un cursor que no es de este sistema es 400.
+- **Sale de `resultado`**, como todo el sendero: no hay una tabla aparte que
+  pueda divergir. Por eso **entra en la exportacion y se borra con la cuenta**
+  sin hacer nada mas.
+- De **cualquier modulo conocido**, este activo o no: es lo que la persona hizo,
+  y desactivar un modulo no lo borra. Un modulo desconocido es 400.
+- Sin conexion, el cliente muestra lo de hoy (que ya viene en el progreso y
+  tiene copia local) y avisa que para ver lo anterior hace falta conexion.
 
 **No se guarda nada aparte.** Todo sale de `resultado`. Un contador propio
 podria desincronizarse del historial, y entonces la pantalla diria una cosa y
@@ -556,12 +587,13 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
 - **Senales de riesgo, solo con permiso** (SCRUM-108). Nadie se mete en el
   diario de nadie: si la persona no encendio `diarioConRecomendaciones` en su
   perfil (apagado por defecto), lo escrito no pasa por ninguna deteccion y la
-  respuesta va sin sugerencia ni lineas. Con el permiso,
-  `contieneSenalDeRiesgo()` pasa por `hayRiesgo` el titulo, el texto del
-  documento con las frases enteras aunque el editor las parta por marcas, y el
-  texto de los diagramas, y la respuesta trae `sugiereAcompanamiento` y las
-  lineas de atencion, como un resultado. **No se guarda ninguna marca** en la
-  anotacion.
+  respuesta va sin sugerencia. Con el permiso, `contieneSenalDeRiesgo()` pasa
+  por `hayRiesgo` el titulo, el texto del documento con las frases enteras
+  aunque el editor las parta por marcas, y el texto de los diagramas, y la
+  respuesta trae `sugiereAcompanamiento`. **No trae lineas de atencion**
+  (SCRUM-194, [ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md)):
+  el dispositivo ofrece ayuda y, si la persona acepta, la lleva al asistente.
+  **No se guarda ninguna marca** en la anotacion.
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 

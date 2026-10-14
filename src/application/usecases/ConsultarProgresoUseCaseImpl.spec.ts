@@ -79,6 +79,8 @@ function armar(cuenta: User | null, resultados: ActivityResult[] = []) {
     save: () => Promise.resolve(),
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
+    inactivarConTodo: () => Promise.resolve(),
+    estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const catalogo = {
     listarCatalogo: () => Promise.resolve(CATALOGO),

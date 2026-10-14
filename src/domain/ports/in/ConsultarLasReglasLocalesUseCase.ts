@@ -64,6 +64,36 @@ export interface ReglasLocalesDelAsistente {
     readonly reglas: readonly ReglaLocalDeCharla[];
     readonly relleno: readonly string[];
   };
+  /**
+   * El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la
+   * charla, igual que en el servidor. Es **aditivo**: una aplicacion que no lo conozca lo ignora.
+   */
+  readonly ofensivo: {
+    /** Lo que cuenta como insulto. Ya normalizado; un `*` final es una raiz. */
+    readonly terminos: readonly string[];
+    /** Si aparece alguna, el mensaje habla de quien lo escribe y no cuenta como insulto. */
+    readonly desahogo: readonly string[];
+    /** A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. */
+    readonly umbral: number;
+    /** Lo que se responde a un insulto. */
+    readonly mensaje: string;
+    /** Lo que se dice al cerrar la conversacion. */
+    readonly mensajeAlCerrar: string;
+  };
+  /**
+   * Las erratas que se leen como la palabra que se quiso escribir (SCRUM-193), por la tabla. Con
+   * ellas y con las palabras de las reglas, el dispositivo corrige igual que el servidor. Aditivo.
+   */
+  readonly erratas: Readonly<Record<string, string>>;
+  /**
+   * Lo que se responde cuando no se reconoce lo que se escribio (SCRUM-176, SCRUM-193): sin lineas
+   * de atencion y con el catalogo de lo que si se atiende. Va despues de las intenciones, y se
+   * responde sin conexion: es una frase fija. Aditivo.
+   */
+  readonly fallback: {
+    readonly mensaje: string;
+    readonly sugerencias: readonly string[];
+  };
   /** Lo demas que el servidor reconoce, en su orden. */
   readonly intenciones: readonly ReglaLocalDeIntencion[];
   /** Los paises con lineas verificadas, por su codigo de dos letras. */

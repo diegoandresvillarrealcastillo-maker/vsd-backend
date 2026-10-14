@@ -2,6 +2,7 @@ import type { Resultado } from '@prisma/client';
 import { Activity } from '../../domain/model/Activity.js';
 import { ActivityResult, type Metadata } from '../../domain/model/ActivityResult.js';
 import type { Dia } from '../../domain/model/Calendario.js';
+import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
@@ -134,6 +135,49 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
 
     // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
     return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
+  }
+
+  async historialDe(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    pagina: { readonly limite: number; readonly despuesDe?: PuntoDeLaPagina | undefined },
+  ): Promise<readonly FilaDelHistorial[]> {
+    if (actividades.length === 0) {
+      return [];
+    }
+
+    const { despuesDe } = pagina;
+
+    // Solo las columnas que el historial ensena: ni el puntaje ni `metadata` salen de la base.
+    // El cursor es (fecha, id), el mismo orden total de abajo: lo que sigue es lo estrictamente
+    // anterior, y a igual fecha el de menor identificador.
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findMany({
+        where: {
+          idUsuario: userId.value,
+          idActividad: { in: actividades.map((actividad) => actividad.value) },
+          ...(despuesDe === undefined
+            ? {}
+            : {
+                OR: [
+                  { fecha: { lt: despuesDe.hechaEn } },
+                  { fecha: despuesDe.hechaEn, id: { lt: despuesDe.id } },
+                ],
+              }),
+        },
+        select: { id: true, idActividad: true, dia: true, fecha: true },
+        orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
+        take: pagina.limite,
+      }),
+    );
+
+    return filas.map((fila) => ({
+      id: fila.id,
+      idActividad: fila.idActividad,
+      // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+      dia: fila.dia.toISOString().slice(0, 10),
+      hechaEn: fila.fecha,
+    }));
   }
 
   /**

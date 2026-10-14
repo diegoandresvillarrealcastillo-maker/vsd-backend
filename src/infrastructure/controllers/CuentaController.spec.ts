@@ -642,10 +642,11 @@ describe('Las cuentas anteriores a que se pidiera el registro', () => {
         .send({ confirmacion: 'BORRAR MI CUENTA' })
         .expect(204);
 
+      // La cuenta se dio de baja (SCRUM-190): 401, no 403.
       await request(otra.getHttpServer())
         .get('/api/cuenta')
         .set(...comoUsuario(B))
-        .expect(403);
+        .expect(401);
     } finally {
       await otra.close();
     }

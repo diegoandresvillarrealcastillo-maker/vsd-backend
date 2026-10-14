@@ -1,4 +1,6 @@
-import { normalizar } from '../../domain/model/SenalesDeRiesgo.js';
+// Como se leen las palabras (y como se toleran sus erratas) esta en el dominio desde SCRUM-193:
+// lo comparten este reconocimiento, la deteccion de riesgo y el paquete que se publica.
+export { palabrasDe } from '../../domain/model/LecturaDelTexto.js';
 
 /**
  * Como VSD IA lee lo que escribe una persona (SCRUM-128).
@@ -12,20 +14,6 @@ import { normalizar } from '../../domain/model/SenalesDeRiesgo.js';
  * generosa. Esto solo decide que *intencion* se reconoce una vez descartado el
  * riesgo.
  */
-
-/**
- * Las palabras de un texto: enteras, sin tildes, sin signos y en minuscula.
- *
- * Tres letras iguales seguidas se leen como una ("holaaaa", "graciasss"): en
- * espanol ninguna palabra las lleva, y asi la gente que escribe alargando no
- * queda sin respuesta.
- */
-export function palabrasDe(texto: string): readonly string[] {
-  return normalizar(texto)
-    .replace(/(\p{L})\1{2,}/gu, '$1')
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((palabra) => palabra !== '');
-}
 
 /**
  * Una palabra del patron contra una del texto: la misma, o un comienzo si el
@@ -66,6 +54,20 @@ export function contiene(palabras: readonly string[], patron: string): boolean {
 /** Cierto si alguno de los patrones aparece. */
 export function contieneAlguno(palabras: readonly string[], patrones: readonly string[]): boolean {
   return patrones.some((patron) => contiene(palabras, patron));
+}
+
+/**
+ * Cierto si el mensaje es un insulto o una orden de callar dirigida al asistente (SCRUM-192).
+ *
+ * Cuenta solo si lleva alguno de los terminos **y no** habla de quien lo escribe: «soy un idiota»
+ * o «me siento una mierda» son un desahogo, no un insulto. Ante la duda no cuenta. El riesgo se
+ * evalua antes que esto, en quien llama.
+ */
+export function esLenguajeOfensivo(
+  palabras: readonly string[],
+  regla: { readonly terminos: readonly string[]; readonly desahogo: readonly string[] },
+): boolean {
+  return contieneAlguno(palabras, regla.terminos) && !contieneAlguno(palabras, regla.desahogo);
 }
 
 /**

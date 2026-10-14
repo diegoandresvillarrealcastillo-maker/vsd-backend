@@ -161,15 +161,35 @@ describe('POST /api/asistente', () => {
     expect(JSON.stringify(respuesta.body)).not.toContain('discuti');
   });
 
-  it('responde algo util cuando no entiende', async () => {
+  it('responde algo util cuando no entiende: el catalogo de temas, sin lineas de atencion (SCRUM-176)', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
       .set(...comoUsuario('token-de-A'))
       .send({ texto: 'a que hora abre la biblioteca' });
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body).toMatchObject({ intencion: 'no_reconocida' });
-    expect((cuerpoDe(respuesta).recursos as unknown[]).length).toBeGreaterThan(0);
+    expect(respuesta.body).toMatchObject({
+      intencion: 'no_reconocida',
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      recursos: [],
+    });
+    expect((cuerpoDe(respuesta).sugerencias as string[]).length).toBeGreaterThan(0);
+    expect(cuerpoDe(respuesta).sugerencias).toContain('¿Dónde busco ayuda?');
+  });
+
+  it('una errata no deja sin respuesta ni sin lineas a quien escribe de prisa', async () => {
+    const saludo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'ola' });
+    const riesgo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'kiero morirme' });
+
+    expect(saludo.body).toMatchObject({ intencion: 'saludo' });
+    expect(riesgo.body).toMatchObject({ senalDeRiesgo: true, incluyeLineasDeAtencion: true });
   });
 
   it.each([
@@ -199,8 +219,9 @@ describe('POST /api/asistente', () => {
  * Las lineas de atencion segun el pais de la cuenta (SCRUM-124), por HTTP.
  *
  * Lo importante es el cableado: que la zona de la cuenta que firma el token
- * llegue a cada camino que ensena telefonos (el asistente, los resultados y el
- * diario) y que nadie pueda elegir el pais desde el cuerpo.
+ * llegue a cada camino que ensena telefonos (el asistente y los resultados) y
+ * que nadie pueda elegir el pais desde el cuerpo. El diario ya no ensena
+ * telefonos (SCRUM-194): ofrece ir a Recursos, que si los pide por pais.
  */
 describe('Las lineas de atencion segun el pais de la cuenta', () => {
   let app: NestExpressApplication;
@@ -300,7 +321,7 @@ describe('Las lineas de atencion segun el pais de la cuenta', () => {
     ]);
   });
 
-  it('el diario, con permiso, trae las lineas del pais de la cuenta', async () => {
+  it('el diario, con permiso, sugiere acompanar y no trae lineas, sea cual sea el pais (SCRUM-194)', async () => {
     await enZona('token-de-B', 'America/New_York').expect(200);
     await request(app.getHttpServer())
       .patch('/api/cuenta/preferencias')
@@ -325,7 +346,8 @@ describe('Las lineas de atencion segun el pais de la cuenta', () => {
       })
       .expect(201);
 
-    expect(titulosDe(respuesta, 'lineasDeAtencion')).toEqual(['Línea 988', 'Línea 911']);
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: true });
+    expect(respuesta.body).not.toHaveProperty('lineasDeAtencion');
   });
 });
 

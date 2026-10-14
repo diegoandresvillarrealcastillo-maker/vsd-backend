@@ -41,6 +41,9 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // no existe, y quien llama no puede hacer nada distinto con su peticion.
   ACTIVIDAD_NO_ENCONTRADA: HttpStatus.NOT_FOUND,
 
+  // La pagina del historial no es una que se haya dado (SCRUM-184): un error de quien llama.
+  PAGINA_DEL_HISTORIAL_INVALIDA: HttpStatus.BAD_REQUEST,
+
   CLAVE_DE_METADATA_RESERVADA: HttpStatus.BAD_REQUEST,
   LA_ACTIVIDAD_NO_PUNTUA: HttpStatus.BAD_REQUEST,
 
@@ -48,6 +51,11 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // cuenta. Decir "no estas autenticado" mandaria a la persona a iniciar
   // sesion otra vez, que es justo lo que no arregla el problema.
   CUENTA_NO_REGISTRADA: HttpStatus.FORBIDDEN,
+
+  // Una cuenta dada de baja (SCRUM-190). 401 y no 403: no falta completar nada, falta una sesion
+  // que sirva. El frontend cierra la sesion al verlo, y asi terminan las de los demas
+  // dispositivos. Con un 403 se mandaria a la persona a «Completa tu registro».
+  CUENTA_INACTIVA: HttpStatus.UNAUTHORIZED,
 
   // 409 porque es un conflicto con un recurso que ya existe, no un error de
   // formato. La peticion esta bien escrita; lo que pasa es que ese correo ya

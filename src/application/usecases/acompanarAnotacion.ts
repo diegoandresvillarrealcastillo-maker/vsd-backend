@@ -1,7 +1,5 @@
 import type { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
-import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
 import type { AnotacionGuardada } from '../../domain/ports/in/EscribirEnElDiarioUseCase.js';
-import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 
 /**
  * Una anotacion con lo que conviene ensenar junto a ella.
@@ -10,31 +8,25 @@ import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoA
  *
  * Nadie se mete en lo que alguien escribe en su diario. Si la persona no lo
  * permitio en su perfil, lo escrito **no se lee**: no se busca ninguna senal y
- * la respuesta va sin sugerencia y sin lineas. Se guarda y se devuelve, nada
- * mas.
+ * la respuesta va sin sugerencia. Se guarda y se devuelve, nada mas.
  *
- * Con el permiso dado, si lo escrito trae una senal de riesgo, las lineas de
- * atencion viajan en la misma respuesta, ordenadas por alcance, como con los
- * resultados (SCRUM-94). Son las del pais de la persona, sacado de su zona
- * horaria (SCRUM-124).
+ * ## Sin lineas de atencion (SCRUM-194)
+ *
+ * Con el permiso dado, si lo escrito trae una senal de riesgo, la respuesta lo
+ * **indica** y nada mas: no manda ninguna linea de atencion. Quien escribe en
+ * su diario no pidio un telefono, y recibirlo pegado a lo que acaba de contar
+ * se siente como una alarma. El dispositivo ofrece ayuda con su mascota y,
+ * si la persona acepta, abre VSD IA con «donde busco ayuda» ya preguntado, que
+ * responde con las lineas de su pais; esa decision, y que el texto sea calido,
+ * es de la pantalla.
  */
-export async function acompanarAnotacion(
+export function acompanarAnotacion(
   entrada: EntradaDeDiario,
-  recursos: RecursoApoyoRepositoryPort,
   conRecomendaciones: boolean,
-  pais: string | undefined,
-): Promise<AnotacionGuardada> {
+): AnotacionGuardada {
   if (!conRecomendaciones) {
-    return { entrada, sugiereAcompanamiento: false, lineasDeAtencion: [] };
+    return { entrada, sugiereAcompanamiento: false };
   }
 
-  const sugiereAcompanamiento = entrada.contieneSenalDeRiesgo();
-
-  return {
-    entrada,
-    sugiereAcompanamiento,
-    lineasDeAtencion: sugiereAcompanamiento
-      ? RecursoApoyo.ordenarPorAlcance(await recursos.lineasDeAtencion(pais))
-      : [],
-  };
+  return { entrada, sugiereAcompanamiento: entrada.contieneSenalDeRiesgo() };
 }

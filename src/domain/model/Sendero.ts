@@ -21,6 +21,15 @@ import type { Modulo } from './Preferencias.js';
 export const SESIONES_POR_ETAPA = [5, 10, 15, 20] as const;
 export const SESIONES_POR_TEMPORADA = 25;
 
+/**
+ * Cuantas actividades se sugieren al dia, **como minimo y sin imponerlas** (SCRUM-184).
+ *
+ * No es un tope: no hay ninguno, y hacer cinco en un dia es lo normal. Es el piso de lo que se
+ * ensena, para que un dia en que por frecuencia tocan pocas no quede una ruta casi vacia. Lo
+ * sugerido no cuenta para el plan del dia, ni para la sesion, ni para la racha: nada castiga.
+ */
+export const MINIMO_SUGERIDO_POR_DIA = 3;
+
 /** Donde va la persona dentro del sendero de un modulo. */
 export interface Etapa {
   /** 1 a 4 para las etapas; desde 1 otra vez para las temporadas. */
@@ -79,7 +88,14 @@ export interface ProgresoDelModulo {
   /** Dias distintos en los que hizo algo de este modulo. */
   readonly sesiones: number;
   readonly etapa: Etapa;
+  /** Lo que toca hoy por su frecuencia. Sin tope. */
   readonly hoy: readonly ActividadDeHoy[];
+  /**
+   * Otras del modulo, abiertas y que hoy no tocan, hasta completar `MINIMO_SUGERIDO_POR_DIA`
+   * con `hoy` (SCRUM-184). Vacia cuando `hoy` ya llega al minimo. Es una **sugerencia**:
+   * no entra al plan del dia ni a nada que se cuente.
+   */
+  readonly sugeridas: readonly ActividadDeHoy[];
 }
 
 /** Lo que hace falta para calcular el progreso de un modulo. */
@@ -105,6 +121,9 @@ export interface DatosDelModulo {
  *   las que ya tenia, la haya empezado o no.
  * - Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve como
  *   hecha hasta manana.
+ * - **No hay tope diario** (SCRUM-184): lo que toca hoy sale entero, y nada impide hacer mas.
+ *   Si tocan menos de `MINIMO_SUGERIDO_POR_DIA`, se sugieren otras abiertas del modulo hasta
+ *   completarlo; no son obligatorias ni cuentan para nada.
  */
 export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
   const diasConAlgo = new Set(datos.hechos.map((hecho) => hecho.dia));
@@ -119,19 +138,39 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
     datos.hechos.filter((hecho) => hecho.dia < datos.hoy).map((hecho) => hecho.actividad),
   );
 
-  const hoy = datos.actividades
-    .filter((actividad) => actividad.desdeSesion <= sesionDeHoy)
-    .filter((actividad) => {
-      switch (actividad.frecuencia.tipo) {
-        case 'diaria':
-          return true;
-        case 'semanal':
-          return actividad.frecuencia.dias.includes(datos.diaDeLaSemana);
-        case 'unica':
-          return !hechasAntes.has(actividad.id.value);
-      }
-    })
-    .map((actividad) => ({ actividad, hecha: hechasHoy.has(actividad.id.value) }));
+  const abiertas = datos.actividades.filter((actividad) => actividad.desdeSesion <= sesionDeHoy);
+  const tocan = abiertas.filter((actividad) => {
+    switch (actividad.frecuencia.tipo) {
+      case 'diaria':
+        return true;
+      case 'semanal':
+        return actividad.frecuencia.dias.includes(datos.diaDeLaSemana);
+      case 'unica':
+        return !hechasAntes.has(actividad.id.value);
+    }
+  });
+  const comoDeHoy = (actividad: Activity): ActividadDeHoy => ({
+    actividad,
+    hecha: hechasHoy.has(actividad.id.value),
+  });
 
-  return { modulo: datos.modulo, sesiones, etapa: etapaPara(sesiones), hoy };
+  const idsQueTocan = new Set(tocan.map((actividad) => actividad.id.value));
+  const faltan = Math.max(0, MINIMO_SUGERIDO_POR_DIA - tocan.length);
+  const sugeridas = abiertas
+    .filter((actividad) => !idsQueTocan.has(actividad.id.value))
+    // Una unica ya hecha en otro dia no vuelve, ni como sugerencia.
+    .filter(
+      (actividad) =>
+        !(actividad.frecuencia.tipo === 'unica' && hechasAntes.has(actividad.id.value)),
+    )
+    .slice(0, faltan)
+    .map(comoDeHoy);
+
+  return {
+    modulo: datos.modulo,
+    sesiones,
+    etapa: etapaPara(sesiones),
+    hoy: tocan.map(comoDeHoy),
+    sugeridas,
+  };
 }

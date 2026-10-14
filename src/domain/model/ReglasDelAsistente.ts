@@ -1,4 +1,5 @@
 import { Intencion } from '../ports/in/AsistentePort.js';
+import { MENSAJE_ANTE_LENGUAJE_OFENSIVO } from './LenguajeOfensivo.js';
 
 /**
  * Las reglas de VSD IA y sus textos, en un solo sitio (SCRUM-128, SCRUM-141).
@@ -174,6 +175,7 @@ export const REGLAS_DE_CHARLA: readonly ReglaDeCharla[] = [
       'como te encuentras',
       'como te sientes',
       'como amaneciste',
+      'como vamos',
       'que tal',
     ],
     sinConexion: false,
@@ -321,9 +323,33 @@ export const MENSAJES: Readonly<Record<Intencion, string>> = {
     'Gracias por preguntar. Por aquí todo en orden, listo para acompañarte. Si quieres contarme cómo vas tú, te leo.',
   [Intencion.QUE_PUEDES_HACER]:
     'Soy VSD IA. Te puedo explicar qué significa tu nivel en una actividad, darte ideas para descansar mejor y decirte dónde buscar ayuda cuando la necesites. No reemplazo a un profesional: si quieres hablar con alguien, te digo con quién.',
+  [Intencion.LENGUAJE_OFENSIVO]: MENSAJE_ANTE_LENGUAJE_OFENSIVO,
   [Intencion.NO_RECONOCIDA]:
-    'No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma.',
+    'No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:',
 };
+
+/**
+ * El catalogo de temas que el asistente atiende (SCRUM-176, SCRUM-193), que se ofrece cuando no se
+ * reconoce lo que la persona escribio.
+ *
+ * **Cada frase tiene que llevar a la intencion que dice.** Una prueba lo comprueba: lo que se toca
+ * se envia como un mensaje mas, y si una sugerencia cayera en «no reconocida» el catalogo
+ * ofreceria algo que no sabe responder.
+ *
+ * La ultima, «dónde busco ayuda», es **fija**: es el camino de un toque para quien si la necesita y
+ * no la dijo con las palabras de la lista de riesgo. Sin senal de crisis no se muestran lineas de
+ * atencion por si solas; esta puerta siempre esta a mano.
+ */
+export const SUGERENCIAS_DEL_ASISTENTE: readonly {
+  readonly texto: string;
+  readonly intencion: Intencion;
+}[] = [
+  { texto: '¿Cómo puedo dormir mejor?', intencion: Intencion.COMO_DUERMO_MEJOR },
+  { texto: '¿Qué significa mi resultado?', intencion: Intencion.QUE_SIGNIFICA_MI_RESULTADO },
+  { texto: 'Me siento mal', intencion: Intencion.ME_SIENTO_MAL },
+  { texto: '¿Qué puedes hacer?', intencion: Intencion.QUE_PUEDES_HACER },
+  { texto: '¿Dónde busco ayuda?', intencion: Intencion.DONDE_BUSCO_AYUDA },
+];
 
 /**
  * El mensaje cuando se detecta una senal de riesgo.

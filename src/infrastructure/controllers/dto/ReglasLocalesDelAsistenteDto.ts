@@ -139,6 +139,50 @@ export class CharlaLocalDto {
   relleno!: string[];
 }
 
+export class OfensivoLocalDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Lo que cuenta como insulto o como orden de callar, ya normalizado. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz.',
+  })
+  terminos!: string[];
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Si el mensaje lleva alguna, habla de quien lo escribe y no cuenta como insulto aunque lleve un termino: «soy un idiota», «me siento una mierda».',
+  })
+  desahogo!: string[];
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. El servidor no cuenta: la ventana de chat lleva la cuenta.',
+  })
+  umbral!: number;
+
+  @ApiProperty({ description: 'Lo que se responde a un insulto, sin lineas de atencion.' })
+  mensaje!: string;
+
+  @ApiProperty({ description: 'Lo que se dice al cerrar la conversacion.' })
+  mensajeAlCerrar!: string;
+}
+
+export class FallbackLocalDto {
+  @ApiProperty({
+    description:
+      'Lo que se responde cuando no se reconoce lo que se escribio. Sin lineas de atencion: solo hay lineas ante una senal de riesgo.',
+  })
+  mensaje!: string;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que si se atienden, como frases que la persona puede tocar y enviar tal cual.',
+  })
+  sugerencias!: string[];
+}
+
 /**
  * Lo que hace falta para que VSD IA responda lo basico sin conexion (SCRUM-141).
  *
@@ -158,6 +202,28 @@ export class ReglasLocalesDelAsistenteDto {
 
   @ApiProperty({ type: CharlaLocalDto })
   charla!: CharlaLocalDto;
+
+  @ApiProperty({
+    type: OfensivoLocalDto,
+    description:
+      'El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la charla. Una aplicacion que no lo conozca lo ignora.',
+  })
+  ofensivo!: OfensivoLocalDto;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    description:
+      'Erratas frecuentes, ya normalizadas, hacia la palabra que se quiso escribir (SCRUM-193): «ola» es «hola», «bamos» es «vamos». Con esta tabla y las palabras de las reglas el dispositivo corrige igual que el servidor. Una aplicacion que no la conozca la ignora.',
+  })
+  erratas!: Record<string, string>;
+
+  @ApiProperty({
+    type: FallbackLocalDto,
+    description:
+      'Lo que se responde cuando no se reconoce nada (SCRUM-176, SCRUM-193): sin lineas de atencion y con el catalogo de temas. Una aplicacion que no lo conozca lo ignora.',
+  })
+  fallback!: FallbackLocalDto;
 
   @ApiProperty({
     type: [ReglaDeIntencionDto],
@@ -187,6 +253,18 @@ export class ReglasLocalesDelAsistenteDto {
     dto.charla = {
       reglas: reglas.charla.reglas.map((regla) => ReglaDeCharlaDto.desde(regla)),
       relleno: [...reglas.charla.relleno],
+    };
+    dto.ofensivo = {
+      terminos: [...reglas.ofensivo.terminos],
+      desahogo: [...reglas.ofensivo.desahogo],
+      umbral: reglas.ofensivo.umbral,
+      mensaje: reglas.ofensivo.mensaje,
+      mensajeAlCerrar: reglas.ofensivo.mensajeAlCerrar,
+    };
+    dto.erratas = { ...reglas.erratas };
+    dto.fallback = {
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
     };
     dto.intenciones = reglas.intenciones.map((regla) => ReglaDeIntencionDto.desde(regla));
     dto.paises = Object.fromEntries(

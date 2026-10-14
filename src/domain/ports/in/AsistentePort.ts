@@ -22,6 +22,11 @@ export const Intencion = {
   DESPEDIDA: 'despedida',
   COMO_ESTAS: 'como_estas',
   QUE_PUEDES_HACER: 'que_puedes_hacer',
+  /**
+   * Un insulto dirigido al asistente (SCRUM-192). Se evalua despues del riesgo, nunca antes, y se
+   * responde sin lineas de atencion. El servidor no cuenta: la ventana de chat lleva la cuenta.
+   */
+  LENGUAJE_OFENSIVO: 'lenguaje_ofensivo',
   /** No se reconocio nada. Se responde igual, con algo util. */
   NO_RECONOCIDA: 'no_reconocida',
 } as const;
@@ -51,6 +56,12 @@ export interface RespuestaDelAsistente {
    * que lo comprueba una por una.
    */
   readonly incluyeLineasDeAtencion: boolean;
+  /**
+   * Los temas que el asistente si atiende, como frases que la persona puede tocar (SCRUM-176,
+   * SCRUM-193). Solo hay algo cuando **no se reconocio** lo que escribio: en lugar de un telefono
+   * de crisis que nadie pidio, un catalogo de lo que si se puede responder. Vacio en todo lo demas.
+   */
+  readonly sugerencias: readonly string[];
 }
 
 /** Lo que se le pregunta al asistente. */

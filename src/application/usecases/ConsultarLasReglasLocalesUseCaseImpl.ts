@@ -1,3 +1,6 @@
+import { ERRATAS_FRECUENTES } from '../../domain/model/LecturaDelTexto.js';
+import { LENGUAJE_OFENSIVO } from '../../domain/model/LenguajeOfensivo.js';
+import { Intencion } from '../../domain/ports/in/AsistentePort.js';
 import { PAISES_CON_LINEAS, ZONAS_POR_PAIS } from '../../domain/model/PaisDeAyuda.js';
 import {
   MENSAJES,
@@ -5,6 +8,7 @@ import {
   REGLAS_DE_CHARLA,
   REGLAS_DE_INTENCION,
   RELLENO_DE_LA_CHARLA,
+  SUGERENCIAS_DEL_ASISTENTE,
 } from '../../domain/model/ReglasDelAsistente.js';
 import { EXPRESIONES_DE_RIESGO } from '../../domain/model/SenalesDeRiesgo.js';
 import {
@@ -66,6 +70,18 @@ export class ConsultarLasReglasLocalesUseCaseImpl implements ConsultarLasReglasL
           variantes: [...(regla.variantes ?? [])],
         })),
         relleno: [...RELLENO_DE_LA_CHARLA],
+      },
+      ofensivo: {
+        terminos: [...LENGUAJE_OFENSIVO.terminos],
+        desahogo: [...LENGUAJE_OFENSIVO.desahogo],
+        umbral: LENGUAJE_OFENSIVO.umbral,
+        mensaje: LENGUAJE_OFENSIVO.mensaje,
+        mensajeAlCerrar: LENGUAJE_OFENSIVO.mensajeAlCerrar,
+      },
+      erratas: { ...ERRATAS_FRECUENTES },
+      fallback: {
+        mensaje: MENSAJES[Intencion.NO_RECONOCIDA],
+        sugerencias: SUGERENCIAS_DEL_ASISTENTE.map((sugerencia) => sugerencia.texto),
       },
       intenciones: REGLAS_DE_INTENCION.map((regla) => ({
         intencion: regla.intencion,

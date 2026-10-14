@@ -70,6 +70,8 @@ function armar(
     save: () => Promise.resolve(),
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
+    inactivarConTodo: () => Promise.resolve(),
+    estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
 
   const resultados = {

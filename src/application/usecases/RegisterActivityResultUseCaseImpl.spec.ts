@@ -11,6 +11,7 @@ import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/mo
 import { Cobertura, RecursoApoyo, TipoDeRecurso } from '../../domain/model/RecursoApoyo.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
+import type { FilaDelHistorial } from '../../domain/model/HistorialDelModulo.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl.js';
@@ -59,6 +60,11 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
         (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
       ),
     );
+  }
+
+  historialDe(): Promise<readonly FilaDelHistorial[]> {
+    // El historial por modulo (SCRUM-184) no se ejercita aqui.
+    return Promise.resolve([]);
   }
 
   diasConActividad(userId: UserId): Promise<readonly string[]> {

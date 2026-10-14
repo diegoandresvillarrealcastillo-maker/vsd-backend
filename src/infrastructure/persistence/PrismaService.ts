@@ -23,6 +23,8 @@ export type ClienteConSesion = Pick<
   | 'preferenciaAviso'
   | 'consentimiento'
   | 'datoCuriosoCursor'
+  | 'cuentaInactiva'
+  | 'consentimientoDeCuentaInactiva'
 >;
 
 /**

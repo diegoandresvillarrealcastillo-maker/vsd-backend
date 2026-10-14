@@ -5,7 +5,7 @@ import {
   InvalidJournalEntryError,
 } from '../../domain/model/DomainError.js';
 import { EntradaId, UserId } from '../../domain/model/Identifier.js';
-import { DiarioDePrueba, documentoCon, LineasDePrueba } from '../../pruebas/diarioDePrueba.js';
+import { DiarioDePrueba, documentoCon } from '../../pruebas/diarioDePrueba.js';
 import { EscribirEnElDiarioUseCaseImpl } from './EscribirEnElDiarioUseCaseImpl.js';
 
 const ZONA = 'America/Bogota';
@@ -23,11 +23,9 @@ function operacion(): string {
 
 function armar(ahora: Date = AHORA) {
   const diario = new DiarioDePrueba();
-  const lineas = new LineasDePrueba();
   let ids = 0;
   const casoDeUso = new EscribirEnElDiarioUseCaseImpl(
     diario,
-    lineas,
     () => {
       ids += 1;
 
@@ -36,7 +34,7 @@ function armar(ahora: Date = AHORA) {
     () => ahora,
   );
 
-  return { diario, lineas, casoDeUso };
+  return { diario, casoDeUso };
 }
 
 describe('EscribirEnElDiarioUseCaseImpl', () => {
@@ -351,8 +349,8 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     expect(await diario.todasDe(new UserId(OTRA))).toHaveLength(1);
   });
 
-  it('sin senal de riesgo no hay lineas, y ni se consultan', async () => {
-    const { casoDeUso, lineas } = armar();
+  it('sin senal de riesgo no se sugiere acompanamiento', async () => {
+    const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
@@ -363,13 +361,11 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     });
 
     expect(guardada.sugiereAcompanamiento).toBe(false);
-    expect(guardada.lineasDeAtencion).toEqual([]);
-    expect(lineas.consultas).toBe(0);
   });
 
-  it('sin permiso, el diario no se lee: ni sugerencia ni lineas, aunque haya una senal', async () => {
+  it('sin permiso, el diario no se lee: no se sugiere nada, aunque haya una senal', async () => {
     // La decision de Diego (SCRUM-108): nadie se mete en el diario de nadie.
-    const { casoDeUso, lineas } = armar();
+    const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
@@ -380,8 +376,6 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     });
 
     expect(guardada.sugiereAcompanamiento).toBe(false);
-    expect(guardada.lineasDeAtencion).toEqual([]);
-    expect(lineas.consultas).toBe(0);
   });
 
   describe('el reloj del dispositivo, pasada la medianoche (SCRUM-133)', () => {
@@ -451,48 +445,8 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     });
   });
 
-  describe('las lineas son las del pais de la zona de quien escribe (SCRUM-124)', () => {
-    const SENAL = 'Hoy pense que no quiero seguir viviendo';
-
-    it.each([
-      ['America/Bogota', 'CO'],
-      ['America/Mexico_City', 'MX'],
-      ['Europe/Madrid', 'ES'],
-      ['America/New_York', 'US'],
-      ['America/Lima', undefined],
-      ['Asia/Tokyo', undefined],
-    ])('%s pide las de %s', async (zonaHoraria, pais) => {
-      const { casoDeUso, lineas } = armar();
-
-      await casoDeUso.execute({
-        userId: PERSONA,
-        zonaHoraria,
-        conRecomendaciones: true,
-        clientOperationId: operacion(),
-        contenido: documentoCon(SENAL),
-      });
-
-      expect(lineas.paises).toEqual([pais]);
-    });
-
-    it('un reintento las pide igual: quien repite ve lo mismo que la primera vez', async () => {
-      const { casoDeUso, lineas } = armar();
-      const orden = {
-        userId: PERSONA,
-        zonaHoraria: 'Europe/Madrid',
-        conRecomendaciones: true,
-        clientOperationId: operacion(),
-        contenido: documentoCon(SENAL),
-      };
-
-      await casoDeUso.execute(orden);
-      await casoDeUso.execute(orden);
-
-      expect(lineas.paises).toEqual(['ES', 'ES']);
-    });
-  });
-
-  it('con permiso, una senal de riesgo trae las lineas, la nacional primero', async () => {
+  it('con permiso, una senal de riesgo sugiere acompanar, y la respuesta no trae ninguna linea (SCRUM-194)', async () => {
+    // Las lineas viven en Recursos: el diario ofrece ir alli, no las pone en la respuesta.
     const { casoDeUso } = armar();
 
     const guardada = await casoDeUso.execute({
@@ -504,10 +458,10 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     });
 
     expect(guardada.sugiereAcompanamiento).toBe(true);
-    expect(guardada.lineasDeAtencion.map((linea) => linea.id)).toEqual(['linea-192', 'linea-106']);
+    expect(guardada).not.toHaveProperty('lineasDeAtencion');
   });
 
-  it('el reintento de una anotacion con senal vuelve a traer las lineas', async () => {
+  it('el reintento de una anotacion con senal vuelve a sugerir acompanar', async () => {
     const { casoDeUso } = armar();
     const op = operacion();
     const peticion = {
@@ -522,7 +476,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     const reintento = await casoDeUso.execute(peticion);
 
     expect(reintento.sugiereAcompanamiento).toBe(true);
-    expect(reintento.lineasDeAtencion).toHaveLength(2);
+    expect(reintento).not.toHaveProperty('lineasDeAtencion');
   });
 
   it('un contenido que no es un documento no se guarda', async () => {

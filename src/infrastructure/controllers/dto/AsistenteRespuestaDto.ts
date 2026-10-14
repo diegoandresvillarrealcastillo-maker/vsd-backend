@@ -12,7 +12,7 @@ import { RecursoDto } from './RecursoDto.js';
 export class AsistenteRespuestaDto {
   @ApiProperty({
     description:
-      'Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) responde sin recursos ni lineas de atencion.',
+      'Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer, lenguaje_ofensivo o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) y el lenguaje ofensivo responden sin recursos ni lineas de atencion.',
     example: 'como_duermo_mejor',
   })
   intencion!: string;
@@ -35,6 +35,14 @@ export class AsistenteRespuestaDto {
   })
   incluyeLineasDeAtencion!: boolean;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que el asistente si atiende, como frases que la persona puede tocar y enviar tal cual. Solo hay algo cuando no se reconocio lo que escribio (no_reconocida): en lugar de un telefono de crisis que nadie pidio, un catalogo de lo que si puede responder. Vacio en todo lo demas.',
+    example: ['¿Cómo puedo dormir mejor?', '¿Dónde busco ayuda?'],
+  })
+  sugerencias!: string[];
+
   static desde(respuesta: RespuestaDelAsistente): AsistenteRespuestaDto {
     const dto = new AsistenteRespuestaDto();
 
@@ -43,6 +51,7 @@ export class AsistenteRespuestaDto {
     dto.recursos = respuesta.recursos.map((recurso) => RecursoDto.desde(recurso));
     dto.senalDeRiesgo = respuesta.senalDeRiesgo;
     dto.incluyeLineasDeAtencion = respuesta.incluyeLineasDeAtencion;
+    dto.sugerencias = [...respuesta.sugerencias];
 
     return dto;
   }

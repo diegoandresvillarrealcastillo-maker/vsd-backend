@@ -12,6 +12,48 @@ import { EXPRESIONES_DE_RIESGO, hayRiesgo, normalizar } from './SenalesDeRiesgo.
  * De ahi que haya una prueba por cada expresion de la lista, y no una prueba
  * con tres ejemplos.
  */
+describe('el riesgo con erratas (SCRUM-193): la tolerancia amplia la lista, no la debilita', () => {
+  it.each([
+    'kiero morirme',
+    'quiero morirne',
+    'quiero mrirme',
+    'me kiero matar',
+    'a veces pienso en suisidarme',
+    'quiero suicdarme',
+    'no aguanto mass',
+    'KIERO MORIRME',
+    'quiero morirmeee',
+    'quiero  morirme',
+    'hola, kiero morirme',
+  ])('«%s» sigue siendo una senal de riesgo', (texto) => {
+    expect(hayRiesgo(texto)).toBe(true);
+  });
+
+  it.each(EXPRESIONES_DE_RIESGO)(
+    'lo que ya se detectaba se sigue detectando: «%s»',
+    (expresion) => {
+      expect(hayRiesgo(expresion)).toBe(true);
+      expect(hayRiesgo(`hola, ${expresion}, gracias`)).toBe(true);
+    },
+  );
+
+  it.each([
+    'mi abuela no aguanta mas',
+    'ya no puede mas con el trabajo',
+    'quiere morir de la risa',
+    'tanto tiempo sin verte',
+    'esto es normal',
+    'quiero comer',
+    'voy a casa',
+    'todo bien por aqui',
+  ])(
+    '«%s» no dispara por una errata: lo que cambia es de quien se habla, y no se corrige',
+    (texto) => {
+      expect(hayRiesgo(texto)).toBe(false);
+    },
+  );
+});
+
 describe('Senales de riesgo', () => {
   describe('normalizar', () => {
     it('quita las tildes', () => {

@@ -4,6 +4,7 @@ import {
 } from '../../domain/model/AvisoDePrivacidad.js';
 import { Calendario, ZONA_HORARIA_POR_DEFECTO } from '../../domain/model/Calendario.js';
 import {
+  AccountInactiveError,
   InvalidBirthDateError,
   InvalidTimeZoneError,
   MissingConsentError,
@@ -64,13 +65,24 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
   ) {}
 
   async buscarPorProveedor(idProveedorAuth: string): Promise<User | null> {
-    return this.cuentas.findByIdProveedorAuth(idProveedorAuth);
+    const cuenta = await this.cuentas.findByIdProveedorAuth(idProveedorAuth);
+
+    if (cuenta === null) {
+      await this.rechazarSiSeDioDeBaja(idProveedorAuth);
+    }
+
+    return cuenta;
   }
 
   async execute(command: RegistrarCuentaCommand): Promise<User> {
     const existente = await this.cuentas.findByIdProveedorAuth(command.idProveedorAuth);
 
     if (existente === null) {
+      // Un token que todavia no caduco no puede dar de alta una cuenta nueva para una identidad
+      // que ya no existe (SCRUM-190). Quien quiera volver a usar VSD Health se registra de nuevo y
+      // recibe una identidad nueva.
+      await this.rechazarSiSeDioDeBaja(command.idProveedorAuth);
+
       return this.crear(command);
     }
 
@@ -92,6 +104,19 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
     // que el dispositivo informa en cada entrada, y lo que permite que viajar
     // no obligue a configurar nada (SCRUM-123).
     return this.conLaZona(existente, command.zonaHoraria);
+  }
+
+  /**
+   * Lanza `CUENTA_INACTIVA` si ese identificador es de una cuenta que se dio de baja.
+   *
+   * Solo se pregunta cuando no hay cuenta: es lo que separa «todavia no tiene» de «tenia una y ya
+   * no». La respuesta es 401 y no 403, para que el cliente cierre la sesion en lugar de mandar a la
+   * persona a completar un registro.
+   */
+  private async rechazarSiSeDioDeBaja(idProveedorAuth: string): Promise<void> {
+    if (await this.cuentas.estaInactivadaPorProveedor(idProveedorAuth)) {
+      throw new AccountInactiveError();
+    }
   }
 
   private async crear(command: RegistrarCuentaCommand): Promise<User> {

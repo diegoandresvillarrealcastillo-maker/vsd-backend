@@ -110,12 +110,15 @@ export const MENSAJE_ANTE_LENGUAJE_OFENSIVO =
   'Aquí estoy cuando quieras retomar.';
 
 /**
- * Lo que se dice al cerrar la conversación. No acusa: deja claro que se puede abrir otra, y que
- * en Recursos hay dónde apoyarse. No es una alerta: no hay una señal de riesgo.
+ * Lo que se dice al cerrar la conversación. No acusa: deja claro que se puede abrir otra, y cómo
+ * pedir dónde apoyarse (con la pregunta que el asistente ya sabe responder, también sin conexión).
+ * No es una alerta: no hay una señal de riesgo.
+ *
+ * Antes mandaba a «Recursos», una pantalla que no existe (SCRUM-194): se corrigió.
  */
 export const MENSAJE_AL_CERRAR_POR_OFENSAS =
   'Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a ' +
-  'estar. Y si quieres hablar con alguien, en Recursos encuentras dónde.';
+  'estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva.';
 
 /** Todo lo que el dispositivo necesita para aplicar la regla sin conexión. */
 export const LENGUAJE_OFENSIVO = {

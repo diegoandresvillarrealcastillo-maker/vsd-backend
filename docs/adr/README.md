@@ -34,7 +34,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0024](0024-la-racha-se-calcula-en-el-servidor-y-sin-estado.md)                            | La racha se calcula en el servidor y sin estado                            | Aceptada                                                                             |
 | [0025](0025-los-datos-curiosos-recorren-su-ciclo-sin-repetirse.md)                         | Los datos curiosos recorren su ciclo sin repetirse                         | Aceptada                                                                             |
 | [0027](0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md)              | Lo que el asistente no entiende no muestra líneas de atención              | Aceptada (reemplaza en parte a [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)) |
-| [0028](0028-el-diario-no-manda-lineas-de-atencion-ofrece-ir-a-recursos.md)                 | El diario no manda líneas de atención: ofrece ir a Recursos                | Aceptada (reemplaza en parte a [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)) |
+| [0028](0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md)              | El diario no manda líneas de atención: la mascota ofrece ayuda             | Aceptada (reemplaza en parte a [0011](0011-la-deteccion-de-riesgo-es-por-reglas.md)) |
 
 ## Reglas
 

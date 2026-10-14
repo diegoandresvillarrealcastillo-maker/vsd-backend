@@ -15,9 +15,10 @@ import type { AnotacionGuardada } from '../../domain/ports/in/EscribirEnElDiario
  * Con el permiso dado, si lo escrito trae una senal de riesgo, la respuesta lo
  * **indica** y nada mas: no manda ninguna linea de atencion. Quien escribe en
  * su diario no pidio un telefono, y recibirlo pegado a lo que acaba de contar
- * se siente como una alarma. El dispositivo ofrece, con su mascota, ir a
- * Recursos, donde las lineas del pais de la persona viven; esa decision, y que
- * el texto sea calido, es de la pantalla.
+ * se siente como una alarma. El dispositivo ofrece ayuda con su mascota y,
+ * si la persona acepta, abre VSD IA con «donde busco ayuda» ya preguntado, que
+ * responde con las lineas de su pais; esa decision, y que el texto sea calido,
+ * es de la pantalla.
  */
 export function acompanarAnotacion(
   entrada: EntradaDeDiario,

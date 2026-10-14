@@ -8,8 +8,8 @@ import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
  * detecto en ella. Y solo se calcula si la persona lo permitio (SCRUM-108); si
  * no, va en falso.
  *
- * **No lleva lineas de atencion** (SCRUM-194): el diario ofrece ir a Recursos,
- * no las pone en la respuesta.
+ * **No lleva lineas de atencion** (SCRUM-194): el diario ofrece ayuda y no las
+ * pone en la respuesta; quien las quiere las pide al asistente.
  */
 export interface AnotacionGuardada {
   readonly entrada: EntradaDeDiario;

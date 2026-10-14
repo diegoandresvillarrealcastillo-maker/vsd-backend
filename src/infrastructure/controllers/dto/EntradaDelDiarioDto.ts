@@ -95,12 +95,12 @@ export class EntradaDelDiarioDto {
  * `sugiereAcompanamiento` tiene el sentido que en un resultado (SCRUM-94), pero
  * aqui **no viajan lineas de atencion** (SCRUM-194): el diario es lo mas
  * personal que hay, y el telefono pegado a lo recien escrito se siente como una
- * alarma. El cliente ofrece ir a Recursos, donde estan las del pais.
+ * alarma. El cliente ofrece ayuda, y las lineas del pais las da el asistente.
  */
 export class AnotacionGuardadaDto extends EntradaDelDiarioDto {
   @ApiProperty({
     description:
-      'Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ir a Recursos.',
+      'Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ayuda y se piden al asistente.',
   })
   sugiereAcompanamiento!: boolean;
 

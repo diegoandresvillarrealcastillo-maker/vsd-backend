@@ -25,7 +25,7 @@ import {
  *
  * Importa el de resultados para alcanzar Prisma. Ya no necesita las lineas de
  * atencion (SCRUM-194): una anotacion con una senal de riesgo lo indica y nada
- * mas, y las lineas se piden aparte, en Recursos.
+ * mas, y las lineas se piden aparte, al asistente.
  */
 @Module({
   imports: [ActivityResultModule],

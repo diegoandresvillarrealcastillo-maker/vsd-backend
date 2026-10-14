@@ -637,7 +637,7 @@
         ]
       },
       "post": {
-        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si la persona lo permitió en su perfil y lo escrito trae una señal de riesgo, la respuesta lo indica (sugiereAcompanamiento) y nada más: las líneas de atención no viajan aquí, viven en Recursos. No se guarda ninguna marca.",
+        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si la persona lo permitió en su perfil y lo escrito trae una señal de riesgo, la respuesta lo indica (sugiereAcompanamiento) y nada más: las líneas de atención no viajan aquí: se piden al asistente. No se guarda ninguna marca.",
         "operationId": "DiarioController_escribir",
         "parameters": [],
         "requestBody": {
@@ -2283,7 +2283,7 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ir a Recursos."
+            "description": "Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ayuda y se piden al asistente."
           }
         },
         "required": [

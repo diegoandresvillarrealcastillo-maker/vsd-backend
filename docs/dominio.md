@@ -560,9 +560,9 @@ tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
   por `hayRiesgo` el titulo, el texto del documento con las frases enteras
   aunque el editor las parta por marcas, y el texto de los diagramas, y la
   respuesta trae `sugiereAcompanamiento`. **No trae lineas de atencion**
-  (SCRUM-194, [ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-ofrece-ir-a-recursos.md)):
-  el dispositivo ofrece ir a Recursos, donde estan. **No se guarda ninguna
-  marca** en la anotacion.
+  (SCRUM-194, [ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md)):
+  el dispositivo ofrece ayuda y, si la persona acepta, la lleva al asistente.
+  **No se guarda ninguna marca** en la anotacion.
 - Escribir es idempotente por `clientOperationId`, por persona, igual que un
   resultado.
 

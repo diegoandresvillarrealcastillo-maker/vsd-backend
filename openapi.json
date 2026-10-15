@@ -1470,7 +1470,7 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: por el nivel, o porque lo escrito trae una señal de riesgo."
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: porque lo escrito trae una señal de riesgo (en el momento), o porque el resultado requiere atención y la semana tiene un patrón (al menos 4 de los últimos 7 días con atención). Un solo resultado que requiere atención no lo es: nivelOrientativo lo dice y esto es falso."
           },
           "lineasDeAtencion": {
             "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",

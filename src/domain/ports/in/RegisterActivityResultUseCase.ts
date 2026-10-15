@@ -41,7 +41,17 @@ export interface RegistrarResultadoCommand {
  */
 export interface RegistroDeResultado {
   readonly resultado: ActivityResult;
-  /** Vacia cuando el resultado no sugiere acompanamiento. */
+  /**
+   * Si conviene acompanar a la persona con recursos de apoyo (SCRUM-200). Es cierto en dos casos:
+   *
+   * - **Una senal de riesgo en lo escrito**: en el momento, sin esperar a nada.
+   * - **Un patron de la semana**: el resultado de ahora requiere atencion **y** en los 7 dias que
+   *   terminan en su dia hay al menos 4 dias con atencion (`PatronDeLaSemana`).
+   *
+   * Un solo resultado que requiere atencion **no** lo es: se registra, pero no se acompana.
+   */
+  readonly sugiereAcompanamiento: boolean;
+  /** Vacia cuando `sugiereAcompanamiento` es falso. */
   readonly lineasDeAtencion: readonly RecursoApoyo[];
 }
 

@@ -4,6 +4,7 @@ import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/mod
 import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
+import { DIAS_DE_LA_VENTANA, hayPatronEnLaSemana } from '../../domain/model/PatronDeLaSemana.js';
 import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
 import { ajustarAlReloj } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
@@ -14,6 +15,8 @@ import type {
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+
+const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Registra el resultado de una actividad.
@@ -37,17 +40,54 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
 
   async execute(command: RegistrarResultadoCommand): Promise<RegistroDeResultado> {
     const resultado = await this.registrar(command);
+    const sugiereAcompanamiento = await this.convieneAcompanar(resultado);
 
-    // Las lineas acompanan al resultado que sugiere apoyo, sea por su nivel o
-    // por una senal de riesgo en lo escrito. Tambien en un reintento: quien
-    // repite la operacion tiene que ver lo mismo que la primera vez.
-    const lineasDeAtencion = resultado.sugiereAcompanamiento()
+    // Las lineas acompanan al resultado que sugiere apoyo, sea por una senal de
+    // riesgo en lo escrito o por un patron de la semana. Tambien en un
+    // reintento: quien repite la operacion tiene que ver lo mismo que la
+    // primera vez.
+    const lineasDeAtencion = sugiereAcompanamiento
       ? RecursoApoyo.ordenarPorAlcance(
           await this.recursos.lineasDeAtencion(paisDeLaZona(command.zonaHoraria)),
         )
       : [];
 
-    return { resultado, lineasDeAtencion };
+    return { resultado, sugiereAcompanamiento, lineasDeAtencion };
+  }
+
+  /**
+   * Si conviene acompanar a la persona (SCRUM-200).
+   *
+   * - Si el resultado, por si solo, no sugiere nada, no hay nada que mirar.
+   * - **Una senal de riesgo en lo escrito no espera una semana**: se acompana en el momento.
+   * - Un nivel que requiere atencion necesita un **patron**: 4 dias con atencion de los 7 que
+   *   terminan en el dia de este resultado. Un dia flojo, o un juego que no salio, no es una
+   *   semana dificil.
+   *
+   * La semana se mide contra el dia **del resultado** (el que quedo fijado al registrarlo) y no
+   * contra hoy. Asi un resultado hecho sin conexion se mide con la semana en que ocurrio, y un
+   * reintento ve lo mismo que la primera vez aunque despues se hayan registrado mas dias.
+   */
+  private async convieneAcompanar(resultado: ActivityResult): Promise<boolean> {
+    if (!resultado.sugiereAcompanamientoPorSiSolo()) {
+      return false;
+    }
+
+    if (resultado.contieneSenalDeRiesgo()) {
+      return true;
+    }
+
+    // Un margen de un dia sobre la ventana: lo que se mide son dias locales ya fijados, y el
+    // filtro por hora solo acota la consulta.
+    const desde = new Date(
+      resultado.completedAt.getTime() - (DIAS_DE_LA_VENTANA + 1) * UN_DIA_EN_MS,
+    );
+    const recientes = await this.repositorio.ultimosDe(resultado.userId, desde);
+
+    return hayPatronEnLaSemana(
+      [resultado, ...recientes].map((r) => ({ dia: r.dia, nivel: r.score?.level })),
+      resultado.dia,
+    );
   }
 
   private async registrar(command: RegistrarResultadoCommand): Promise<ActivityResult> {

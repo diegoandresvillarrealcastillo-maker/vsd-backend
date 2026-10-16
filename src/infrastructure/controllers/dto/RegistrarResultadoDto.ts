@@ -60,6 +60,16 @@ export class RegistrarResultadoDto {
 
   @ApiPropertyOptional({
     description:
+      'La sesión (el contenido) que se hizo, cuando la actividad las tiene (ADR 0030): la que vino en `sesion` del sendero. Tiene que ser una sesión de esa actividad. Una sesión que se retiró después de servirse se acepta: quien la tenía abierta puede terminarla. Se omite en las actividades que no tienen sesiones.',
+    format: 'uuid',
+    example: '55555555-5555-4555-a555-555555555555',
+  })
+  @IsOptional()
+  @IsUUID()
+  idSesion?: string;
+
+  @ApiPropertyOptional({
+    description:
       'Informacion propia del tipo de actividad: las horas de una bitacora de sueno, las respuestas de un registro emocional. No puede traer claves que ya sean campos propios.',
     example: { horasDormidas: 6.5, despertares: 2 },
   })

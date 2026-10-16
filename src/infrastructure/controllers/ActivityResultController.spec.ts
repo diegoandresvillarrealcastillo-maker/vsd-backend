@@ -9,11 +9,14 @@ import {
   comoUsuario,
   darDeAlta,
 } from '../../pruebas/sesionDePrueba.js';
+import { ActivityId, SesionId } from '../../domain/model/Identifier.js';
+import { Revision, SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
-import { CONFIGURACION } from '../config/tokens.js';
+import { CONFIGURACION, SESIONES_REPOSITORY } from '../config/tokens.js';
 
 /**
  * Las dos personas con las que se prueba.
@@ -66,7 +69,9 @@ function cuerpo(extra: Record<string, unknown> = {}): Record<string, unknown> {
  * Si la prueba la configurara de otra forma, no demostraria nada sobre el
  * comportamiento real del servicio.
  */
-async function levantarAplicacion(): Promise<NestExpressApplication> {
+async function levantarAplicacion(
+  sesiones?: SesionesRepositoryPort,
+): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
   // No se llega a consultar: el verificador de verdad esta sustituido. Hace
@@ -79,11 +84,13 @@ async function levantarAplicacion(): Promise<NestExpressApplication> {
   // son las de SCRUM-61 y viven aparte.
   delete process.env.DATABASE_URL;
 
-  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+  const base = Test.createTestingModule({ imports: [AppModule] })
     // Se sustituye la criptografia, no el guardia. Ver src/pruebas.
     .overrideProvider(VerificadorDeIdentidad)
-    .useClass(VerificadorFalso)
-    .compile();
+    .useClass(VerificadorFalso);
+  const modulo = await (
+    sesiones === undefined ? base : base.overrideProvider(SESIONES_REPOSITORY).useValue(sesiones)
+  ).compile();
 
   const app = modulo.createNestApplication<NestExpressApplication>({ logger: false });
 
@@ -502,5 +509,100 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     await vi.waitFor(() => expect(anotado.join('\n')).toContain('POST /api/resultados 201'));
     expect(anotado.join('\n')).not.toContain('ya no puedo');
     expect(anotado.join('\n')).not.toContain('nada bueno');
+  });
+});
+
+describe('POST /api/resultados con la sesion que se hizo (ADR 0030)', () => {
+  let app: NestExpressApplication;
+
+  const SESION_DE_LA_ACTIVIDAD = '77777777-7777-4777-a777-777777777777';
+  const SESION_DE_OTRA = '88888888-8888-4888-a888-777777777777';
+  const RETIRADA = '99999999-9999-4999-a999-777777777777';
+
+  function sesion(id: string, deLaActividad: string, publicado = true): SesionDeActividad {
+    return SesionDeActividad.create({
+      id: new SesionId(id),
+      idActividad: new ActivityId(deLaActividad),
+      titulo: 'Una sesión',
+      nivel: 1,
+      parametros: {},
+      publicado,
+      revision: Revision.NO_REQUIERE,
+    });
+  }
+
+  /** Un doble con tres sesiones: lo unico que usa registrar un resultado es `porId`. */
+  const sesiones: SesionesRepositoryPort = {
+    porId: (id) =>
+      Promise.resolve(
+        [
+          sesion(SESION_DE_LA_ACTIVIDAD, ACTIVIDAD),
+          sesion(SESION_DE_OTRA, BITACORA),
+          sesion(RETIRADA, ACTIVIDAD, false),
+        ].find((una) => una.id.value === id.value) ?? null,
+      ),
+    mecanicasConSesion: () => Promise.resolve(new Set()),
+    sesionesDeHoy: () => Promise.resolve(new Map()),
+    titulosDe: () => Promise.resolve(new Map()),
+  };
+
+  beforeAll(async () => {
+    app = await levantarAplicacion(sesiones);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('registra el resultado de una sesion de esa actividad y devuelve 201', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: SESION_DE_LA_ACTIVIDAD }),
+    );
+
+    expect(respuesta.status).toBe(201);
+    expect(respuesta.body).toMatchObject({ activityId: ACTIVIDAD });
+  });
+
+  it('una sesion retirada despues de servirse tambien se acepta', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: RETIRADA }));
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('una sesion de otra actividad es 400, con el codigo del dominio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: SESION_DE_OTRA }));
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD' });
+  });
+
+  it('una sesion que no existe es 400 con el mismo codigo: no revela cual de las dos cosas pasa', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa' }),
+    );
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD' });
+  });
+
+  it('un identificador de sesion que no es un UUID es 400 por la validacion del cuerpo', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: 'no-es-un-uuid' }));
+
+    expect(respuesta.status).toBe(400);
+    expect(JSON.stringify(respuesta.body)).toContain('idSesion');
+  });
+
+  it('sin idSesion todo sigue como antes: un cliente anterior no se entera', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo());
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('la respuesta no devuelve el identificador de la sesion', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: SESION_DE_LA_ACTIVIDAD }),
+    );
+
+    expect(JSON.stringify(respuesta.body)).not.toContain(SESION_DE_LA_ACTIVIDAD);
   });
 });

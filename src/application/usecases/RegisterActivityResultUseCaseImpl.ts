@@ -1,7 +1,17 @@
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { Calendario } from '../../domain/model/Calendario.js';
-import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import {
+  ActivityNotFoundError,
+  ScoreNotApplicableError,
+  SessionNotOfActivityError,
+} from '../../domain/model/DomainError.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
 import { DIAS_DE_LA_VENTANA, hayPatronEnLaSemana } from '../../domain/model/PatronDeLaSemana.js';
@@ -15,6 +25,7 @@ import type {
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 
 const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
 
@@ -34,6 +45,7 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
     private readonly repositorio: ActivityResultRepositoryPort,
     private readonly actividades: ActivityRepositoryPort,
     private readonly recursos: RecursoApoyoRepositoryPort,
+    private readonly sesiones: SesionesRepositoryPort,
     private readonly generarId: () => ResultId = () => new ResultId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
   ) {}
@@ -96,6 +108,7 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
     const userId = new UserId(command.userId);
     const activityId = new ActivityId(command.activityId);
     const clientOperationId = new ClientOperationId(command.clientOperationId);
+    const sessionId = command.sessionId === undefined ? undefined : new SesionId(command.sessionId);
     // La actividad es la que sabe interpretar el puntaje: sobre que maximo se
     // obtuvo, hacia donde va su escala y donde estan sus cortes de nivel. Sin
     // ella no se puede derivar un nivel que signifique algo.
@@ -132,6 +145,16 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
       return existente;
     }
 
+    // La sesion tiene que ser de esta actividad (ADR 0030). Se mira despues de la idempotencia: un
+    // reintento devuelve lo ya registrado sin volver a preguntar por ella. Una sesion retirada se acepta.
+    if (sessionId !== undefined) {
+      const sesion = await this.sesiones.porId(sessionId);
+
+      if (sesion === null || !sesion.idActividad.equals(activityId)) {
+        throw new SessionNotOfActivityError();
+      }
+    }
+
     const ahora = this.reloj();
 
     // La hora la pone el dispositivo, y sin conexion puede viajar horas despues.
@@ -153,6 +176,7 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
         // despues viaja, este resultado sigue siendo de ese dia.
         dia: Calendario.de(command.zonaHoraria).diaDe(completedAt),
         metadata: command.metadata,
+        sessionId,
       },
       ahora,
     );

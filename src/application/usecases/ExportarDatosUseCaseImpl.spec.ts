@@ -3,13 +3,16 @@ import {
   AccountNotProvisionedError,
   FileStorageUnavailableError,
 } from '../../domain/model/DomainError.js';
-import type { ActivityResult } from '../../domain/model/ActivityResult.js';
+import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import {
+  ActivityId,
   ClientOperationId,
   EntradaId,
   PendienteId,
+  ResultId,
+  SesionId,
   UserId,
 } from '../../domain/model/Identifier.js';
 import { Pendiente } from '../../domain/model/Pendiente.js';
@@ -20,6 +23,7 @@ import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioReposito
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { AlmacenDoble } from '../../pruebas/almacenDePrueba.js';
 import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
@@ -61,8 +65,16 @@ function armar(
   fotos: AlmacenPersonalPort = new AlmacenDoble(),
   mascotas: AlmacenPersonalPort = new AlmacenDoble(),
   conDatoCurioso = true,
+  conResultados: readonly ActivityResult[] = [],
+  titulosDeSesiones: Readonly<Record<string, string>> = {},
 ) {
-  const preguntas: { resultados?: string; desde?: Date; diario?: string; pendientes?: string } = {};
+  const preguntas: {
+    resultados?: string;
+    desde?: Date;
+    diario?: string;
+    pendientes?: string;
+    titulosDe?: string[][];
+  } = {};
 
   const cuentas: UserRepositoryPort = {
     findById: () => Promise.resolve(cuenta),
@@ -79,9 +91,25 @@ function armar(
       preguntas.resultados = id.value;
       preguntas.desde = desde;
 
-      return Promise.resolve([] as readonly ActivityResult[]);
+      return Promise.resolve(conResultados);
     },
   } as unknown as ActivityResultRepositoryPort;
+
+  const sesiones = {
+    titulosDe: (ids: readonly SesionId[]) => {
+      preguntas.titulosDe = [...(preguntas.titulosDe ?? []), ids.map((id) => id.value)];
+
+      return Promise.resolve(
+        new Map(
+          ids.flatMap((id) =>
+            id.value in titulosDeSesiones
+              ? [[id.value, titulosDeSesiones[id.value]!] as const]
+              : [],
+          ),
+        ),
+      );
+    },
+  } as unknown as SesionesRepositoryPort;
 
   const diario = {
     todasDe: (id: UserId) => {
@@ -123,6 +151,7 @@ function armar(
       fotos,
       mascotas,
       datosCuriosos,
+      sesiones,
       () => AHORA,
     ),
   };
@@ -367,5 +396,62 @@ describe('la mascota propia (SCRUM-122)', () => {
 
       expect(datos.datoCurioso).toBeNull();
     });
+  });
+});
+
+describe('ExportarDatosUseCaseImpl: las sesiones que se hicieron (ADR 0030)', () => {
+  const SESION_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const SESION_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  let n = 0;
+
+  function resultado(sesion?: string): ActivityResult {
+    n++;
+
+    return ActivityResult.create(
+      {
+        id: new ResultId(`dddddddd-dddd-4ddd-8ddd-${String(n).padStart(12, '0')}`),
+        userId: new UserId(PERSONA),
+        activityId: new ActivityId('33333333-3333-4333-a333-333333333333'),
+        clientOperationId: new ClientOperationId(
+          `eeeeeeee-eeee-4eee-8eee-${String(n).padStart(12, '0')}`,
+        ),
+        completedAt: new Date('2026-10-01T12:00:00.000Z'),
+        dia: '2026-10-01',
+        sessionId: sesion === undefined ? undefined : new SesionId(sesion),
+      },
+      AHORA,
+    );
+  }
+
+  it('sin ninguna sesion en los resultados, no se pregunta por titulos', async () => {
+    const { casoDeUso, preguntas } = armar(unaCuenta(), undefined, undefined, true, [
+      resultado(),
+      resultado(),
+    ]);
+
+    const datos = await casoDeUso.execute(new UserId(PERSONA));
+
+    expect(preguntas.titulosDe).toBeUndefined();
+    expect(datos.titulosDeSesiones.size).toBe(0);
+  });
+
+  it('trae el titulo de cada sesion distinta, una sola vez cada una', async () => {
+    const { casoDeUso, preguntas } = armar(
+      unaCuenta(),
+      undefined,
+      undefined,
+      true,
+      [resultado(SESION_A), resultado(SESION_B), resultado(SESION_A), resultado()],
+      { [SESION_A]: 'Respiración 4-6', [SESION_B]: 'Tres colores' },
+    );
+
+    const datos = await casoDeUso.execute(new UserId(PERSONA));
+
+    expect(preguntas.titulosDe).toEqual([[SESION_A, SESION_B]]);
+    expect(Object.fromEntries(datos.titulosDeSesiones)).toEqual({
+      [SESION_A]: 'Respiración 4-6',
+      [SESION_B]: 'Tres colores',
+    });
+    expect(datos.resultados).toHaveLength(4);
   });
 });

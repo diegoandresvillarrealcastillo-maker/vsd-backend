@@ -3,17 +3,26 @@ import {
   FutureCompletionDateError,
   InvalidIdentifierError,
   ScoreOutOfRangeError,
+  SessionNotOfActivityError,
 } from '../../domain/model/DomainError.js';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Categoria } from '../../domain/model/Categoria.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../domain/model/Identifier.js';
+import { Revision, SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
 import { Cobertura, RecursoApoyo, TipoDeRecurso } from '../../domain/model/RecursoApoyo.js';
 import type { RegistrarResultadoCommand } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { FilaDelHistorial } from '../../domain/model/HistorialDelModulo.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import { RegisterActivityResultUseCaseImpl } from './RegisterActivityResultUseCaseImpl.js';
 
 /**
@@ -156,6 +165,39 @@ class RecursosFalsos implements RecursoApoyoRepositoryPort {
   }
 }
 
+/**
+ * Doble de las sesiones: solo `porId`, que es lo unico que usa registrar un resultado. Lo demas
+ * lanza, para que si algun dia empezara a usarse la prueba falle en vez de pasar con datos inventados.
+ */
+class SesionesFalsas implements SesionesRepositoryPort {
+  /** Cuantas veces se pregunto por una sesion. */
+  consultas = 0;
+
+  private readonly sesiones = new Map<string, SesionDeActividad>();
+
+  agregar(sesion: SesionDeActividad): void {
+    this.sesiones.set(sesion.id.value, sesion);
+  }
+
+  porId(id: SesionId): Promise<SesionDeActividad | null> {
+    this.consultas++;
+
+    return Promise.resolve(this.sesiones.get(id.value) ?? null);
+  }
+
+  mecanicasConSesion(): Promise<ReadonlySet<string>> {
+    return Promise.reject(new Error('No se usa al registrar un resultado.'));
+  }
+
+  sesionesDeHoy(): Promise<ReadonlyMap<string, SesionDeActividad>> {
+    return Promise.reject(new Error('No se usa al registrar un resultado.'));
+  }
+
+  titulosDe(): Promise<ReadonlyMap<string, string>> {
+    return Promise.reject(new Error('No se usa al registrar un resultado.'));
+  }
+}
+
 const SIN_PUNTAJE = '66666666-6666-4666-8666-666666666666';
 
 function actividad(): Activity {
@@ -191,6 +233,7 @@ function comando(sobrescribir: Partial<RegistrarResultadoCommand> = {}): Registr
 describe('RegisterActivityResultUseCaseImpl', () => {
   let repositorio: RepositorioFalso;
   let recursos: RecursosFalsos;
+  let sesiones: SesionesFalsas;
   let casoDeUso: RegisterActivityResultUseCaseImpl;
 
   /** Lo registrado, para las pruebas que no miran las lineas de atencion. */
@@ -232,10 +275,12 @@ describe('RegisterActivityResultUseCaseImpl', () => {
   beforeEach(() => {
     repositorio = new RepositorioFalso();
     recursos = new RecursosFalsos();
+    sesiones = new SesionesFalsas();
     casoDeUso = new RegisterActivityResultUseCaseImpl(
       repositorio,
       new CatalogoFalso([actividad(), bitacora()]),
       recursos,
+      sesiones,
       () => new ResultId(RESULTADO),
       () => AHORA,
     );
@@ -556,6 +601,82 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     await expect(registrar(comando({ userId: 'roto' }))).rejects.toThrow();
     expect(repositorio.cantidad).toBe(0);
   });
+  describe('la sesion que se hizo (ADR 0030)', () => {
+    const SESION = '77777777-7777-4777-a777-777777777777';
+    const DE_OTRA_ACTIVIDAD = '88888888-8888-4888-a888-888888888888';
+    const RETIRADA = '99999999-9999-4999-a999-999999999999';
+
+    function sesionDe(id: string, actividadId: string, publicado = true): SesionDeActividad {
+      return SesionDeActividad.create({
+        id: new SesionId(id),
+        idActividad: new ActivityId(actividadId),
+        titulo: 'Una sesión',
+        nivel: 1,
+        parametros: {},
+        publicado,
+        revision: Revision.NO_REQUIERE,
+      });
+    }
+
+    beforeEach(() => {
+      sesiones.agregar(sesionDe(SESION, ACTIVIDAD));
+      sesiones.agregar(sesionDe(DE_OTRA_ACTIVIDAD, SIN_PUNTAJE));
+      sesiones.agregar(sesionDe(RETIRADA, ACTIVIDAD, false));
+    });
+
+    it('sin sesion es lo de siempre: asi se registran las nueve actividades actuales', async () => {
+      const resultado = await registrar(comando());
+
+      expect(resultado.sessionId).toBeUndefined();
+      expect(sesiones.consultas).toBe(0);
+    });
+
+    it('guarda la sesion que se hizo', async () => {
+      const resultado = await registrar(comando({ sessionId: SESION }));
+
+      expect(resultado.sessionId?.value).toBe(SESION);
+    });
+
+    it('una sesion de otra actividad se rechaza y no se guarda nada', async () => {
+      await expect(registrar(comando({ sessionId: DE_OTRA_ACTIVIDAD }))).rejects.toThrow(
+        SessionNotOfActivityError,
+      );
+      expect(repositorio.cantidad).toBe(0);
+    });
+
+    it('una sesion que no existe se rechaza igual: quien llama no necesita saber cual de las dos cosas pasa', async () => {
+      await expect(
+        registrar(comando({ sessionId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa' })),
+      ).rejects.toThrow(SessionNotOfActivityError);
+      expect(repositorio.cantidad).toBe(0);
+    });
+
+    it('una sesion retirada despues de servirse se acepta: quien la tenia abierta puede terminarla', async () => {
+      const resultado = await registrar(comando({ sessionId: RETIRADA }));
+
+      expect(resultado.sessionId?.value).toBe(RETIRADA);
+    });
+
+    it('un identificador de sesion mal formado es un identificador invalido', async () => {
+      await expect(registrar(comando({ sessionId: 'no-es-un-uuid' }))).rejects.toThrow(
+        InvalidIdentifierError,
+      );
+      expect(repositorio.cantidad).toBe(0);
+    });
+
+    it('un reintento devuelve lo ya registrado sin volver a mirar la sesion', async () => {
+      const primero = await registrar(comando({ sessionId: SESION }));
+      const consultasAntes = sesiones.consultas;
+
+      // Mismo clientOperationId: es la misma operacion, aunque llegue con otra sesion.
+      const reintento = await registrar(comando({ sessionId: DE_OTRA_ACTIVIDAD }));
+
+      expect(reintento).toBe(primero);
+      expect(sesiones.consultas).toBe(consultasAntes);
+      expect(repositorio.cantidad).toBe(1);
+    });
+  });
+
   describe('el reloj del dispositivo (SCRUM-133)', () => {
     // Sin conexion, el resultado viaja despues con la hora del reloj del
     // dispositivo. Ese reloj puede ir unos minutos adelantado y eso no puede
@@ -610,6 +731,7 @@ describe('RegisterActivityResultUseCaseImpl', () => {
         repositorio,
         new CatalogoFalso([actividad(), bitacora()]),
         recursos,
+        sesiones,
         () => new ResultId(RESULTADO),
         () => new Date('2026-09-15T04:58:00.000Z'),
       );

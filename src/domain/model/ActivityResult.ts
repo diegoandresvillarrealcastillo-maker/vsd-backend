@@ -1,6 +1,6 @@
 import type { Dia } from './Calendario.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, SesionId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
 import { hayRiesgo, textosDe } from './SenalesDeRiesgo.js';
 
@@ -65,6 +65,12 @@ export interface DatosDeResultado {
    */
   readonly dia: Dia;
   readonly metadata?: Metadata | undefined;
+  /**
+   * La sesion (el contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Lo que la persona
+   * hizo es lo que queda: de aqui sale que sesion le sigue, sin un cursor aparte. Ausente en las nueve
+   * actividades que ya existian.
+   */
+  readonly sessionId?: SesionId | undefined;
 }
 
 /**
@@ -87,6 +93,7 @@ export class ActivityResult {
   readonly completedAt: Date;
   readonly dia: Dia;
   readonly metadata: Metadata;
+  readonly sessionId: SesionId | undefined;
 
   private constructor(datos: DatosDeResultado) {
     this.id = datos.id;
@@ -98,6 +105,7 @@ export class ActivityResult {
     this.completedAt = new Date(datos.completedAt.getTime());
     this.dia = datos.dia;
     this.metadata = Object.freeze({ ...datos.metadata });
+    this.sessionId = datos.sessionId;
   }
 
   /**

@@ -91,8 +91,8 @@ Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **s
   la mecanica. Las nueve actividades actuales no lo tienen hasta la Fase 0. `Activity.create` rechaza un
   valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
 - `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
-  rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia, y es de SCRUM-205. Hasta
-  entonces el sendero no la ofrece como lo de hoy.
+  rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia (ver "El sendero de cada
+  modulo").
 
 ## `SesionDeActividad`
 
@@ -320,7 +320,9 @@ guarda de ella y a pedir que se suprima (SCRUM-75).
   como texto), si las tiene; si Storage no responde, la exportacion falla en vez
   de salir sin ellas. Cada repositorio
   filtra por la persona y la base lo impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
-  resto de la API: con su nivel orientativo y sin el puntaje normalizado.
+  resto de la API: con su nivel orientativo y sin el puntaje normalizado. Si la persona hizo una sesion (ADR 0030),
+  el resultado lleva el **titulo** de esa sesion (`sesion`), nunca su identificador ni sus parametros: son
+  contenido de todos y no le dicen nada a quien se lleva sus datos.
 - **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra
   las filas dentro de una transaccion, borra los archivos de la persona en
   Storage, borra la identidad en el proveedor y solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
@@ -412,6 +414,15 @@ Ese texto **no aparece en ningun registro**. El registro de peticiones solo
 anota metodo, ruta, estado y duracion. Y de los errores de Prisma, cuyo mensaje
 repite los argumentos de la llamada que fallo, se anota el nombre, el codigo y
 la traza, nunca el mensaje.
+
+### La sesion que se hizo (SCRUM-205, ADR 0030)
+
+`ActivityResult` guarda opcionalmente `sessionId`: la sesion (contenido) que se hizo. De ahi sale cual le sigue
+a la persona, sin tablas aparte. `POST /api/resultados` acepta `idSesion` (opcional) y
+`RegisterActivityResultUseCaseImpl` comprueba que sea **una sesion de esa actividad**; si no existe o es de otra
+mecanica responde 400 `LA_SESION_NO_ES_DE_LA_ACTIVIDAD`, igual en los dos casos. Una sesion **retirada** despues
+de servirse se acepta: quien la tenia abierta puede terminarla. La comprobacion va despues de la
+idempotencia: un reintento devuelve lo ya registrado sin volver a preguntar por la sesion.
 
 ### `metadata`
 
@@ -540,6 +551,32 @@ las zonas en uso y, en cada una, a quien le toca en su minuto local. La zona de
 `preferencia_aviso` la copia la base desde la cuenta con dos disparadores, para
 que la tarea no necesite leer `usuario`.
 
+## Que sesion le toca a cada persona (SCRUM-205, ADR 0030)
+
+`elegirSesionDeHoy` (`SesionDelDia.ts`) decide, para una persona y una mecanica, cual de sus sesiones es la de
+hoy. Es una funcion de **lo que la persona hizo y de nada mas**: no hay un cursor que pueda desincronizarse
+del historial (`resultado.id_sesion` es la unica verdad), y no depende del orden en que llegaron los
+resultados, que sin conexion pueden llegar horas despues (ADR 0019). En orden:
+
+1. **Si ya hizo una hoy, es esa** (la ultima, si repitio), aunque se haya retirado despues. La actividad sale
+   como hecha y no se le ofrece otra el mismo dia.
+2. Si no, entre las publicadas, **la de menor clave que no hizo en los ultimos 365 dias**. La clave es propia
+   de cada persona (`claveDeLaSesion`), asi que cada una recorre el contenido en su orden.
+3. Si ya las hizo todas dentro de la ventana, **la que hizo hace mas tiempo**: el ciclo empieza otra vez, en el
+   mismo orden.
+
+Una sesion hecha el dia D vuelve a ser elegible el dia D + 365. Una sesion nueva entra donde le toca por su
+clave; una retirada se salta.
+
+`ClaveEstable.ts` da las claves: FNV-1a de 64 bits, pura y sin Node, para que los dos adaptadores y las
+pruebas coincidan. Nada de esto se guarda: agregar o retirar contenido no mueve a nadie.
+
+**Dos implementaciones, una regla.** El adaptador en memoria llama a `elegirSesionDeHoy` tal cual. El de
+PostgreSQL la escribe como una consulta (con `hashtextextended` como clave) para no traer al servidor todo el
+contenido de todas las mecanicas en cada lectura del sendero. Una prueba contra PostgreSQL real las compara
+sobre 160 historiales al azar, dandole a la funcion pura las mismas claves que calcula la base, con parte del
+historial puesto a proposito en el borde de los 365 dias.
+
 ## El sendero de cada modulo
 
 `Sendero.ts` decide en que etapa va cada persona en cada modulo y que le toca
@@ -556,6 +593,20 @@ hoy (SCRUM-91). Se expone en `GET /api/progreso`.
   o no: hacer la primera actividad del dia no abre otras a mitad del dia.
 - Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve hecha
   hasta manana.
+- **Las rotativas** (ADR 0030, punto 7): de las mecanicas rotativas de un modulo se ofrecen **hasta 3 por dia**,
+  elegidas por (1) las **hechas hoy**, que siguen visibles; (2) las que **hace mas dias que no hace**, y antes
+  que todas las que **nunca hizo**; (3) a igual antiguedad, la clave propia de cada persona y dia
+  (`claveDeLaMecanica`). Es estable durante el dia: hacer una de las ofrecidas deja el mismo conjunto. Las hechas
+  hoy pueden pasar de tres, porque no se esconde lo que alguien acaba de hacer para cumplir una cifra. La
+  rotacion no limita lo que se puede hacer (SCRUM-184), solo reparte lo que se muestra.
+- **Una mecanica con motor solo se ofrece si tiene una sesion que dar**: sin ella no sale ni en lo de hoy ni
+  como sugerida, y no ocupa uno de los tres lugares. Las que no tienen motor (las nueve de hoy) no dependen de
+  esto. Lo que toca y lo sugerido llevan, cuando la mecanica tiene motor, **la sesion de hoy** (`sesion` en
+  `GET /api/progreso`), que viaja con el sendero que el dispositivo ya guarda: asi se puede hacer la actividad
+  sin conexion.
+- `ConsultarProgresoUseCaseImpl` lo arma en dos pasos y solo si el catalogo tiene mecanicas con motor: pregunta
+  **cuales tienen sesion** (una consulta barata), deja que `progresoDelModulo` decida que se ofrece, y entonces
+  pide **la sesion de cada una de las ofrecidas**, no las de todo el catalogo.
 - **No hay tope diario** (SCRUM-184). Lo que toca hoy sale entero, y nada impide
   registrar mas: el servidor nunca limito cuantos resultados se guardan en un
   dia (la unica unicidad es por `clientOperationId`). El "3" que se veia era el
@@ -901,6 +952,7 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `ScoreNotApplicableError`           | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
 | `InvalidActivityConfigurationError` | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
 | `InvalidSessionConfigurationError`  | `CONFIGURACION_DE_SESION_INVALIDA`    | La sesion de actividad esta mal configurada  |
+| `SessionNotOfActivityError`         | `LA_SESION_NO_ES_DE_LA_ACTIVIDAD`     | La sesion no existe o es de otra actividad   |
 | `InvalidJournalEntryError`          | `ANOTACION_INVALIDA`                  | La anotacion no tiene la forma del diario    |
 | `FutureJournalDayError`             | `DIA_EN_EL_FUTURO`                    | Se escribe en un dia que no ha llegado       |
 | `InvalidDayRangeError`              | `RANGO_DE_DIAS_INVALIDO`              | El rango pedido al diario no es valido       |
@@ -918,9 +970,10 @@ que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 
-- **Elegir la sesion de hoy y la rotacion.** El modelo (`SesionDeActividad`, `Motor`, la frecuencia
-  `rotativa`) y su migracion estan en SCRUM-204. Que sesion le toca a cada persona, que mecanicas rotativas
-  se ofrecen hoy y la API que lo expone son de SCRUM-205.
+- **Contenido.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, pero
+  no hay ninguna sesion cargada ni ninguna mecanica con motor: las nueve actividades actuales pasan al modelo
+  en la Fase 0, y el contenido llega con el piloto, ya revisado.
+- **La forma de `parametros` de cada motor.** Se fija con el ticket que construye ese motor.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`
   existen y se leen, pero el catalogo y los recursos solo cambian con una
   migracion: todavia no hay casos de uso para que el administrador los cree o

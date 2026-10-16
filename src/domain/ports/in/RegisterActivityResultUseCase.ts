@@ -29,6 +29,12 @@ export interface RegistrarResultadoCommand {
   readonly zonaHoraria: string;
   /** Informacion propia del tipo de actividad. Ver ADR 0008. */
   readonly metadata?: Metadata | undefined;
+  /**
+   * La sesion (el contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Tiene que ser una
+   * sesion de esa actividad; una retirada despues de servirse se acepta, porque quien la tenia abierta
+   * puede terminarla.
+   */
+  readonly sessionId?: string | undefined;
 }
 
 /**

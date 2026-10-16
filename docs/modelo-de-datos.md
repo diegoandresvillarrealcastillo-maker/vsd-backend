@@ -299,6 +299,14 @@ se borra, se retira. Dos índices nuevos en `resultado`: `(id_usuario, id_activi
 sesión de hoy (lo que una persona hizo en una mecánica durante el último año), e `(id_sesion)`, para la
 clave foránea.
 
+**Qué sesión toca (SCRUM-205).** No se guarda: sale de lo que la persona hizo (`resultado.id_sesion`) y de una
+clave `hashtextextended(id_sesion || ':' || id_usuario, 0)` propia de cada persona. `PrismaSesionesRepository` la
+calcula con una consulta por mecánica que se queda con la primera; la regla está en el dominio
+(`elegirSesionDeHoy`, ver [dominio.md](dominio.md)). Medido en la base local con 27 mecánicas × 40 sesiones y
+121 mil resultados de 201 personas, usa `resultado_id_usuario_id_actividad_dia_idx` y `resultado_id_sesion_idx`
+(no recorre los resultados de todas las personas): unos 7 ms en la base y 16 ms de punta a punta para 9
+mecánicas.
+
 **Política de acceso:** catálogo, como `RECURSO_APOYO` y `DATO_CURIOSO`. Lectura abierta y escritura de
 administrador; la aplicación (`vsd_app`) solo tiene `SELECT`. No es un dato personal. La migración es
 `20261018120000_mecanica_por_sesion`, aditiva, y la aplica una persona.

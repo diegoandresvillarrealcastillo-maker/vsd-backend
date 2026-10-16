@@ -11,6 +11,9 @@
 export const ACTIVITY_RESULT_REPOSITORY = Symbol('ActivityResultRepositoryPort');
 export const ACTIVITY_REPOSITORY = Symbol('ActivityRepositoryPort');
 
+/** Las sesiones de las mecanicas y la que le toca a cada persona (SCRUM-205, ADR 0030). */
+export const SESIONES_REPOSITORY = Symbol('SesionesRepositoryPort');
+
 /** Cliente de Prisma, o null cuando el servicio corre sin base de datos. */
 export const PRISMA = Symbol('PrismaService');
 export const CONFIGURACION = Symbol('Configuracion');

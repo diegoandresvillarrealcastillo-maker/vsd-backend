@@ -1,6 +1,8 @@
-import type { Activity } from './Activity.js';
+import { type Activity, MECANICAS_ROTATIVAS_POR_DIA } from './Activity.js';
 import type { Dia } from './Calendario.js';
+import { claveDeLaMecanica } from './ClaveEstable.js';
 import type { Modulo } from './Preferencias.js';
+import type { SesionDeActividad } from './SesionDeActividad.js';
 
 /**
  * El sendero de cada modulo: en que etapa va la persona y que le toca hoy
@@ -81,6 +83,12 @@ export interface Hecho {
 export interface ActividadDeHoy {
   readonly actividad: Activity;
   readonly hecha: boolean;
+  /**
+   * El contenido de hoy de una mecanica con motor (ADR 0030). Lo pone quien arma el sendero, que es
+   * quien sabe que sesion le toca a esta persona; el calculo del sendero no la conoce. Ausente en las
+   * actividades sin motor, que son las nueve de hoy.
+   */
+  readonly sesion?: SesionDeActividad | undefined;
 }
 
 export interface ProgresoDelModulo {
@@ -108,6 +116,17 @@ export interface DatosDelModulo {
   readonly hoy: Dia;
   /** 1 es lunes y 7 domingo. */
   readonly diaDeLaSemana: number;
+  /** La persona. Solo para el orden propio de la rotacion (`claveDeLaMecanica`); no sale del dominio. */
+  readonly persona: string;
+  /**
+   * Las mecanicas con motor que hoy tienen una sesion que ofrecer a esta persona (ADR 0030).
+   *
+   * Una mecanica con motor y sin sesion no se puede hacer: se deja fuera de lo de hoy y de lo
+   * sugerido, y no ocupa uno de los lugares de la rotacion. Las que no tienen motor (las nueve de
+   * hoy) no dependen de este conjunto. Es obligatorio a proposito: olvidarlo mostraria tarjetas que
+   * no se pueden abrir.
+   */
+  readonly conSesion: ReadonlySet<string>;
 }
 
 /**
@@ -138,7 +157,12 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
     datos.hechos.filter((hecho) => hecho.dia < datos.hoy).map((hecho) => hecho.actividad),
   );
 
-  const abiertas = datos.actividades.filter((actividad) => actividad.desdeSesion <= sesionDeHoy);
+  const abiertas = datos.actividades.filter(
+    (actividad) =>
+      actividad.desdeSesion <= sesionDeHoy &&
+      (actividad.motor === undefined || datos.conSesion.has(actividad.id.value)),
+  );
+  const rotativasDeHoy = elegirRotativasDeHoy(abiertas, datos.hechos, datos.hoy, datos.persona);
   const tocan = abiertas.filter((actividad) => {
     switch (actividad.frecuencia.tipo) {
       case 'diaria':
@@ -148,8 +172,7 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
       case 'unica':
         return !hechasAntes.has(actividad.id.value);
       case 'rotativa':
-        // No toca por frecuencia: la rotacion elige cuales se ofrecen hoy (ADR 0030, punto 7).
-        return false;
+        return rotativasDeHoy.has(actividad.id.value);
     }
   });
   const comoDeHoy = (actividad: Activity): ActividadDeHoy => ({
@@ -176,4 +199,81 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
     hoy: tocan.map(comoDeHoy),
     sugeridas,
   };
+}
+
+/**
+ * Cuales de las mecanicas rotativas de un modulo se ofrecen hoy (ADR 0030, punto 7): hasta
+ * `MECANICAS_ROTATIVAS_POR_DIA`, elegidas por
+ *
+ * 1. **las hechas hoy**, que siguen visibles: nada que la persona ya hizo desaparece de su lista;
+ * 2. luego **las que hace mas dias que no hace**, y antes que todas las que nunca hizo;
+ * 3. y a igual antiguedad, **la clave propia de cada persona y dia**.
+ *
+ * Es estable durante el dia: hacer una de las ofrecidas la pasa al primer grupo y deja el mismo conjunto,
+ * porque las demas ya estaban por delante de las que se quedaron fuera. Solo se mueve si la persona
+ * hace algo que no se le ofrecia, y entonces se queda con tres sitios contando lo hecho.
+ *
+ * Las hechas hoy pueden pasar de tres: no se esconde lo que alguien acaba de hacer para cumplir una cifra.
+ * La rotacion tampoco limita lo que se puede hacer (SCRUM-184), solo reparte lo que se muestra.
+ */
+function elegirRotativasDeHoy(
+  abiertas: readonly Activity[],
+  hechos: readonly Hecho[],
+  hoy: Dia,
+  persona: string,
+): ReadonlySet<string> {
+  const rotativas = abiertas.filter((actividad) => actividad.frecuencia.tipo === 'rotativa');
+
+  if (rotativas.length === 0) {
+    return new Set();
+  }
+
+  const hechasHoy = new Set(
+    hechos.filter((hecho) => hecho.dia === hoy).map((hecho) => hecho.actividad),
+  );
+  const ultimoDia = new Map<string, Dia>();
+
+  for (const hecho of hechos) {
+    const previo = ultimoDia.get(hecho.actividad);
+
+    // Un dia es un texto AAAA-MM-DD: comparado como texto, ordena como fecha.
+    if (previo === undefined || hecho.dia > previo) {
+      ultimoDia.set(hecho.actividad, hecho.dia);
+    }
+  }
+
+  const deHoy = rotativas.filter((actividad) => hechasHoy.has(actividad.id.value));
+  const claves = new Map(
+    rotativas.map((actividad) => [
+      actividad.id.value,
+      claveDeLaMecanica(actividad.id.value, persona, hoy),
+    ]),
+  );
+
+  const candidatas = rotativas
+    .filter((actividad) => !hechasHoy.has(actividad.id.value))
+    .sort((una, otra) => {
+      // Las que nunca hizo van primero (no tienen ultimo dia), y luego la mas antigua.
+      const delaUna = ultimoDia.get(una.id.value) ?? '';
+      const delaOtra = ultimoDia.get(otra.id.value) ?? '';
+
+      if (delaUna !== delaOtra) {
+        return delaUna < delaOtra ? -1 : 1;
+      }
+
+      const claveDeUna = claves.get(una.id.value) ?? 0n;
+      const claveDeOtra = claves.get(otra.id.value) ?? 0n;
+
+      if (claveDeUna !== claveDeOtra) {
+        return claveDeUna < claveDeOtra ? -1 : 1;
+      }
+
+      return una.id.value.localeCompare(otra.id.value);
+    });
+
+  const lugares = Math.max(0, MECANICAS_ROTATIVAS_POR_DIA - deHoy.length);
+
+  return new Set(
+    [...deHoy, ...candidatas.slice(0, lugares)].map((actividad) => actividad.id.value),
+  );
 }

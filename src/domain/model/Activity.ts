@@ -1,5 +1,6 @@
 import { InvalidActivityConfigurationError, InvalidScoreRangeError } from './DomainError.js';
 import { ActivityId } from './Identifier.js';
+import { type Motor, esMotor } from './Motor.js';
 import { NivelOrientativo } from './OrientativeScore.js';
 
 /**
@@ -62,13 +63,25 @@ const UMBRALES_POR_DEFECTO: Umbrales = { primero: 1 / 3, segundo: 2 / 3 };
  * - `diaria`: todos los dias.
  * - `semanal`: los dias de la semana indicados, de 1 (lunes) a 7 (domingo).
  * - `unica`: una vez; hecha, no vuelve a aparecer.
+ * - `rotativa`: una mecanica con muchas sesiones (ADR 0030). No toca todos los dias: la rotacion
+ *   elige cuales de las rotativas de un modulo se ofrecen hoy, hasta
+ *   `MECANICAS_ROTATIVAS_POR_DIA`.
  */
 export type Frecuencia =
   | { readonly tipo: 'diaria' }
   | { readonly tipo: 'semanal'; readonly dias: readonly number[] }
-  | { readonly tipo: 'unica' };
+  | { readonly tipo: 'unica' }
+  | { readonly tipo: 'rotativa' };
 
 export const DIARIA: Frecuencia = { tipo: 'diaria' };
+
+/**
+ * Cuantas mecanicas rotativas de un modulo se ofrecen en un dia (ADR 0030, punto 7).
+ *
+ * No limita lo que la persona puede hacer: las demas siguen en el catalogo y hacerlas no tiene tope
+ * (SCRUM-184). Solo reparte lo que el sendero muestra como «lo de hoy».
+ */
+export const MECANICAS_ROTATIVAS_POR_DIA = 3;
 
 /** Datos necesarios para describir una actividad. */
 export interface DatosDeActividad {
@@ -84,6 +97,11 @@ export interface DatosDeActividad {
   readonly textosNivel?: TextosNivel | undefined;
   /** Por defecto, diaria. */
   readonly frecuencia?: Frecuencia | undefined;
+  /**
+   * Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030). Las
+   * nueve actividades que ya existen no lo tienen hasta la Fase 0.
+   */
+  readonly motor?: Motor | undefined;
   /**
    * Desde que sesion del modulo aparece, empezando en 1. Es lo que hace que el
    * sendero se abra poco a poco en lugar de ensenarlo todo el primer dia.
@@ -108,6 +126,7 @@ export class Activity {
   readonly umbrales: Umbrales;
   readonly textosNivel: TextosNivel | undefined;
   readonly frecuencia: Frecuencia;
+  readonly motor: Motor | undefined;
   readonly desdeSesion: number;
 
   private constructor(datos: DatosDeActividad, umbrales: Umbrales) {
@@ -120,6 +139,7 @@ export class Activity {
     this.umbrales = umbrales;
     this.textosNivel = datos.textosNivel;
     this.frecuencia = datos.frecuencia ?? DIARIA;
+    this.motor = datos.motor;
     this.desdeSesion = datos.desdeSesion ?? 1;
   }
 
@@ -184,6 +204,14 @@ export class Activity {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
         'es semanal pero no indica días válidos (1 = lunes, 7 = domingo)',
+      );
+    }
+
+    // El tipo ya impide un motor desconocido al escribir codigo; esto cubre una fila de la base.
+    if (datos.motor !== undefined && !esMotor(datos.motor)) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        `tiene un motor que las fichas no conocen: "${String(datos.motor)}"`,
       );
     }
 

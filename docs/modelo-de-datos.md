@@ -45,6 +45,8 @@ CATEGORIA ──< ACTIVIDAD ──< RESULTADO >── USUARIO
 | Categoría → recursos de apoyo | una a muchas                    |
 | Usuario → resultados          | una a muchas                    |
 | Actividad → resultados        | una a muchas, uno por ejecución |
+| Actividad → sesiones          | una a muchas (ADR 0030)         |
+| Sesión → resultados           | una a muchas, opcional          |
 | Usuario → entradas de diario  | una a muchas                    |
 
 **`ENTRADA_DIARIO` no se relaciona con categoría ni con actividad, y es
@@ -139,9 +141,25 @@ Además de describirse a sí misma, **declara cómo se interpreta su puntaje**.
 | `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                 |
 | `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                   |
 | `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                    |
-| `frecuencia`       | ENUM         | no   | `diaria`, `semanal` o `unica`. Por defecto `diaria`.         |
+| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                   |
 | `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                  |
 | `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.          |
+| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.  |
+
+### Una actividad es una mecánica (SCRUM-204, ADR 0030)
+
+Una fila de `ACTIVIDAD` es una **mecánica**; lo que cambia cada día es su **sesión**
+(`SESION_DE_ACTIVIDAD`). Una sesión no es una actividad: no sale en el catálogo ni en el
+sendero como un elemento propio, así que el catálogo no crece a mil filas.
+
+- **`motor`** dice qué componente pinta la mecánica y cómo se leen los parámetros de sus
+  sesiones. Son nueve, M1 a M9 de las fichas: `secuencia`, `tocar_el_objetivo`,
+  `ver_ocultar_recordar`, `clasificar`, `palabras`, `calculo`, `guia_paso_a_paso`,
+  `cuestionario_corto` y `escritura_breve`. Un `CHECK` los impone y `Motor` en el dominio es la
+  misma lista. Sumar una mecánica que reutiliza un motor no pide código de pantalla nuevo.
+- **`rotativa`** es una frecuencia nueva: la mecánica no toca todos los días, y la rotación elige
+  hasta tres por módulo y por día (SCRUM-205). **Ninguna fila la usa todavía.**
+- Las nueve actividades actuales quedan con `motor` vacío. La Fase 0 se lo pondrá.
 
 ### Por qué la actividad declara la dirección de su escala
 
@@ -189,6 +207,7 @@ Una ejecución de una actividad. Se crea una vez y no se edita nunca.
 | `nivel_orientativo`    | VARCHAR(50)  | sí     | `favorable`, `en_seguimiento` o `requiere_atencion`. Vacío si no hay puntaje. |
 | `metadata`             | JSONB        | sí     | Información propia del tipo de actividad.                                     |
 | `id_operacion_cliente` | UUID         | no     | **UNIQUE.** Generado en el dispositivo.                                       |
+| `id_sesion`            | UUID         | sí     | La sesión (contenido) que se hizo, si la mecánica las tiene.                  |
 | `fecha`                | TIMESTAMP    | no     | Cuándo se realizó.                                                            |
 
 ### Por qué el puntaje admite nulo
@@ -240,6 +259,49 @@ operación, y eso siempre ocurre dentro de una misma cuenta. Ver
 
 **Política de acceso:** cada persona lee y escribe únicamente sus propios
 resultados. El administrador **no** tiene acceso a ninguno.
+
+## SESION_DE_ACTIVIDAD
+
+El contenido de una vez de una mecánica (SCRUM-204, [ADR 0030](adr/0030-una-actividad-es-una-mecanica-y-lo-que-cambia-cada-dia-es-su-sesion.md)).
+
+| Campo          | Tipo         | Nulo | Descripción                                                                 |
+| -------------- | ------------ | ---- | --------------------------------------------------------------------------- |
+| `id_sesion`    | UUID         | no   | Clave primaria. Es la que viaja al dispositivo y queda en `resultado`.      |
+| `id_actividad` | UUID         | no   | La mecánica. `ON DELETE RESTRICT`: una mecánica con sesiones no se borra.   |
+| `titulo`       | VARCHAR(100) | no   | Nombre corto, para la exportación y la revisión.                            |
+| `nivel`        | SMALLINT     | no   | De 1 a 3. 1 por defecto, para las mecánicas que no tienen niveles.          |
+| `parametros`   | JSONB        | no   | Lo que el motor necesita (ADR 0008). Debe ser un objeto JSON.               |
+| `publicado`    | BOOLEAN      | no   | Solo se sirven las publicadas. Retirar no borra (ADR 0025). Por defecto no. |
+| `revision`     | VARCHAR(20)  | no   | `no_requiere`, `pendiente` o `revisada`. Nace `pendiente`.                  |
+| `revisada_por` | VARCHAR(100) | sí   | Rol o nombre de quien revisó. Sin datos de contacto.                        |
+| `revisada_el`  | TIMESTAMPTZ  | sí   | Cuándo.                                                                     |
+| `creada_en`    | TIMESTAMPTZ  | no   | Auditoría.                                                                  |
+
+**Lo que la base garantiza, y no solo el código.** Un contenido se agrega con SQL y el código puede
+fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
+
+- **Lo que pide revisión y no la tiene no se publica** (`CHECK`: `NOT publicado OR revision IN
+('no_requiere','revisada')`). Nace `pendiente`: publicar exige decirlo, no olvidarlo.
+- **Una revisada dice quién y cuándo** y las demás no inventan una constancia (`CHECK`).
+- **Una revisada no se edita** (disparador `vsd_sesion_revisada_no_se_edita`). Sobre ella solo cambia
+  `publicado`: retirarla o volver a publicarla es el mismo contenido. Si el texto cambia, se retira y se
+  agrega otra con otro identificador, que queda pendiente. Tampoco se puede «des-revisar» una para
+  editarla después. _Este disparador y el `CHECK` de la constancia no están escritos en el ADR: son la
+  misma garantía llevada a `UPDATE`, y pueden quitarse sin tocar el resto._
+- `nivel` de 1 a 3, `titulo` no vacío y `parametros` un objeto (no una lista, un texto ni `null`).
+
+**Lo que la base no valida:** el contenido de `parametros`. Lo valida el dominio
+(`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
+circulares. La **forma** de cada motor llega con el ticket que lo construye.
+
+**Resultado.** `resultado.id_sesion` es opcional y `ON DELETE RESTRICT`: una sesión que alguien ya hizo no
+se borra, se retira. Dos índices nuevos en `resultado`: `(id_usuario, id_actividad, dia)`, para elegir la
+sesión de hoy (lo que una persona hizo en una mecánica durante el último año), e `(id_sesion)`, para la
+clave foránea.
+
+**Política de acceso:** catálogo, como `RECURSO_APOYO` y `DATO_CURIOSO`. Lectura abierta y escritura de
+administrador; la aplicación (`vsd_app`) solo tiene `SELECT`. No es un dato personal. La migración es
+`20261018120000_mecanica_por_sesion`, aditiva, y la aplica una persona.
 
 ## RECURSO_APOYO
 
@@ -542,6 +604,7 @@ Ver la migración `20261005120000_avisos_push` y
 | `ENTRADA_DIARIO`                    | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
 | `PENDIENTE`                         | lee y escribe los suyos                             | nada         | **nada**      |
 | `DATO_CURIOSO`                      | lee                                                 | lee          | lee y escribe |
+| `SESION_DE_ACTIVIDAD`               | lee                                                 | lee          | lee y escribe |
 | `DATO_CURIOSO_CURSOR`               | lee y escribe el suyo                               | nada         | **nada**      |
 | `CUENTA_INACTIVA`                   | **solo añade**; lee la de su propio token           | nada         | **nada**      |
 | `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | **solo añade**; no lee                              | nada         | **nada**      |

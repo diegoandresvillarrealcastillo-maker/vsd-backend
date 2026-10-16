@@ -2756,7 +2756,8 @@
             "enum": [
               "diaria",
               "semanal",
-              "unica"
+              "unica",
+              "rotativa"
             ]
           },
           "dias": {

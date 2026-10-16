@@ -23,6 +23,9 @@ Cada uno es una clase distinta aunque por dentro los cuatro sean texto. Asi
 pasar un `ActivityId` donde se espera un `UserId` no compila. Confundirlos
 seria un error caro y silencioso.
 
+`SesionId` (SCRUM-204) identifica una sesion de actividad, que no es la actividad ni un dia del
+sendero. Viaja junto a `ActivityId` y por eso tambien es una clase aparte.
+
 Por que UUID y no un entero autoincremental: el dispositivo puede crear
 registros sin conexion, antes de hablar con el servidor, y un identificador no
 consecutivo no se puede enumerar para tantear datos ajenos. Ver
@@ -78,6 +81,38 @@ su memoria "requiere atencion", que suena a dictamen.
 Si una actividad no trae sus textos se devuelve el nivel tal cual, que es feo
 pero honesto. Inventar una frase es como acaban saliendo las que suenan a
 diagnostico.
+
+### El motor y la frecuencia rotativa (SCRUM-204, ADR 0030)
+
+Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **sesion**. Dos cosas de
+`Activity` lo preparan:
+
+- `motor` (opcional): uno de los nueve de `Motor.ts`, de M1 a M9 de las fichas. Dice que componente pinta
+  la mecanica. Las nueve actividades actuales no lo tienen hasta la Fase 0. `Activity.create` rechaza un
+  valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
+- `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
+  rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia, y es de SCRUM-205. Hasta
+  entonces el sendero no la ofrece como lo de hoy.
+
+## `SesionDeActividad`
+
+El contenido de una vez de una mecanica (ADR 0030). **No es una actividad:** no sale en el catalogo ni en el
+sendero como un elemento propio.
+
+Es inmutable y se comprueba entera al crearla, como `Activity.create`: un contenido roto tiene que fallar al
+cargarse y no cuando alguien ya esta haciendo la sesion.
+
+- `titulo` de 1 a 100 caracteres; `nivel` entero de 1 a 3.
+- `parametros` tiene que ser JSON de verdad: un objeto plano con objetos, listas, textos, numeros finitos,
+  booleanos y nulos. Una fecha, `undefined`, `NaN`, una funcion o una referencia circular llegarian a la base
+  cambiados o perdidos en silencio. Se guarda una **copia congelada**, y una clave `__proto__` es un dato mas.
+- **Lo que no esta revisado no se publica.** `publicado` con `revision` pendiente se rechaza; la base lo
+  impone ademas con un `CHECK`.
+- Una `revisada` dice **quien y cuando**; la constancia es un rol o un nombre, **sin correo ni telefono**. Las
+  demas no pueden traer constancia de una revision que no hubo.
+
+**Lo que todavia no valida:** la forma de `parametros` de cada motor. Esa forma es el contrato entre el
+contenido y el componente que lo pinta, asi que se fija con el ticket que construye ese motor.
 
 ## `OrientativeScore`
 
@@ -865,6 +900,7 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `ActivityNotFoundError`             | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
 | `ScoreNotApplicableError`           | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
 | `InvalidActivityConfigurationError` | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
+| `InvalidSessionConfigurationError`  | `CONFIGURACION_DE_SESION_INVALIDA`    | La sesion de actividad esta mal configurada  |
 | `InvalidJournalEntryError`          | `ANOTACION_INVALIDA`                  | La anotacion no tiene la forma del diario    |
 | `FutureJournalDayError`             | `DIA_EN_EL_FUTURO`                    | Se escribe en un dia que no ha llegado       |
 | `InvalidDayRangeError`              | `RANGO_DE_DIAS_INVALIDO`              | El rango pedido al diario no es valido       |
@@ -882,6 +918,9 @@ que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 
+- **Elegir la sesion de hoy y la rotacion.** El modelo (`SesionDeActividad`, `Motor`, la frecuencia
+  `rotativa`) y su migracion estan en SCRUM-204. Que sesion le toca a cada persona, que mecanicas rotativas
+  se ofrecen hoy y la API que lo expone son de SCRUM-205.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`
   existen y se leen, pero el catalogo y los recursos solo cambian con una
   migracion: todavia no hay casos de uso para que el administrador los cree o

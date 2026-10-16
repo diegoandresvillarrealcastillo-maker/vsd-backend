@@ -111,8 +111,48 @@ cargarse y no cuando alguien ya esta haciendo la sesion.
 - Una `revisada` dice **quien y cuando**; la constancia es un rol o un nombre, **sin correo ni telefono**. Las
   demas no pueden traer constancia de una revision que no hubo.
 
-**Lo que todavia no valida:** la forma de `parametros` de cada motor. Esa forma es el contrato entre el
-contenido y el componente que lo pinta, asi que se fija con el ticket que construye ese motor.
+- `parametros` cumple el **contrato de su motor** (siguiente seccion) si la actividad tiene uno. `create`
+  recibe el `motor` de la actividad: quien lee sesiones de la base lo pasa siempre (el repositorio de Prisma
+  une `actividad` para traerlo), asi que un contenido roto falla al cargarse y no en el telefono. Sin motor, o
+  con uno que todavia no tiene contrato, basta con que sea JSON.
+
+### El contrato de `parametros` por motor (SCRUM-206)
+
+`ParametrosDelMotor.ts` (`problemaDeLosParametros`) es la **sola puerta**: la usa `SesionDeActividad.create` y
+la usaran las pruebas del contenido que se siembre. Es el contrato entre el servidor y el componente que
+pinta la sesion; el frontend lo lee tal cual. Reglas para todos los motores:
+
+- **Solo las claves del contrato.** Una escrita mal (`rondaz`) se rechaza en lugar de ignorarse: el componente
+  usaria su valor por omision y nadie se enteraria.
+- Los textos que lee la persona no van vacios y tienen un largo maximo. Se informa **del primer problema**, con
+  la ruta del campo (`opciones[3].valor debe ser un número entero de 0 a 10`), sin punto final.
+- Los cuatro motores sin contrato todavia (`ver_ocultar_recordar`, `clasificar`, `palabras`, `calculo`)
+  aceptan cualquier objeto hasta que se construya su motor.
+
+Los cinco que ya tienen contrato (los rangos son enteros e inclusivos):
+
+- **`cuestionario_corto`.** `indicacion` (hasta 200: la frase que enmarca el cuestionario), `preguntas` (1 a 10: `clave` de hasta 40, unica, y `texto` de hasta 200) y
+  `opciones` (2 a 7: `valor` de 0 a 10, unico, y `texto` de hasta 40, sin repetir). **El maximo del puntaje no
+  se guarda:** es `preguntas x valor mas alto`, asi que no puede desincronizarse del `puntaje_maximo`.
+- **`secuencia`.** `casillas` (2 a 12: `clave` y `nombre` unicos, `forma` y `color` opcionales; **un `color`
+  exige `forma`**, porque el color nunca es la unica pista), `largoInicial` (1 a 10), `rondas` (1 a 50),
+  `msPorElemento` (200 a 5000), `msDeMargen` (0 a 10000) y, solo para el juego de casillas que destellan,
+  `msDestello` (**600 a 5000**, baranda de accesibilidad R10). La secuencia de numeros no lo usa: muestra todos
+  los digitos a la vez durante `largo x msPorElemento + msDeMargen`.
+- **`tocar_el_objetivo`.** `rondas` (1 a 60), `segundosPorRonda` (3 a 120, o `null` si no hay tiempo) y `lados`
+  (1 a 6 tamanos de cuadricula de 2 a 8, de menor a mayor y sin repetir). Las rondas se reparten en tramos
+  iguales entre los lados, asi que no puede haber menos rondas que lados.
+- **`escritura_breve`.** `invitacion` (hasta 200), `campos` (1 a 5) y `largoMaximo` (50 a 1000); opcionales
+  `ideas` (0 a 10 textos de hasta 80, sin repetir), `minimo` (0 hasta `campos`; con «una basta», 1) y
+  `permiteNingunaHoy`.
+- **`guia_paso_a_paso`.** `advertenciaInicial` (hasta 300; **obligatoria**, va a la vista antes de empezar),
+  `patron` (`inhalaSegundos` 3 a 8, `exhalaSegundos` 3 a 10 y `pausaSegundos` 0 a 4) y `duracionSegundos`
+  (60 a 600); opcionales `ambientacion` (hasta 40), `frases` (0 a 40 de hasta 120, sin repetir) y `haptico`.
+  Las barandas de la ficha BIE-01 estan hechas rango: **ninguna retencion de mas de 4 s** y **nada de ritmos
+  rapidos** (a lo sumo 10 respiraciones por minuto). Quien revisa la sesion puede pedir limites mas estrechos.
+
+**Lo que no se comprueba aqui:** el filtro de lenguaje clinico (R6) ni la lista de exclusion (R14). Son pruebas
+automaticas sobre el contenido que se siembra, y se ejecutan con ese contenido.
 
 ## `OrientativeScore`
 
@@ -973,7 +1013,8 @@ que se retiro por eso mismo.
 - **Contenido.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, pero
   no hay ninguna sesion cargada ni ninguna mecanica con motor: las nueve actividades actuales pasan al modelo
   en la Fase 0, y el contenido llega con el piloto, ya revisado.
-- **La forma de `parametros` de cada motor.** Se fija con el ticket que construye ese motor.
+- **La forma de `parametros` de los otros cuatro motores** (`ver_ocultar_recordar`, `clasificar`, `palabras` y
+  `calculo`). Se fija con el ticket que construye cada uno; hasta entonces aceptan cualquier objeto.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`
   existen y se leen, pero el catalogo y los recursos solo cambian con una
   migracion: todavia no hay casos de uso para que el administrador los cree o

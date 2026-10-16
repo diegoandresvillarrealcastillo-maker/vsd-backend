@@ -292,7 +292,8 @@ fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
 
 **Lo que la base no valida:** el contenido de `parametros`. Lo valida el dominio
 (`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
-circulares. La **forma** de cada motor llega con el ticket que lo construye.
+circulares, y que cumpla el **contrato de su motor** (`ParametrosDelMotor.ts`, SCRUM-206; ver `dominio.md`).
+Los motores sin contrato todavía aceptan cualquier objeto.
 
 **Resultado.** `resultado.id_sesion` es opcional y `ON DELETE RESTRICT`: una sesión que alguien ya hizo no
 se borra, se retira. Dos índices nuevos en `resultado`: `(id_usuario, id_actividad, dia)`, para elegir la

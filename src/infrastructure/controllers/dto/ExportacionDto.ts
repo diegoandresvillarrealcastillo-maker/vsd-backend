@@ -1,10 +1,24 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { horaDeMinuto } from '../../../domain/model/Aviso.js';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { CuentaRespuestaDto } from './CuentaRespuestaDto.js';
 import { EntradaDelDiarioDto } from './EntradaDelDiarioDto.js';
 import { PendienteDto } from './PendienteDto.js';
 import { ResultadoRespuestaDto } from './ResultadoRespuestaDto.js';
+
+/**
+ * Un resultado tal como sale en la exportacion: como en el resto de la API y, si hizo una sesion, el
+ * `titulo` de esa sesion (ADR 0030). Nunca el identificador de la sesion ni sus parametros: son
+ * contenido de todos y no le dicen nada a quien se lleva sus datos.
+ */
+export class ResultadoExportadoDto extends ResultadoRespuestaDto {
+  @ApiPropertyOptional({
+    description:
+      'El título de la sesión que hizo, si la actividad tiene sesiones y la sesión sigue existiendo. No incluye su identificador ni sus parámetros.',
+    example: 'Respiración 4-6',
+  })
+  sesion?: string;
+}
 
 /** Una aceptacion del historial, en la exportacion: que, que version y cuando. */
 export class ConsentimientoExportadoDto {
@@ -110,8 +124,8 @@ export class ExportacionDto {
   })
   consentimientos!: ConsentimientoExportadoDto[];
 
-  @ApiProperty({ type: [ResultadoRespuestaDto] })
-  resultados!: ResultadoRespuestaDto[];
+  @ApiProperty({ type: [ResultadoExportadoDto] })
+  resultados!: ResultadoExportadoDto[];
 
   @ApiProperty({ type: [EntradaDelDiarioDto] })
   entradasDeDiario!: EntradaDelDiarioDto[];
@@ -154,7 +168,19 @@ export class ExportacionDto {
       version: aceptado.version,
       aceptadoEn: aceptado.aceptadoEn.toISOString(),
     }));
-    dto.resultados = datos.resultados.map((resultado) => ResultadoRespuestaDto.desde(resultado));
+    dto.resultados = datos.resultados.map((resultado) => {
+      const exportado: ResultadoExportadoDto = ResultadoRespuestaDto.desde(resultado);
+      const titulo =
+        resultado.sessionId === undefined
+          ? undefined
+          : datos.titulosDeSesiones.get(resultado.sessionId.value);
+
+      if (titulo !== undefined) {
+        exportado.sesion = titulo;
+      }
+
+      return exportado;
+    });
     dto.entradasDeDiario = datos.entradasDeDiario.map((entrada) =>
       EntradaDelDiarioDto.desde(entrada),
     );

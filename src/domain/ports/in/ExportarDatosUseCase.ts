@@ -18,6 +18,12 @@ export interface DatosExportados {
    */
   readonly consentimientos: readonly ConsentimientoAceptado[];
   readonly resultados: readonly ActivityResult[];
+  /**
+   * El titulo de cada sesion que hizo, por el identificador de la sesion (SCRUM-205, ADR 0030). Es lo
+   * unico de la sesion que sale: ni su identificador ni sus parametros, que son contenido de todos y
+   * no le dicen nada a la persona. Vacio si no hizo ninguna.
+   */
+  readonly titulosDeSesiones: ReadonlyMap<string, string>;
   readonly entradasDeDiario: readonly EntradaDeDiario[];
   /** Los del semaforo, hechos o no (SCRUM-97). */
   readonly pendientes: readonly Pendiente[];

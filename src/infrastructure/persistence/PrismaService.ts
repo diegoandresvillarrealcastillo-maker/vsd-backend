@@ -25,6 +25,7 @@ export type ClienteConSesion = Pick<
   | 'datoCuriosoCursor'
   | 'cuentaInactiva'
   | 'consentimientoDeCuentaInactiva'
+  | '$queryRaw'
 >;
 
 /**

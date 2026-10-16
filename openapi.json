@@ -43,7 +43,7 @@
             }
           },
           "400": {
-            "description": "El cuerpo de la peticion no es valido o incumple una regla del dominio."
+            "description": "El cuerpo de la peticion no es valido o incumple una regla del dominio, por ejemplo una sesion que no es de esa actividad (LA_SESION_NO_ES_DE_LA_ACTIVIDAD)."
           },
           "401": {
             "description": "Falta la sesion o el token no es valido."
@@ -1388,6 +1388,12 @@
             "example": 8,
             "minimum": 0
           },
+          "idSesion": {
+            "type": "string",
+            "description": "La sesión (el contenido) que se hizo, cuando la actividad las tiene (ADR 0030): la que vino en `sesion` del sendero. Tiene que ser una sesión de esa actividad. Una sesión que se retiró después de servirse se acepta: quien la tenía abierta puede terminarla. Se omite en las actividades que no tienen sesiones.",
+            "format": "uuid",
+            "example": "55555555-5555-4555-a555-555555555555"
+          },
           "metadata": {
             "type": "object",
             "description": "Informacion propia del tipo de actividad: las horas de una bitacora de sueno, las respuestas de un registro emocional. No puede traer claves que ya sean campos propios.",
@@ -1515,6 +1521,11 @@
           "descripcion": {
             "type": "string",
             "example": "Encuentra las parejas iguales en el menor número de intentos."
+          },
+          "motor": {
+            "type": "string",
+            "example": "guia_paso_a_paso",
+            "description": "Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy."
           },
           "produceNivel": {
             "type": "boolean",
@@ -1862,6 +1873,59 @@
           "aceptadoEn"
         ]
       },
+      "ResultadoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nivelOrientativo": {
+            "type": "string",
+            "description": "Nivel orientativo del resultado. Es una orientacion sobre como fue la actividad, nunca un diagnostico. Ausente en las actividades de registro, que no producen puntaje.",
+            "enum": [
+              "favorable",
+              "en_seguimiento",
+              "requiere_atencion"
+            ]
+          },
+          "sugiereAcompanamiento": {
+            "type": "boolean",
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: porque lo escrito trae una señal de riesgo (en el momento), o porque el resultado requiere atención y la semana tiene un patrón (al menos 4 de los últimos 7 días con atención). Un solo resultado que requiere atención no lo es: nivelOrientativo lo dice y esto es falso."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Informacion propia del tipo de actividad, tal como la envio el dispositivo. En una actividad de registro es todo su contenido."
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sesion": {
+            "type": "string",
+            "description": "El título de la sesión que hizo, si la actividad tiene sesiones y la sesión sigue existiendo. No incluye su identificador ni sus parámetros.",
+            "example": "Respiración 4-6"
+          }
+        },
+        "required": [
+          "id",
+          "activityId",
+          "sugiereAcompanamiento",
+          "lineasDeAtencion",
+          "completedAt"
+        ]
+      },
       "EntradaDelDiarioDto": {
         "type": "object",
         "properties": {
@@ -2138,7 +2202,7 @@
           "resultados": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResultadoRespuestaDto"
+              "$ref": "#/components/schemas/ResultadoExportadoDto"
             }
           },
           "entradasDeDiario": {
@@ -2756,7 +2820,8 @@
             "enum": [
               "diaria",
               "semanal",
-              "unica"
+              "unica",
+              "rotativa"
             ]
           },
           "dias": {
@@ -2774,6 +2839,37 @@
         },
         "required": [
           "tipo"
+        ]
+      },
+      "SesionDelDiaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la sesión. Es el que se manda como idSesion al registrar el resultado."
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Respiración 4-6"
+          },
+          "nivel": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Dificultad o profundidad."
+          },
+          "parametros": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Lo que el motor necesita para pintar la sesión: tamaño, símbolos, guion, pasos. Su forma depende del motor."
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "nivel",
+          "parametros"
         ]
       },
       "ActividadDeHoyDto": {
@@ -2803,6 +2899,29 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/FrecuenciaDto"
+              }
+            ]
+          },
+          "motor": {
+            "type": "string",
+            "enum": [
+              "secuencia",
+              "tocar_el_objetivo",
+              "ver_ocultar_recordar",
+              "clasificar",
+              "palabras",
+              "calculo",
+              "guia_paso_a_paso",
+              "cuestionario_corto",
+              "escritura_breve"
+            ],
+            "description": "Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy."
+          },
+          "sesion": {
+            "description": "El contenido de hoy de una mecánica con motor. Viaja con el sendero, que el dispositivo ya guarda: así se puede hacer la actividad sin conexión. Ausente cuando no hay motor.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SesionDelDiaDto"
               }
             ]
           }

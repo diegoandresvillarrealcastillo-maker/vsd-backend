@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Activity, DireccionEscala } from './Activity.js';
 import { ActivityResult, type DatosDeResultado } from './ActivityResult.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, SesionId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
 
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
@@ -89,6 +89,20 @@ describe('ActivityResult', () => {
 
     expect(bajo.sugiereAcompanamientoPorSiSolo()).toBe(true);
     expect(alto.sugiereAcompanamientoPorSiSolo()).toBe(false);
+  });
+});
+
+describe('ActivityResult y la sesion que se hizo (ADR 0030)', () => {
+  const SESION = '66666666-6666-4666-a666-666666666666';
+
+  it('sin sesion es lo de siempre: asi son los resultados de las nueve actividades actuales', () => {
+    expect(ActivityResult.create(datos(), AHORA).sessionId).toBeUndefined();
+  });
+
+  it('guarda la sesion que se hizo', () => {
+    const resultado = ActivityResult.create(datos({ sessionId: new SesionId(SESION) }), AHORA);
+
+    expect(resultado.sessionId?.value).toBe(SESION);
   });
 });
 

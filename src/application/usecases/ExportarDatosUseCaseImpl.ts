@@ -2,7 +2,7 @@ import {
   AccountNotProvisionedError,
   FileStorageUnavailableError,
 } from '../../domain/model/DomainError.js';
-import type { UserId } from '../../domain/model/Identifier.js';
+import { SesionId, type UserId } from '../../domain/model/Identifier.js';
 import type { User } from '../../domain/model/User.js';
 import type {
   DatosExportados,
@@ -18,6 +18,7 @@ import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosReposito
 import type { DatoCuriosoRepositoryPort } from '../../domain/ports/out/DatoCuriosoRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
 /** Desde cuando se exporta: desde siempre. */
@@ -40,6 +41,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
     private readonly fotos: AlmacenPersonalPort,
     private readonly mascotas: AlmacenPersonalPort,
     private readonly datosCuriosos: DatoCuriosoRepositoryPort,
+    private readonly sesiones: SesionesRepositoryPort,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -77,6 +79,7 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       cuenta,
       consentimientos,
       resultados,
+      titulosDeSesiones: await this.titulosDeLasSesiones(resultados),
       entradasDeDiario,
       pendientes,
       avisos: { preferencias, navegadores: navegadores.length },
@@ -84,6 +87,23 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       mascotaPropia,
       datoCurioso,
     };
+  }
+
+  /**
+   * El titulo de cada sesion distinta que la persona hizo (ADR 0030). Si no hizo ninguna, ni se pregunta.
+   */
+  private async titulosDeLasSesiones(
+    resultados: readonly { readonly sessionId?: SesionId | undefined }[],
+  ): Promise<ReadonlyMap<string, string>> {
+    const distintas = new Set(
+      resultados.flatMap((resultado) =>
+        resultado.sessionId === undefined ? [] : [resultado.sessionId.value],
+      ),
+    );
+
+    return distintas.size === 0
+      ? new Map()
+      : this.sesiones.titulosDe([...distintas].map((id) => new SesionId(id)));
   }
 
   /** Lo ultimo que se le dio, con su texto: el identificador no le dice nada a la persona. */

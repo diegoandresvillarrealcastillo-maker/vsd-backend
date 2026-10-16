@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MOTORES } from '../../../domain/model/Motor.js';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../../domain/model/Sendero.js';
 
 export class EtapaDto {
@@ -21,8 +22,8 @@ export class EtapaDto {
  * declarada despues todavia no existiria en ese momento.
  */
 export class FrecuenciaDto {
-  @ApiProperty({ enum: ['diaria', 'semanal', 'unica'] })
-  tipo!: 'diaria' | 'semanal' | 'unica';
+  @ApiProperty({ enum: ['diaria', 'semanal', 'unica', 'rotativa'] })
+  tipo!: 'diaria' | 'semanal' | 'unica' | 'rotativa';
 
   @ApiPropertyOptional({
     type: [Number],
@@ -30,6 +31,36 @@ export class FrecuenciaDto {
     example: [1, 3, 5],
   })
   dias?: number[];
+}
+
+/**
+ * El contenido de hoy de una mecanica (ADR 0030): lo que el motor necesita para pintarla.
+ *
+ * Salen solo estos cuatro campos. Si la sesion estuvo revisada, quien la reviso y cuando es una
+ * constancia nuestra, no algo que la persona deba leer; y si esta publicada o no ya lo decidio el servidor
+ * al elegirla. Va antes que `ActividadDeHoyDto` por la misma razon que `FrecuenciaDto`.
+ */
+export class SesionDelDiaDto {
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'Identificador de la sesión. Es el que se manda como idSesion al registrar el resultado.',
+  })
+  id!: string;
+
+  @ApiProperty({ example: 'Respiración 4-6' })
+  titulo!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 3, description: 'Dificultad o profundidad.' })
+  nivel!: number;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Lo que el motor necesita para pintar la sesión: tamaño, símbolos, guion, pasos. Su forma depende del motor.',
+  })
+  parametros!: Record<string, unknown>;
 }
 
 export class ActividadDeHoyDto {
@@ -53,6 +84,20 @@ export class ActividadDeHoyDto {
     description: 'Cada cuanto toca, para la etiqueta del sendero (Diaria, un dia, Una vez).',
   })
   frecuencia!: FrecuenciaDto;
+
+  @ApiPropertyOptional({
+    enum: MOTORES,
+    description:
+      'Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy.',
+  })
+  motor?: string;
+
+  @ApiPropertyOptional({
+    type: SesionDelDiaDto,
+    description:
+      'El contenido de hoy de una mecánica con motor. Viaja con el sendero, que el dispositivo ya guarda: así se puede hacer la actividad sin conexión. Ausente cuando no hay motor.',
+  })
+  sesion?: SesionDelDiaDto;
 }
 
 /** El sendero de un modulo, tal como sale por la API. */
@@ -93,7 +138,7 @@ export class ProgresoRespuestaDto {
     return dto;
   }
 
-  private static actividad({ actividad, hecha }: ActividadDeHoy): ActividadDeHoyDto {
+  private static actividad({ actividad, hecha, sesion }: ActividadDeHoy): ActividadDeHoyDto {
     return {
       id: actividad.id.value,
       nombre: actividad.nombre,
@@ -104,6 +149,17 @@ export class ProgresoRespuestaDto {
         actividad.frecuencia.tipo === 'semanal'
           ? { tipo: 'semanal', dias: [...actividad.frecuencia.dias] }
           : { tipo: actividad.frecuencia.tipo },
+      ...(actividad.motor === undefined ? {} : { motor: actividad.motor }),
+      ...(sesion === undefined
+        ? {}
+        : {
+            sesion: {
+              id: sesion.id.value,
+              titulo: sesion.titulo,
+              nivel: sesion.nivel,
+              parametros: { ...sesion.parametros },
+            },
+          }),
     };
   }
 }

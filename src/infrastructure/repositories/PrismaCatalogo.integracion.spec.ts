@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DireccionEscala } from '../../domain/model/Activity.js';
+import { ActivityId } from '../../domain/model/Identifier.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
 
@@ -82,6 +83,77 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
     // La que no puntua tiene que llegar como tal: de eso depende que la
     // pantalla no prometa un resultado que no va a existir.
     expect(bitacora?.puntua()).toBe(false);
+  });
+
+  describe('el motor y la frecuencia rotativa de una mecanica (SCRUM-204, ADR 0030)', () => {
+    // Filas propias, con identificadores que ninguna otra suite usa, y que se borran al terminar.
+    const CATEGORIA = '20450000-0000-4000-8000-000000000001';
+    const SIN_MOTOR = '20450000-0000-4000-8000-000000000002';
+    const CON_MOTOR = '20450000-0000-4000-8000-000000000003';
+    const ROTATIVA = '20450000-0000-4000-8000-000000000004';
+    const SEMANAL = '20450000-0000-4000-8000-000000000005';
+
+    beforeAll(async () => {
+      await prisma.categoria.create({ data: { id: CATEGORIA, nombre: 'Pruebas del motor' } });
+
+      const base = {
+        idCategoria: CATEGORIA,
+        tipo: 'juego',
+        direccionEscala: 'sin_puntaje',
+      } as const;
+
+      await prisma.actividad.createMany({
+        data: [
+          { ...base, id: SIN_MOTOR, nombre: 'Sin motor' },
+          { ...base, id: CON_MOTOR, nombre: 'Con motor', motor: 'guia_paso_a_paso' },
+          { ...base, id: ROTATIVA, nombre: 'Rotativa', frecuencia: 'rotativa' },
+          { ...base, id: SEMANAL, nombre: 'Semanal', frecuencia: 'semanal', diasSemana: [2, 4] },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.actividad.deleteMany({ where: { idCategoria: CATEGORIA } });
+      await prisma.categoria.deleteMany({ where: { id: CATEGORIA } });
+    });
+
+    it('una mecanica sin motor llega sin motor', async () => {
+      const actividad = await repositorio.findById(new ActivityId(SIN_MOTOR));
+
+      expect(actividad?.motor).toBeUndefined();
+    });
+
+    it('conserva el motor de la mecanica', async () => {
+      const actividad = await repositorio.findById(new ActivityId(CON_MOTOR));
+
+      expect(actividad?.motor).toBe('guia_paso_a_paso');
+    });
+
+    it('una frecuencia rotativa llega como rotativa y no como diaria', async () => {
+      const actividad = await repositorio.findById(new ActivityId(ROTATIVA));
+
+      expect(actividad?.frecuencia).toEqual({ tipo: 'rotativa' });
+    });
+
+    it('las demas frecuencias llegan como antes', async () => {
+      const semanal = await repositorio.findById(new ActivityId(SEMANAL));
+      const diaria = await repositorio.findById(new ActivityId(SIN_MOTOR));
+
+      expect(semanal?.frecuencia).toEqual({ tipo: 'semanal', dias: [2, 4] });
+      expect(diaria?.frecuencia).toEqual({ tipo: 'diaria' });
+    });
+
+    it('las nueve actividades del catalogo llegan sin motor: asi seguiran hasta la Fase 0', async () => {
+      const catalogo = await repositorio.listarCatalogo();
+      // Solo las sembradas por la migracion, que llevan este prefijo: otras suites comparten la
+      // base y pueden dejar actividades suyas (CatalogoSembrado hace lo mismo).
+      const nueve = catalogo
+        .flatMap((categoria) => categoria.actividades)
+        .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
+
+      expect(nueve).toHaveLength(9);
+      expect(nueve.filter((actividad) => actividad.motor !== undefined)).toEqual([]);
+    });
   });
 
   it('no ofrece una actividad retirada', async () => {

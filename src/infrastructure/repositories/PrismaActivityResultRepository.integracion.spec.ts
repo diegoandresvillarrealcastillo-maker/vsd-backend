@@ -5,7 +5,13 @@ import 'dotenv/config';
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
@@ -54,6 +60,7 @@ const CATEGORIA = '20000000-0000-4000-8000-000000000001';
 const ACTIVIDAD_MEMORIA = '30000000-0000-4000-8000-000000000001';
 const ACTIVIDAD_CARGA = '30000000-0000-4000-8000-000000000002';
 const ACTIVIDAD_BITACORA = '30000000-0000-4000-8000-000000000003';
+const SESION = '60000000-0000-4000-8000-000000000001';
 
 function urlDeLaAplicacion(url: string): string {
   const partes = new URL(url);
@@ -105,6 +112,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   async function limpiarTodo(): Promise<void> {
     await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [[USUARIO_A, USUARIO_B]]);
     await dueno.query('DELETE FROM usuario WHERE id_usuario = ANY($1)', [[USUARIO_A, USUARIO_B]]);
+    await dueno.query('DELETE FROM sesion_de_actividad WHERE id_sesion = $1', [SESION]);
     await dueno.query('DELETE FROM actividad WHERE id_categoria = $1', [CATEGORIA]);
     await dueno.query('DELETE FROM categoria WHERE id_categoria = $1', [CATEGORIA]);
   }
@@ -129,6 +137,13 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       );
     }
 
+    // Una sesion de la memoria, para los resultados que dicen cual hicieron (ADR 0030).
+    await dueno.query(
+      `INSERT INTO sesion_de_actividad (id_sesion, id_actividad, titulo, nivel, parametros, publicado, revision)
+       VALUES ($1, $2, 'Una sesión de prueba', 1, '{}', true, 'no_requiere')`,
+      [SESION, ACTIVIDAD_MEMORIA],
+    );
+
     for (const usuario of [USUARIO_A, USUARIO_B]) {
       await dueno.query("SELECT set_config('vsd.usuario_actual', $1, false)", [usuario]);
       await dueno.query(
@@ -152,6 +167,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     metadata?: Record<string, string | number | boolean>;
     completedAt?: Date;
     dia?: string;
+    sesion?: string;
   }): Promise<ActivityResult> {
     const actividad = await catalogo.findById(new ActivityId(opciones.actividad));
 
@@ -171,8 +187,67 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       completedAt: opciones.completedAt ?? new Date('2026-09-14T11:00:00.000Z'),
       dia: opciones.dia ?? '2026-09-14',
       metadata: opciones.metadata,
+      sessionId: opciones.sesion === undefined ? undefined : new SesionId(opciones.sesion),
     });
   }
+
+  describe('la sesion que se hizo (SCRUM-205, ADR 0030)', () => {
+    it('guarda la sesion y la devuelve al recuperar el resultado', async () => {
+      await repositorio.save(
+        await unResultado({
+          id: '40000000-0000-4000-8000-000000000051',
+          usuario: USUARIO_A,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: '50000000-0000-4000-8000-000000000051',
+          puntajeCrudo: 8,
+          sesion: SESION,
+        }),
+      );
+
+      const recuperado = await repositorio.findByClientOperationId(
+        new ClientOperationId('50000000-0000-4000-8000-000000000051'),
+        new UserId(USUARIO_A),
+      );
+      const enLaLista = await repositorio.ultimosDe(new UserId(USUARIO_A), new Date(0));
+
+      expect(recuperado?.sessionId?.value).toBe(SESION);
+      expect(enLaLista.map((resultado) => resultado.sessionId?.value)).toEqual([SESION]);
+    });
+
+    it('sin sesion queda sin sesion: asi son todos los resultados de hoy', async () => {
+      await repositorio.save(
+        await unResultado({
+          id: '40000000-0000-4000-8000-000000000052',
+          usuario: USUARIO_A,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: '50000000-0000-4000-8000-000000000052',
+          puntajeCrudo: 8,
+        }),
+      );
+
+      const recuperado = await repositorio.findByClientOperationId(
+        new ClientOperationId('50000000-0000-4000-8000-000000000052'),
+        new UserId(USUARIO_A),
+      );
+
+      expect(recuperado?.sessionId).toBeUndefined();
+    });
+
+    it('la base no deja guardar una sesion que no existe', async () => {
+      await expect(
+        repositorio.save(
+          await unResultado({
+            id: '40000000-0000-4000-8000-000000000053',
+            usuario: USUARIO_A,
+            actividad: ACTIVIDAD_MEMORIA,
+            operacion: '50000000-0000-4000-8000-000000000053',
+            puntajeCrudo: 8,
+            sesion: '60000000-0000-4000-8000-0000000000ff',
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+  });
 
   it('guarda y recupera un resultado completo, con puntaje y con metadata', async () => {
     await repositorio.save(

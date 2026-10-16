@@ -339,7 +339,7 @@ model Actividad {
   desdeSesion Int                 @default(1) @map("desde_sesion")
 
   /// Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030).
-  /// Uno de nueve, comprobado por un CHECK; vacio hasta la Fase 0 para las nueve actuales.
+  /// Uno de nueve, comprobado por un CHECK. Vacio en las cuatro pantallas propias; la Fase 0 (SCRUM-207) se lo puso a cinco de las nueve.
   motor String? @db.VarChar(30)
 
   categoria  Categoria           @relation(fields: [idCategoria], references: [id], onDelete: Restrict)

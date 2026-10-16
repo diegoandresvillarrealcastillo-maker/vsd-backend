@@ -41,7 +41,7 @@ const DEL_RESULTADO = id(0x14);
 const RESULTADO = id(0x20);
 const OPERACION = id(0x21);
 
-/** Las nueve que ya existian: tienen que seguir sin motor. */
+/** Las nueve que ya existian. */
 const ACTUALES = [
   'Parejas de cartas',
   'Secuencia de números',
@@ -51,6 +51,15 @@ const ACTUALES = [
   'Movimiento del día',
   'Cómo te sientes hoy',
   'Qué te está pesando',
+  'Un momento bueno del día',
+];
+
+/** Las que pasan al modelo en la Fase 0 (SCRUM-207): las otras cuatro son pantallas propias, sin motor. */
+const DE_LA_FASE_0 = [
+  'Secuencia de números',
+  'Encuentra la diferencia',
+  'La carga de tu semana',
+  'Cómo te sientes hoy',
   'Un momento bueno del día',
 ];
 
@@ -217,15 +226,22 @@ describe.skipIf(URL_DUENO === undefined)('Mecanica x sesion en PostgreSQL (ADR 0
       expect(rows[0]?.motor).toBeNull();
     });
 
-    it('las nueve actividades que ya existian siguen sin motor', async () => {
-      // La migracion es aditiva: no toca el catalogo. El motor llega con la Fase 0.
+    it('de las nueve que ya existian, solo las cinco de la Fase 0 tienen motor', async () => {
+      // La migracion del modelo es aditiva y no puso motor a nadie. Lo pone la migracion de datos de la
+      // Fase 0 (SCRUM-207), y solo en las cinco que ya tienen un motor compartido; el detalle esta en
+      // SesionesSembradas.integracion.spec.ts.
       const { rows } = await dueno.query<{ nombre: string; motor: string | null }>(
         'SELECT nombre, motor FROM actividad WHERE nombre = ANY($1)',
         [ACTUALES],
       );
 
       expect(rows.map((fila) => fila.nombre).sort()).toEqual([...ACTUALES].sort());
-      expect(rows.filter((fila) => fila.motor !== null)).toEqual([]);
+      expect(
+        rows
+          .filter((fila) => fila.motor !== null)
+          .map((fila) => fila.nombre)
+          .sort(),
+      ).toEqual([...DE_LA_FASE_0].sort());
     });
 
     it('acepta la frecuencia rotativa y deja las anteriores como estaban', async () => {

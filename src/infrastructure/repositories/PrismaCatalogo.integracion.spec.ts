@@ -143,7 +143,7 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
       expect(diaria?.frecuencia).toEqual({ tipo: 'diaria' });
     });
 
-    it('las nueve actividades del catalogo llegan sin motor: asi seguiran hasta la Fase 0', async () => {
+    it('las nueve actividades del catalogo llegan; solo las cinco de la Fase 0 traen motor', async () => {
       const catalogo = await repositorio.listarCatalogo();
       // Solo las sembradas por la migracion, que llevan este prefijo: otras suites comparten la
       // base y pueden dejar actividades suyas (CatalogoSembrado hace lo mismo).
@@ -152,7 +152,23 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
         .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
 
       expect(nueve).toHaveLength(9);
-      expect(nueve.filter((actividad) => actividad.motor !== undefined)).toEqual([]);
+      // Los identificadores de la migracion del catalogo inicial: 2 secuencia, 3 diferencia, 5 carga,
+      // 7 como te sientes y 9 momento bueno. Las otras cuatro son pantallas propias.
+      expect(
+        Object.fromEntries(
+          nueve.map((actividad) => [actividad.id.value.slice(-1), actividad.motor ?? null]),
+        ),
+      ).toEqual({
+        '1': null,
+        '2': 'secuencia',
+        '3': 'tocar_el_objetivo',
+        '4': null,
+        '5': 'cuestionario_corto',
+        '6': null,
+        '7': 'cuestionario_corto',
+        '8': null,
+        '9': 'escritura_breve',
+      });
     });
   });
 

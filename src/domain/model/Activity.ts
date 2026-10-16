@@ -98,8 +98,8 @@ export interface DatosDeActividad {
   /** Por defecto, diaria. */
   readonly frecuencia?: Frecuencia | undefined;
   /**
-   * Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030). Las
-   * nueve actividades que ya existen no lo tienen hasta la Fase 0.
+   * Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030). De
+   * las nueve que ya existen lo tienen cinco desde la Fase 0; las otras cuatro son pantallas propias.
    */
   readonly motor?: Motor | undefined;
   /**

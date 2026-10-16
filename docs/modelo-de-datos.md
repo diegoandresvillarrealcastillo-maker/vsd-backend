@@ -159,7 +159,9 @@ sendero como un elemento propio, así que el catálogo no crece a mil filas.
   misma lista. Sumar una mecánica que reutiliza un motor no pide código de pantalla nuevo.
 - **`rotativa`** es una frecuencia nueva: la mecánica no toca todos los días, y la rotación elige
   hasta tres por módulo y por día (SCRUM-205). **Ninguna fila la usa todavía.**
-- Las nueve actividades actuales quedan con `motor` vacío. La Fase 0 se lo pondrá.
+- Las nueve actividades actuales quedan con `motor` vacío. La migración de datos de la Fase 0
+  (`20261019120000_fase_0_las_actividades_pasan_al_modelo`, SCRUM-207) se lo pone a cinco y les siembra su
+  sesión; ver más abajo.
 
 ### Por qué la actividad declara la dirección de su escala
 
@@ -294,6 +296,18 @@ fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
 (`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
 circulares, y que cumpla el **contrato de su motor** (`ParametrosDelMotor.ts`, SCRUM-206; ver `dominio.md`).
 Los motores sin contrato todavía aceptan cualquier objeto.
+
+**Contenido sembrado: la Fase 0 (SCRUM-207).** La migración
+`20261019120000_fase_0_las_actividades_pasan_al_modelo` es solo de datos, aditiva e idempotente (el
+`UPDATE` solo toca el motor vacío y los `INSERT` ignoran un identificador ya sembrado). Pone `motor` a
+cinco actividades (`secuencia`, `tocar_el_objetivo`, dos `cuestionario_corto` y `escritura_breve`) y
+siembra su sesión única, con los números y los textos que hasta ahora estaban escritos en el código del
+frontend: identificadores fijos (`5e510000-…`), nivel 1, `no_requiere` y publicada. La frecuencia no
+cambia. Las cuatro pantallas propias (Parejas de cartas, Cómo dormiste anoche, Movimiento del día y Qué te
+está pesando) siguen sin motor. Las cinco sesiones pesan unos 2,7 KB en el sendero.
+`SesionesSembradas.integracion.spec.ts` lo comprueba contra PostgreSQL y vale para todo lo que se siembre
+después: cada sesión de las categorías del catálogo pasa por el contrato de su motor y por las pruebas del
+contenido (lenguaje clínico R6 y lista de exclusión R14, en `src/pruebas/contenidoDeSesiones.ts`).
 
 **Resultado.** `resultado.id_sesion` es opcional y `ON DELETE RESTRICT`: una sesión que alguien ya hizo no
 se borra, se retira. Dos índices nuevos en `resultado`: `(id_usuario, id_actividad, dia)`, para elegir la

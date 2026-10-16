@@ -4,7 +4,9 @@ import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { describe, expect, it } from 'vitest';
+import { InvalidSessionConfigurationError } from '../../domain/model/DomainError.js';
 import { ActivityId, SesionId, UserId } from '../../domain/model/Identifier.js';
+import { Motor } from '../../domain/model/Motor.js';
 import { Revision, SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
 import {
   type CandidataDeSesion,
@@ -60,7 +62,14 @@ function nueva(
     idActividad: mecanica,
     titulo: opciones.titulo ?? 'Una sesión',
     nivel: 2,
-    parametros: { largo: 4, pasos: ['uno', 'dos'], conSonido: false },
+    // Las mecanicas de esta prueba son de `guia_paso_a_paso`: la base valida al leer.
+    motor: Motor.GUIA_PASO_A_PASO,
+    parametros: {
+      advertenciaInicial: 'Puedes parar cuando quieras.',
+      patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
+      duracionSegundos: 120,
+      frases: ['uno', 'dos'],
+    },
     publicado: opciones.publicado ?? true,
     revision: Revision.NO_REQUIERE,
   });
@@ -94,14 +103,14 @@ describe.skipIf(URL_DUENO === undefined)('PrismaSesionesRepository contra Postgr
     await dueno.query("SELECT set_config('vsd.rol_actual', 'administrador', false)");
   }
 
-  async function nuevaMecanica(): Promise<ActivityId> {
+  async function nuevaMecanica(motor: string | null = Motor.GUIA_PASO_A_PASO): Promise<ActivityId> {
     const id = randomUUID();
 
     await comoAdministrador();
     await dueno.query(
       `INSERT INTO actividad (id_actividad, id_categoria, nombre, tipo, direccion_escala, motor, frecuencia)
-       VALUES ($1, $2, $3, 'juego', 'sin_puntaje', 'guia_paso_a_paso', 'rotativa')`,
-      [id, categoria, `Mecanica ${id}`],
+       VALUES ($1, $2, $3, 'juego', 'sin_puntaje', $4, 'rotativa')`,
+      [id, categoria, `Mecanica ${id}`, motor],
     );
     mecanicas.push(id);
 
@@ -332,4 +341,79 @@ describe.skipIf(URL_DUENO === undefined)('PrismaSesionesRepository contra Postgr
     expect(hechasHoy).toBeGreaterThan(5);
     expect(todasHechas).toBeGreaterThan(0);
   }, 120_000);
+
+  describe('el contrato de parametros de cada motor, al leer de la base (SCRUM-206)', () => {
+    /** Una pausa de 9 s: la ficha prohibe retener el aire mas de 4. */
+    const CON_PAUSA_LARGA = {
+      advertenciaInicial: 'Puedes parar cuando quieras.',
+      patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 9 },
+      duracionSegundos: 120,
+    };
+
+    /** Inserta sin pasar por el dominio, como lo haria una migracion de datos mal escrita. */
+    async function sembrarCrudo(mecanica: ActivityId, parametros: unknown): Promise<string> {
+      const id = randomUUID();
+
+      await comoAdministrador();
+      await dueno.query(
+        `INSERT INTO sesion_de_actividad (id_sesion, id_actividad, titulo, nivel, parametros, publicado, revision)
+         VALUES ($1, $2, 'Con parámetros rotos', 1, $3::jsonb, true, 'no_requiere')`,
+        [id, mecanica.value, JSON.stringify(parametros)],
+      );
+      sesionesCreadas.push(id);
+
+      return id;
+    }
+
+    it('una sesion que no cumple el contrato de su motor falla al cargarse, con el campo en el mensaje', async () => {
+      const mecanica = await nuevaMecanica();
+      const persona = await nuevaPersona();
+
+      await sembrarCrudo(mecanica, CON_PAUSA_LARGA);
+
+      await expect(repositorio.sesionesDeHoy(new UserId(persona), [mecanica], HOY)).rejects.toThrow(
+        InvalidSessionConfigurationError,
+      );
+      await expect(repositorio.sesionesDeHoy(new UserId(persona), [mecanica], HOY)).rejects.toThrow(
+        /guia_paso_a_paso.*patron\.pausaSegundos/u,
+      );
+    });
+
+    it('porId tambien la rechaza', async () => {
+      const mecanica = await nuevaMecanica();
+      const id = await sembrarCrudo(mecanica, CON_PAUSA_LARGA);
+
+      await expect(repositorio.porId(new SesionId(id))).rejects.toThrow(
+        InvalidSessionConfigurationError,
+      );
+    });
+
+    it('la misma sesion se lee bien si la actividad no tiene motor', async () => {
+      const mecanica = await nuevaMecanica(null);
+      const persona = await nuevaPersona();
+
+      await sembrarCrudo(mecanica, CON_PAUSA_LARGA);
+
+      const leida = (await repositorio.sesionesDeHoy(new UserId(persona), [mecanica], HOY)).get(
+        mecanica.value,
+      );
+
+      expect(leida?.parametros).toEqual(CON_PAUSA_LARGA);
+    });
+
+    it('una sesion que cumple el contrato se lee con sus parametros', async () => {
+      const mecanica = await nuevaMecanica();
+      const persona = await nuevaPersona();
+      const sesion = nueva(mecanica);
+
+      await sembrar([sesion]);
+
+      const leida = (await repositorio.sesionesDeHoy(new UserId(persona), [mecanica], HOY)).get(
+        mecanica.value,
+      );
+
+      expect(leida?.parametros).toEqual(sesion.parametros);
+      expect((await repositorio.porId(sesion.id))?.parametros).toEqual(sesion.parametros);
+    });
+  });
 });

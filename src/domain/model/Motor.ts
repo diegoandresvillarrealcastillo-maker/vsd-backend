@@ -6,7 +6,8 @@
  * una fila, no codigo de pantalla. Son los nueve de `CATALOGO-FICHAS-DE-MECANICAS.md` §0.3, de M1
  * a M9, y los mismos nueve que acepta el CHECK de `actividad.motor` en la base.
  *
- * Las nueve actividades que ya existen tienen el motor vacio hasta la Fase 0.
+ * De las nueve actividades que ya existen, cinco tienen motor desde la Fase 0 (SCRUM-207); las otras cuatro
+ * son pantallas propias y lo tienen vacio.
  */
 export const Motor = {
   /** M1: repetir una secuencia que crece. */

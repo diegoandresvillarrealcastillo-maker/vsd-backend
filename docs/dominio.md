@@ -88,7 +88,7 @@ Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **s
 `Activity` lo preparan:
 
 - `motor` (opcional): uno de los nueve de `Motor.ts`, de M1 a M9 de las fichas. Dice que componente pinta
-  la mecanica. Las nueve actividades actuales no lo tienen hasta la Fase 0. `Activity.create` rechaza un
+  la mecanica. De las nueve actuales lo tienen cinco desde la Fase 0 (SCRUM-207); las otras cuatro son pantallas propias y no. `Activity.create` rechaza un
   valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
 - `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
   rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia (ver "El sendero de cada
@@ -1010,9 +1010,9 @@ que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 
-- **Contenido.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, pero
-  no hay ninguna sesion cargada ni ninguna mecanica con motor: las nueve actividades actuales pasan al modelo
-  en la Fase 0, y el contenido llega con el piloto, ya revisado.
+- **Contenido nuevo.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, y
+  desde la Fase 0 (SCRUM-207) cinco de las nueve actividades actuales tienen su sesion. Ninguna mecanica es
+  `rotativa` todavia: el contenido nuevo llega con el piloto, ya revisado.
 - **La forma de `parametros` de los otros cuatro motores** (`ver_ocultar_recordar`, `clasificar`, `palabras` y
   `calculo`). Se fija con el ticket que construye cada uno; hasta entonces aceptan cualquier objeto.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`

@@ -15,6 +15,7 @@ import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosReposito
 import type { DatoCuriosoRepositoryPort } from '../../domain/ports/out/DatoCuriosoRepositoryPort.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
@@ -58,6 +59,7 @@ import {
   PROVEEDOR_DE_IDENTIDAD,
   REGISTRAR_CUENTA,
   REGISTRO_DE_SEGURIDAD,
+  SESIONES_REPOSITORY,
   USER_REPOSITORY,
 } from './tokens.js';
 
@@ -251,6 +253,7 @@ import {
         fotos: AlmacenPersonalPort,
         mascotas: AlmacenPersonalPort,
         datosCuriosos: DatoCuriosoRepositoryPort,
+        sesiones: SesionesRepositoryPort,
       ) =>
         new ExportarDatosUseCaseImpl(
           cuentas,
@@ -261,6 +264,7 @@ import {
           fotos,
           mascotas,
           datosCuriosos,
+          sesiones,
         ),
       inject: [
         USER_REPOSITORY,
@@ -271,6 +275,7 @@ import {
         ALMACEN_DE_FOTOS,
         ALMACEN_DE_MASCOTAS,
         DATO_CURIOSO_REPOSITORY,
+        SESIONES_REPOSITORY,
       ],
     },
     {

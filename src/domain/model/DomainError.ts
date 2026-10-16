@@ -113,6 +113,21 @@ export class InvalidSessionConfigurationError extends DomainError {
 }
 
 /**
+ * El resultado dice que se hizo una sesion que no es de esa actividad, o que no existe (ADR 0030).
+ *
+ * Se responde igual en los dos casos, y no con un "no encontrada": quien llama no necesita saber cual
+ * de las dos cosas pasa, y la sesion es contenido de todos, no un dato que haya que ocultar. Una sesion
+ * **retirada** despues de servirse no es este caso: quien la tenia abierta puede terminarla.
+ */
+export class SessionNotOfActivityError extends DomainError {
+  readonly code = 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD';
+
+  constructor() {
+    super('La sesión indicada no corresponde a esa actividad.');
+  }
+}
+
+/**
  * La actividad reportada no existe en el catalogo.
  *
  * Sin la actividad no se puede interpretar el puntaje: no se sabe sobre que

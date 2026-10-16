@@ -145,6 +145,14 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // esta mal configurado. Devolver 400 le diria que corrija algo que no esta
   // en su mano.
   CONFIGURACION_DE_ACTIVIDAD_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
+
+  // Igual que la actividad: una sesion mal cargada es un problema del contenido del servidor, no de
+  // quien llama (ADR 0030).
+  CONFIGURACION_DE_SESION_INVALIDA: HttpStatus.INTERNAL_SERVER_ERROR,
+
+  // El resultado dice que se hizo una sesion que no es de esa actividad o que no existe (ADR 0030).
+  // Es culpa de quien llama, y se responde igual en los dos casos.
+  LA_SESION_NO_ES_DE_LA_ACTIVIDAD: HttpStatus.BAD_REQUEST,
 };
 
 /**

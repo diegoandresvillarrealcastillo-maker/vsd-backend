@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
+import { Activity, DireccionEscala, type Frecuencia } from '../../domain/model/Activity.js';
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { Calendario } from '../../domain/model/Calendario.js';
 import { Categoria } from '../../domain/model/Categoria.js';
@@ -9,12 +9,16 @@ import {
   CategoryId,
   ClientOperationId,
   ResultId,
+  SesionId,
   UserId,
 } from '../../domain/model/Identifier.js';
+import type { Motor } from '../../domain/model/Motor.js';
 import { Modulo } from '../../domain/model/Preferencias.js';
+import { Revision, SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
 import type { User } from '../../domain/model/User.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
 import { ConsultarProgresoUseCaseImpl } from './ConsultarProgresoUseCaseImpl.js';
@@ -72,7 +76,67 @@ function resultado(cual: Activity, cuando: string): ActivityResult {
   );
 }
 
-function armar(cuenta: User | null, resultados: ActivityResult[] = []) {
+/**
+ * Doble de las sesiones. Sin mecanicas con motor en el catalogo ni se consulta: `consultas` lo
+ * demuestra.
+ */
+class SesionesFalsas implements SesionesRepositoryPort {
+  readonly consultas: { metodo: string; actividades: string[]; hoy: string }[] = [];
+
+  constructor(private readonly disponibles: ReadonlyMap<string, SesionDeActividad> = new Map()) {}
+
+  porId(): Promise<SesionDeActividad | null> {
+    return Promise.resolve(null);
+  }
+
+  mecanicasConSesion(
+    _userId: UserId,
+    actividades: readonly ActivityId[],
+    hoy: string,
+  ): Promise<ReadonlySet<string>> {
+    this.consultas.push({
+      metodo: 'mecanicasConSesion',
+      actividades: actividades.map((a) => a.value),
+      hoy,
+    });
+
+    return Promise.resolve(
+      new Set(actividades.map((a) => a.value).filter((id) => this.disponibles.has(id))),
+    );
+  }
+
+  sesionesDeHoy(
+    _userId: UserId,
+    actividades: readonly ActivityId[],
+    hoy: string,
+  ): Promise<ReadonlyMap<string, SesionDeActividad>> {
+    this.consultas.push({
+      metodo: 'sesionesDeHoy',
+      actividades: actividades.map((a) => a.value),
+      hoy,
+    });
+
+    return Promise.resolve(
+      new Map(
+        actividades.flatMap((a) => {
+          const sesion = this.disponibles.get(a.value);
+
+          return sesion === undefined ? [] : [[a.value, sesion] as const];
+        }),
+      ),
+    );
+  }
+
+  titulosDe(): Promise<ReadonlyMap<string, string>> {
+    return Promise.resolve(new Map());
+  }
+}
+
+function armar(
+  cuenta: User | null,
+  resultados: ActivityResult[] = [],
+  opciones: { catalogo?: Categoria[]; sesiones?: SesionesFalsas } = {},
+) {
   const cuentas: UserRepositoryPort = {
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
@@ -83,13 +147,19 @@ function armar(cuenta: User | null, resultados: ActivityResult[] = []) {
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const catalogo = {
-    listarCatalogo: () => Promise.resolve(CATALOGO),
+    listarCatalogo: () => Promise.resolve(opciones.catalogo ?? CATALOGO),
   } as unknown as ActivityRepositoryPort;
   const repositorio = {
     ultimosDe: () => Promise.resolve(resultados),
   } as unknown as ActivityResultRepositoryPort;
 
-  return new ConsultarProgresoUseCaseImpl(cuentas, catalogo, repositorio, () => AHORA);
+  return new ConsultarProgresoUseCaseImpl(
+    cuentas,
+    catalogo,
+    repositorio,
+    opciones.sesiones ?? new SesionesFalsas(),
+    () => AHORA,
+  );
 }
 
 const CON_DOS_MODULOS = unaCuenta().conPreferencias({ modulosActivos: ['bienestar', 'cognicion'] });
@@ -201,5 +271,183 @@ describe('El progreso en la zona de la persona (SCRUM-123)', () => {
       sesiones: 1,
       hecha: false,
     });
+  });
+});
+
+describe('El sendero con sesiones (ADR 0030)', () => {
+  let siguiente = 0;
+
+  function mecanica(
+    frecuencia: Frecuencia = { tipo: 'diaria' },
+    motor: Motor = 'secuencia',
+  ): Activity {
+    siguiente++;
+
+    return Activity.create({
+      id: new ActivityId(`bbbbbbbb-bbbb-4bbb-8bbb-${String(siguiente).padStart(12, '0')}`),
+      nombre: `Mecánica ${siguiente}`,
+      direccionEscala: DireccionEscala.SIN_PUNTAJE,
+      frecuencia,
+      motor,
+    });
+  }
+
+  function sesionDe(deLaMecanica: Activity): SesionDeActividad {
+    siguiente++;
+
+    return SesionDeActividad.create({
+      id: new SesionId(`cccccccc-cccc-4ccc-9ccc-${String(siguiente).padStart(12, '0')}`),
+      idActividad: deLaMecanica.id,
+      titulo: `Sesión de ${deLaMecanica.nombre}`,
+      nivel: 1,
+      parametros: { largo: 4 },
+      publicado: true,
+      revision: Revision.NO_REQUIERE,
+    });
+  }
+
+  function catalogoDe(bienestar: Activity[], cognicion: Activity[] = []): Categoria[] {
+    return [
+      Categoria.create({
+        id: new CategoryId('cccccccc-cccc-4ccc-8ccc-000000000001'),
+        nombre: 'Bienestar',
+        modulo: Modulo.BIENESTAR,
+        actividades: bienestar,
+      }),
+      Categoria.create({
+        id: new CategoryId('cccccccc-cccc-4ccc-8ccc-000000000002'),
+        nombre: 'Cognición',
+        modulo: Modulo.COGNICION,
+        actividades: cognicion,
+      }),
+    ];
+  }
+
+  const bienestarDe = (progreso: Awaited<ReturnType<ConsultarProgresoUseCaseImpl['execute']>>) =>
+    progreso.find((uno) => uno.modulo === 'bienestar')!;
+
+  it('sin mecanicas con motor, como hoy: ni se consultan las sesiones', async () => {
+    const sesiones = new SesionesFalsas();
+
+    const progreso = await armar(CON_DOS_MODULOS, [], { sesiones }).execute(new UserId(PERSONA));
+
+    expect(sesiones.consultas).toEqual([]);
+    expect(bienestarDe(progreso).hoy.every((una) => una.sesion === undefined)).toBe(true);
+    expect(bienestarDe(progreso).hoy).toHaveLength(2);
+  });
+
+  it('una mecanica con motor sale con la sesion que le toca hoy', async () => {
+    const una = mecanica();
+    const sesion = sesionDe(una);
+    const sesiones = new SesionesFalsas(new Map([[una.id.value, sesion]]));
+
+    const progreso = await armar(CON_DOS_MODULOS, [], {
+      catalogo: catalogoDe([una]),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    expect(bienestarDe(progreso).hoy).toEqual([{ actividad: una, hecha: false, sesion }]);
+  });
+
+  it('las sesiones se piden con el dia local de la persona (el viernes, no el sabado en UTC)', async () => {
+    const una = mecanica();
+    const sesiones = new SesionesFalsas(new Map([[una.id.value, sesionDe(una)]]));
+
+    await armar(CON_DOS_MODULOS, [], { catalogo: catalogoDe([una]), sesiones }).execute(
+      new UserId(PERSONA),
+    );
+
+    expect(sesiones.consultas.map((c) => c.hoy)).toEqual(['2026-10-02', '2026-10-02']);
+  });
+
+  it('una mecanica con motor y sin sesion no se ofrece, ni hoy ni como sugerida', async () => {
+    const con = mecanica();
+    const sin = mecanica();
+    const sesiones = new SesionesFalsas(new Map([[con.id.value, sesionDe(con)]]));
+
+    const progreso = await armar(CON_DOS_MODULOS, [], {
+      catalogo: catalogoDe([con, sin]),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    expect(bienestarDe(progreso).hoy.map((una) => una.actividad.id.value)).toEqual([con.id.value]);
+    expect(bienestarDe(progreso).sugeridas).toEqual([]);
+  });
+
+  it('una mecanica sugerida tambien trae su sesion: se puede hacer', async () => {
+    const diaria = mecanica();
+    const semanalOtroDia = mecanica({ tipo: 'semanal', dias: [1] });
+    const sesiones = new SesionesFalsas(
+      new Map([
+        [diaria.id.value, sesionDe(diaria)],
+        [semanalOtroDia.id.value, sesionDe(semanalOtroDia)],
+      ]),
+    );
+
+    const progreso = await armar(CON_DOS_MODULOS, [], {
+      catalogo: catalogoDe([diaria, semanalOtroDia]),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    expect(bienestarDe(progreso).sugeridas.map((una) => una.sesion?.idActividad.value)).toEqual([
+      semanalOtroDia.id.value,
+    ]);
+  });
+
+  it('con seis rotativas ofrece tres y pide la sesion solo de esas tres', async () => {
+    const seis = Array.from({ length: 6 }, () => mecanica({ tipo: 'rotativa' }));
+    const sesiones = new SesionesFalsas(new Map(seis.map((una) => [una.id.value, sesionDe(una)])));
+
+    const progreso = await armar(CON_DOS_MODULOS, [], {
+      catalogo: catalogoDe(seis),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    const ofrecidas = bienestarDe(progreso).hoy.map((una) => una.actividad.id.value);
+    const pedidas = sesiones.consultas.find((c) => c.metodo === 'sesionesDeHoy')!.actividades;
+
+    expect(ofrecidas).toHaveLength(3);
+    expect([...pedidas].sort()).toEqual([...ofrecidas].sort());
+    // Y la comprobacion de que tienen sesion sale de las seis, en una sola consulta.
+    expect(
+      sesiones.consultas.find((c) => c.metodo === 'mecanicasConSesion')!.actividades,
+    ).toHaveLength(6);
+  });
+
+  it('solo se consultan las mecanicas de los modulos que la persona tiene activos', async () => {
+    const deBienestar = mecanica();
+    const deCognicion = mecanica();
+    const sesiones = new SesionesFalsas(
+      new Map([
+        [deBienestar.id.value, sesionDe(deBienestar)],
+        [deCognicion.id.value, sesionDe(deCognicion)],
+      ]),
+    );
+    const soloBienestar = unaCuenta().conPreferencias({ modulosActivos: ['bienestar'] });
+
+    await armar(soloBienestar, [], {
+      catalogo: catalogoDe([deBienestar], [deCognicion]),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    for (const consulta of sesiones.consultas) {
+      expect(consulta.actividades).toEqual([deBienestar.id.value]);
+    }
+  });
+
+  it('las actividades sin motor salen igual y sin sesion, junto a las que si la tienen', async () => {
+    const con = mecanica();
+    const sesion = sesionDe(con);
+    const sesiones = new SesionesFalsas(new Map([[con.id.value, sesion]]));
+
+    const progreso = await armar(CON_DOS_MODULOS, [], {
+      catalogo: catalogoDe([SUENO, con]),
+      sesiones,
+    }).execute(new UserId(PERSONA));
+
+    expect(bienestarDe(progreso).hoy).toEqual([
+      { actividad: SUENO, hecha: false },
+      { actividad: con, hecha: false, sesion },
+    ]);
   });
 });

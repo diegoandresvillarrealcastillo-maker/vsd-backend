@@ -37,7 +37,8 @@ export class ActivityResultController {
   @ApiResponse({ status: 201, description: 'Resultado registrado.', type: ResultadoRespuestaDto })
   @ApiResponse({
     status: 400,
-    description: 'El cuerpo de la peticion no es valido o incumple una regla del dominio.',
+    description:
+      'El cuerpo de la peticion no es valido o incumple una regla del dominio, por ejemplo una sesion que no es de esa actividad (LA_SESION_NO_ES_DE_LA_ACTIVIDAD).',
   })
   @ApiResponse({
     status: 404,
@@ -71,6 +72,7 @@ export class ActivityResultController {
       score: dto.score,
       completedAt: dto.completedAt,
       metadata: dto.metadata as Metadata | undefined,
+      sessionId: dto.idSesion,
     });
 
     return ResultadoRespuestaDto.desde(resultado, lineasDeAtencion, sugiereAcompanamiento);

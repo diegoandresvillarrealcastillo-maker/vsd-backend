@@ -3,7 +3,13 @@ import { Activity } from '../../domain/model/Activity.js';
 import { ActivityResult, type Metadata } from '../../domain/model/ActivityResult.js';
 import type { Dia } from '../../domain/model/Calendario.js';
 import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -72,6 +78,9 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
           idUsuario: result.userId.value,
           idActividad: result.activityId.value,
           idOperacionCliente: result.clientOperationId.value,
+          // La sesion (contenido) que se hizo, si la mecanica las tiene (ADR 0030). La clave se omite
+          // cuando no hay, como la metadata: el modo estricto no acepta `undefined` y asi queda NULL.
+          ...(result.sessionId === undefined ? {} : { idSesion: result.sessionId.value }),
           // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
           // hace falta, vive en `metadata`.
           puntaje: result.score?.value ?? null,
@@ -213,6 +222,7 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
         completedAt: fila.fecha,
         dia: fila.dia.toISOString().slice(0, 10),
         metadata: (fila.metadata ?? {}) as Metadata,
+        sessionId: fila.idSesion === null ? undefined : new SesionId(fila.idSesion),
       },
       // La fecha ya paso la validacion al guardarse. Se usa la propia fila
       // como referencia para que recuperar un resultado nunca falle por el

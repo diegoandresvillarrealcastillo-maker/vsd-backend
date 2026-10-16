@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { UserId } from '../../../domain/model/Identifier.js';
+import { ActivityResult } from '../../../domain/model/ActivityResult.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../../domain/model/Identifier.js';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { unaCuenta } from '../../../pruebas/contratoDeUsuarios.js';
 import { PNG_REAL_DE_8_X_6 } from '../../../pruebas/fotosDePrueba.js';
@@ -15,6 +22,7 @@ function datosConAvisos(
     cuenta: unaCuenta(),
     consentimientos: [],
     resultados: [],
+    titulosDeSesiones: new Map(),
     entradasDeDiario: [],
     pendientes: [],
     avisos: {
@@ -158,5 +166,55 @@ describe('ExportacionDto: el dato curioso', () => {
       dia: '2026-10-12',
       texto: 'Los pulpos tienen tres corazones.',
     });
+  });
+});
+
+describe('ExportacionDto: la sesion de cada resultado (ADR 0030, Ley 1581)', () => {
+  const SESION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  let n = 0;
+
+  function resultado(sesion?: string): ActivityResult {
+    n++;
+
+    return ActivityResult.create(
+      {
+        id: new ResultId(`dddddddd-dddd-4ddd-8ddd-${String(n).padStart(12, '0')}`),
+        userId: new UserId(PERSONA),
+        activityId: new ActivityId('33333333-3333-4333-a333-333333333333'),
+        clientOperationId: new ClientOperationId(
+          `eeeeeeee-eeee-4eee-8eee-${String(n).padStart(12, '0')}`,
+        ),
+        completedAt: new Date('2026-10-01T12:00:00.000Z'),
+        dia: '2026-10-01',
+        sessionId: sesion === undefined ? undefined : new SesionId(sesion),
+      },
+      new Date('2026-10-02T00:00:00.000Z'),
+    );
+  }
+
+  it('el resultado de una sesion lleva su titulo, y no su identificador', () => {
+    const datos = {
+      ...datosConAvisos({}),
+      resultados: [resultado(SESION)],
+      titulosDeSesiones: new Map([[SESION, 'Respiración 4-6']]),
+    };
+
+    const dto = ExportacionDto.desde(datos);
+
+    expect(dto.resultados[0]).toMatchObject({ sesion: 'Respiración 4-6' });
+    expect(JSON.stringify(dto)).not.toContain(SESION);
+  });
+
+  it('un resultado sin sesion sale como siempre, sin el campo', () => {
+    const dto = ExportacionDto.desde({ ...datosConAvisos({}), resultados: [resultado()] });
+
+    expect(dto.resultados[0]).not.toHaveProperty('sesion');
+  });
+
+  it('una sesion que ya no existe no inventa un titulo: el resultado sale sin el campo', () => {
+    const dto = ExportacionDto.desde({ ...datosConAvisos({}), resultados: [resultado(SESION)] });
+
+    expect(dto.resultados[0]).not.toHaveProperty('sesion');
+    expect(JSON.stringify(dto)).not.toContain(SESION);
   });
 });

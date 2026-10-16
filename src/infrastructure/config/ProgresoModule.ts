@@ -4,6 +4,7 @@ import { ConsultarProgresoUseCaseImpl } from '../../application/usecases/Consult
 import { ConsultarRachaUseCaseImpl } from '../../application/usecases/ConsultarRachaUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { ProgresoController } from '../controllers/ProgresoController.js';
 import { RachaController } from '../controllers/RachaController.js';
@@ -14,6 +15,7 @@ import {
   CONSULTAR_HISTORIAL_DEL_MODULO,
   CONSULTAR_PROGRESO,
   CONSULTAR_RACHA,
+  SESIONES_REPOSITORY,
   USER_REPOSITORY,
 } from './tokens.js';
 import { UsuariosModule } from './UsuariosModule.js';
@@ -35,8 +37,14 @@ import { UsuariosModule } from './UsuariosModule.js';
         cuentas: UserRepositoryPort,
         catalogo: ActivityRepositoryPort,
         resultados: ActivityResultRepositoryPort,
-      ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados),
-      inject: [USER_REPOSITORY, ACTIVITY_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
+        sesiones: SesionesRepositoryPort,
+      ) => new ConsultarProgresoUseCaseImpl(cuentas, catalogo, resultados, sesiones),
+      inject: [
+        USER_REPOSITORY,
+        ACTIVITY_REPOSITORY,
+        ACTIVITY_RESULT_REPOSITORY,
+        SESIONES_REPOSITORY,
+      ],
     },
     {
       provide: CONSULTAR_HISTORIAL_DEL_MODULO,

@@ -43,6 +43,8 @@ enum FrecuenciaActividad {
   diaria
   semanal
   unica
+  /// Una mecanica con muchas sesiones (ADR 0030): la rotacion elige hasta tres por modulo y por dia.
+  rotativa
 
   @@map("frecuencia_actividad")
 }
@@ -336,8 +338,13 @@ model Actividad {
   /// Desde que sesion del modulo aparece. SCRUM-91.
   desdeSesion Int                 @default(1) @map("desde_sesion")
 
-  categoria  Categoria   @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
+  /// Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030).
+  /// Uno de nueve, comprobado por un CHECK; vacio hasta la Fase 0 para las nueve actuales.
+  motor String? @db.VarChar(30)
+
+  categoria  Categoria           @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
   resultados Resultado[]
+  sesiones   SesionDeActividad[]
 
   @@index([idCategoria])
   @@map("actividad")
@@ -371,6 +378,10 @@ model Resultado {
   /// averiguar que operaciones ajenas existen.
   idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
+  /// La sesion (contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Vacio en todo lo
+  /// anterior y en las nueve actividades actuales. Una sesion que alguien hizo no se borra: se retira.
+  idSesion String? @map("id_sesion") @db.Uuid
+
   fecha DateTime @default(now()) @db.Timestamptz(3)
 
   /// El dia, en la zona de la persona, en que se completo (SCRUM-123). Se
@@ -380,15 +391,51 @@ model Resultado {
 
   /// Al eliminar la cuenta se borran sus resultados. Es el RF12: la persona
   /// puede pedir que se elimine todo lo suyo.
-  usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
-  actividad Actividad @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  usuario   Usuario            @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  actividad Actividad          @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  sesion    SesionDeActividad? @relation(fields: [idSesion], references: [id], onDelete: Restrict)
 
   @@unique([idUsuario, idOperacionCliente])
   /// El historial se consulta por persona y por fecha; de ahi el indice.
   @@index([idUsuario, fecha])
   @@index([idUsuario, dia])
+  /// Para elegir la sesion de hoy: lo que una persona hizo en una mecanica durante el ultimo ano.
+  @@index([idUsuario, idActividad, dia])
   @@index([idActividad])
+  @@index([idSesion])
   @@map("resultado")
+}
+
+/// El contenido de una vez de una mecanica (SCRUM-204, ADR 0030). No es una actividad: no sale en el
+/// catalogo ni en el sendero como un elemento propio. Lectura abierta y escritura de administrador,
+/// como RecursoApoyo y DatoCurioso: no es un dato personal.
+///
+/// Lo que pide revision y no la tiene no se publica (un CHECK de la base), y una sesion revisada no
+/// se edita (un disparador): se retira y se agrega otra con otro identificador.
+model SesionDeActividad {
+  id          String    @id @default(uuid()) @map("id_sesion") @db.Uuid
+  idActividad String    @map("id_actividad") @db.Uuid
+  /// Nombre corto, para la exportacion y la revision.
+  titulo      String    @db.VarChar(100)
+  /// Dificultad o profundidad, de 1 a 3. 1 para las mecanicas que no tienen niveles.
+  nivel       Int       @default(1) @db.SmallInt
+  /// Lo que el motor necesita (tamano, simbolos, guion, pasos). La base no mira dentro; lo valida el
+  /// dominio (ADR 0008).
+  parametros  Json
+  /// Solo se sirven las publicadas. Retirar no borra (ADR 0025).
+  publicado   Boolean   @default(false)
+  /// no_requiere, pendiente o revisada. Nace pendiente: publicar exige decirlo, no olvidarlo.
+  revision    String    @default("pendiente") @db.VarChar(20)
+  /// Rol o nombre de quien reviso, y cuando. Sin datos de contacto.
+  revisadaPor String?   @map("revisada_por") @db.VarChar(100)
+  revisadaEl  DateTime? @map("revisada_el") @db.Timestamptz(3)
+  creadaEn    DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
+
+  actividad  Actividad   @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  resultados Resultado[]
+
+  @@index([idActividad, publicado])
+  @@map("sesion_de_actividad")
 }
 
 model RecursoApoyo {

@@ -7,6 +7,7 @@ import {
 } from '../../domain/model/Activity.js';
 import { Categoria } from '../../domain/model/Categoria.js';
 import { ActivityId, CategoryId } from '../../domain/model/Identifier.js';
+import type { Motor } from '../../domain/model/Motor.js';
 import { type Modulo, TODOS_LOS_MODULOS } from '../../domain/model/Preferencias.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
@@ -22,6 +23,8 @@ function frecuenciaDesde(fila: Actividad): Frecuencia {
       return { tipo: 'semanal', dias: fila.diasSemana };
     case 'unica':
       return { tipo: 'unica' };
+    case 'rotativa':
+      return { tipo: 'rotativa' };
     case 'diaria':
       return { tipo: 'diaria' };
   }
@@ -97,6 +100,8 @@ export class PrismaActivityRepository implements ActivityRepositoryPort {
       umbrales: (fila.umbrales as Umbrales | null) ?? undefined,
       textosNivel: (fila.textosNivel as TextosNivel | null) ?? undefined,
       frecuencia: frecuenciaDesde(fila),
+      // La base solo admite los nueve (CHECK) y `Activity.create` lo vuelve a comprobar.
+      motor: (fila.motor ?? undefined) as Motor | undefined,
       desdeSesion: fila.desdeSesion,
     });
   }

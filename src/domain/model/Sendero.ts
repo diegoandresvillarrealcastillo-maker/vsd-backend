@@ -147,6 +147,9 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
         return actividad.frecuencia.dias.includes(datos.diaDeLaSemana);
       case 'unica':
         return !hechasAntes.has(actividad.id.value);
+      case 'rotativa':
+        // No toca por frecuencia: la rotacion elige cuales se ofrecen hoy (ADR 0030, punto 7).
+        return false;
     }
   });
   const comoDeHoy = (actividad: Activity): ActividadDeHoy => ({

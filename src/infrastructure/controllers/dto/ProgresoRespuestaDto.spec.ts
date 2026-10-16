@@ -35,6 +35,10 @@ describe('ProgresoRespuestaDto: la frecuencia de cada actividad (SCRUM-92)', () 
     expect(conFrecuencia({ tipo: 'unica' })?.frecuencia).toEqual({ tipo: 'unica' });
   });
 
+  it('una rotativa sale sin dias (ADR 0030)', () => {
+    expect(conFrecuencia({ tipo: 'rotativa' })?.frecuencia).toEqual({ tipo: 'rotativa' });
+  });
+
   it('una semanal lleva sus dias, 1 es lunes', () => {
     expect(conFrecuencia({ tipo: 'semanal', dias: [1, 5] })?.frecuencia).toEqual({
       tipo: 'semanal',

@@ -167,6 +167,28 @@ describe('progresoDelModulo: sin tope y con un minimo sugerido (SCRUM-184)', () 
   });
 });
 
+describe('progresoDelModulo: las rotativas (ADR 0030)', () => {
+  it('una rotativa no toca por su frecuencia: cuales tocan hoy lo decide la rotacion', () => {
+    // La rotacion (hasta 3 por modulo y por dia, por persona) es de SCRUM-205 y necesita
+    // lo que la persona hizo y una clave propia. Hasta entonces ninguna fila es rotativa;
+    // lo que se asegura aqui es que una, si llegara, no se cuele en «lo de hoy» sin ese criterio.
+    const diaria = actividad();
+    const rotativa = actividad({ tipo: 'rotativa' });
+
+    const resultado = progreso([diaria, rotativa]);
+
+    expect(resultado.hoy.map(({ actividad: una }) => una.id.value)).toEqual([diaria.id.value]);
+  });
+
+  it('una rotativa hecha hoy no suma sesiones distintas a las de cualquier otra', () => {
+    const rotativa = actividad({ tipo: 'rotativa' });
+
+    const resultado = progreso([rotativa], [hecho(rotativa, HOY)]);
+
+    expect(resultado.sesiones).toBe(1);
+  });
+});
+
 describe('progresoDelModulo', () => {
   it('una sesion es un dia con algo hecho, no cada actividad', () => {
     // Es el criterio de aceptacion del ticket: hacer otra actividad del mismo

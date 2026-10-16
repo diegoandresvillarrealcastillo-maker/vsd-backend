@@ -1,8 +1,9 @@
 # ADR 0030: Una actividad es una mecánica, y lo que cambia cada día es su sesión
 
-- **Estado:** propuesta (SCRUM-203, `[C7-33]`; punto de mejora de Diego, modelo aprobado por Samuel el
-  15/10/2026; las fichas y las decisiones D-C1 a D-C4 y D-C6 el 15/10/2026). **Para revisar con Diego antes de
-  implementar nada.**
+- **Estado:** aceptada el 15/10/2026 (Diego aprobó y fusionó el PR #115). SCRUM-203, `[C7-33]`; punto de
+  mejora de Diego, modelo aprobado por Samuel el 15/10/2026; las fichas y las decisiones D-C1 a D-C4 y D-C6 el
+  15/10/2026. Se implementa en SCRUM-204 (migración y dominio) y SCRUM-205 (API); lo que quedó distinto de lo
+  propuesto está en [modelo-de-datos.md](../modelo-de-datos.md#sesion_de_actividad).
 - **Fecha:** 2026-10-15
 - **Fichas:** `CATALOGO-FICHAS-DE-MECANICAS.md` (27 mecánicas, 9 motores, reglas R1 a R14).
 - **No cambia nada hoy:** este ADR no trae código ni migración. Lo que dice «se añade» es lo que haría la

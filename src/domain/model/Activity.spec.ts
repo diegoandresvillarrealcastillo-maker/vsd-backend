@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Activity, DireccionEscala } from './Activity.js';
+import { Activity, DireccionEscala, MECANICAS_ROTATIVAS_POR_DIA } from './Activity.js';
 import { InvalidActivityConfigurationError, InvalidScoreRangeError } from './DomainError.js';
 import { ActivityId } from './Identifier.js';
+import { MOTORES, type Motor } from './Motor.js';
 import { NivelOrientativo } from './OrientativeScore.js';
 
 const ID = new ActivityId('33333333-3333-4333-a333-333333333333');
@@ -229,6 +230,39 @@ describe('La frecuencia y la sesion de entrada', () => {
   it.each([0, -1, 1.5])('rechaza aparecer desde la sesion %d', (desdeSesion) => {
     expect(() => Activity.create({ ...BASE, desdeSesion })).toThrow(
       InvalidActivityConfigurationError,
+    );
+  });
+
+  it('acepta una frecuencia rotativa (ADR 0030): no lleva dias ni otros datos', () => {
+    const actividad = Activity.create({ ...BASE, frecuencia: { tipo: 'rotativa' } });
+
+    expect(actividad.frecuencia).toEqual({ tipo: 'rotativa' });
+  });
+
+  it('hasta tres mecanicas rotativas por modulo y por dia', () => {
+    expect(MECANICAS_ROTATIVAS_POR_DIA).toBe(3);
+  });
+});
+
+describe('El motor de la mecanica (ADR 0030)', () => {
+  const BASE = {
+    id: new ActivityId('12121212-1212-4121-8121-121212121212'),
+    nombre: 'Una mecanica',
+    direccionEscala: DireccionEscala.SIN_PUNTAJE,
+  };
+
+  it('las nueve actividades actuales no tienen motor: es el estado hasta la Fase 0', () => {
+    expect(Activity.create(BASE).motor).toBeUndefined();
+  });
+
+  it.each(MOTORES)('guarda el motor %s', (motor) => {
+    expect(Activity.create({ ...BASE, motor }).motor).toBe(motor);
+  });
+
+  it('rechaza un motor que las fichas no conocen en lugar de dejarlo pasar', () => {
+    // El tipo ya lo impide al escribir codigo; esto cubre lo que llega de una fila de la base.
+    expect(() => Activity.create({ ...BASE, motor: 'memoria' as unknown as Motor })).toThrow(
+      /motor/,
     );
   });
 });

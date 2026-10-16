@@ -98,6 +98,21 @@ export class InvalidActivityConfigurationError extends DomainError {
 }
 
 /**
+ * Una sesion de actividad llega con datos que no se pueden usar (ADR 0030).
+ *
+ * Como `InvalidActivityConfigurationError`, existe para fallar al cargar el contenido y no cuando
+ * alguien ya esta haciendo la sesion. Es lo que impide que un texto sin revisar o unos parametros
+ * rotos lleguen a una persona.
+ */
+export class InvalidSessionConfigurationError extends DomainError {
+  readonly code = 'CONFIGURACION_DE_SESION_INVALIDA';
+
+  constructor(titulo: string, motivo: string) {
+    super(`La sesión "${titulo}" ${motivo}.`);
+  }
+}
+
+/**
  * La actividad reportada no existe en el catalogo.
  *
  * Sin la actividad no se puede interpretar el puntaje: no se sabe sobre que

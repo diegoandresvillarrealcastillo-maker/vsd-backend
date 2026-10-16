@@ -21,8 +21,8 @@ export class EtapaDto {
  * declarada despues todavia no existiria en ese momento.
  */
 export class FrecuenciaDto {
-  @ApiProperty({ enum: ['diaria', 'semanal', 'unica'] })
-  tipo!: 'diaria' | 'semanal' | 'unica';
+  @ApiProperty({ enum: ['diaria', 'semanal', 'unica', 'rotativa'] })
+  tipo!: 'diaria' | 'semanal' | 'unica' | 'rotativa';
 
   @ApiPropertyOptional({
     type: [Number],

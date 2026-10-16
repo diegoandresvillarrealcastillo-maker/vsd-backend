@@ -304,16 +304,30 @@ describe('Las lineas de atencion segun el pais de la cuenta', () => {
   it('los resultados que sugieren acompanamiento traen las lineas del pais de la cuenta', async () => {
     await enZona('token-de-B', 'America/Mexico_City').expect(200);
 
-    const respuesta = await request(app.getHttpServer())
-      .post('/api/resultados')
-      .set(...comoUsuario('token-de-B'))
-      .send({
-        activityId: '33333333-3333-4333-a333-333333333333',
-        clientOperationId: '44444444-4444-4444-b444-0000000124a1',
-        score: 1,
-        completedAt: '2026-09-14T11:00:00.000Z',
-      })
-      .expect(201);
+    // Desde SCRUM-200 un puntaje bajo solo acompana con un patron: cuatro dias de una semana.
+    let respuesta: request.Response | undefined;
+
+    for (const [indice, dia] of [
+      '2026-09-10',
+      '2026-09-11',
+      '2026-09-12',
+      '2026-09-13',
+    ].entries()) {
+      respuesta = await request(app.getHttpServer())
+        .post('/api/resultados')
+        .set(...comoUsuario('token-de-B'))
+        .send({
+          activityId: '33333333-3333-4333-a333-333333333333',
+          clientOperationId: `44444444-4444-4444-b444-0000000124b${String(indice)}`,
+          score: 1,
+          completedAt: `${dia}T11:00:00.000Z`,
+        })
+        .expect(201);
+    }
+
+    if (respuesta === undefined) {
+      throw new Error('No se registro ningun resultado');
+    }
 
     expect(titulosDe(respuesta, 'lineasDeAtencion')).toEqual([
       'Línea de la Vida, 800 911 2000',

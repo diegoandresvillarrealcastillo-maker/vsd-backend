@@ -198,6 +198,37 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     return (await casoDeUso.execute(orden)).resultado;
   }
 
+  /** Un identificador de operacion valido y distinto por cada numero. */
+  function operacion(n: number): string {
+    return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  }
+
+  /**
+   * Un resultado que requiere atencion por cada dia, a las 11:00 UTC (las 6:00 en Bogota).
+   * `desde` aparta los identificadores de operacion de los de la orden y de otras siembras.
+   */
+  async function sembrar(
+    dias: readonly string[],
+    desde = 100,
+    usuario: string = USUARIO_A,
+  ): Promise<void> {
+    for (const [indice, dia] of dias.entries()) {
+      await registrar(
+        comando({
+          userId: usuario,
+          clientOperationId: operacion(desde + indice),
+          completedAt: new Date(`${dia}T11:00:00.000Z`),
+          score: 1,
+        }),
+      );
+    }
+  }
+
+  /** Los `previos` dias anteriores a hoy (el 14), cada uno con un resultado que requiere atencion. */
+  async function semanaDificil(previos = 3, usuario: string = USUARIO_A): Promise<void> {
+    await sembrar(['2026-09-13', '2026-09-12', '2026-09-11'].slice(0, previos), 100, usuario);
+  }
+
   beforeEach(() => {
     repositorio = new RepositorioFalso();
     recursos = new RecursosFalsos();
@@ -217,15 +248,20 @@ describe('RegisterActivityResultUseCaseImpl', () => {
       expect(lineasDeAtencion).toEqual([]);
     });
 
-    it('acompanan a un resultado cuyo nivel requiere atencion, ordenadas por alcance', async () => {
-      const { resultado, lineasDeAtencion } = await casoDeUso.execute(comando({ score: 1 }));
+    it('acompanan a un resultado que requiere atencion cuando hay un patron de la semana, ordenadas por alcance', async () => {
+      await semanaDificil();
 
-      expect(resultado.sugiereAcompanamiento()).toBe(true);
-      expect(lineasDeAtencion.map((linea) => linea.id)).toEqual(['linea-192', 'linea-106']);
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.sugiereAcompanamiento).toBe(true);
+      expect(registro.lineasDeAtencion.map((linea) => linea.id)).toEqual([
+        'linea-192',
+        'linea-106',
+      ]);
     });
 
     it('acompanan a lo escrito con una senal de riesgo, aunque la actividad no puntue', async () => {
-      const { resultado, lineasDeAtencion } = await casoDeUso.execute(
+      const { resultado, lineasDeAtencion, sugiereAcompanamiento } = await casoDeUso.execute(
         comando({
           activityId: SIN_PUNTAJE,
           score: undefined,
@@ -234,6 +270,7 @@ describe('RegisterActivityResultUseCaseImpl', () => {
       );
 
       expect(resultado.tienePuntaje()).toBe(false);
+      expect(sugiereAcompanamiento).toBe(true);
       expect(lineasDeAtencion).toHaveLength(2);
     });
 
@@ -245,6 +282,8 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     ])(
       'se piden con el pais de la zona de la cuenta: %s es %s (SCRUM-124)',
       async (zonaHoraria, pais) => {
+        await semanaDificil();
+
         await casoDeUso.execute(comando({ score: 1, zonaHoraria }));
 
         expect(recursos.paises).toEqual([pais]);
@@ -252,6 +291,8 @@ describe('RegisterActivityResultUseCaseImpl', () => {
     );
 
     it('una zona sin pais con lineas verificadas las pide sin pais, y nunca como Colombia', async () => {
+      await semanaDificil();
+
       // Lima comparte hora con Bogota. Pedirlas como Colombia le daria el 192.
       await casoDeUso.execute(comando({ score: 1, zonaHoraria: 'America/Lima' }));
 
@@ -276,6 +317,145 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
       expect(repositorio.cantidad).toBe(1);
       expect(lineasDeAtencion).toHaveLength(2);
+    });
+  });
+
+  describe('el patron de la semana: 4 de 7 dias (SCRUM-200)', () => {
+    it('un solo resultado que requiere atencion se registra, pero no acompana ni trae lineas', async () => {
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.resultado.score?.level).toBe('requiere_atencion');
+      expect(registro.sugiereAcompanamiento).toBe(false);
+      expect(registro.lineasDeAtencion).toEqual([]);
+      // Ni siquiera se piden: sin acompanamiento no hay consulta de lineas.
+      expect(recursos.paises).toEqual([]);
+    });
+
+    it.each([0, 1, 2])(
+      '%i dias con atencion antes de hoy y hoy: no llegan a 4 de 7',
+      async (previos) => {
+        await semanaDificil(previos);
+
+        const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+        expect(registro.sugiereAcompanamiento).toBe(false);
+        expect(registro.lineasDeAtencion).toEqual([]);
+      },
+    );
+
+    it('3 dias previos con atencion y hoy otro: son 4 de 7 y acompana', async () => {
+      await semanaDificil(3);
+
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.sugiereAcompanamiento).toBe(true);
+      expect(registro.lineasDeAtencion).toHaveLength(2);
+    });
+
+    it('un buen resultado de hoy no trae lineas aunque la semana haya sido dificil', async () => {
+      await semanaDificil(5);
+
+      const registro = await casoDeUso.execute(comando({ score: 9 }));
+
+      expect(registro.resultado.score?.level).toBe('favorable');
+      expect(registro.sugiereAcompanamiento).toBe(false);
+      expect(registro.lineasDeAtencion).toEqual([]);
+    });
+
+    it('varios resultados que requieren atencion el mismo dia cuentan como un dia', async () => {
+      // Tres resultados el dia 13 y ninguno mas: son 2 dias con hoy, no 4.
+      for (const n of [1, 2, 3]) {
+        await registrar(
+          comando({
+            clientOperationId: operacion(n),
+            completedAt: new Date(`2026-09-13T1${String(n)}:00:00.000Z`),
+            score: 1,
+          }),
+        );
+      }
+
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.sugiereAcompanamiento).toBe(false);
+    });
+
+    it('lo de hace 7 dias o mas ya no cuenta: la ventana son los 7 dias que terminan hoy', async () => {
+      // Hoy es el 14. El 8 es hoy menos 6 (cuenta); el 7 es hoy menos 7 (no cuenta).
+      await sembrar(['2026-09-13', '2026-09-12', '2026-09-07']);
+
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.sugiereAcompanamiento).toBe(false);
+
+      await sembrar(['2026-09-08'], 10);
+
+      const otroRegistro = await casoDeUso.execute(
+        comando({ clientOperationId: operacion(99), score: 1 }),
+      );
+
+      expect(otroRegistro.sugiereAcompanamiento).toBe(true);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await semanaDificil(3, USUARIO_B);
+
+      const registro = await casoDeUso.execute(comando({ score: 1 }));
+
+      expect(registro.sugiereAcompanamiento).toBe(false);
+    });
+
+    it('lo escrito con una senal de riesgo no espera a ninguna semana', async () => {
+      const registro = await casoDeUso.execute(
+        comando({
+          activityId: SIN_PUNTAJE,
+          score: undefined,
+          metadata: { texto: 'quiero morirme' },
+        }),
+      );
+
+      expect(registro.sugiereAcompanamiento).toBe(true);
+      expect(registro.lineasDeAtencion).toHaveLength(2);
+    });
+
+    it('una actividad que no puntua no es un dia con atencion ni dispara el patron', async () => {
+      await semanaDificil(3);
+
+      const registro = await casoDeUso.execute(
+        comando({ activityId: SIN_PUNTAJE, score: undefined, metadata: { texto: 'hoy caminé' } }),
+      );
+
+      expect(registro.sugiereAcompanamiento).toBe(false);
+    });
+
+    it('un reintento ve lo mismo aunque despues se hayan registrado mas dias', async () => {
+      // Un resultado hecho el 10: la semana que le toca es del 4 al 10.
+      await sembrar(['2026-09-09', '2026-09-08']);
+      const orden = comando({ completedAt: new Date('2026-09-10T11:00:00.000Z'), score: 1 });
+
+      const primero = await casoDeUso.execute(orden);
+
+      // Tres dias dificiles que llegan despues, todos posteriores al de la orden. Medido contra
+      // hoy (el 14) serian 4 de 7 y cambiarian lo que ve quien reintenta.
+      await sembrar(['2026-09-11', '2026-09-12', '2026-09-13'], 30);
+      const reintento = await casoDeUso.execute(orden);
+
+      expect(primero.sugiereAcompanamiento).toBe(false);
+      expect(reintento.sugiereAcompanamiento).toBe(false);
+    });
+
+    it('un resultado hecho sin conexion se mide contra su propio dia, no contra hoy', async () => {
+      // Hecho el 10 y recibido el 14: la semana que importa es la del 4 al 10.
+      await sembrar(['2026-09-09', '2026-09-08', '2026-09-07']);
+
+      const registro = await casoDeUso.execute(
+        comando({
+          clientOperationId: operacion(77),
+          completedAt: new Date('2026-09-10T11:00:00.000Z'),
+          score: 1,
+        }),
+      );
+
+      expect(registro.sugiereAcompanamiento).toBe(true);
     });
   });
 

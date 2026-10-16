@@ -357,6 +357,14 @@ acompanamiento esa misma vez, tenga puntaje o no. Pensado para el texto libre
 de «Un momento bueno del dia», pero cubre cualquier campo de texto futuro sin
 tener que acordarse de anadirlo.
 
+**Un solo resultado que requiere atencion no basta (SCRUM-200, ADR 0029).** Se
+registra con su nivel, pero no sugiere acompanamiento: lo que se mira es la
+semana. Hay **patron** cuando, en los 7 dias que terminan en el dia del
+resultado, al menos 4 dias distintos tienen un resultado que requiere atencion
+(`hayPatronEnLaSemana`). Solo entonces, y si el resultado de ahora tambien
+requiere atencion, la respuesta sugiere acompanamiento. La senal de riesgo en lo
+escrito **no espera** una semana.
+
 Cuando un resultado sugiere acompanamiento, `POST /api/resultados` devuelve en
 la misma respuesta las lineas de atencion, ordenadas por alcance. Quien recibe
 la senal recibe tambien los telefonos, sin depender de una segunda peticion que

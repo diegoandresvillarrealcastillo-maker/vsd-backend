@@ -143,22 +143,25 @@ export class ActivityResult {
   }
 
   /**
-   * Indica si conviene acompanar el resultado con recursos de apoyo
-   * profesional.
+   * Indica si **este resultado, por si solo**, sugiere acompanarlo con recursos de apoyo.
+   *
+   * ## Ojo: no es lo que decide si se acompana (SCRUM-200)
+   *
+   * Es una propiedad del resultado, no la decision. Un nivel que requiere atencion en **un**
+   * resultado ya no basta para ensenar el apoyo: lo decide el caso de uso, mirando la semana
+   * (`PatronDeLaSemana`). Por eso el nombre dice "por si solo": quien lo llame esperando la
+   * decision se equivoca, y el nombre anterior lo permitia.
    *
    * Dos caminos, y basta con uno:
    * - **Una senal de riesgo en lo escrito.** No espera a ninguna tendencia: si
    *   alguien escribe algo preocupante en "Un momento bueno del dia", las
    *   lineas de atencion aparecen esa misma vez, como en el asistente.
    * - **El puntaje**, que delega en el nivel: la regla vive donde vive el
-   *   nivel.
+   *   nivel. Este camino es el que ahora necesita un patron.
    *
    * Fuera de eso, un resultado sin puntaje no sugiere nada por si mismo.
-   * Anotar que hoy te moviste cobra sentido en la tendencia y no en una
-   * anotacion suelta, y hacer que un registro aislado dispare una sugerencia
-   * seria leer de mas.
    */
-  sugiereAcompanamiento(): boolean {
+  sugiereAcompanamientoPorSiSolo(): boolean {
     return this.contieneSenalDeRiesgo() || (this.score?.sugiereAcompanamiento() ?? false);
   }
 }

@@ -152,12 +152,37 @@ describe('POST /api/resultados', () => {
     expect(respuesta.body).not.toHaveProperty('userId');
   });
 
-  it('sugiere acompanamiento cuando el puntaje es bajo, y trae las lineas de atencion', async () => {
+  it('un solo puntaje bajo se registra con su nivel, pero no sugiere acompanamiento ni trae lineas (SCRUM-200)', async () => {
     const respuesta = await registrarComo(app, A).send(cuerpo({ score: 2 }));
-    const lineas = (respuesta.body as { lineasDeAtencion: { tipo: string; cobertura?: string }[] })
-      .lineasDeAtencion;
 
     expect(respuesta.body).toMatchObject({
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: false,
+      lineasDeAtencion: [],
+    });
+  });
+
+  it('sugiere acompanamiento con un patron de la semana (4 de 7 dias) y trae las lineas de atencion', async () => {
+    // Cuatro dias distintos, todos con un puntaje bajo, de una misma semana: del 5 al 8.
+    const dias = ['2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08'];
+    const respuestas = [];
+
+    for (const dia of dias) {
+      respuestas.push(
+        await registrarComo(app, A).send(cuerpo({ score: 2, completedAt: `${dia}T11:00:00.000Z` })),
+      );
+    }
+
+    // Los tres primeros son 1, 2 y 3 dias: no hay patron todavia.
+    expect(
+      respuestas.slice(0, 3).map((respuesta) => respuestaDe(respuesta).sugiereAcompanamiento),
+    ).toEqual([false, false, false]);
+
+    const cuarta = respuestas[3];
+    const lineas = (cuarta?.body as { lineasDeAtencion: { tipo: string; cobertura?: string }[] })
+      .lineasDeAtencion;
+
+    expect(cuarta?.body).toMatchObject({
       nivelOrientativo: 'requiere_atencion',
       sugiereAcompanamiento: true,
     });

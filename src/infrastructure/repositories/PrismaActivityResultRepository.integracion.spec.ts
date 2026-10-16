@@ -264,7 +264,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     );
 
     expect(recuperado?.score).toBeUndefined();
-    expect(recuperado?.sugiereAcompanamiento()).toBe(false);
+    expect(recuperado?.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 
   it('la base rechaza el duplicado, no la aplicacion', async () => {
@@ -371,7 +371,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     );
 
     expect(recuperado?.score?.level).toBe('requiere_atencion');
-    expect(recuperado?.sugiereAcompanamiento()).toBe(true);
+    expect(recuperado?.sugiereAcompanamientoPorSiSolo()).toBe(true);
   });
 
   it('el nivel se recalcula al leer, no se toma de la columna', async () => {

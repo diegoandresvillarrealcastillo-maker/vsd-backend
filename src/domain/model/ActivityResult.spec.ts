@@ -87,8 +87,8 @@ describe('ActivityResult', () => {
       AHORA,
     );
 
-    expect(bajo.sugiereAcompanamiento()).toBe(true);
-    expect(alto.sugiereAcompanamiento()).toBe(false);
+    expect(bajo.sugiereAcompanamientoPorSiSolo()).toBe(true);
+    expect(alto.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 });
 
@@ -129,7 +129,7 @@ describe('ActivityResult sin puntaje', () => {
     // tendencia, no en una anotacion suelta.
     const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);
 
-    expect(resultado.sugiereAcompanamiento()).toBe(false);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 });
 
@@ -144,7 +144,7 @@ describe('ActivityResult y lo que la persona escribio (SCRUM-94)', () => {
     );
 
     expect(resultado.contieneSenalDeRiesgo()).toBe(true);
-    expect(resultado.sugiereAcompanamiento()).toBe(true);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(true);
   });
 
   it('busca en cualquier campo de texto y a cualquier profundidad', () => {
@@ -166,7 +166,7 @@ describe('ActivityResult y lo que la persona escribio (SCRUM-94)', () => {
     );
 
     expect(resultado.contieneSenalDeRiesgo()).toBe(false);
-    expect(resultado.sugiereAcompanamiento()).toBe(false);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 
   it('los numeros y las claves no cuentan como texto escrito', () => {

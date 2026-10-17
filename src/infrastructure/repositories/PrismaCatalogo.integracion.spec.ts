@@ -55,6 +55,7 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
     expect(cognicion?.actividades.map((a) => a.nombre)).toEqual([
       'Encuentra la diferencia',
       'Parejas de cartas',
+      'Recuerda los colores',
       'Secuencia de números',
     ]);
   });
@@ -143,20 +144,21 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
       expect(diaria?.frecuencia).toEqual({ tipo: 'diaria' });
     });
 
-    it('las nueve actividades del catalogo llegan; solo las cinco de la Fase 0 traen motor', async () => {
+    it('las doce actividades del catalogo llegan: cinco de la Fase 0 y tres del piloto traen motor', async () => {
       const catalogo = await repositorio.listarCatalogo();
       // Solo las sembradas por la migracion, que llevan este prefijo: otras suites comparten la
       // base y pueden dejar actividades suyas (CatalogoSembrado hace lo mismo).
-      const nueve = catalogo
+      const doce = catalogo
         .flatMap((categoria) => categoria.actividades)
         .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
 
-      expect(nueve).toHaveLength(9);
+      expect(doce).toHaveLength(12);
       // Los identificadores de la migracion del catalogo inicial: 2 secuencia, 3 diferencia, 5 carga,
-      // 7 como te sientes y 9 momento bueno. Las otras cuatro son pantallas propias.
+      // 7 como te sientes y 9 momento bueno. Las otras cuatro son pantallas propias. Las tres del
+      // piloto (SCRUM-212) son a «Recuerda los colores», b «Respiracion guiada» y c «Tres cosas buenas».
       expect(
         Object.fromEntries(
-          nueve.map((actividad) => [actividad.id.value.slice(-1), actividad.motor ?? null]),
+          doce.map((actividad) => [actividad.id.value.slice(-1), actividad.motor ?? null]),
         ),
       ).toEqual({
         '1': null,
@@ -168,7 +170,23 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
         '7': 'cuestionario_corto',
         '8': null,
         '9': 'escritura_breve',
+        a: 'secuencia',
+        b: 'guia_paso_a_paso',
+        c: 'escritura_breve',
       });
+    });
+
+    it('solo las tres del piloto son rotativas: las nueve de siempre conservan su frecuencia', async () => {
+      const catalogo = await repositorio.listarCatalogo();
+      const doce = catalogo
+        .flatMap((categoria) => categoria.actividades)
+        .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
+      const rotativas = doce
+        .filter((actividad) => actividad.frecuencia.tipo === 'rotativa')
+        .map((actividad) => actividad.id.value.slice(-1))
+        .sort();
+
+      expect(rotativas).toEqual(['a', 'b', 'c']);
     });
   });
 

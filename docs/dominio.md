@@ -88,7 +88,7 @@ Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **s
 `Activity` lo preparan:
 
 - `motor` (opcional): uno de los nueve de `Motor.ts`, de M1 a M9 de las fichas. Dice que componente pinta
-  la mecanica. De las nueve actuales lo tienen cinco desde la Fase 0 (SCRUM-207); las otras cuatro son pantallas propias y no. `Activity.create` rechaza un
+  la mecanica. De las nueve actuales lo tienen cinco desde la Fase 0 (SCRUM-207); las otras cuatro son pantallas propias y no. Las tres del piloto (SCRUM-212) nacen con motor. `Activity.create` rechaza un
   valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
 - `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
   rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia (ver "El sendero de cada
@@ -137,14 +137,15 @@ Los cinco que ya tienen contrato (los rangos son enteros e inclusivos):
 - **`secuencia`.** `casillas` (2 a 12: `clave` y `nombre` unicos, `forma` y `color` opcionales; **un `color`
   exige `forma`**, porque el color nunca es la unica pista), `largoInicial` (1 a 10), `rondas` (1 a 50),
   `msPorElemento` (200 a 5000), `msDeMargen` (0 a 10000) y, solo para el juego de casillas que destellan,
-  `msDestello` (**600 a 5000**, baranda de accesibilidad R10). La secuencia de numeros no lo usa: muestra todos
-  los digitos a la vez durante `largo x msPorElemento + msDeMargen`.
+  `msDestello` (**600 a 5000**, baranda de accesibilidad R10, y **no mayor que `msPorElemento`**: el destello
+  tiene que caber en el turno de la casilla; la pausa es la diferencia). La secuencia de numeros no lo usa:
+  muestra todos los digitos a la vez durante `largo x msPorElemento + msDeMargen`.
 - **`tocar_el_objetivo`.** `rondas` (1 a 60), `segundosPorRonda` (3 a 120, o `null` si no hay tiempo) y `lados`
   (1 a 6 tamanos de cuadricula de 2 a 8, de menor a mayor y sin repetir). Las rondas se reparten en tramos
   iguales entre los lados, asi que no puede haber menos rondas que lados.
 - **`escritura_breve`.** `invitacion` (hasta 200), `campos` (1 a 5) y `largoMaximo` (50 a 1000); opcionales
-  `ideas` (0 a 10 textos de hasta 80, sin repetir), `minimo` (0 hasta `campos`; con «una basta», 1) y
-  `permiteNingunaHoy`.
+  `ideas` (0 a 10 textos de hasta 80, sin repetir), `minimo` (**1 hasta `campos`**; con «una basta», 1: un dia sin
+  nada lo registra `permiteNingunaHoy`, no un `minimo` de 0) y `permiteNingunaHoy`.
 - **`guia_paso_a_paso`.** `advertenciaInicial` (hasta 300; **obligatoria**, va a la vista antes de empezar),
   `patron` (`inhalaSegundos` 3 a 8, `exhalaSegundos` 3 a 10 y `pausaSegundos` 0 a 4) y `duracionSegundos`
   (60 a 600); opcionales `ambientacion` (hasta 40), `frases` (0 a 40 de hasta 120, sin repetir) y `haptico`.
@@ -1011,8 +1012,9 @@ que se retiro por eso mismo.
 ## Lo que todavia no existe
 
 - **Contenido nuevo.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, y
-  desde la Fase 0 (SCRUM-207) cinco de las nueve actividades actuales tienen su sesion. Ninguna mecanica es
-  `rotativa` todavia: el contenido nuevo llega con el piloto, ya revisado.
+  desde la Fase 0 (SCRUM-207) cinco de las nueve actividades actuales tienen su sesion. Con el piloto (SCRUM-212)
+  hay tres mecanicas `rotativa` (Recuerda los colores, Respiracion guiada y Tres cosas buenas) con diez sesiones,
+  **ninguna publicada**: las de BIE-01 y EMO-02 esperan a quien las revise, y publicar es un paso aparte.
 - **La forma de `parametros` de los otros cuatro motores** (`ver_ocultar_recordar`, `clasificar`, `palabras` y
   `calculo`). Se fija con el ticket que construye cada uno; hasta entonces aceptan cualquier objeto.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`

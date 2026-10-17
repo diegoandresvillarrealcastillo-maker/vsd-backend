@@ -48,6 +48,9 @@ const ACTIVIDADES = [
   'Un momento bueno del día',
 ];
 
+/** Las tres mecanicas del piloto (SCRUM-212, ADR 0030), sembradas despues, con sus sesiones sin publicar. */
+const DEL_PILOTO = ['Recuerda los colores', 'Respiración guiada', 'Tres cosas buenas'];
+
 /**
  * Palabras que en castellano solo existen con tilde.
  *
@@ -116,17 +119,17 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     }
   });
 
-  it('las nueve actividades estan sembradas, y solo esas', () => {
+  it('las nueve de siempre y las tres del piloto estan sembradas, y solo esas', () => {
     const nombres = filas.map((fila) => fila.nombre);
 
-    for (const actividad of ACTIVIDADES) {
+    for (const actividad of [...ACTIVIDADES, ...DEL_PILOTO]) {
       expect(nombres).toContain(actividad);
     }
 
-    // Que sean exactamente nueve importa tanto como que esten: una fila de mas
-    // con este prefijo significaria que alguien sembro algo fuera de la
+    // Que sean exactamente esas doce importa tanto como que esten: una fila de
+    // mas con este prefijo significaria que alguien sembro algo fuera de la
     // migracion, y entonces los ambientes ya no coinciden.
-    expect(filas).toHaveLength(ACTIVIDADES.length);
+    expect(filas).toHaveLength(ACTIVIDADES.length + DEL_PILOTO.length);
   });
 
   it('cada actividad se puede construir en el dominio', () => {
@@ -268,13 +271,24 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     ]);
   });
 
-  it('las actividades sembradas son diarias y estan abiertas desde la primera sesion', async () => {
+  it('las nueve de siempre son diarias y estan abiertas desde la primera sesion', async () => {
+    // Las nueve llevan 1 a 9 al final del identificador; las del piloto, a, b y c.
     const frecuencias = await prisma.$queryRaw<{ frecuencia: string; desde_sesion: number }[]>`
       SELECT DISTINCT a."frecuencia"::text AS frecuencia, a."desde_sesion"
         FROM "actividad" a
-       WHERE a."id_actividad"::text LIKE '0acd0000-0000-4000-8000-%'
+       WHERE a."id_actividad"::text ~ '^0acd0000-0000-4000-8000-00000000000[1-9]$'
     `;
 
     expect(frecuencias).toEqual([{ frecuencia: 'diaria', desde_sesion: 1 }]);
+  });
+
+  it('las tres del piloto son rotativas y estan abiertas desde la primera sesion', async () => {
+    const frecuencias = await prisma.$queryRaw<{ frecuencia: string; desde_sesion: number }[]>`
+      SELECT DISTINCT a."frecuencia"::text AS frecuencia, a."desde_sesion"
+        FROM "actividad" a
+       WHERE a."id_actividad"::text ~ '^0acd0000-0000-4000-8000-00000000000[a-c]$'
+    `;
+
+    expect(frecuencias).toEqual([{ frecuencia: 'rotativa', desde_sesion: 1 }]);
   });
 });

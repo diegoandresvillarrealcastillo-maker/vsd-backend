@@ -515,13 +515,35 @@ describe('secuencia', () => {
       }),
       'msDestello',
     ],
+    [
+      'con un destello de 1 ms mas que el turno de la casilla (701 de 700)',
+      con(secuenciaDeColores(), (c) => {
+        c['msDestello'] = 701;
+      }),
+      'msDestello',
+    ],
+    [
+      'con un destello que no cabe en el turno (1100 ms de destello, 1000 de turno)',
+      con(secuenciaDeColores(), (c) => {
+        c['msPorElemento'] = 1000;
+        c['msDestello'] = 1100;
+      }),
+      'msDestello',
+    ],
+    [
+      'con un turno por debajo del destello minimo (500 ms de turno, 600 de destello)',
+      con(secuenciaDeColores(), (c) => {
+        c['msPorElemento'] = 500;
+        c['msDestello'] = 600;
+      }),
+      'msDestello',
+    ],
   ])('rechaza %s', (_caso, parametros, nombra) => {
     rechazaCon(M, parametros, nombra);
   });
 
   it.each([
     ['un destello de exactamente 600 ms', 'msDestello', 600],
-    ['msPorElemento de exactamente 200', 'msPorElemento', 200],
     ['msPorElemento de exactamente 5000', 'msPorElemento', 5000],
     ['msDeMargen de 0', 'msDeMargen', 0],
     ['msDeMargen de exactamente 10000', 'msDeMargen', 10000],
@@ -535,6 +557,48 @@ describe('secuencia', () => {
     });
 
     expect(problemaDeLosParametros(M, parametros)).toBeUndefined();
+  });
+
+  it('acepta un destello igual al turno de la casilla: no queda pausa entre una y otra', () => {
+    const parametros = con(secuenciaDeColores(), (c) => {
+      c['msPorElemento'] = 1000;
+      c['msDestello'] = 1000;
+    });
+
+    expect(problemaDeLosParametros(M, parametros)).toBeUndefined();
+  });
+
+  it('acepta la sesion lenta del piloto: 1100 ms iluminada y 600 ms de pausa', () => {
+    const parametros = con(secuenciaDeColores(), (c) => {
+      c['msPorElemento'] = 1700;
+      c['msDestello'] = 1100;
+    });
+
+    expect(problemaDeLosParametros(M, parametros)).toBeUndefined();
+  });
+
+  it('sin destello, el turno puede ser tan corto como 200 ms (la secuencia de numeros)', () => {
+    const parametros = con(secuenciaDeNumeros(), (c) => {
+      c['msPorElemento'] = 200;
+    });
+
+    expect(problemaDeLosParametros(M, parametros)).toBeUndefined();
+  });
+
+  it('el mensaje del destello que no cabe dice cuanto era cada uno', () => {
+    const problema = problemaDeLosParametros(
+      M,
+      con(secuenciaDeColores(), (c) => {
+        c['msPorElemento'] = 1000;
+        c['msDestello'] = 1100;
+      }),
+    );
+
+    expect(problema).toContain('1100');
+    expect(problema).toContain('1000');
+    expect(problema).toContain('msPorElemento');
+    expect(problema).not.toMatch(/\.$/u);
+    expect(problema).not.toContain('\n');
   });
 
   it.each([
@@ -771,6 +835,22 @@ describe('escritura_breve', () => {
       'minimo',
     ],
     [
+      'con minimo 0: la pantalla pide al menos una respuesta (para un dia sin nada esta «hoy no me sale ninguna»)',
+      con(momentoBueno(), (c) => {
+        c['campos'] = 3;
+        c['minimo'] = 0;
+      }),
+      'minimo',
+    ],
+    [
+      'con minimo decimal',
+      con(momentoBueno(), (c) => {
+        c['campos'] = 3;
+        c['minimo'] = 1.5;
+      }),
+      'minimo',
+    ],
+    [
       'con permiteNingunaHoy como texto',
       con(momentoBueno(), (c) => {
         c['permiteNingunaHoy'] = 'si';
@@ -819,7 +899,8 @@ describe('escritura_breve', () => {
   it.each([
     ['campos 5', { campos: 5 }],
     ['campos 3 con minimo 3', { campos: 3, minimo: 3 }],
-    ['minimo 0', { minimo: 0 }],
+    ['campos 5 con minimo 5', { campos: 5, minimo: 5 }],
+    ['campos 3 con una basta (minimo 1)', { campos: 3, minimo: 1 }],
     ['largoMaximo 50', { largoMaximo: 50 }],
     ['largoMaximo 1000', { largoMaximo: 1000 }],
     ['una invitacion de exactamente 200 caracteres', { invitacion: 'a'.repeat(200) }],

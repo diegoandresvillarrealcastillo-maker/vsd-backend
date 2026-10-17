@@ -8,6 +8,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivityId, UserId } from '../../domain/model/Identifier.js';
 import { Motor } from '../../domain/model/Motor.js';
+import { problemaDeLosParametros } from '../../domain/model/ParametrosDelMotor.js';
 import { problemasDeContenido } from '../../pruebas/contenidoDeSesiones.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -82,6 +83,122 @@ const SIN_MOTOR = [
   '0acd0000-0000-4000-8000-000000000008', // Qué te está pesando
 ];
 
+/**
+ * El piloto (SCRUM-212, ADR 0030): tres mecanicas nuevas, rotativas, con sus diez sesiones. COG-01 no
+ * pide revision; BIE-01 y EMO-02 si, y esperan a quien las revise (`[C7-43]`).
+ */
+const DEL_PILOTO = [
+  {
+    id: '0acd0000-0000-4000-8000-00000000000a',
+    nombre: 'Recuerda los colores',
+    categoria: 'Cognición',
+    tipo: 'juego',
+    motor: Motor.SECUENCIA,
+    maximo: 12,
+    revision: 'no_requiere',
+  },
+  {
+    id: '0acd0000-0000-4000-8000-00000000000b',
+    nombre: 'Respiración guiada',
+    categoria: 'Bienestar',
+    tipo: 'bitacora',
+    motor: Motor.GUIA_PASO_A_PASO,
+    maximo: null,
+    revision: 'pendiente',
+  },
+  {
+    id: '0acd0000-0000-4000-8000-00000000000c',
+    nombre: 'Tres cosas buenas',
+    categoria: 'Emociones',
+    tipo: 'bitacora',
+    motor: Motor.ESCRITURA_BREVE,
+    maximo: null,
+    revision: 'pendiente',
+  },
+] as const;
+
+const [COLORES, RESPIRACION, TRES_COSAS] = DEL_PILOTO;
+
+/** Las diez sesiones, en el orden de la hoja de aprobacion del plan (COG-01, BIE-01, EMO-02). */
+const SESIONES_DEL_PILOTO = [
+  {
+    id: '5e510001-0000-4000-8000-000000000001',
+    actividad: COLORES,
+    titulo: 'Cuatro colores',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000002',
+    actividad: COLORES,
+    titulo: 'Seis colores',
+    nivel: 2,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000003',
+    actividad: COLORES,
+    titulo: 'Nueve colores',
+    nivel: 3,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000004',
+    actividad: COLORES,
+    titulo: 'Cuatro colores, con calma',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000005',
+    actividad: RESPIRACION,
+    titulo: 'Inhalar 4, exhalar 6',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000006',
+    actividad: RESPIRACION,
+    titulo: 'Cinco y cinco',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000007',
+    actividad: RESPIRACION,
+    titulo: 'Cuatro y cuatro, con pausa',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000008',
+    actividad: TRES_COSAS,
+    titulo: 'Algo que probaste',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000009',
+    actividad: TRES_COSAS,
+    titulo: 'Alguien que…',
+    nivel: 1,
+  },
+  {
+    id: '5e510001-0000-4000-8000-000000000010',
+    actividad: TRES_COSAS,
+    titulo: 'Un lugar',
+    nivel: 1,
+  },
+] as const;
+
+/** Las nueve casillas del piloto, en orden: cada sesion usa las primeras. Las formas y los colores son los que dibuja el frontend. */
+const CASILLAS_DEL_PILOTO = [
+  { nombre: 'círculo verde', forma: 'circulo', color: 'verde' },
+  { nombre: 'cuadrado azul', forma: 'cuadrado', color: 'azul' },
+  { nombre: 'triángulo ámbar', forma: 'triangulo', color: 'ambar' },
+  { nombre: 'rombo violeta', forma: 'rombo', color: 'violeta' },
+  { nombre: 'estrella rosa', forma: 'estrella', color: 'rosa' },
+  { nombre: 'hoja turquesa', forma: 'hoja', color: 'turquesa' },
+  { nombre: 'gota gris', forma: 'gota', color: 'gris' },
+  { nombre: 'luna naranja', forma: 'luna', color: 'naranja' },
+  { nombre: 'nube marrón', forma: 'nube', color: 'marron' },
+] as const;
+
+const ADVERTENCIA_DE_LA_RESPIRACION =
+  'Si te mareas o te incomoda, suelta el patrón y respira como siempre. Puedes parar cuando quieras.';
+
 const HOY = '2026-10-19';
 
 function urlDeLaAplicacion(url: string): string {
@@ -91,6 +208,16 @@ function urlDeLaAplicacion(url: string): string {
   partes.password = CLAVE_LOCAL;
 
   return partes.toString();
+}
+
+/** El SQL de la migracion del piloto, leido tal cual esta en el repositorio. */
+function migracionDelPiloto(): string {
+  const carpeta = join(process.cwd(), 'prisma', 'migrations');
+  const nombres = readdirSync(carpeta).filter((nombre) => nombre.includes('piloto'));
+
+  expect(nombres, 'la migracion del piloto').toHaveLength(1);
+
+  return readFileSync(join(carpeta, nombres[0] as string, 'migration.sql'), 'utf8');
 }
 
 /** El SQL de la migracion de la Fase 0, leido tal cual esta en el repositorio. */
@@ -274,6 +401,309 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       const foto = async () => ({
         actividades: await actividades(ids),
         sesiones: await sesionesDe(ids),
+      });
+
+      await dueno.query('BEGIN');
+
+      try {
+        const antes = await foto();
+
+        await dueno.query(sql);
+        await dueno.query(sql);
+
+        expect(await foto()).toEqual(antes);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+  });
+
+  describe('el piloto: tres mecanicas nuevas y diez sesiones sin publicar', () => {
+    const idsDeLasActividades = DEL_PILOTO.map((actividad) => actividad.id);
+
+    interface FichaDeActividad {
+      readonly id: string;
+      readonly nombre: string;
+      readonly categoria: string;
+      readonly tipo: string;
+      readonly motor: string | null;
+      readonly frecuencia: string;
+      readonly estado: boolean;
+      readonly desdeSesion: number;
+      readonly direccion: string;
+      readonly maximo: number | null;
+      readonly umbrales: Record<string, number> | null;
+      readonly textosNivel: Record<string, string> | null;
+      readonly descripcion: string;
+    }
+
+    async function fichas(): Promise<FichaDeActividad[]> {
+      const { rows } = await dueno.query<FichaDeActividad>(
+        `SELECT a.id_actividad::text AS id, a.nombre, c.nombre AS categoria, a.tipo, a.motor,
+                a.frecuencia::text AS frecuencia, a.estado, a.desde_sesion::int AS "desdeSesion",
+                a.direccion_escala::text AS direccion, a.puntaje_maximo::float8 AS maximo,
+                a.umbrales, a.textos_nivel AS "textosNivel", a.descripcion
+         FROM actividad a JOIN categoria c ON c.id_categoria = a.id_categoria
+         WHERE a.id_actividad = ANY($1::uuid[]) ORDER BY a.id_actividad`,
+        [idsDeLasActividades],
+      );
+
+      return rows;
+    }
+
+    it('las tres mecanicas existen, en su categoria, con su motor y rotativas', async () => {
+      const filas = await fichas();
+
+      expect(
+        filas.map((fila) => ({
+          id: fila.id,
+          nombre: fila.nombre,
+          categoria: fila.categoria,
+          tipo: fila.tipo,
+          motor: fila.motor,
+          frecuencia: fila.frecuencia,
+          estado: fila.estado,
+          desdeSesion: fila.desdeSesion,
+        })),
+      ).toEqual(
+        DEL_PILOTO.map((esperada) => ({
+          id: esperada.id,
+          nombre: esperada.nombre,
+          categoria: esperada.categoria,
+          tipo: esperada.tipo,
+          motor: esperada.motor,
+          frecuencia: 'rotativa',
+          estado: true,
+          desdeSesion: 1,
+        })),
+      );
+    });
+
+    it('«Recuerda los colores» puntua como un juego, y las otras dos no puntuan', async () => {
+      const [juego, ...bitacoras] = await fichas();
+
+      expect(juego?.direccion).toBe('mayor_es_mejor');
+      expect(juego?.maximo).toBe(12);
+      expect(Object.keys(juego?.umbrales ?? {}).sort()).toEqual(['primero', 'segundo']);
+      expect(juego?.umbrales?.['primero']).toBeGreaterThan(0);
+      expect(juego?.umbrales?.['segundo']).toBeGreaterThan(juego?.umbrales?.['primero'] ?? 1);
+      expect(juego?.umbrales?.['segundo']).toBeLessThan(1);
+      expect(Object.keys(juego?.textosNivel ?? {}).sort()).toEqual([
+        'en_seguimiento',
+        'favorable',
+        'requiere_atencion',
+      ]);
+
+      expect(bitacoras).toHaveLength(2);
+
+      for (const bitacora of bitacoras) {
+        expect(bitacora.direccion, bitacora.nombre).toBe('sin_puntaje');
+        expect(bitacora.maximo, bitacora.nombre).toBeNull();
+        expect(bitacora.umbrales, bitacora.nombre).toBeNull();
+        expect(bitacora.textosNivel, bitacora.nombre).toBeNull();
+      }
+    });
+
+    it('lo que dicen las tres de si mismas pasa por el lenguaje clinico (R6) y la lista de exclusion (R14)', async () => {
+      const filas = await fichas();
+
+      // Sin filas no hay nada que mirar, y «no hay problemas» seria cierto por no haber nada.
+      expect(filas).toHaveLength(3);
+
+      const problemas = filas.flatMap((ficha) =>
+        problemasDeContenido({
+          titulo: ficha.nombre,
+          parametros: [ficha.descripcion, ficha.textosNivel],
+        }).map((problema) => `${ficha.nombre}: ${problema}`),
+      );
+
+      expect(problemas).toEqual([]);
+    });
+
+    it('hay diez sesiones, cuatro, tres y tres, cada una en su mecanica y con su nivel', async () => {
+      const sesiones = await sesionesDe(idsDeLasActividades);
+
+      expect(
+        sesiones.map((sesion) => [sesion.id, sesion.idActividad, sesion.titulo, sesion.nivel]),
+      ).toEqual(
+        SESIONES_DEL_PILOTO.map((esperada) => [
+          esperada.id,
+          esperada.actividad.id,
+          esperada.titulo,
+          esperada.nivel,
+        ]),
+      );
+    });
+
+    it('ninguna esta publicada, y piden revision las de BIE-01 y EMO-02 y no las de COG-01', async () => {
+      const sesiones = await sesionesDe(idsDeLasActividades);
+
+      expect(sesiones).toHaveLength(10);
+
+      for (const sesion of sesiones) {
+        const esperada = SESIONES_DEL_PILOTO.find((una) => una.id === sesion.id);
+
+        expect(sesion.publicado, sesion.titulo).toBe(false);
+        expect(sesion.revision, sesion.titulo).toBe(esperada?.actividad.revision);
+      }
+    });
+
+    it('cada una cumple el contrato de su motor', async () => {
+      const sesiones = await sesionesDe(idsDeLasActividades);
+
+      expect(sesiones).toHaveLength(10);
+
+      for (const sesion of sesiones) {
+        const motor = DEL_PILOTO.find((actividad) => actividad.id === sesion.idActividad)?.motor;
+
+        expect(motor, sesion.titulo).toBeDefined();
+        expect(
+          problemaDeLosParametros(motor ?? null, sesion.parametros),
+          sesion.titulo,
+        ).toBeUndefined();
+      }
+    });
+
+    it('sin publicar, el sendero de nadie cambia: ninguna de las tres se ofrece', async () => {
+      // Existen, y aun asi no se ofrecen: sin sesion publicada, una mecanica no sale.
+      expect(await fichas()).toHaveLength(3);
+
+      const persona = new UserId(randomUUID());
+      const actividades = idsDeLasActividades.map((id) => new ActivityId(id));
+
+      // Las dos lecturas que usa el sendero: la sesion que toca, y si la mecanica tiene alguna.
+      expect((await repositorio.sesionesDeHoy(persona, actividades, HOY)).size).toBe(0);
+      expect((await repositorio.mecanicasConSesion(persona, actividades, HOY)).size).toBe(0);
+    });
+
+    it.each(SESIONES_DEL_PILOTO.filter((sesion) => sesion.actividad.revision === 'pendiente'))(
+      '«$titulo» espera revision: la base impide publicarla',
+      async ({ id }) => {
+        await dueno.query('BEGIN');
+
+        try {
+          await expect(
+            dueno.query('UPDATE sesion_de_actividad SET publicado = true WHERE id_sesion = $1', [
+              id,
+            ]),
+          ).rejects.toThrow(/sesion_de_actividad_publicada_revisada/);
+        } finally {
+          await dueno.query('ROLLBACK');
+        }
+      },
+    );
+
+    it('las de COG-01 no piden revision: publicarlas es un solo cambio, cuando se decida', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        const { rowCount } = await dueno.query(
+          'UPDATE sesion_de_actividad SET publicado = true WHERE id_actividad = $1',
+          [COLORES.id],
+        );
+
+        expect(rowCount).toBe(4);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('«Recuerda los colores»: forma, nombre y color en cada casilla, y el destello cabe en el turno', async () => {
+      const sesiones = await sesionesDe([COLORES.id]);
+      const esperadas = [
+        { casillas: 4, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
+        { casillas: 6, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
+        { casillas: 9, largoInicial: 4, msPorElemento: 1000, msDestello: 700 },
+        // La lenta: 1.100 ms iluminada y 600 ms de pausa.
+        { casillas: 4, largoInicial: 3, msPorElemento: 1700, msDestello: 1100 },
+      ];
+
+      expect(sesiones).toHaveLength(4);
+
+      sesiones.forEach((sesion, i) => {
+        const esperada = esperadas[i];
+        const p = sesion.parametros as {
+          casillas: { clave: string; nombre: string; forma: string; color: string }[];
+          [clave: string]: unknown;
+        };
+
+        // Las primeras de la misma paleta, en el mismo orden: cada casilla con forma y color.
+        expect(
+          p.casillas.map(({ nombre, forma, color }) => ({ nombre, forma, color })),
+          sesion.titulo,
+        ).toEqual(CASILLAS_DEL_PILOTO.slice(0, esperada?.casillas));
+        expect(p['largoInicial'], sesion.titulo).toBe(esperada?.largoInicial);
+        expect(p['msPorElemento'], sesion.titulo).toBe(esperada?.msPorElemento);
+        expect(p['msDestello'], sesion.titulo).toBe(esperada?.msDestello);
+        expect(p['msDeMargen'], sesion.titulo).toBe(1000);
+        // Una ronda acertada, un punto: el maximo del catalogo es el de las rondas.
+        expect(p['rondas'], sesion.titulo).toBe(COLORES.maximo);
+      });
+    });
+
+    it('«Respiración guiada»: el aviso va con cada una, el patron es el de su titulo y ninguna pausa pasa de 4 s', async () => {
+      const sesiones = await sesionesDe([RESPIRACION.id]);
+      const patrones = [
+        { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
+        { inhalaSegundos: 5, exhalaSegundos: 5, pausaSegundos: 0 },
+        { inhalaSegundos: 4, exhalaSegundos: 4, pausaSegundos: 2 },
+      ];
+
+      expect(sesiones).toHaveLength(3);
+
+      sesiones.forEach((sesion, i) => {
+        const p = sesion.parametros as {
+          patron: { pausaSegundos: number };
+          frases: string[];
+          [clave: string]: unknown;
+        };
+
+        expect(p['advertenciaInicial'], sesion.titulo).toBe(ADVERTENCIA_DE_LA_RESPIRACION);
+        expect(p.patron, sesion.titulo).toEqual(patrones[i]);
+        expect(p.patron.pausaSegundos, sesion.titulo).toBeLessThanOrEqual(4);
+        expect(p['duracionSegundos'], sesion.titulo).toBe(120);
+        expect(p.frases.length, sesion.titulo).toBeGreaterThan(0);
+      });
+    });
+
+    it('«Tres cosas buenas»: tres campos, con una basta, y se puede decir que hoy no sale ninguna', async () => {
+      const sesiones = await sesionesDe([TRES_COSAS.id]);
+      const invitaciones = [
+        'Algo que probaste hoy, aunque sea pequeño.',
+        'Alguien que te hizo el rato más fácil.',
+        'Un lugar donde estuviste a gusto.',
+      ];
+
+      expect(sesiones).toHaveLength(3);
+
+      sesiones.forEach((sesion, i) => {
+        expect(sesion.parametros, sesion.titulo).toEqual({
+          invitacion: invitaciones[i],
+          campos: 3,
+          minimo: 1,
+          largoMaximo: 200,
+          permiteNingunaHoy: true,
+        });
+      });
+    });
+
+    it('la migracion siembra la actividad ANTES que sus sesiones: una sesion necesita su mecanica', () => {
+      const sentencias = migracionDelPiloto()
+        .split('\n')
+        .filter((linea) => !linea.trimStart().startsWith('--'))
+        .join('\n');
+      const actividadesPrimero = sentencias.indexOf('INSERT INTO "actividad"');
+      const sesionesDespues = sentencias.indexOf('INSERT INTO "sesion_de_actividad"');
+
+      expect(actividadesPrimero).toBeGreaterThanOrEqual(0);
+      expect(sesionesDespues).toBeGreaterThan(actividadesPrimero);
+    });
+
+    it('aplicar la migracion dos veces deja todo igual', async () => {
+      const sql = migracionDelPiloto();
+      const foto = async () => ({
+        actividades: await fichas(),
+        sesiones: await sesionesDe(idsDeLasActividades),
       });
 
       await dueno.query('BEGIN');

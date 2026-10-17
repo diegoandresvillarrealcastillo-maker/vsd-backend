@@ -203,6 +203,10 @@ const CUESTIONARIO = objeto(
  * la secuencia de numeros muestra todos los digitos a la vez durante
  * `largo x msPorElemento + msDeMargen`.
  *
+ * En el juego de casillas, `msPorElemento` es el **turno** de cada casilla y `msDestello` lo que se
+ * queda iluminada: la pausa es la diferencia, asi que el destello **no puede pasar del turno**. La
+ * pantalla ya lo exige; aqui se rechaza al sembrar, y no cuando alguien abre la sesion.
+ *
  * Un color nunca es la unica pista (R10): una casilla con `color` tiene que traer tambien `forma`.
  */
 const CASILLA = objeto(
@@ -227,9 +231,18 @@ const SECUENCIA = objeto(
     msDeMargen: requerido(entero(0, 10000)),
     msDestello: opcional(entero(600, 5000)),
   },
-  (valor) =>
-    repetido(valor['casillas'], 'casillas', 'clave') ??
-    repetido(valor['casillas'], 'casillas', 'nombre'),
+  (valor) => {
+    const destello = valor['msDestello'];
+    const turno = valor['msPorElemento'] as number;
+
+    return (
+      repetido(valor['casillas'], 'casillas', 'clave') ??
+      repetido(valor['casillas'], 'casillas', 'nombre') ??
+      (typeof destello === 'number' && destello > turno
+        ? `msDestello (${destello}) no puede ser mayor que msPorElemento (${turno}): el destello tiene que caber en el turno de la casilla`
+        : undefined)
+    );
+  },
 );
 
 // ---------------------------------------------------------------------------
@@ -270,6 +283,10 @@ const TOCAR_EL_OBJETIVO = objeto(
 /**
  * Texto libre corto: uno o varios campos, con una idea de arranque opcional. `minimo` es cuantos
  * campos hay que llenar (con «una basta», 1) y `permiteNingunaHoy` el boton «hoy no me sale ninguno».
+ *
+ * `minimo` es de **1 en adelante**: la pantalla pide al menos una respuesta, y un dia sin nada es
+ * justamente lo que registra el boton de `permiteNingunaHoy`. Un `minimo` de 0 haria que el boton
+ * de terminar sirviera para no escribir nada, que es otra cosa.
  */
 const ESCRITURA_BREVE = objeto(
   {
@@ -277,7 +294,7 @@ const ESCRITURA_BREVE = objeto(
     campos: requerido(entero(1, 5)),
     largoMaximo: requerido(entero(50, 1000)),
     ideas: opcional(lista(0, 10, texto(80))),
-    minimo: opcional(entero(0, 5)),
+    minimo: opcional(entero(1, 5)),
     permiteNingunaHoy: opcional(booleano),
   },
   (valor) => {

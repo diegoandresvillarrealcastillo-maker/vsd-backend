@@ -344,7 +344,8 @@ distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
 ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas
-de atencion y **el catalogo de tres categorias y nueve actividades**.
+de atencion y **el catalogo de tres categorias y doce actividades** (las nueve de
+siempre y las tres mecanicas del piloto, con sus sesiones sin publicar).
 
 El catalogo se siembra con una migracion y no desde el panel justamente por
 eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de

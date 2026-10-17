@@ -1013,8 +1013,9 @@ que se retiro por eso mismo.
 
 - **Contenido nuevo.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, y
   desde la Fase 0 (SCRUM-207) cinco de las nueve actividades actuales tienen su sesion. Con el piloto (SCRUM-212)
-  hay tres mecanicas `rotativa` (Recuerda los colores, Respiracion guiada y Tres cosas buenas) con diez sesiones,
-  **ninguna publicada**: las de BIE-01 y EMO-02 esperan a quien las revise, y publicar es un paso aparte.
+  hay tres mecanicas `rotativa` (Recuerda los colores, Respiracion guiada y Tres cosas buenas) con diez sesiones.
+  Las cuatro de «Recuerda los colores» (COG-01, que no pide revision) se publicaron con SCRUM-217; las seis de
+  BIE-01 y EMO-02 siguen **sin publicar**, esperan a quien las revise, y publicarlas es un paso aparte.
 - **La forma de `parametros` de los otros cuatro motores** (`ver_ocultar_recordar`, `clasificar`, `palabras` y
   `calculo`). Se fija con el ticket que construye cada uno; hasta entonces aceptan cualquier objeto.
 - **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`

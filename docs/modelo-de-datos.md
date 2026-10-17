@@ -159,7 +159,8 @@ sendero como un elemento propio, así que el catálogo no crece a mil filas.
   misma lista. Sumar una mecánica que reutiliza un motor no pide código de pantalla nuevo.
 - **`rotativa`** es una frecuencia nueva: la mecánica no toca todos los días, y la rotación elige
   hasta tres por módulo y por día (SCRUM-205). Las usan las tres mecánicas del piloto (SCRUM-212), con sus
-  diez sesiones sin publicar: mientras no haya una publicada, no se ofrecen.
+  diez sesiones. Mientras una mecánica no tenga una sesión publicada, no se ofrece: hoy solo «Recuerda los
+  colores» (SCRUM-217) tiene las suyas publicadas, y las seis de BIE-01 y EMO-02 siguen `pendiente`.
 - Las nueve actividades actuales quedan con `motor` vacío. La migración de datos de la Fase 0
   (`20261019120000_fase_0_las_actividades_pasan_al_modelo`, SCRUM-207) se lo pone a cinco y les siembra su
   sesión; ver más abajo.

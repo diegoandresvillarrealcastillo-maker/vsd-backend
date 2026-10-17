@@ -1,5 +1,7 @@
 import { InvalidSessionConfigurationError } from './DomainError.js';
 import type { ActivityId, SesionId } from './Identifier.js';
+import type { Motor } from './Motor.js';
+import { problemaDeLosParametros } from './ParametrosDelMotor.js';
 
 /**
  * Si el contenido de una sesion paso por una persona con formacion (ADR 0030, regla de Samuel del
@@ -23,9 +25,8 @@ export const REVISIONES: readonly Revision[] = Object.values(Revision);
 /**
  * Lo que el motor necesita para pintar esta sesion: tamano, simbolos, guion, invitacion, pasos...
  *
- * Es JSON (ADR 0008). La base no mira dentro; este dominio comprueba que sea JSON de verdad y
- * ninguno mas. La forma de cada motor la fija el motor, y se valida con el en el ticket que lo
- * construye.
+ * Es JSON (ADR 0008). La base no mira dentro; este dominio comprueba que sea JSON de verdad y que
+ * cumpla el contrato del motor de la actividad (`ParametrosDelMotor.ts`).
  */
 export type ParametrosDeSesion = Readonly<Record<string, unknown>>;
 
@@ -47,6 +48,13 @@ export interface DatosDeSesion {
   /** Dificultad o profundidad, de 1 a 3, para las mecanicas que tienen niveles. */
   readonly nivel: number;
   readonly parametros: ParametrosDeSesion;
+  /**
+   * El motor de la actividad a la que pertenece, que fija la forma de `parametros`. Vacio si la
+   * actividad no tiene (las nueve de antes de la Fase 0) o si quien llama no lo sabe: entonces
+   * `parametros` solo tiene que ser JSON. **Quien lee sesiones de la base lo pasa siempre**, para
+   * que un contenido roto falle al cargarse y no en el telefono.
+   */
+  readonly motor?: Motor | null | undefined;
   /** Solo se sirven las publicadas. Retirar no borra (ADR 0025). */
   readonly publicado: boolean;
   readonly revision: Revision;
@@ -117,6 +125,15 @@ export class SesionDeActividad {
 
     if (parametros === undefined) {
       rechazar(etiqueta, 'trae parámetros que no son un objeto JSON válido');
+    }
+
+    const problema = problemaDeLosParametros(datos.motor ?? null, parametros);
+
+    if (problema !== undefined) {
+      rechazar(
+        etiqueta,
+        `trae parámetros que no cumplen el contrato del motor "${String(datos.motor)}": ${problema}`,
+      );
     }
 
     if (!REVISIONES.includes(datos.revision)) {

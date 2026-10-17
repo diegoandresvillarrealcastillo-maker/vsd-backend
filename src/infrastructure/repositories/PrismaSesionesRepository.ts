@@ -1,5 +1,6 @@
 import type { Dia } from '../../domain/model/Calendario.js';
 import { ActivityId, SesionId, type UserId } from '../../domain/model/Identifier.js';
+import type { Motor } from '../../domain/model/Motor.js';
 import {
   type ParametrosDeSesion,
   type Revision,
@@ -19,6 +20,8 @@ interface FilaDeSesion {
   readonly revision: string;
   readonly revisadaPor: string | null;
   readonly revisadaEl: Date | null;
+  /** El motor de la actividad: fija la forma de `parametros`. */
+  readonly motor: string | null;
 }
 
 /**
@@ -48,9 +51,12 @@ export class PrismaSesionesRepository implements SesionesRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async porId(id: SesionId): Promise<SesionDeActividad | null> {
-    const fila = await this.prisma.sesionDeActividad.findUnique({ where: { id: id.value } });
+    const fila = await this.prisma.sesionDeActividad.findUnique({
+      where: { id: id.value },
+      include: { actividad: { select: { motor: true } } },
+    });
 
-    return fila === null ? null : this.aDominio(fila);
+    return fila === null ? null : this.aDominio({ ...fila, motor: fila.actividad.motor });
   }
 
   async mecanicasConSesion(
@@ -114,8 +120,10 @@ export class PrismaSesionesRepository implements SesionesRepositoryPort {
           s.publicado,
           s.revision,
           s.revisada_por AS "revisadaPor",
-          s.revisada_el AS "revisadaEl"
+          s.revisada_el AS "revisadaEl",
+          a.motor
         FROM sesion_de_actividad s
+        JOIN actividad a ON a.id_actividad = s.id_actividad
         LEFT JOIN LATERAL (
           SELECT max(r.dia) AS ultimo_dia,
                  max(r.fecha) FILTER (WHERE r.dia = ${hoy}::date) AS hecha_hoy
@@ -160,6 +168,8 @@ export class PrismaSesionesRepository implements SesionesRepositoryPort {
       titulo: fila.titulo,
       nivel: fila.nivel,
       parametros: fila.parametros as ParametrosDeSesion,
+      // La base solo admite los nueve (CHECK); el contrato de cada motor se comprueba al crearla.
+      motor: fila.motor as Motor | null,
       publicado: fila.publicado,
       // La base solo admite los tres (CHECK) y `SesionDeActividad.create` lo vuelve a comprobar.
       revision: fila.revision as Revision,

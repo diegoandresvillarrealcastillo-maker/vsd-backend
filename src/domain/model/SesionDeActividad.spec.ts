@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidSessionConfigurationError } from './DomainError.js';
 import { ActivityId, SesionId } from './Identifier.js';
+import { Motor } from './Motor.js';
 import {
   REVISIONES,
   Revision,
@@ -279,5 +280,65 @@ describe('SesionDeActividad: la constancia de la revision', () => {
         }),
       ),
     ).toThrow(InvalidSessionConfigurationError);
+  });
+});
+
+describe('SesionDeActividad: los parametros cumplen el contrato del motor', () => {
+  const casillas = [
+    { clave: 'circulo', nombre: 'círculo verde', forma: 'círculo', color: 'verde' },
+    { clave: 'cuadrado', nombre: 'cuadrado azul', forma: 'cuadrado', color: 'azul' },
+  ];
+  const secuencia = {
+    casillas,
+    largoInicial: 3,
+    rondas: 12,
+    msPorElemento: 700,
+    msDeMargen: 1000,
+    msDestello: 700,
+  };
+
+  it('acepta parametros que cumplen el contrato de su motor', () => {
+    const sesion = SesionDeActividad.create(
+      datos({ motor: Motor.SECUENCIA, parametros: secuencia }),
+    );
+
+    expect(sesion.parametros).toEqual(secuencia);
+  });
+
+  it('rechaza parametros que no lo cumplen y dice el motor y el campo', () => {
+    const intento = () =>
+      SesionDeActividad.create(
+        datos({ motor: Motor.SECUENCIA, parametros: { ...secuencia, msDestello: 300 } }),
+      );
+
+    expect(intento).toThrow(InvalidSessionConfigurationError);
+    expect(intento).toThrow(
+      'La sesión "Cuatro colores" trae parámetros que no cumplen el contrato del motor ' +
+        '"secuencia": msDestello debe ser un número entero de 600 a 5000.',
+    );
+  });
+
+  it('una actividad sin motor acepta cualquier objeto', () => {
+    expect(
+      SesionDeActividad.create(datos({ motor: null, parametros: { largo: 4 } })).parametros,
+    ).toEqual({ largo: 4 });
+    expect(SesionDeActividad.create(datos({ parametros: { largo: 4 } })).parametros).toEqual({
+      largo: 4,
+    });
+  });
+
+  it('un motor sin contrato todavia acepta cualquier objeto', () => {
+    expect(
+      SesionDeActividad.create(datos({ motor: Motor.CLASIFICAR, parametros: { loQueSea: [1] } }))
+        .parametros,
+    ).toEqual({ loQueSea: [1] });
+  });
+
+  it('lo que no es JSON se rechaza antes de mirar el contrato', () => {
+    expect(() =>
+      SesionDeActividad.create(
+        datos({ motor: Motor.SECUENCIA, parametros: { ...secuencia, rondas: Number.NaN } }),
+      ),
+    ).toThrow(/no son un objeto JSON válido/);
   });
 });

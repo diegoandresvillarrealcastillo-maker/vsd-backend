@@ -1,5 +1,6 @@
 import { Calendario } from '../../domain/model/Calendario.js';
 import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import { franjaDe } from '../../domain/model/Franja.js';
 import type { UserId } from '../../domain/model/Identifier.js';
 import type { Modulo } from '../../domain/model/Preferencias.js';
 import type { Activity } from '../../domain/model/Activity.js';
@@ -101,6 +102,7 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const hoy = calendario.diaDe(this.reloj());
     const diaDeLaSemana = calendario.diaDeLaSemana(hoy);
+    const franja = franjaDe(calendario.minutoDelDia(this.reloj()));
     const actividadesDe = (modulo: Modulo): readonly Activity[] =>
       categorias
         .filter((categoria) => categoria.modulo === modulo)
@@ -128,6 +130,7 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
         diaDeLaSemana,
         persona: id.value,
         conSesion,
+        franja,
       }),
     );
 

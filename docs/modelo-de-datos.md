@@ -129,22 +129,23 @@ administrador escribe.
 Lo que la persona hace: un juego, unas preguntas orientativas o un registro.
 Además de describirse a sí misma, **declara cómo se interpreta su puntaje**.
 
-| Campo              | Tipo         | Nulo | Descripción                                                  |
-| ------------------ | ------------ | ---- | ------------------------------------------------------------ |
-| `id_actividad`     | UUID         | no   | Clave primaria.                                              |
-| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                |
-| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                              |
-| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                           |
-| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                 |
-| `estado`           | BOOLEAN      | no   | Si está disponible.                                          |
-| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`. |
-| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                 |
-| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                   |
-| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                    |
-| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                   |
-| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                  |
-| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.          |
-| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.  |
+| Campo              | Tipo         | Nulo | Descripción                                                        |
+| ------------------ | ------------ | ---- | ------------------------------------------------------------------ |
+| `id_actividad`     | UUID         | no   | Clave primaria.                                                    |
+| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                      |
+| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                                    |
+| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                                 |
+| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                       |
+| `estado`           | BOOLEAN      | no   | Si está disponible.                                                |
+| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`.       |
+| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                       |
+| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                         |
+| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                          |
+| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                         |
+| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                        |
+| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.                |
+| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.        |
+| `franja`           | VARCHAR(10)  | sí   | `manana`, `tarde` o `noche`; vacía = a cualquier hora (SCRUM-221). |
 
 ### Una actividad es una mecánica (SCRUM-204, ADR 0030)
 
@@ -159,7 +160,8 @@ sendero como un elemento propio, así que el catálogo no crece a mil filas.
   misma lista. Sumar una mecánica que reutiliza un motor no pide código de pantalla nuevo.
 - **`rotativa`** es una frecuencia nueva: la mecánica no toca todos los días, y la rotación elige
   hasta tres por módulo y por día (SCRUM-205). Las usan las tres mecánicas del piloto (SCRUM-212), con sus
-  diez sesiones sin publicar: mientras no haya una publicada, no se ofrecen.
+  diez sesiones. Mientras una mecánica no tenga una sesión publicada, no se ofrece: hoy solo «Recuerda los
+  colores» (SCRUM-217) tiene las suyas publicadas, y las seis de BIE-01 y EMO-02 siguen `pendiente`.
 - Las nueve actividades actuales quedan con `motor` vacío. La migración de datos de la Fase 0
   (`20261019120000_fase_0_las_actividades_pasan_al_modelo`, SCRUM-207) se lo pone a cinco y les siembra su
   sesión; ver más abajo.
@@ -296,7 +298,7 @@ fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
 **Lo que la base no valida:** el contenido de `parametros`. Lo valida el dominio
 (`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
 circulares, y que cumpla el **contrato de su motor** (`ParametrosDelMotor.ts`, SCRUM-206; ver `dominio.md`).
-Los motores sin contrato todavía aceptan cualquier objeto.
+Los nueve motores tienen contrato desde SCRUM-220 (uno por `modo` cuando sirven a varias mecánicas).
 
 **Contenido sembrado: la Fase 0 (SCRUM-207).** La migración
 `20261019120000_fase_0_las_actividades_pasan_al_modelo` es solo de datos, aditiva e idempotente (el

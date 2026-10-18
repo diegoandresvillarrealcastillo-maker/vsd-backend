@@ -4,6 +4,7 @@ import { ActivityResult } from '../../domain/model/ActivityResult.js';
 import { Calendario } from '../../domain/model/Calendario.js';
 import { Categoria } from '../../domain/model/Categoria.js';
 import { AccountNotProvisionedError } from '../../domain/model/DomainError.js';
+import { Franja } from '../../domain/model/Franja.js';
 import {
   ActivityId,
   CategoryId,
@@ -449,5 +450,42 @@ describe('El sendero con sesiones (ADR 0030)', () => {
       { actividad: SUENO, hecha: false },
       { actividad: con, hecha: false, sesion },
     ]);
+  });
+});
+
+describe('La franja del dia, con la hora de la persona (SCRUM-221)', () => {
+  const ANTES_DE_DORMIR = Activity.create({
+    id: new ActivityId('aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1'),
+    nombre: 'Antes de dormir',
+    direccionEscala: DireccionEscala.SIN_PUNTAJE,
+    franja: Franja.NOCHE,
+  });
+  const catalogoConNoche = [
+    Categoria.create({
+      id: new CategoryId('cccccccc-cccc-4ccc-8ccc-0000000000f1'),
+      nombre: 'Bienestar',
+      modulo: Modulo.BIENESTAR,
+      actividades: [SUENO, ANTES_DE_DORMIR],
+    }),
+  ];
+
+  async function deHoy(cuenta: User) {
+    const progreso = await armar(cuenta, [], { catalogo: catalogoConNoche }).execute(
+      new UserId(PERSONA),
+    );
+
+    return progreso.flatMap((uno) => uno.hoy.map((una) => una.actividad.nombre));
+  }
+
+  const SOLO_BIENESTAR = unaCuenta().conPreferencias({ modulosActivos: ['bienestar'] });
+
+  it('a las 9 p. m. en Bogota es de noche: se ofrece', async () => {
+    expect(await deHoy(SOLO_BIENESTAR)).toContain('Antes de dormir');
+  });
+
+  it('la misma hora en Tokio son las 11 de la manana: no se ofrece, y lo demas si', async () => {
+    const enTokio = SOLO_BIENESTAR.conZonaHoraria('Asia/Tokyo');
+
+    expect(await deHoy(enTokio)).toEqual(['Cómo dormiste anoche']);
   });
 });

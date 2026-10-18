@@ -259,6 +259,44 @@ describe.skipIf(URL_DUENO === undefined)('Mecanica x sesion en PostgreSQL (ADR 0
     });
   });
 
+  describe('actividad.franja (SCRUM-221)', () => {
+    it.each(['manana', 'tarde', 'noche'])('acepta la franja %s', async (franja) => {
+      await dueno.query('UPDATE actividad SET franja = $2 WHERE id_actividad = $1', [
+        ACTIVIDAD,
+        franja,
+      ]);
+
+      const { rows } = await dueno.query<{ franja: string }>(
+        'SELECT franja FROM actividad WHERE id_actividad = $1',
+        [ACTIVIDAD],
+      );
+
+      expect(rows[0]?.franja).toBe(franja);
+    });
+
+    it.each(['madrugada', 'Noche', ' noche', 'mañana', ''])(
+      'rechaza la franja «%s»',
+      async (franja) => {
+        await expect(
+          dueno.query('UPDATE actividad SET franja = $2 WHERE id_actividad = $1', [
+            ACTIVIDAD,
+            franja,
+          ]),
+        ).rejects.toThrow(/actividad_franja_valida/);
+      },
+    );
+
+    it('la franja es opcional y ninguna de las nueve de siempre la tiene', async () => {
+      const { rows } = await dueno.query<{ nombre: string; franja: string | null }>(
+        'SELECT nombre, franja FROM actividad WHERE nombre = ANY($1)',
+        [ACTUALES],
+      );
+
+      expect(rows).toHaveLength(ACTUALES.length);
+      expect(rows.map((fila) => fila.franja)).toEqual(rows.map(() => null));
+    });
+  });
+
   describe('lo que no esta revisado no se publica', () => {
     it('rechaza publicar una sesion con revision pendiente', async () => {
       await expect(sesion({ publicado: true, revision: 'pendiente' })).rejects.toThrow(

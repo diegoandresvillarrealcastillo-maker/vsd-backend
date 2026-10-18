@@ -210,6 +210,16 @@ function urlDeLaAplicacion(url: string): string {
   return partes.toString();
 }
 
+/** El SQL de la migracion que publica «Recuerda los colores», leido tal cual esta en el repositorio. */
+function migracionDeLaPublicacion(): string {
+  const carpeta = join(process.cwd(), 'prisma', 'migrations');
+  const nombres = readdirSync(carpeta).filter((nombre) => nombre.includes('publicar_recuerda'));
+
+  expect(nombres, 'la migracion que publica COG-01').toHaveLength(1);
+
+  return readFileSync(join(carpeta, nombres[0] as string, 'migration.sql'), 'utf8');
+}
+
 /** El SQL de la migracion del piloto, leido tal cual esta en el repositorio. */
 function migracionDelPiloto(): string {
   const carpeta = join(process.cwd(), 'prisma', 'migrations');
@@ -418,8 +428,18 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
   });
 
-  describe('el piloto: tres mecanicas nuevas y diez sesiones sin publicar', () => {
+  describe('el piloto: tres mecanicas nuevas y diez sesiones', () => {
     const idsDeLasActividades = DEL_PILOTO.map((actividad) => actividad.id);
+
+    /**
+     * Las diez sesiones del piloto, y solo ellas: «Recuerda los colores» tiene ahora 40 (SCRUM-222), pero
+     * estas pruebas hablan de las diez sembradas en el piloto, que no cambian.
+     */
+    async function sesionesDelPiloto(actividades: readonly string[] = idsDeLasActividades) {
+      const delPiloto = new Set<string>(SESIONES_DEL_PILOTO.map((una) => una.id));
+
+      return (await sesionesDe(actividades)).filter((sesion) => delPiloto.has(sesion.id));
+    }
 
     interface FichaDeActividad {
       readonly id: string;
@@ -521,7 +541,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('hay diez sesiones, cuatro, tres y tres, cada una en su mecanica y con su nivel', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+      const sesiones = await sesionesDelPiloto();
 
       expect(
         sesiones.map((sesion) => [sesion.id, sesion.idActividad, sesion.titulo, sesion.nivel]),
@@ -535,21 +555,23 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       );
     });
 
-    it('ninguna esta publicada, y piden revision las de BIE-01 y EMO-02 y no las de COG-01', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+    it('las cuatro de COG-01 estan publicadas y las seis de BIE-01 y EMO-02 siguen sin publicar y pendientes', async () => {
+      const sesiones = await sesionesDelPiloto();
 
       expect(sesiones).toHaveLength(10);
 
       for (const sesion of sesiones) {
         const esperada = SESIONES_DEL_PILOTO.find((una) => una.id === sesion.id);
+        const esDeColores = sesion.idActividad === COLORES.id;
 
-        expect(sesion.publicado, sesion.titulo).toBe(false);
+        // COG-01 no pide revision y se publico (SCRUM-217); las otras dos esperan a quien las revise.
+        expect(sesion.publicado, sesion.titulo).toBe(esDeColores);
         expect(sesion.revision, sesion.titulo).toBe(esperada?.actividad.revision);
       }
     });
 
     it('cada una cumple el contrato de su motor', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+      const sesiones = await sesionesDelPiloto();
 
       expect(sesiones).toHaveLength(10);
 
@@ -564,16 +586,29 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       }
     });
 
-    it('sin publicar, el sendero de nadie cambia: ninguna de las tres se ofrece', async () => {
-      // Existen, y aun asi no se ofrecen: sin sesion publicada, una mecanica no sale.
+    it('solo se ofrece «Recuerda los colores»: BIE-01 y EMO-02 no salen mientras esperen revision', async () => {
+      // Existen las tres, y solo la que tiene una sesion publicada se ofrece.
       expect(await fichas()).toHaveLength(3);
 
       const persona = new UserId(randomUUID());
       const actividades = idsDeLasActividades.map((id) => new ActivityId(id));
 
       // Las dos lecturas que usa el sendero: la sesion que toca, y si la mecanica tiene alguna.
-      expect((await repositorio.sesionesDeHoy(persona, actividades, HOY)).size).toBe(0);
-      expect((await repositorio.mecanicasConSesion(persona, actividades, HOY)).size).toBe(0);
+      const hoy = await repositorio.sesionesDeHoy(persona, actividades, HOY);
+
+      expect([...hoy.keys()]).toEqual([COLORES.id]);
+      expect(
+        (await repositorio.mecanicasConSesion(persona, actividades, HOY)).has(COLORES.id),
+      ).toBe(true);
+      expect((await repositorio.mecanicasConSesion(persona, actividades, HOY)).size).toBe(1);
+
+      // Y la que se ofrece es una de «Recuerda los colores» (las cuatro del piloto y las 36 de SCRUM-222), ya
+      // leida por el dominio: cumple el contrato de su motor (un contenido que no lo cumpliera haria fallar
+      // esta lectura).
+      const sesionDeHoy = hoy.get(COLORES.id);
+
+      expect(sesionDeHoy?.idActividad.value).toBe(COLORES.id);
+      expect(sesionDeHoy?.publicado).toBe(true);
     });
 
     it.each(SESIONES_DEL_PILOTO.filter((sesion) => sesion.actividad.revision === 'pendiente'))(
@@ -593,23 +628,8 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       },
     );
 
-    it('las de COG-01 no piden revision: publicarlas es un solo cambio, cuando se decida', async () => {
-      await dueno.query('BEGIN');
-
-      try {
-        const { rowCount } = await dueno.query(
-          'UPDATE sesion_de_actividad SET publicado = true WHERE id_actividad = $1',
-          [COLORES.id],
-        );
-
-        expect(rowCount).toBe(4);
-      } finally {
-        await dueno.query('ROLLBACK');
-      }
-    });
-
     it('«Recuerda los colores»: forma, nombre y color en cada casilla, y el destello cabe en el turno', async () => {
-      const sesiones = await sesionesDe([COLORES.id]);
+      const sesiones = await sesionesDelPiloto([COLORES.id]);
       const esperadas = [
         { casillas: 4, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
         { casillas: 6, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
@@ -642,7 +662,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('«Respiración guiada»: el aviso va con cada una, el patron es el de su titulo y ninguna pausa pasa de 4 s', async () => {
-      const sesiones = await sesionesDe([RESPIRACION.id]);
+      const sesiones = await sesionesDelPiloto([RESPIRACION.id]);
       const patrones = [
         { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
         { inhalaSegundos: 5, exhalaSegundos: 5, pausaSegundos: 0 },
@@ -667,7 +687,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('«Tres cosas buenas»: tres campos, con una basta, y se puede decir que hoy no sale ninguna', async () => {
-      const sesiones = await sesionesDe([TRES_COSAS.id]);
+      const sesiones = await sesionesDelPiloto([TRES_COSAS.id]);
       const invitaciones = [
         'Algo que probaste hoy, aunque sea pequeño.',
         'Alguien que te hizo el rato más fácil.',
@@ -703,7 +723,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       const sql = migracionDelPiloto();
       const foto = async () => ({
         actividades: await fichas(),
-        sesiones: await sesionesDe(idsDeLasActividades),
+        sesiones: await sesionesDelPiloto(),
       });
 
       await dueno.query('BEGIN');
@@ -718,6 +738,169 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       } finally {
         await dueno.query('ROLLBACK');
       }
+    });
+  });
+
+  describe('la publicacion de «Recuerda los colores» (SCRUM-217)', () => {
+    const LAS_CUATRO: readonly string[] = SESIONES_DEL_PILOTO.filter(
+      (una) => una.actividad.id === COLORES.id,
+    ).map((una) => una.id);
+
+    /** Todas las sesiones del catalogo y su estado, para comparar antes y despues. */
+    async function todas() {
+      const { rows } = await dueno.query<{
+        id: string;
+        publicado: boolean;
+        revision: string;
+        huella: string;
+      }>(
+        `SELECT s.id_sesion::text AS id, s.publicado, s.revision,
+                md5(convert_to(concat_ws('|', s.titulo, s.nivel::text, s.parametros::text), 'UTF8')) AS huella
+         FROM sesion_de_actividad s
+         JOIN actividad a ON a.id_actividad = s.id_actividad
+         JOIN categoria c ON c.id_categoria = a.id_categoria
+         WHERE c.nombre = ANY($1) ORDER BY s.id_sesion`,
+        [CATEGORIAS],
+      );
+
+      return rows;
+    }
+
+    /** Deja las cuatro sin publicar, como estaban antes de la migracion, dentro de la transaccion. */
+    async function quitarLaPublicacion() {
+      await dueno.query(
+        'UPDATE sesion_de_actividad SET publicado = false WHERE id_sesion = ANY($1::uuid[])',
+        [LAS_CUATRO],
+      );
+    }
+
+    it('publica las cuatro de COG-01 y nada mas: el resto del catalogo queda como estaba', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        await quitarLaPublicacion();
+
+        const antes = await todas();
+
+        await dueno.query(migracionDeLaPublicacion());
+
+        const despues = await todas();
+
+        expect(
+          antes.filter((fila) => LAS_CUATRO.includes(fila.id)).map((fila) => fila.publicado),
+        ).toEqual([false, false, false, false]);
+        expect(
+          despues.filter((fila) => LAS_CUATRO.includes(fila.id)).map((fila) => fila.publicado),
+        ).toEqual([true, true, true, true]);
+        // Todo lo demas, igual: ni el estado, ni la revision, ni el contenido.
+        const otras = (filas: typeof antes) =>
+          filas.filter((fila) => !LAS_CUATRO.includes(fila.id));
+
+        expect(otras(despues)).toEqual(otras(antes));
+        expect(otras(despues).length).toBeGreaterThanOrEqual(11);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('no cambia el contenido de las cuatro: solo su publicacion', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        await quitarLaPublicacion();
+
+        const antes = await todas();
+
+        await dueno.query(migracionDeLaPublicacion());
+
+        const despues = await todas();
+
+        expect(despues.map((fila) => [fila.id, fila.huella, fila.revision])).toEqual(
+          antes.map((fila) => [fila.id, fila.huella, fila.revision]),
+        );
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('aplicarla dos veces deja todo igual', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        await quitarLaPublicacion();
+        await dueno.query(migracionDeLaPublicacion());
+
+        const unaVez = await todas();
+
+        await dueno.query(migracionDeLaPublicacion());
+
+        expect(await todas()).toEqual(unaVez);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('no publica una que pida revision: si una de las cuatro llegara a ser pendiente, se queda como esta', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        await quitarLaPublicacion();
+        // Pasa a pendiente sin publicar (la base no deja publicar una pendiente).
+        await dueno.query(
+          "UPDATE sesion_de_actividad SET revision = 'pendiente' WHERE id_sesion = $1",
+          [LAS_CUATRO[0]],
+        );
+        await dueno.query(migracionDeLaPublicacion());
+
+        const filas = await todas();
+        const estado = (id: string | undefined) => filas.find((fila) => fila.id === id)?.publicado;
+
+        expect(estado(LAS_CUATRO[0])).toBe(false);
+        expect(LAS_CUATRO.slice(1).map(estado)).toEqual([true, true, true]);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('nombra las cuatro por su identificador: una sesion que se siembre despues en la mecanica no se publica sola', async () => {
+      await dueno.query('BEGIN');
+
+      try {
+        // Una con un identificador cualquiera y otra con el prefijo del piloto: ninguna es de las cuatro.
+        const posteriores = [randomUUID(), '5e510001-0000-4000-8000-0000000000aa'];
+
+        for (const nueva of posteriores) {
+          await dueno.query(
+            `INSERT INTO sesion_de_actividad (id_sesion, id_actividad, titulo, nivel, parametros, publicado, revision)
+             SELECT $1, id_actividad, 'Una posterior', 1, parametros, false, 'no_requiere'
+             FROM sesion_de_actividad WHERE id_sesion = $2`,
+            [nueva, LAS_CUATRO[0]],
+          );
+        }
+
+        await dueno.query(migracionDeLaPublicacion());
+
+        const { rows } = await dueno.query<{ id: string; publicado: boolean }>(
+          'SELECT id_sesion::text AS id, publicado FROM sesion_de_actividad WHERE id_sesion = ANY($1::uuid[])',
+          [posteriores],
+        );
+
+        expect(rows).toHaveLength(2);
+        expect(rows.map((fila) => fila.publicado)).toEqual([false, false]);
+      } finally {
+        await dueno.query('ROLLBACK');
+      }
+    });
+
+    it('lo unico que hace es publicar: una sola sentencia UPDATE de publicado, sin borrar ni sembrar', () => {
+      const sentencias = migracionDeLaPublicacion()
+        .split('\n')
+        .filter((linea) => !linea.trimStart().startsWith('--'))
+        .join('\n');
+
+      expect(sentencias.match(/\bUPDATE\b/g)).toHaveLength(1);
+      expect(sentencias).toMatch(/SET "publicado" = TRUE/);
+      expect(sentencias).not.toMatch(/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE)\b/);
     });
   });
 

@@ -1,6 +1,7 @@
 import { type Activity, MECANICAS_ROTATIVAS_POR_DIA } from './Activity.js';
 import type { Dia } from './Calendario.js';
 import { claveDeLaMecanica } from './ClaveEstable.js';
+import type { Franja } from './Franja.js';
 import type { Modulo } from './Preferencias.js';
 import type { SesionDeActividad } from './SesionDeActividad.js';
 
@@ -127,6 +128,12 @@ export interface DatosDelModulo {
    * no se pueden abrir.
    */
   readonly conSesion: ReadonlySet<string>;
+  /**
+   * La franja del dia en que esta la persona ahora, con su hora (ADR 0030, punto 8). Una mecanica con
+   * `franja` solo se ofrece en la suya. Es obligatorio a proposito: olvidarlo ofreceria «Antes de dormir» a
+   * las diez de la manana.
+   */
+  readonly franja: Franja;
 }
 
 /**
@@ -157,10 +164,18 @@ export function progresoDelModulo(datos: DatosDelModulo): ProgresoDelModulo {
     datos.hechos.filter((hecho) => hecho.dia < datos.hoy).map((hecho) => hecho.actividad),
   );
 
+  // Una mecanica de una franja se ofrece en su franja. Lo que la persona ya hizo hoy no desaparece al cambiar
+  // de franja (a las 12:30 de la noche, o a las 5:10 de la manana siguiente): nada hecho se esconde.
+  const enSuFranja = (actividad: Activity): boolean =>
+    actividad.franja === undefined ||
+    actividad.franja === datos.franja ||
+    hechasHoy.has(actividad.id.value);
+
   const abiertas = datos.actividades.filter(
     (actividad) =>
       actividad.desdeSesion <= sesionDeHoy &&
-      (actividad.motor === undefined || datos.conSesion.has(actividad.id.value)),
+      (actividad.motor === undefined || datos.conSesion.has(actividad.id.value)) &&
+      enSuFranja(actividad),
   );
   const rotativasDeHoy = elegirRotativasDeHoy(abiertas, datos.hechos, datos.hoy, datos.persona);
   const tocan = abiertas.filter((actividad) => {

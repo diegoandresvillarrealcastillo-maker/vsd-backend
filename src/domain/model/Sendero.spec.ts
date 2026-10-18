@@ -5,6 +5,7 @@ import {
   type Frecuencia,
   MECANICAS_ROTATIVAS_POR_DIA,
 } from './Activity.js';
+import { Franja } from './Franja.js';
 import { ActivityId } from './Identifier.js';
 import type { Motor } from './Motor.js';
 import { Modulo } from './Preferencias.js';
@@ -20,6 +21,7 @@ function actividad(
   frecuencia: Frecuencia = { tipo: 'diaria' },
   desdeSesion = 1,
   motor?: Motor,
+  franja?: Franja,
 ): Activity {
   siguiente++;
 
@@ -30,6 +32,7 @@ function actividad(
     frecuencia,
     desdeSesion,
     motor,
+    franja,
   });
 }
 
@@ -42,7 +45,12 @@ function hecho(cual: Activity, dia: string): Hecho {
 function progreso(
   actividades: Activity[],
   hechos: Hecho[] = [],
-  extra: { persona?: string; conSesion?: ReadonlySet<string>; hoy?: string } = {},
+  extra: {
+    persona?: string;
+    conSesion?: ReadonlySet<string>;
+    hoy?: string;
+    franja?: Franja;
+  } = {},
 ) {
   return progresoDelModulo({
     modulo: Modulo.BIENESTAR,
@@ -53,6 +61,8 @@ function progreso(
     persona: extra.persona ?? PERSONA,
     // Por defecto, toda mecanica con motor tiene una sesion que ofrecer.
     conSesion: extra.conSesion ?? new Set(actividades.map((una) => una.id.value)),
+    // Por defecto, las cuatro de la tarde: ni la manana ni la noche.
+    franja: extra.franja ?? Franja.TARDE,
   });
 }
 
@@ -526,5 +536,59 @@ describe('progresoDelModulo', () => {
       numero: 2,
       sesionesHechas: 0,
     });
+  });
+});
+
+describe('La franja del dia (SCRUM-221, ADR 0030 punto 8)', () => {
+  const diaria = { tipo: 'diaria' } as const;
+  const nombres = (hoy: readonly { actividad: Activity }[]) =>
+    hoy.map((una) => una.actividad.nombre);
+
+  it('una mecanica de la noche se ofrece de noche y no de tarde ni de manana', () => {
+    const deNoche = actividad(diaria, 1, undefined, Franja.NOCHE);
+
+    expect(progreso([deNoche], [], { franja: Franja.NOCHE }).hoy).toHaveLength(1);
+    expect(progreso([deNoche], [], { franja: Franja.TARDE }).hoy).toHaveLength(0);
+    expect(progreso([deNoche], [], { franja: Franja.MANANA }).hoy).toHaveLength(0);
+  });
+
+  it('una mecanica sin franja se ofrece a cualquier hora', () => {
+    const decualquiera = actividad();
+
+    for (const franja of [Franja.MANANA, Franja.TARDE, Franja.NOCHE]) {
+      expect(progreso([decualquiera], [], { franja }).hoy).toHaveLength(1);
+    }
+  });
+
+  it('lo que ya se hizo hoy no desaparece al cambiar de franja', () => {
+    const deNoche = actividad(diaria, 1, undefined, Franja.NOCHE);
+    const hechaHoy = progreso([deNoche], [hecho(deNoche, HOY)], { franja: Franja.MANANA });
+
+    expect(hechaHoy.hoy.map((una) => una.hecha)).toEqual([true]);
+  });
+
+  it('lo que se hizo otro dia no la trae a otra franja', () => {
+    const deNoche = actividad(diaria, 1, undefined, Franja.NOCHE);
+
+    expect(progreso([deNoche], [hecho(deNoche, AYER)], { franja: Franja.TARDE }).hoy).toHaveLength(
+      0,
+    );
+  });
+
+  it('fuera de su franja tampoco se sugiere para completar el minimo', () => {
+    const deNoche = actividad(diaria, 1, undefined, Franja.NOCHE);
+    const sinFranja = actividad({ tipo: 'unica' });
+    const progresoDeTarde = progreso([deNoche, sinFranja], [], { franja: Franja.TARDE });
+
+    expect(nombres(progresoDeTarde.hoy)).toEqual([sinFranja.nombre]);
+    expect(nombres(progresoDeTarde.sugeridas)).toEqual([]);
+  });
+
+  it('no ocupa uno de los tres lugares de la rotacion cuando no es su hora', () => {
+    const rotativas = [1, 2, 3].map(() => actividad({ tipo: 'rotativa' }));
+    const deNoche = actividad({ tipo: 'rotativa' }, 1, undefined, Franja.NOCHE);
+    const deTarde = progreso([...rotativas, deNoche], [], { franja: Franja.TARDE });
+
+    expect(nombres(deTarde.hoy).sort()).toEqual(rotativas.map((una) => una.nombre).sort());
   });
 });

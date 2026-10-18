@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import { ActivityId } from '../../domain/model/Identifier.js';
 import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
+import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { PrismaService } from '../persistence/PrismaService.js';
 
 /**
@@ -50,6 +51,14 @@ const ACTIVIDADES = [
 
 /** Las tres mecanicas del piloto (SCRUM-212, ADR 0030), sembradas despues, con sus sesiones sin publicar. */
 const DEL_PILOTO = ['Recuerda los colores', 'Respiración guiada', 'Tres cosas buenas'];
+
+/**
+ * Las mecanicas nuevas de los lotes de contenido (SCRUM-222 a SCRUM-224): salen del propio contenido que
+ * genera las migraciones, asi que un lote nuevo entra aqui solo.
+ */
+const DEL_CATALOGO_COMPLETO = todosLosLotes().flatMap((una) =>
+  una.lote.mecanicas.filter((m) => m.yaExiste !== true).map((m) => m.nombre),
+);
 
 /**
  * Palabras que en castellano solo existen con tilde.
@@ -119,17 +128,17 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     }
   });
 
-  it('las nueve de siempre y las tres del piloto estan sembradas, y solo esas', () => {
+  it('las nueve de siempre, las tres del piloto y las del catalogo completo estan sembradas, y solo esas', () => {
     const nombres = filas.map((fila) => fila.nombre);
+    const esperadas = [...ACTIVIDADES, ...DEL_PILOTO, ...DEL_CATALOGO_COMPLETO];
 
-    for (const actividad of [...ACTIVIDADES, ...DEL_PILOTO]) {
+    for (const actividad of esperadas) {
       expect(nombres).toContain(actividad);
     }
 
-    // Que sean exactamente esas doce importa tanto como que esten: una fila de
-    // mas con este prefijo significaria que alguien sembro algo fuera de la
-    // migracion, y entonces los ambientes ya no coinciden.
-    expect(filas).toHaveLength(ACTIVIDADES.length + DEL_PILOTO.length);
+    // Que sean exactamente esas importa tanto como que esten: una fila de mas con este prefijo
+    // significaria que alguien sembro algo fuera de la migracion, y entonces los ambientes ya no coinciden.
+    expect([...nombres].sort()).toEqual([...esperadas].sort());
   });
 
   it('cada actividad se puede construir en el dominio', () => {

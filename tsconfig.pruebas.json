@@ -12,6 +12,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    // El contenido del catalogo (`src/pruebas/catalogo`) lo genera `node` directamente, sin compilar, y asi
+    // importa sus modulos con la extension `.ts` (SCRUM-222). Solo vale sin emitir, y aqui no se emite.
+    "allowImportingTsExtensions": true,
     "rootDir": "."
   },
   "include": ["src/**/*.ts", "vitest.config.mts", "prisma.config.ts"],

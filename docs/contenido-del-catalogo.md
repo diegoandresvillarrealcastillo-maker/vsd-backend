@@ -55,3 +55,8 @@ aplicar en las dos: una prueba comprueba que el SQL solo usa caracteres que WIN1
 
 Si una migración de contenido quedó a medias en la base local: `npx prisma migrate resolve --rolled-back
 <nombre>`, se borran las filas sembradas y se vuelve a aplicar (es idempotente, así que repetirla no duplica).
+
+## Revisar y publicar
+
+Que las sesiones lleguen a la base no las aprueba. Como se les da a quien revisa y como se publican, en una sola
+migracion, lo revisado: `docs/revision-del-catalogo.md` (SCRUM-228).

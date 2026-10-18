@@ -46,7 +46,7 @@ export function caracteresFueraDeWin1252(texto: string): string[] {
 }
 
 /** Cuantas sesiones tiene cada mecanica en total: las que ya estaban sembradas mas las del lote. */
-const YA_SEMBRADAS: Readonly<Record<string, number>> = { 'COG-01': 4, 'BIE-01': 3 };
+const YA_SEMBRADAS: Readonly<Record<string, number>> = { 'COG-01': 4, 'BIE-01': 3, 'EMO-02': 3 };
 const SESIONES_POR_MECANICA = 40;
 
 describe.each(LOTES)('el lote $lote.migracion', (una) => {
@@ -273,9 +273,13 @@ describe('las sesiones', () => {
     }
   });
 
-  it('ninguna pesa mas de 6 KB en el sendero (el ADR 0030 calculaba de 1 a 3 KB)', () => {
+  it('ninguna pesa mas de 6 KB en el sendero (el ADR 0030 calculaba de 1 a 3 KB), salvo la rueda de emociones', () => {
+    // La rueda lleva sus 90 emociones con su definicion dentro de la sesion de hoy (unos 11 KB): es la unica
+    // que pasa de 6 KB y se mide antes de crecer (ADR 0030). Ninguna pasa de 12 KB.
+    const limite = (parametros: Record<string, unknown>) =>
+      (parametros['modo'] === 'rueda' ? 12 : 6) * 1024;
     const pesadas = SESIONES.filter(
-      ({ sesion }) => JSON.stringify(sesion.parametros).length > 6 * 1024,
+      ({ sesion }) => JSON.stringify(sesion.parametros).length > limite(sesion.parametros),
     ).map(({ mecanica, sesion }) => `${mecanica.codigo} «${sesion.titulo}»`);
 
     expect(pesadas).toEqual([]);

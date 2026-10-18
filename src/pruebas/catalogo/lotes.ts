@@ -1,5 +1,6 @@
 import { CABECERA_DE_BIENESTAR, loteDeBienestar } from './bienestar/index.ts';
 import { CABECERA_DE_COGNICION, loteDeCognicion } from './cognicion/index.ts';
+import { CABECERA_DE_EMOCIONES, loteDeEmociones } from './emociones/index.ts';
 import { sqlDelLote } from './sql.ts';
 import type { Lote } from './tipos.ts';
 
@@ -18,6 +19,7 @@ export function todosLosLotes(): readonly LoteConCabecera[] {
   return [
     { lote: loteDeCognicion(), cabecera: CABECERA_DE_COGNICION },
     { lote: loteDeBienestar(), cabecera: CABECERA_DE_BIENESTAR },
+    { lote: loteDeEmociones(), cabecera: CABECERA_DE_EMOCIONES },
   ];
 }
 

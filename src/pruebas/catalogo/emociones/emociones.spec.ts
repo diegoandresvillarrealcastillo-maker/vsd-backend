@@ -242,6 +242,13 @@ describe('EMO-05 · Carta a mi de manana', () => {
     expect(new Set(p.map((x) => x['invitacion'])).size).toBe(40);
   });
 
+  it('el cierre dice lo que de verdad pasa: queda en el diario, sin prometer que reaparecera ni que se podra borrar sin leer', () => {
+    for (const x of p) {
+      expect(x['cierre']).toBe('Quedó guardada en tu diario.');
+      expect(String(x['cierre'])).not.toMatch(/ma[ñn]ana|aparecer|borr|devolver/i);
+    }
+  });
+
   it('lo escrito en un mal dia lo lee quien despierta manana: las invitaciones son amables y no presionan', () => {
     expect(JSON.stringify(p)).not.toMatch(
       /debes|tienes que|promete|prop[oó]n(te)?|meta|objetivo|resoluci[oó]n|mejor(ar)? ma[ñn]ana/i,

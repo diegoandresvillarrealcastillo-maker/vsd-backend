@@ -8,10 +8,12 @@ import type { SesionDeContenido } from '../tipos.ts';
  * - **EMO-02 · «Tres cosas buenas»:** 40 lentes. Las 3 primeras son las del piloto (ya sembradas, pendientes);
  *   aqui estan las otras 37. Hasta tres lineas, **con una basta**, y «hoy no me sale ninguna» se registra igual.
  *   Nada de «deberias estar agradecida». Sin lentes de comida (el riesgo que la ficha BIE-04 nombra).
- * - **EMO-05 · «Carta a mi de manana»:** 40 invitaciones. Una carta de hasta 500 caracteres que se guarda para
- *   manana, donde puede borrarse sin leerla. Lo escrito en un mal dia lo lee quien despierta manana: las
- *   invitaciones son amables y no presionan. **Se guarda como una entrada del diario con etiqueta (D-C5, la
- *   recomendacion de la ficha)**: ya tiene aislamiento, exportacion y borrado.
+ * - **EMO-05 · «Carta a mi de manana»:** 40 invitaciones. Una carta de hasta 500 caracteres. Lo escrito en un
+ *   mal dia lo lee quien despierta manana: las invitaciones son amables y no presionan. **Se guarda como una
+ *   entrada del diario (D-C5, la recomendacion de la ficha)**: ya tiene aislamiento, exportacion y borrado.
+ *   El cierre dice lo que de verdad pasa («Quedo guardada en tu diario»): que la carta **reaparezca** manana
+ *   al abrir la aplicacion, y se pueda borrar sin leerla, necesita un borrado en el diario y una tarjeta en el
+ *   panel que todavia no existen (ticket aparte), y el diario no admite entradas con fecha de manana.
  * - **EMO-09 · «El cierre del dia»** (solo de noche): 40 pares de invitaciones, dos lineas («lo que dejo y lo
  *   que me llevo») y la opcion «hoy lo dejo todo para manana». No resume ni interpreta el dia.
  *
@@ -131,7 +133,7 @@ export function sesionesDeCarta(): SesionDeContenido[] {
       minimo: 1,
       largoMaximo: 500,
       guardarParaManana: true,
-      cierre: 'Quedó guardada para mañana.',
+      cierre: 'Quedó guardada en tu diario.',
     }),
   );
 }

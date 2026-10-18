@@ -1605,7 +1605,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 1',
     1,
-    '{"invitacion":"Dile algo amable a quien despierta mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile algo amable a quien despierta mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1614,7 +1614,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 2',
     1,
-    '{"invitacion":"Cuéntale a mañana qué te gustaría recordar de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana qué te gustaría recordar de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1623,7 +1623,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 3',
     1,
-    '{"invitacion":"Escríbele a quien despierta mañana algo que quieras que sepa.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escríbele a quien despierta mañana algo que quieras que sepa.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1632,7 +1632,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 4',
     1,
-    '{"invitacion":"Deja una frase para mañana, sin tarea ni exigencia.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una frase para mañana, sin tarea ni exigencia.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1641,7 +1641,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 5',
     1,
-    '{"invitacion":"Dile a mañana cómo te gustaría que empezara.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a mañana cómo te gustaría que empezara.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1650,7 +1650,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 6',
     1,
-    '{"invitacion":"Escribe algo que te gustaría leer mañana al despertar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe algo que te gustaría leer mañana al despertar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1659,7 +1659,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 7',
     1,
-    '{"invitacion":"Cuéntale a mañana una cosa pequeña que hoy fue bien.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana una cosa pequeña que hoy fue bien.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1668,7 +1668,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 8',
     1,
-    '{"invitacion":"Deja un recuerdo de hoy para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja un recuerdo de hoy para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1677,7 +1677,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 9',
     1,
-    '{"invitacion":"Escríbele a mañana lo que hoy no alcanzaste a decir.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escríbele a mañana lo que hoy no alcanzaste a decir.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1686,7 +1686,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 10',
     1,
-    '{"invitacion":"Dile a quien despierta mañana que va con calma.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a quien despierta mañana que va con calma.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1695,7 +1695,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 11',
     1,
-    '{"invitacion":"Deja una idea para mañana, solo si te nace.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una idea para mañana, solo si te nace.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1704,7 +1704,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 12',
     1,
-    '{"invitacion":"Escribe un saludo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe un saludo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1713,7 +1713,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 13',
     1,
-    '{"invitacion":"Cuéntale a mañana algo que esperas con curiosidad.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana algo que esperas con curiosidad.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1722,7 +1722,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 14',
     1,
-    '{"invitacion":"Deja una palabra amable para tu yo de mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una palabra amable para tu yo de mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1731,7 +1731,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 15',
     1,
-    '{"invitacion":"Escribe algo que te gustaría recordar cuando despiertes.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe algo que te gustaría recordar cuando despiertes.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1740,7 +1740,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 16',
     1,
-    '{"invitacion":"Dile a mañana qué te gustaría cuidar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a mañana qué te gustaría cuidar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1749,7 +1749,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 17',
     1,
-    '{"invitacion":"Escribe lo que quieres que mañana sepa de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe lo que quieres que mañana sepa de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1758,7 +1758,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 18',
     1,
-    '{"invitacion":"Deja una nota breve para mañana, a tu manera.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una nota breve para mañana, a tu manera.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1767,7 +1767,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 19',
     1,
-    '{"invitacion":"Cuéntale a mañana un detalle bonito de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana un detalle bonito de hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1776,7 +1776,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 20',
     1,
-    '{"invitacion":"Escribe algo que le dirías a alguien querido que va a despertar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe algo que le dirías a alguien querido que va a despertar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1785,7 +1785,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 21',
     1,
-    '{"invitacion":"Dile a mañana que hoy hiciste lo que pudiste.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a mañana que hoy hiciste lo que pudiste.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1794,7 +1794,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 22',
     1,
-    '{"invitacion":"Deja un deseo sencillo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja un deseo sencillo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1803,7 +1803,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 23',
     1,
-    '{"invitacion":"Escribe una pregunta amable para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe una pregunta amable para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1812,7 +1812,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 24',
     1,
-    '{"invitacion":"Cuéntale a mañana qué te ayudó hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana qué te ayudó hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1821,7 +1821,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 25',
     1,
-    '{"invitacion":"Dile algo bonito a quien lee esto mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile algo bonito a quien lee esto mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1830,7 +1830,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 26',
     1,
-    '{"invitacion":"Deja un recordatorio amable para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja un recordatorio amable para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1839,7 +1839,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 27',
     1,
-    '{"invitacion":"Escribe tres palabras para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe tres palabras para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1848,7 +1848,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 28',
     1,
-    '{"invitacion":"Cuéntale a mañana cómo estuvo el día, a grandes rasgos.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana cómo estuvo el día, a grandes rasgos.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1857,7 +1857,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 29',
     1,
-    '{"invitacion":"Deja un mensaje de ánimo, a tu manera, para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja un mensaje de ánimo, a tu manera, para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1866,7 +1866,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 30',
     1,
-    '{"invitacion":"Escribe lo que te gustaría escuchar mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe lo que te gustaría escuchar mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1875,7 +1875,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 31',
     1,
-    '{"invitacion":"Dile a mañana qué te dio gusto hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a mañana qué te dio gusto hoy.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1884,7 +1884,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 32',
     1,
-    '{"invitacion":"Deja una nota de calma para quien despierta mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una nota de calma para quien despierta mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1893,7 +1893,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 33',
     1,
-    '{"invitacion":"Escribe algo pequeño que quieras recordar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe algo pequeño que quieras recordar.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1902,7 +1902,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 34',
     1,
-    '{"invitacion":"Cuéntale a mañana algo que aprendiste.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana algo que aprendiste.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1911,7 +1911,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 35',
     1,
-    '{"invitacion":"Dile a quien despierta mañana que puede ir paso a paso.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a quien despierta mañana que puede ir paso a paso.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1920,7 +1920,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 36',
     1,
-    '{"invitacion":"Deja un pensamiento tranquilo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja un pensamiento tranquilo para mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1929,7 +1929,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 37',
     1,
-    '{"invitacion":"Escribe qué cosa pequeña te gustaría hacer mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Escribe qué cosa pequeña te gustaría hacer mañana.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1938,7 +1938,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 38',
     1,
-    '{"invitacion":"Cuéntale a mañana una buena noticia, por pequeña que sea.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Cuéntale a mañana una buena noticia, por pequeña que sea.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1947,7 +1947,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 39',
     1,
-    '{"invitacion":"Dile a mañana gracias por algo.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Dile a mañana gracias por algo.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   ),
@@ -1956,7 +1956,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000305',
     'Carta 40',
     1,
-    '{"invitacion":"Deja una carta corta, sin pensar en cómo queda.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada para mañana."}'::jsonb,
+    '{"invitacion":"Deja una carta corta, sin pensar en cómo queda.","campos":1,"minimo":1,"largoMaximo":500,"guardarParaManana":true,"cierre":"Quedó guardada en tu diario."}'::jsonb,
     FALSE,
     'pendiente'
   )

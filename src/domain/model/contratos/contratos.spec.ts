@@ -1210,3 +1210,105 @@ describe('escritura_breve, ampliaciones de SCRUM-220', () => {
     expect(problemaDeLosParametros(Motor.ESCRITURA_BREVE, carta)).toBeUndefined();
   });
 });
+
+describe('el cierre y el acceso a las lineas, que suma el contenido de Bienestar y Emociones (SCRUM-223 y 224)', () => {
+  it.each([
+    [
+      'cuestionario_corto · tarjeta',
+      Motor.CUESTIONARIO_CORTO,
+      {
+        modo: 'tarjeta',
+        titulo: 'Luz de la mañana',
+        texto: 'Salir a la luz natural un rato.',
+        opciones: [
+          { clave: 'a', texto: 'La pruebo esta noche' },
+          { clave: 'b', texto: 'Hoy no' },
+        ],
+        cierre: 'Anotado. Mañana, otra pequeña.',
+      },
+    ],
+    [
+      'cuestionario_corto · lista',
+      Motor.CUESTIONARIO_CORTO,
+      {
+        modo: 'lista',
+        indicacion: 'Marca los que hiciste.',
+        items: [
+          { clave: 'a', texto: 'Uno' },
+          { clave: 'b', texto: 'Dos' },
+          { clave: 'c', texto: 'Tres' },
+        ],
+        cierre: 'Que descanses.',
+      },
+    ],
+    [
+      'cuestionario_corto · preguntas, con el acceso a las lineas',
+      Motor.CUESTIONARIO_CORTO,
+      {
+        modo: 'preguntas',
+        indicacion: 'Sin respuestas buenas ni malas.',
+        preguntas: [
+          {
+            clave: 'quien',
+            texto: '¿Quién te hace reír?',
+            tipo: 'opcion',
+            opciones: [
+              { clave: 'familia', texto: 'Alguien de la familia' },
+              { clave: 'aun-no-se', texto: 'Aún no sé' },
+            ],
+          },
+        ],
+        avisoSiempre: 'Si lo necesitas, hay personas que pueden acompañarte.',
+        conLineasDeAyuda: true,
+        cierre: 'Saber con quién se cuenta ya es una compañía.',
+      },
+    ],
+    [
+      'clasificar · cestas, con cierre',
+      Motor.CLASIFICAR,
+      {
+        modo: 'cestas',
+        indicacion: 'Lleva cada cosa a su cesta.',
+        cestas: [
+          { clave: 'a', nombre: 'Depende de mí' },
+          { clave: 'b', nombre: 'No depende de mí' },
+        ],
+        elementos: ['uno', 'dos', 'tres', 'cuatro'].map((n) => ({ clave: n, nombre: n })),
+        cierre: 'Separarlo ya ordena un poco. Gracias.',
+      },
+    ],
+    [
+      'escritura_breve, con cierre',
+      Motor.ESCRITURA_BREVE,
+      {
+        invitacion: 'Cierra el día.',
+        campos: 1,
+        largoMaximo: 200,
+        cierre: 'Día cerrado. Gracias por contarlo.',
+      },
+    ],
+  ])('%s es valida', (_caso, motor, parametros) => {
+    expect(problemaDeLosParametros(motor, parametros)).toBeUndefined();
+  });
+
+  it('el acceso a las lineas de una pregunta sin su frase se rechaza', () => {
+    rechazaCon(
+      Motor.CUESTIONARIO_CORTO,
+      {
+        modo: 'preguntas',
+        indicacion: 'Sin respuestas buenas ni malas.',
+        preguntas: [{ clave: 'h', texto: '¿A qué hora?', tipo: 'hora' }],
+        conLineasDeAyuda: true,
+      },
+      'avisoSiempre',
+    );
+  });
+
+  it('un cierre vacio se rechaza', () => {
+    rechazaCon(
+      Motor.ESCRITURA_BREVE,
+      { invitacion: 'Cierra el día.', campos: 1, largoMaximo: 200, cierre: '  ' },
+      'cierre',
+    );
+  });
+});

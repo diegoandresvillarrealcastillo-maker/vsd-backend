@@ -297,7 +297,7 @@ fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
 **Lo que la base no valida:** el contenido de `parametros`. Lo valida el dominio
 (`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
 circulares, y que cumpla el **contrato de su motor** (`ParametrosDelMotor.ts`, SCRUM-206; ver `dominio.md`).
-Los motores sin contrato todavía aceptan cualquier objeto.
+Los nueve motores tienen contrato desde SCRUM-220 (uno por `modo` cuando sirven a varias mecánicas).
 
 **Contenido sembrado: la Fase 0 (SCRUM-207).** La migración
 `20261019120000_fase_0_las_actividades_pasan_al_modelo` es solo de datos, aditiva e idempotente (el

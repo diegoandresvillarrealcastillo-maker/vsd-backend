@@ -112,27 +112,15 @@ const sin = (base: ParametrosDeMotor, clave: string) =>
   });
 
 describe('los motores con contrato', () => {
-  it('son los cinco de la Fase 0 y el piloto, y ninguno mas', () => {
-    expect([...MOTORES_CON_CONTRATO].sort()).toEqual(
-      [
-        Motor.CUESTIONARIO_CORTO,
-        Motor.ESCRITURA_BREVE,
-        Motor.GUIA_PASO_A_PASO,
-        Motor.SECUENCIA,
-        Motor.TOCAR_EL_OBJETIVO,
-      ].sort(),
-    );
+  it('son los nueve (SCRUM-220): ninguno acepta ya cualquier objeto', () => {
+    expect([...MOTORES_CON_CONTRATO].sort()).toEqual([...MOTORES].sort());
   });
 
-  it.each(MOTORES.filter((motor) => !MOTORES_CON_CONTRATO.includes(motor)))(
-    'el motor %s, que todavia no tiene motor construido, acepta cualquier objeto',
-    (motor) => {
-      expect(problemaDeLosParametros(motor, {})).toBeUndefined();
-      expect(problemaDeLosParametros(motor, { loQueSea: [1, 2, 3] })).toBeUndefined();
-    },
-  );
+  it.each(MOTORES)('el motor %s rechaza unos parametros vacios', (motor) => {
+    expect(problemaDeLosParametros(motor, {})).toBeDefined();
+  });
 
-  it('una actividad sin motor (las nueve de antes de la Fase 0) acepta cualquier objeto', () => {
+  it('una actividad sin motor (las cuatro pantallas propias) acepta cualquier objeto', () => {
     expect(problemaDeLosParametros(null, {})).toBeUndefined();
     expect(problemaDeLosParametros(null, { loQueSea: true })).toBeUndefined();
   });

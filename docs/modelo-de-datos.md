@@ -129,22 +129,23 @@ administrador escribe.
 Lo que la persona hace: un juego, unas preguntas orientativas o un registro.
 Además de describirse a sí misma, **declara cómo se interpreta su puntaje**.
 
-| Campo              | Tipo         | Nulo | Descripción                                                  |
-| ------------------ | ------------ | ---- | ------------------------------------------------------------ |
-| `id_actividad`     | UUID         | no   | Clave primaria.                                              |
-| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                |
-| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                              |
-| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                           |
-| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                 |
-| `estado`           | BOOLEAN      | no   | Si está disponible.                                          |
-| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`. |
-| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                 |
-| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                   |
-| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                    |
-| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                   |
-| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                  |
-| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.          |
-| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.  |
+| Campo              | Tipo         | Nulo | Descripción                                                        |
+| ------------------ | ------------ | ---- | ------------------------------------------------------------------ |
+| `id_actividad`     | UUID         | no   | Clave primaria.                                                    |
+| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                      |
+| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                                    |
+| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                                 |
+| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                       |
+| `estado`           | BOOLEAN      | no   | Si está disponible.                                                |
+| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`.       |
+| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                       |
+| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                         |
+| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                          |
+| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                         |
+| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                        |
+| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.                |
+| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.        |
+| `franja`           | VARCHAR(10)  | sí   | `manana`, `tarde` o `noche`; vacía = a cualquier hora (SCRUM-221). |
 
 ### Una actividad es una mecánica (SCRUM-204, ADR 0030)
 

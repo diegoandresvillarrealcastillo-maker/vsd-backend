@@ -6,6 +6,7 @@ import {
   type Umbrales,
 } from '../../domain/model/Activity.js';
 import { Categoria } from '../../domain/model/Categoria.js';
+import type { Franja } from '../../domain/model/Franja.js';
 import { ActivityId, CategoryId } from '../../domain/model/Identifier.js';
 import type { Motor } from '../../domain/model/Motor.js';
 import { type Modulo, TODOS_LOS_MODULOS } from '../../domain/model/Preferencias.js';
@@ -102,6 +103,8 @@ export class PrismaActivityRepository implements ActivityRepositoryPort {
       frecuencia: frecuenciaDesde(fila),
       // La base solo admite los nueve (CHECK) y `Activity.create` lo vuelve a comprobar.
       motor: (fila.motor ?? undefined) as Motor | undefined,
+      // La base solo admite las tres (CHECK) y `Activity.create` lo vuelve a comprobar.
+      franja: (fila.franja ?? undefined) as Franja | undefined,
       desdeSesion: fila.desdeSesion,
     });
   }

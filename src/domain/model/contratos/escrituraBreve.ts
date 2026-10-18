@@ -38,6 +38,8 @@ export const ESCRITURA_BREVE: Validador = objeto(
     etiquetas: opcional(lista(1, 5, texto(80))),
     textoNinguna: opcional(texto(60)),
     guardarParaManana: opcional(booleano),
+    /** Lo que dice al terminar: es parte del contenido que se revisa, como la invitacion. */
+    cierre: opcional(texto(160)),
   },
   (valor) => {
     const campos = valor['campos'] as number;

@@ -76,6 +76,7 @@ const CESTAS = objeto(
     linea: opcional(
       objeto({ invitacion: requerido(texto(160)), largoMaximo: requerido(entero(50, 500)) }),
     ),
+    cierre: opcional(texto(160)),
   },
   (valor) => {
     const problema =

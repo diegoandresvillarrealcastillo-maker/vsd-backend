@@ -77,6 +77,7 @@ const TARJETA = objeto(
     porQue: opcional(texto(300)),
     opciones: requerido(lista(2, 4, OPCION_SIN_VALOR)),
     nota: opcional(texto(200)),
+    cierre: opcional(texto(160)),
   },
   (valor) =>
     repetido(valor['opciones'], 'opciones', 'clave') ??
@@ -91,6 +92,7 @@ const LISTA = objeto(
       lista(3, 6, objeto({ clave: requerido(texto(20)), texto: requerido(texto(100)) })),
     ),
     nota: opcional(texto(200)),
+    cierre: opcional(texto(160)),
   },
   (valor) =>
     repetido(valor['items'], 'items', 'clave') ?? repetido(valor['items'], 'items', 'texto'),
@@ -138,8 +140,18 @@ const PREGUNTAS = objeto(
     /** Ofrece ir a donde se activa el aviso de la noche. La persona decide; nunca se activa solo. */
     enlaceAlAviso: opcional(booleano),
     nota: opcional(texto(200)),
+    cierre: opcional(texto(160)),
+    /** Una frase siempre a la vista y, con ella, el acceso a las lineas de atencion (EMO-08). */
+    avisoSiempre: opcional(texto(200)),
+    conLineasDeAyuda: opcional(booleano),
   },
-  (valor) => repetido(valor['preguntas'], 'preguntas', 'clave'),
+  (valor) => {
+    if (valor['conLineasDeAyuda'] === true && !Object.hasOwn(valor, 'avisoSiempre')) {
+      return 'avisoSiempre es obligatorio cuando conLineasDeAyuda es verdadero: el acceso a las líneas va con su frase';
+    }
+
+    return repetido(valor['preguntas'], 'preguntas', 'clave');
+  },
 );
 
 // ---------------------------------------------------------------------------
@@ -215,6 +227,7 @@ const RUEDA = objeto({
   }),
   linea: opcional(LINEA_OPCIONAL),
   nota: opcional(texto(200)),
+  cierre: opcional(texto(160)),
 });
 
 // ---------------------------------------------------------------------------

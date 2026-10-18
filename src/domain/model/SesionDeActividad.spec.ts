@@ -327,10 +327,15 @@ describe('SesionDeActividad: los parametros cumplen el contrato del motor', () =
     });
   });
 
-  it('un motor sin contrato todavia acepta cualquier objeto', () => {
+  it('los nueve motores tienen contrato (SCRUM-220): ninguno acepta ya cualquier objeto', () => {
+    expect(() =>
+      SesionDeActividad.create(datos({ motor: Motor.CLASIFICAR, parametros: { loQueSea: [1] } })),
+    ).toThrow(/no cumplen el contrato del motor "clasificar"/);
+  });
+
+  it('una actividad sin motor acepta cualquier objeto', () => {
     expect(
-      SesionDeActividad.create(datos({ motor: Motor.CLASIFICAR, parametros: { loQueSea: [1] } }))
-        .parametros,
+      SesionDeActividad.create(datos({ motor: null, parametros: { loQueSea: [1] } })).parametros,
     ).toEqual({ loQueSea: [1] });
   });
 

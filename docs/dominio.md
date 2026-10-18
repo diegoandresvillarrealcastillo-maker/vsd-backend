@@ -126,10 +126,14 @@ pinta la sesion; el frontend lo lee tal cual. Reglas para todos los motores:
   usaria su valor por omision y nadie se enteraria.
 - Los textos que lee la persona no van vacios y tienen un largo maximo. Se informa **del primer problema**, con
   la ruta del campo (`opciones[3].valor debe ser un número entero de 0 a 10`), sin punto final.
-- Los cuatro motores sin contrato todavia (`ver_ocultar_recordar`, `clasificar`, `palabras`, `calculo`)
-  aceptan cualquier objeto hasta que se construya su motor.
+- Los **nueve** motores tienen contrato desde SCRUM-220, cada uno en su archivo de `src/domain/model/contratos/`.
+  Un motor que sirve a varias mecanicas tiene un contrato **por `modo`** (`porModo`): las sesiones sembradas
+  antes de que existieran los modos no traen `modo` y siguen siendo validas.
+- Las sesiones con puntaje traen `puntosMaximos`, y cuando el motor puede saberlo, el contrato lo **ata a la
+  sesion** (las rondas, las preguntas, las veces que sale un objetivo). La prueba del contenido compara ese
+  numero con el `puntaje_maximo` de la mecanica.
 
-Los cinco que ya tienen contrato (los rangos son enteros e inclusivos):
+Los que ya tenian contrato (los rangos son enteros e inclusivos):
 
 - **`cuestionario_corto`.** `indicacion` (hasta 200: la frase que enmarca el cuestionario), `preguntas` (1 a 10: `clave` de hasta 40, unica, y `texto` de hasta 200) y
   `opciones` (2 a 7: `valor` de 0 a 10, unico, y `texto` de hasta 40, sin repetir). **El maximo del puntaje no
@@ -151,6 +155,45 @@ Los cinco que ya tienen contrato (los rangos son enteros e inclusivos):
   (60 a 600); opcionales `ambientacion` (hasta 40), `frases` (0 a 40 de hasta 120, sin repetir) y `haptico`.
   Las barandas de la ficha BIE-01 estan hechas rango: **ninguna retencion de mas de 4 s** y **nada de ritmos
   rapidos** (a lo sumo 10 respiraciones por minuto). Quien revisa la sesion puede pedir limites mas estrechos.
+
+Lo que suma SCRUM-220, **por modo** (todo es opcional salvo lo que dice «obligatorio»):
+
+- **`tocar_el_objetivo`.** Sin `modo`, «Encuentra la diferencia» de siempre. `flujo` (COG-05): `objetivos` (1 o 2) y `otros` (2 a 8), cada simbolo con `clave`, `nombre` y `pictograma`; `secuencia` (10 a 60 claves, sin el
+  mismo simbolo dos veces seguidas y con al menos un objetivo), `msPorEstimulo` (**1000 a 3000**: nunca mas de
+  uno por segundo, R10) y `puntosMaximos` (**igual a las veces que sale un objetivo**). `puntos` (COG-08):
+  `indicacion`, `puntos` (5 a 20, **en el orden en que se tocan**, con `etiqueta`, `x` e `y` de 5 a 95 y a
+  **14 de distancia o mas**: el objetivo tactil minimo es de 44 px) y `puntosMaximos`.
+- **`ver_ocultar_recordar`.** `lista` (COG-06): `contexto`, `segundosVista` (5 a 30), `elementos` (3 a 8),
+  `distractores` (2 a 6, sin repetirse con los elementos) y `puntosMaximos`. `escena` (COG-09): `segundosVista`
+  (5 a 20), `filas` y `columnas` (2 a 4), `celdas` (4 a 16, cada una en un lugar propio y con nombre unico),
+  `preguntas` (3 a 8: el lugar por el que pregunta, 3 o 4 `opciones` y la `correcta`, **que es lo que habia en
+  ese lugar**) y `puntosMaximos` (**igual a las preguntas**).
+- **`clasificar`.** `intruso` (COG-02): `rondas` (3 a 10 de cuatro `palabras` distintas, el indice del
+  `intruso` y su `razon`) y `puntosMaximos` (**igual a las rondas**). `cestas` (COG-03 y EMO-04): `indicacion`,
+  `cestas` (2 o 3), `elementos` (4 a 16; cada uno puede traer su `cesta`, o una lista si es ambiguo) y, solo si
+  **todos** la traen, `puntosMaximos` (**igual a los elementos**). Si ninguno la trae es un ejercicio de
+  reflexion y no puntua: puede traer una `linea` de texto libre.
+- **`palabras`.** `completar` o `anagrama`: `palabras` (3 a 10 con `pista` y `palabra` de 3 a 8 letras) y
+  `puntosMaximos` (**igual a las palabras**). `completar` trae `faltan` (1 a 3 posiciones que existan, sin
+  dejar la palabra casi sin letras); `anagrama` trae `revuelta`, que tiene que tener **las mismas letras** y no
+  ser la palabra.
+- **`calculo`.** `rondas` (3 a 10 con `enunciado`, tres `opciones` distintas y la `correcta`) y `puntosMaximos`
+  (igual a las rondas). **No hay `segundosPorRonda`: no hay reloj** (R4).
+- **`guia_paso_a_paso`, modo `pasos`.** `avance` (`manual` o `auto`), `advertenciaInicial`, `intro`, `cierre`,
+  `avisoSiempre` (una frase que queda a la vista) y `conLineasDeAyuda` (que **pide** el aviso), y **o** `pasos`
+  (2 a 12: `texto`, y `titulo`, `pictograma` y `segundos` opcionales) **o** `elecciones` (2 a 4, cada una con
+  sus propios pasos). Con `avance: auto`, todo paso trae sus `segundos`. La respiracion de siempre acepta
+  `modo: respiracion`, y no hace falta decirlo.
+- **`cuestionario_corto`, sin puntaje.** Sin `modo`, el cuestionario de siempre. `tarjeta` (BIE-03, 04, 05): una
+  practica con `titulo`, `texto`, un `porQue` opcional y 2 a 4 `opciones` **sin `valor`**. `lista` (BIE-07): 3
+  a 6 `items`. `preguntas` (BIE-08, EMO-08): preguntas de tipo `opcion`, `varias` u `hora` (la de `hora` no
+  trae opciones). `rueda` (EMO-01): `puerta` y una `rueda` de hasta **tres niveles** cuyas hojas (las emociones)
+  traen su `definicion` de una linea, con claves unicas en toda la rueda.
+- **`escritura_breve`.** Suma `etiquetas` (una por campo), `textoNinguna` (lo que dice el boton de «hoy no»),
+  `guardarParaManana` (la carta de EMO-05; un solo campo) y `cierre` (lo que dice al terminar).
+- **`cierre`** (hasta 160) lo traen tambien `cuestionario_corto` en sus cuatro modos sin puntaje y `clasificar` en
+  `cestas`: el texto de apoyo de cada ficha es contenido que se revisa, asi que viaja en la sesion. El modo
+  `preguntas` suma `avisoSiempre` y `conLineasDeAyuda` (EMO-08: el acceso a las lineas de atencion, con su frase).
 
 **Lo que no se comprueba aqui:** el filtro de lenguaje clinico (R6) ni la lista de exclusion (R14). Son pruebas
 automaticas sobre el contenido que se siembra, y se ejecutan con ese contenido.

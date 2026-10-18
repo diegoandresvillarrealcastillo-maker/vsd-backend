@@ -90,6 +90,11 @@ Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **s
 - `motor` (opcional): uno de los nueve de `Motor.ts`, de M1 a M9 de las fichas. Dice que componente pinta
   la mecanica. De las nueve actuales lo tienen cinco desde la Fase 0 (SCRUM-207); las otras cuatro son pantallas propias y no. Las tres del piloto (SCRUM-212) nacen con motor. `Activity.create` rechaza un
   valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
+- `franja` (opcional, SCRUM-221): la franja del dia en que el sendero la ofrece (`Franja.ts`: `manana` de 5:00
+  a 11:59, `tarde` de 12:00 a 18:59 y `noche` de 19:00 a 4:59). Se calcula con la hora **de la persona**
+  (ADR 0014). Vacia: a cualquier hora. Decide **que se ofrece**, no que se puede hacer: la actividad sigue en
+  el catalogo, y lo que la persona ya hizo hoy no desaparece al cambiar de franja. Una mecanica fuera de su
+  hora tampoco ocupa uno de los tres lugares de la rotacion.
 - `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
   rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia (ver "El sendero de cada
   modulo").

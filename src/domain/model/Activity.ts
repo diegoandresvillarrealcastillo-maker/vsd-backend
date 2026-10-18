@@ -1,4 +1,5 @@
 import { InvalidActivityConfigurationError, InvalidScoreRangeError } from './DomainError.js';
+import { type Franja, esFranja } from './Franja.js';
 import { ActivityId } from './Identifier.js';
 import { type Motor, esMotor } from './Motor.js';
 import { NivelOrientativo } from './OrientativeScore.js';
@@ -103,6 +104,11 @@ export interface DatosDeActividad {
    */
   readonly motor?: Motor | undefined;
   /**
+   * La franja del dia en que el sendero la ofrece (ADR 0030, punto 8). Vacia: a cualquier hora. No limita lo
+   * que la persona puede hacer, solo lo que se le ensena como «lo de hoy».
+   */
+  readonly franja?: Franja | undefined;
+  /**
    * Desde que sesion del modulo aparece, empezando en 1. Es lo que hace que el
    * sendero se abra poco a poco en lugar de ensenarlo todo el primer dia.
    */
@@ -127,6 +133,7 @@ export class Activity {
   readonly textosNivel: TextosNivel | undefined;
   readonly frecuencia: Frecuencia;
   readonly motor: Motor | undefined;
+  readonly franja: Franja | undefined;
   readonly desdeSesion: number;
 
   private constructor(datos: DatosDeActividad, umbrales: Umbrales) {
@@ -140,6 +147,7 @@ export class Activity {
     this.textosNivel = datos.textosNivel;
     this.frecuencia = datos.frecuencia ?? DIARIA;
     this.motor = datos.motor;
+    this.franja = datos.franja;
     this.desdeSesion = datos.desdeSesion ?? 1;
   }
 
@@ -212,6 +220,14 @@ export class Activity {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
         `tiene un motor que las fichas no conocen: "${String(datos.motor)}"`,
+      );
+    }
+
+    // Igual que el motor: el tipo impide una franja desconocida al escribir codigo; esto cubre una fila.
+    if (datos.franja !== undefined && !esFranja(datos.franja)) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        `tiene una franja que el día no tiene: "${String(datos.franja)}"`,
       );
     }
 

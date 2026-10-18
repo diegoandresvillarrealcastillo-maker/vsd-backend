@@ -266,3 +266,25 @@ describe('El motor de la mecanica (ADR 0030)', () => {
     );
   });
 });
+
+describe('Activity: la franja del dia (SCRUM-221)', () => {
+  const base = {
+    id: new ActivityId('aaaaaaaa-aaaa-4aaa-8aaa-000000000001'),
+    nombre: 'Antes de dormir',
+    direccionEscala: DireccionEscala.SIN_PUNTAJE,
+  };
+
+  it('por omision no tiene franja: se ofrece a cualquier hora', () => {
+    expect(Activity.create(base).franja).toBeUndefined();
+  });
+
+  it.each(['manana', 'tarde', 'noche'] as const)('acepta la franja %s', (franja) => {
+    expect(Activity.create({ ...base, franja }).franja).toBe(franja);
+  });
+
+  it('rechaza una franja que el dia no tiene (una fila rota de la base)', () => {
+    expect(() => Activity.create({ ...base, franja: 'madrugada' as never })).toThrow(
+      /franja que el día no tiene/,
+    );
+  });
+});

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DireccionEscala } from '../../domain/model/Activity.js';
 import { ActivityId } from '../../domain/model/Identifier.js';
+import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
 
@@ -52,12 +53,20 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
     const catalogo = await repositorio.listarCatalogo();
     const cognicion = catalogo.find((categoria) => categoria.nombre === 'Cognición');
 
-    expect(cognicion?.actividades.map((a) => a.nombre)).toEqual([
-      'Encuentra la diferencia',
-      'Parejas de cartas',
-      'Recuerda los colores',
-      'Secuencia de números',
-    ]);
+    // Las cuatro de antes y las ocho que suma el catalogo completo (SCRUM-222), sin depender del orden.
+    expect([...(cognicion?.actividades.map((a) => a.nombre) ?? [])].sort()).toEqual(
+      [
+        'Encuentra la diferencia',
+        'Parejas de cartas',
+        'Recuerda los colores',
+        'Secuencia de números',
+        ...todosLosLotes()
+          .filter((una) => una.lote.categoria === 'Cognición')
+          .flatMap((una) =>
+            una.lote.mecanicas.filter((m) => m.yaExiste !== true).map((m) => m.nombre),
+          ),
+      ].sort(),
+    );
   });
 
   it('las categorias vienen ordenadas por nombre', async () => {
@@ -144,18 +153,33 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
       expect(diaria?.frecuencia).toEqual({ tipo: 'diaria' });
     });
 
-    it('las doce actividades del catalogo llegan: cinco de la Fase 0 y tres del piloto traen motor', async () => {
+    it('las actividades del catalogo llegan: cinco de la Fase 0 y las nuevas traen motor', async () => {
       const catalogo = await repositorio.listarCatalogo();
       // Solo las sembradas por la migracion, que llevan este prefijo: otras suites comparten la
       // base y pueden dejar actividades suyas (CatalogoSembrado hace lo mismo).
-      const doce = catalogo
+      const sembradas = catalogo
         .flatMap((categoria) => categoria.actividades)
         .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
+      const nuevas = todosLosLotes().flatMap((una) =>
+        una.lote.mecanicas.filter((m) => m.yaExiste !== true),
+      );
 
-      expect(doce).toHaveLength(12);
+      expect(sembradas).toHaveLength(12 + nuevas.length);
+      // Todas las nuevas traen su motor.
+      for (const nueva of nuevas) {
+        expect(sembradas.find((a) => a.id.value === nueva.id)?.motor, nueva.codigo).toBe(
+          nueva.motor,
+        );
+      }
+
       // Los identificadores de la migracion del catalogo inicial: 2 secuencia, 3 diferencia, 5 carga,
       // 7 como te sientes y 9 momento bueno. Las otras cuatro son pantallas propias. Las tres del
       // piloto (SCRUM-212) son a «Recuerda los colores», b «Respiracion guiada» y c «Tres cosas buenas».
+      const doce = sembradas.filter((actividad) =>
+        /^0acd0000-0000-4000-8000-00000000000[0-9a-c]$/.test(actividad.id.value),
+      );
+
+      expect(doce).toHaveLength(12);
       expect(
         Object.fromEntries(
           doce.map((actividad) => [actividad.id.value.slice(-1), actividad.motor ?? null]),
@@ -176,17 +200,27 @@ describe.skipIf(URL_BASE === undefined)('Catalogo leido de PostgreSQL', () => {
       });
     });
 
-    it('solo las tres del piloto son rotativas: las nueve de siempre conservan su frecuencia', async () => {
+    it('solo las del piloto y las nuevas son rotativas: las nueve de siempre conservan su frecuencia', async () => {
       const catalogo = await repositorio.listarCatalogo();
-      const doce = catalogo
+      const sembradas = catalogo
         .flatMap((categoria) => categoria.actividades)
         .filter((actividad) => actividad.id.value.startsWith('0acd0000-'));
-      const rotativas = doce
+      const rotativas = sembradas
         .filter((actividad) => actividad.frecuencia.tipo === 'rotativa')
-        .map((actividad) => actividad.id.value.slice(-1))
+        .map((actividad) => actividad.id.value)
         .sort();
+      const nuevas = todosLosLotes().flatMap((una) =>
+        una.lote.mecanicas.filter((m) => m.yaExiste !== true),
+      );
 
-      expect(rotativas).toEqual(['a', 'b', 'c']);
+      expect(rotativas).toEqual(
+        [
+          '0acd0000-0000-4000-8000-00000000000a',
+          '0acd0000-0000-4000-8000-00000000000b',
+          '0acd0000-0000-4000-8000-00000000000c',
+          ...nuevas.map((m) => m.id),
+        ].sort(),
+      );
     });
   });
 

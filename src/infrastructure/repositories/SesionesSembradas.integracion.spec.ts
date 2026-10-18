@@ -431,6 +431,16 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
   describe('el piloto: tres mecanicas nuevas y diez sesiones', () => {
     const idsDeLasActividades = DEL_PILOTO.map((actividad) => actividad.id);
 
+    /**
+     * Las diez sesiones del piloto, y solo ellas: «Recuerda los colores» tiene ahora 40 (SCRUM-222), pero
+     * estas pruebas hablan de las diez sembradas en el piloto, que no cambian.
+     */
+    async function sesionesDelPiloto(actividades: readonly string[] = idsDeLasActividades) {
+      const delPiloto = new Set<string>(SESIONES_DEL_PILOTO.map((una) => una.id));
+
+      return (await sesionesDe(actividades)).filter((sesion) => delPiloto.has(sesion.id));
+    }
+
     interface FichaDeActividad {
       readonly id: string;
       readonly nombre: string;
@@ -531,7 +541,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('hay diez sesiones, cuatro, tres y tres, cada una en su mecanica y con su nivel', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+      const sesiones = await sesionesDelPiloto();
 
       expect(
         sesiones.map((sesion) => [sesion.id, sesion.idActividad, sesion.titulo, sesion.nivel]),
@@ -546,7 +556,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('las cuatro de COG-01 estan publicadas y las seis de BIE-01 y EMO-02 siguen sin publicar y pendientes', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+      const sesiones = await sesionesDelPiloto();
 
       expect(sesiones).toHaveLength(10);
 
@@ -561,7 +571,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('cada una cumple el contrato de su motor', async () => {
-      const sesiones = await sesionesDe(idsDeLasActividades);
+      const sesiones = await sesionesDelPiloto();
 
       expect(sesiones).toHaveLength(10);
 
@@ -592,12 +602,12 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       ).toBe(true);
       expect((await repositorio.mecanicasConSesion(persona, actividades, HOY)).size).toBe(1);
 
-      // Y la que se ofrece es una de las cuatro, ya leida por el dominio: cumple el contrato de su
-      // motor (un contenido que no lo cumpliera haria fallar esta lectura).
+      // Y la que se ofrece es una de «Recuerda los colores» (las cuatro del piloto y las 36 de SCRUM-222), ya
+      // leida por el dominio: cumple el contrato de su motor (un contenido que no lo cumpliera haria fallar
+      // esta lectura).
       const sesionDeHoy = hoy.get(COLORES.id);
-      const lasCuatro = SESIONES_DEL_PILOTO.filter((una) => una.actividad.id === COLORES.id);
 
-      expect(lasCuatro.map((una) => una.id)).toContain(sesionDeHoy?.id.value);
+      expect(sesionDeHoy?.idActividad.value).toBe(COLORES.id);
       expect(sesionDeHoy?.publicado).toBe(true);
     });
 
@@ -619,7 +629,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     );
 
     it('«Recuerda los colores»: forma, nombre y color en cada casilla, y el destello cabe en el turno', async () => {
-      const sesiones = await sesionesDe([COLORES.id]);
+      const sesiones = await sesionesDelPiloto([COLORES.id]);
       const esperadas = [
         { casillas: 4, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
         { casillas: 6, largoInicial: 3, msPorElemento: 1000, msDestello: 700 },
@@ -652,7 +662,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('«Respiración guiada»: el aviso va con cada una, el patron es el de su titulo y ninguna pausa pasa de 4 s', async () => {
-      const sesiones = await sesionesDe([RESPIRACION.id]);
+      const sesiones = await sesionesDelPiloto([RESPIRACION.id]);
       const patrones = [
         { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
         { inhalaSegundos: 5, exhalaSegundos: 5, pausaSegundos: 0 },
@@ -677,7 +687,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it('«Tres cosas buenas»: tres campos, con una basta, y se puede decir que hoy no sale ninguna', async () => {
-      const sesiones = await sesionesDe([TRES_COSAS.id]);
+      const sesiones = await sesionesDelPiloto([TRES_COSAS.id]);
       const invitaciones = [
         'Algo que probaste hoy, aunque sea pequeño.',
         'Alguien que te hizo el rato más fácil.',
@@ -713,7 +723,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       const sql = migracionDelPiloto();
       const foto = async () => ({
         actividades: await fichas(),
-        sesiones: await sesionesDe(idsDeLasActividades),
+        sesiones: await sesionesDelPiloto(),
       });
 
       await dueno.query('BEGIN');

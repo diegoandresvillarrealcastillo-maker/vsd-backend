@@ -5,7 +5,8 @@ import { esMotor, type Motor } from '../../domain/model/Motor.js';
 import { problemaDeLosParametros } from '../../domain/model/ParametrosDelMotor.js';
 import { SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
 import { ActivityId, SesionId } from '../../domain/model/Identifier.js';
-import { problemasDeContenido } from '../contenidoDeSesiones.js';
+import { problemasDeContenido, textosDe } from '../contenidoDeSesiones.js';
+import { pictogramasDeEstiramiento } from './bienestar/estiramiento.ts';
 import { PICTOGRAMAS } from './pictogramas.ts';
 import { idDeMecanica, idDeSesion } from './ids.ts';
 import { sqlDe, todosLosLotes } from './lotes.ts';
@@ -45,7 +46,7 @@ export function caracteresFueraDeWin1252(texto: string): string[] {
 }
 
 /** Cuantas sesiones tiene cada mecanica en total: las que ya estaban sembradas mas las del lote. */
-const YA_SEMBRADAS: Readonly<Record<string, number>> = { 'COG-01': 4 };
+const YA_SEMBRADAS: Readonly<Record<string, number>> = { 'COG-01': 4, 'BIE-01': 3 };
 const SESIONES_POR_MECANICA = 40;
 
 describe.each(LOTES)('el lote $lote.migracion', (una) => {
@@ -252,6 +253,20 @@ describe('las sesiones', () => {
     expect(problemas).toEqual([]);
   });
 
+  it('el tono acompana: ninguna da ordenes de sentir, ni presiona, ni culpa, ni mete prisa (R3, R13)', () => {
+    // «relajate» es una orden, no una invitacion; «deberias», «tienes que» y «hay que» presionan; «culpa» y
+    // «fracaso» juzgan; «urgente», «date prisa» y «apurate» meten prisa. La prueba de lenguaje clinico (R6) no los ve.
+    const PRESION =
+      /rel[aá]jate|relaj[aá]r\b|deber[ií]as|debes\b|tienes que|tiene que|hay que|urgente|culpa|fracas|date prisa|apúrate|no te preocupes|todo va a estar bien|est[aá]s a salvo/iu;
+    const problemas = SESIONES.flatMap(({ mecanica, sesion }) =>
+      textosDe(sesion.parametros)
+        .filter((texto) => PRESION.test(texto))
+        .map((texto) => `${mecanica.codigo} «${sesion.titulo}»: «${texto}»`),
+    );
+
+    expect(problemas).toEqual([]);
+  });
+
   it('el nivel de cada una esta entre 1 y 3', () => {
     for (const { mecanica, sesion } of SESIONES) {
       expect([1, 2, 3], `${mecanica.codigo} ${sesion.titulo}`).toContain(sesion.nivel);
@@ -267,7 +282,11 @@ describe('las sesiones', () => {
   });
 
   it('los pictogramas que nombra existen en la biblioteca', () => {
-    const conocidos = new Set(PICTOGRAMAS.map((una) => una.clave));
+    // Los 60 de los juegos y las 48 figuras de estiramiento (`zona:gesto`).
+    const conocidos = new Set([
+      ...PICTOGRAMAS.map((una) => una.clave),
+      ...pictogramasDeEstiramiento(),
+    ]);
     const desconocidos: string[] = [];
     const mirar = (valor: unknown, donde: string) => {
       if (Array.isArray(valor)) {

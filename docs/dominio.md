@@ -189,8 +189,11 @@ Lo que suma SCRUM-220, **por modo** (todo es opcional salvo lo que dice «obliga
   a 6 `items`. `preguntas` (BIE-08, EMO-08): preguntas de tipo `opcion`, `varias` u `hora` (la de `hora` no
   trae opciones). `rueda` (EMO-01): `puerta` y una `rueda` de hasta **tres niveles** cuyas hojas (las emociones)
   traen su `definicion` de una linea, con claves unicas en toda la rueda.
-- **`escritura_breve`.** Suma `etiquetas` (una por campo), `textoNinguna` (lo que dice el boton de «hoy no») y
-  `guardarParaManana` (la carta de EMO-05; un solo campo).
+- **`escritura_breve`.** Suma `etiquetas` (una por campo), `textoNinguna` (lo que dice el boton de «hoy no»),
+  `guardarParaManana` (la carta de EMO-05; un solo campo) y `cierre` (lo que dice al terminar).
+- **`cierre`** (hasta 160) lo traen tambien `cuestionario_corto` en sus cuatro modos sin puntaje y `clasificar` en
+  `cestas`: el texto de apoyo de cada ficha es contenido que se revisa, asi que viaja en la sesion. El modo
+  `preguntas` suma `avisoSiempre` y `conLineasDeAyuda` (EMO-08: el acceso a las lineas de atencion, con su frase).
 
 **Lo que no se comprueba aqui:** el filtro de lenguaje clinico (R6) ni la lista de exclusion (R14). Son pruebas
 automaticas sobre el contenido que se siembra, y se ejecutan con ese contenido.

@@ -11,7 +11,7 @@ import {
 } from './DomainError.js';
 import { FechaDeNacimiento } from './FechaDeNacimiento.js';
 import { UserId } from './Identifier.js';
-import { type DatosDeUsuario, EDAD_MINIMA, Rol, User } from './User.js';
+import { type DatosDeUsuario, EDAD_MINIMA, Rol, TipoDeConsentimiento, User } from './User.js';
 
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
 const USUARIO_B = '22222222-2222-4222-9222-222222222222';
@@ -620,6 +620,144 @@ describe('User: la mascota propia (SCRUM-122)', () => {
 
       expect(arreglada).not.toBe(cuenta);
       expect(arreglada.mascota).toEqual({ forma: 'fungito', nombre: 'Mia' });
+    });
+  });
+});
+
+describe('Volver a aceptar el aviso y los terminos (SCRUM-237)', () => {
+  const VIGENTES = { aviso: '2026-10-3', terminos: '2026-10-3' } as const;
+  const ANTES = new Date('2026-09-16T10:00:00.000Z');
+
+  /** Una cuenta con el registro completo y esas versiones aceptadas. */
+  function aceptando(aviso: string, terminos: string): User {
+    return User.create(
+      datos({
+        fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+        consentimiento: { versionPolitica: aviso, aceptadoEn: ANTES },
+        terminos: { versionPolitica: terminos, aceptadoEn: ANTES },
+      }),
+      AHORA,
+    );
+  }
+
+  describe('textosPendientes', () => {
+    it('con las dos versiones vigentes no tiene nada pendiente', () => {
+      expect(aceptando('2026-10-3', '2026-10-3').textosPendientes(VIGENTES)).toEqual([]);
+    });
+
+    it('con el aviso viejo solo el aviso esta pendiente', () => {
+      expect(aceptando('2026-09-1', '2026-10-3').textosPendientes(VIGENTES)).toEqual([
+        TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+      ]);
+    });
+
+    it('con los terminos viejos solo los terminos estan pendientes', () => {
+      expect(aceptando('2026-10-3', '2026-10-1').textosPendientes(VIGENTES)).toEqual([
+        TipoDeConsentimiento.TERMINOS,
+      ]);
+    });
+
+    it('con los dos viejos estan los dos, el aviso primero', () => {
+      expect(aceptando('2026-09-1', '2026-10-1').textosPendientes(VIGENTES)).toEqual([
+        TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+        TipoDeConsentimiento.TERMINOS,
+      ]);
+    });
+
+    it('no distingue los espacios que rodeen una version', () => {
+      expect(aceptando(' 2026-10-3 ', '2026-10-3  ').textosPendientes(VIGENTES)).toEqual([]);
+    });
+
+    it('lo que nunca se acepto tambien esta pendiente', () => {
+      // Una cuenta anterior a los terminos: sin ellos no hay version que comparar.
+      const sinTerminos = User.create(datos({ consentimiento: undefined }), AHORA);
+
+      expect(sinTerminos.textosPendientes(VIGENTES)).toEqual([
+        TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+        TipoDeConsentimiento.TERMINOS,
+      ]);
+    });
+  });
+
+  describe('conTextosAceptados', () => {
+    it('reemplaza lo que se acepta con su version y su fecha', () => {
+      const despues = aceptando('2026-09-1', '2026-10-1').conTextosAceptados(
+        {
+          aviso: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+          terminos: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+        },
+        AHORA,
+      );
+
+      expect(despues.consentimiento).toEqual({ versionPolitica: '2026-10-3', aceptadoEn: AHORA });
+      expect(despues.terminos).toEqual({ versionPolitica: '2026-10-3', aceptadoEn: AHORA });
+      expect(despues.textosPendientes(VIGENTES)).toEqual([]);
+    });
+
+    it('si solo se acepta uno, el otro se queda como estaba', () => {
+      const despues = aceptando('2026-10-3', '2026-10-1').conTextosAceptados(
+        { terminos: { versionPolitica: '2026-10-3', aceptadoEn: AHORA } },
+        AHORA,
+      );
+
+      expect(despues.terminos?.versionPolitica).toBe('2026-10-3');
+      expect(despues.consentimiento).toEqual({ versionPolitica: '2026-10-3', aceptadoEn: ANTES });
+    });
+
+    it('devuelve otra cuenta con todo lo demas igual, y la anterior no cambia', () => {
+      const antes = User.create(
+        datos({
+          nombre: 'Ana',
+          zonaHoraria: 'Europe/Madrid',
+          fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+          consentimiento: { versionPolitica: '2026-09-1', aceptadoEn: ANTES },
+          terminos: { versionPolitica: '2026-10-1', aceptadoEn: ANTES },
+        }),
+        AHORA,
+      );
+
+      const despues = antes.conTextosAceptados(
+        {
+          aviso: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+          terminos: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+        },
+        AHORA,
+      );
+
+      expect(despues.nombre).toBe('Ana');
+      expect(despues.zonaHoraria).toBe('Europe/Madrid');
+      expect(despues.fechaDeNacimiento?.valor).toBe('1998-03-14');
+      expect(despues.id.value).toBe(USUARIO_A);
+      expect(antes.consentimiento?.versionPolitica).toBe('2026-09-1');
+      expect(antes.terminos?.versionPolitica).toBe('2026-10-1');
+    });
+
+    it('rechaza una version vacia o una fecha del futuro', () => {
+      const cuenta = aceptando('2026-09-1', '2026-10-1');
+      const futuro = new Date(AHORA.getTime() + 86400000);
+
+      expect(() =>
+        cuenta.conTextosAceptados({ aviso: { versionPolitica: '  ', aceptadoEn: AHORA } }, AHORA),
+      ).toThrow(MissingConsentError);
+      expect(() =>
+        cuenta.conTextosAceptados(
+          { terminos: { versionPolitica: '2026-10-3', aceptadoEn: futuro } },
+          AHORA,
+        ),
+      ).toThrow(FutureConsentDateError);
+    });
+
+    it('aceptar los textos no completa un registro al que le falta la fecha de nacimiento', () => {
+      // La edad solo se declara en el registro: aceptar un texto no la sustituye.
+      const sinFecha = User.create(datos(), AHORA).conTextosAceptados(
+        {
+          aviso: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+          terminos: { versionPolitica: '2026-10-3', aceptadoEn: AHORA },
+        },
+        AHORA,
+      );
+
+      expect(sinFecha.registroCompleto()).toBe(false);
     });
   });
 });

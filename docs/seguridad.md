@@ -240,6 +240,12 @@ casillas: consultarla, exportarla y borrarla. Lo que no lleva la marca la
 rechaza con 403 `REGISTRO_INCOMPLETO`, de modo que una ruta nueva exige el
 registro completo sin que nadie tenga que acordarse (ADR 0021).
 
+La cuarta, `@PermiteTextosPendientes()`, es para una sola ruta: la que registra que la
+persona volvio a aceptar el aviso o los terminos cuando cambiaron (`POST
+/api/cuenta/aceptacion`, ADR 0032). Una cuenta con un texto pendiente recibe 403
+`TEXTOS_PENDIENTES_DE_ACEPTAR` en todo lo demas, salvo en lo que lleva la marca del
+registro incompleto (ver, exportar y borrar).
+
 Es al reves de proteger ruta por ruta, y es deliberado: olvidar el
 decorador deja una ruta publica cerrada, que se nota en cuanto alguien la
 usa; olvidar proteger deja una ruta privada abierta, que no se nota nunca.

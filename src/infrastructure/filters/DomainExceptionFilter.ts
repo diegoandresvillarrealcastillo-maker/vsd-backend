@@ -78,6 +78,10 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // completar el registro si.
   REGISTRO_INCOMPLETO: HttpStatus.FORBIDDEN,
 
+  // Lo mismo cuando cambian el aviso o los terminos (SCRUM-237): la cuenta existe y el token vale,
+  // repetir el inicio de sesion no lo arregla, aceptar la version nueva si.
+  TEXTOS_PENDIENTES_DE_ACEPTAR: HttpStatus.FORBIDDEN,
+
   // Igual que el aviso, 409: se arregla pidiendo la version vigente y repitiendo.
   VERSION_DE_LOS_TERMINOS_NO_VIGENTE: HttpStatus.CONFLICT,
 

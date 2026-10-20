@@ -38,6 +38,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0029](0029-el-apoyo-de-una-actividad-sale-con-un-patron-de-la-semana.md)                  | El apoyo de una actividad sale con un patrón de la semana                  | Aceptada (revisa la regla de SCRUM-94; no cambia la señal de riesgo en lo escrito)   |
 | [0030](0030-una-actividad-es-una-mecanica-y-lo-que-cambia-cada-dia-es-su-sesion.md)        | Una actividad es una mecánica, y lo que cambia cada día es su sesión       | Aceptada (SCRUM-203; se implementa en SCRUM-204 y SCRUM-205)                         |
 | [0031](0031-los-elementos-de-un-banco-viajan-dentro-de-la-sesion.md)                       | Los elementos de un banco viajan dentro de la sesión                       | Propuesta (SCRUM-220)                                                                |
+| [0032](0032-cuando-cambian-el-aviso-o-los-terminos-la-cuenta-vuelve-a-aceptarlos.md)       | Cuando cambian el aviso o los términos, la cuenta vuelve a aceptarlos      | Aceptada (SCRUM-237)                                                                 |
 
 ## Reglas
 

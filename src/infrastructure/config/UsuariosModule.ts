@@ -1,5 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
+import { AceptarTextosVigentesUseCaseImpl } from '../../application/usecases/AceptarTextosVigentesUseCaseImpl.js';
 import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/ActualizarPreferenciasUseCaseImpl.js';
 import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuentaUseCaseImpl.js';
 import { InactivarCuentaUseCaseImpl } from '../../application/usecases/InactivarCuentaUseCaseImpl.js';
@@ -41,6 +42,7 @@ import { DiarioModule } from './DiarioModule.js';
 import type { Configuracion } from './environment.js';
 import { PendientesModule } from './PendientesModule.js';
 import {
+  ACEPTAR_TEXTOS,
   ACTIVITY_RESULT_REPOSITORY,
   ACTUALIZAR_PREFERENCIAS,
   ALMACEN_DE_FOTOS,
@@ -141,6 +143,11 @@ import {
     {
       provide: ACTUALIZAR_PREFERENCIAS,
       useFactory: (cuentas: UserRepositoryPort) => new ActualizarPreferenciasUseCaseImpl(cuentas),
+      inject: [USER_REPOSITORY],
+    },
+    {
+      provide: ACEPTAR_TEXTOS,
+      useFactory: (cuentas: UserRepositoryPort) => new AceptarTextosVigentesUseCaseImpl(cuentas),
       inject: [USER_REPOSITORY],
     },
     {

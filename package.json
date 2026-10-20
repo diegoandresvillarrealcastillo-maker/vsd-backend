@@ -58,6 +58,7 @@
     "db:revisar": "node scripts/revisar-base.mjs",
     "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs",
     "db:preparar": "node scripts/preparar-ambiente.mjs",
+    "mantenimiento:constancias": "npm run build && node dist/infrastructure/mantenimiento/purgar-constancias.js",
     "vapid:generar": "web-push generate-vapid-keys"
   },
   "engines": {

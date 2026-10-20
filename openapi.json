@@ -1577,14 +1577,14 @@
           "versionPolitica": {
             "type": "string",
             "description": "Versión del aviso de tratamiento de datos que la persona aceptó. No basta un sí o un no: las políticas cambian, y ante una reclamación hay que poder demostrar a qué se dio permiso y cuándo. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
-            "example": "2026-09-1",
+            "example": "2026-10-1",
             "minLength": 1,
             "maxLength": 20
           },
           "versionTerminos": {
             "type": "string",
             "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
-            "example": "2026-10-1",
+            "example": "2026-10-2",
             "minLength": 1,
             "maxLength": 20
           },
@@ -2285,12 +2285,12 @@
           "version": {
             "type": "string",
             "description": "Version vigente del aviso de privacidad. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
-            "example": "2026-09-1"
+            "example": "2026-10-1"
           },
           "versionTerminos": {
             "type": "string",
             "description": "Version vigente de los terminos. Es la que hay que enviar en `versionTerminos` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
-            "example": "2026-10-1"
+            "example": "2026-10-2"
           }
         },
         "required": [

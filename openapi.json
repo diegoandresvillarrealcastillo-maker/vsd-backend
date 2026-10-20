@@ -218,6 +218,56 @@
         ]
       }
     },
+    "/api/cuenta/aceptacion": {
+      "post": {
+        "description": "El aviso y los términos prometen que, si cambian, se le pedirá a la persona que los acepte de nuevo. Cuando la versión que aceptó ya no es la vigente, `GET /api/cuenta` lo dice en `textosPendientes` y la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo lo demás, salvo ver, exportar y borrar la cuenta. Esta ruta guarda la aceptación de **todo** lo pendiente (casilla y versión vigente de cada texto, como en el registro) y la fecha la pone el servidor. La aceptación se añade al historial y no reemplaza la anterior, que es la prueba de lo que la persona aceptó antes. Sin nada pendiente no cambia nada, así que se puede reintentar.",
+        "operationId": "CuentaController_aceptarTextos",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AceptarTextosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta, ya al día.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Falta marcar una casilla o mandar una versión de lo que está pendiente (CONSENTIMIENTO_NO_REGISTRADO)."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "REGISTRO_INCOMPLETO: antes hay que completar el registro (la fecha de nacimiento); aceptar un texto no la sustituye."
+          },
+          "409": {
+            "description": "La versión del aviso o de los términos que se mandó ya no es la vigente (VERSION_DEL_AVISO_NO_VIGENTE o VERSION_DE_LOS_TERMINOS_NO_VIGENTE)."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Volver a aceptar el aviso de privacidad y los términos cuando cambian",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/cuenta/preferencias": {
       "patch": {
         "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.",
@@ -1735,6 +1785,17 @@
             "type": "boolean",
             "description": "Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro»."
           },
+          "textosPendientes": {
+            "type": "array",
+            "description": "Los textos que hay que volver a aceptar porque cambiaron desde la última vez que la persona los aceptó (SCRUM-237): `aviso_de_privacidad`, `terminos`, ninguno o los dos. Si no está vacío, la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo menos a ver, exportar y borrar la cuenta y a `POST /api/cuenta/aceptacion`, y el frontend lleva a la pantalla «Actualizamos nuestros textos».",
+            "items": {
+              "type": "string",
+              "enum": [
+                "aviso_de_privacidad",
+                "terminos"
+              ]
+            }
+          },
           "registradoEn": {
             "type": "string",
             "description": "Cuando se creo la cuenta.",
@@ -1799,6 +1860,7 @@
           "consentimiento",
           "terminos",
           "registroCompleto",
+          "textosPendientes",
           "registradoEn",
           "modulosActivos",
           "mascota",
@@ -1807,6 +1869,33 @@
           "foto",
           "mascotaPropia"
         ]
+      },
+      "AceptarTextosDto": {
+        "type": "object",
+        "properties": {
+          "aceptaAviso": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla del aviso de privacidad. Tiene que ser true si el aviso está pendiente (`textosPendientes` de la cuenta lo incluye); si no lo está, se ignora."
+          },
+          "versionPolitica": {
+            "type": "string",
+            "description": "Versión del aviso que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "aceptaTerminos": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla de los términos. Tiene que ser true si los términos están pendientes; si no lo están, se ignora."
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          }
+        }
       },
       "ActualizarPreferenciasDto": {
         "type": "object",

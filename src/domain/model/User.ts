@@ -83,6 +83,32 @@ export interface RegistroDeLaPersona {
   readonly terminos: Consentimiento;
 }
 
+/** Las versiones vigentes de los dos textos que hay que aceptar. */
+export interface VersionesVigentes {
+  readonly aviso: string;
+  readonly terminos: string;
+}
+
+/** Lo que la persona acepto al volver a aceptar: solo lo que no estaba al dia. */
+export interface TextosAceptados {
+  readonly aviso?: Consentimiento | undefined;
+  readonly terminos?: Consentimiento | undefined;
+}
+
+/**
+ * Una aceptacion tiene que traer version y no puede estar fechada en el futuro: la fecha es la
+ * prueba de cuando se acepto, y un reloj mal puesto no puede fabricarla.
+ */
+function exigirUnaAceptacionValida(aceptado: Consentimiento, ahora: Date): void {
+  if (aceptado.versionPolitica.trim() === '') {
+    throw new MissingConsentError();
+  }
+
+  if (aceptado.aceptadoEn.getTime() > ahora.getTime()) {
+    throw new FutureConsentDateError();
+  }
+}
+
 /** Datos necesarios para registrar una cuenta. */
 export interface DatosDeUsuario {
   readonly id: UserId;
@@ -327,20 +353,57 @@ export class User {
    * historial de consentimientos, que solo admite altas.
    */
   conRegistroCompleto(registro: RegistroDeLaPersona, ahora: Date = new Date()): User {
-    for (const aceptado of [registro.consentimiento, registro.terminos]) {
-      if (aceptado.versionPolitica.trim() === '') {
-        throw new MissingConsentError();
-      }
-
-      if (aceptado.aceptadoEn.getTime() > ahora.getTime()) {
-        throw new FutureConsentDateError();
-      }
-    }
+    exigirUnaAceptacionValida(registro.consentimiento, ahora);
+    exigirUnaAceptacionValida(registro.terminos, ahora);
 
     return this.copiaCon({
       fechaDeNacimiento: registro.fechaDeNacimiento,
       consentimiento: registro.consentimiento,
       terminos: registro.terminos,
+    });
+  }
+
+  /**
+   * Cuales de los dos textos hay que volver a aceptar porque la version que la persona
+   * acepto ya no es la vigente (SCRUM-237).
+   *
+   * Lo que nunca se acepto tambien esta pendiente: sin version no hay nada que comparar.
+   * Siempre en el mismo orden, el aviso primero, que es el que la pantalla muestra.
+   */
+  textosPendientes(vigentes: VersionesVigentes): readonly TipoDeConsentimiento[] {
+    const pendientes: TipoDeConsentimiento[] = [];
+
+    if (this.consentimiento?.versionPolitica.trim() !== vigentes.aviso.trim()) {
+      pendientes.push(TipoDeConsentimiento.AVISO_DE_PRIVACIDAD);
+    }
+
+    if (this.terminos?.versionPolitica.trim() !== vigentes.terminos.trim()) {
+      pendientes.push(TipoDeConsentimiento.TERMINOS);
+    }
+
+    return pendientes;
+  }
+
+  /**
+   * La misma cuenta habiendo vuelto a aceptar los textos que cambiaron (SCRUM-237).
+   *
+   * Solo se reemplaza lo que viene: aceptar los terminos no toca el aviso. Lo anterior no se
+   * pierde, queda en el historial de consentimientos, que solo admite altas, y es la prueba de lo
+   * que la persona acepto antes. Tampoco completa un registro al que le falte la fecha de
+   * nacimiento: la edad solo se declara en el registro.
+   */
+  conTextosAceptados(aceptados: TextosAceptados, ahora: Date = new Date()): User {
+    if (aceptados.aviso !== undefined) {
+      exigirUnaAceptacionValida(aceptados.aviso, ahora);
+    }
+
+    if (aceptados.terminos !== undefined) {
+      exigirUnaAceptacionValida(aceptados.terminos, ahora);
+    }
+
+    return this.copiaCon({
+      ...(aceptados.aviso === undefined ? {} : { consentimiento: aceptados.aviso }),
+      ...(aceptados.terminos === undefined ? {} : { terminos: aceptados.terminos }),
     });
   }
 

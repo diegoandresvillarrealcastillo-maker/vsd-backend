@@ -26,6 +26,7 @@ export const REGISTRAR_CUENTA = Symbol('RegistrarCuentaUseCase');
 
 /** Modulos activos y mascota de la cuenta propia. */
 export const ACTUALIZAR_PREFERENCIAS = Symbol('ActualizarPreferenciasUseCase');
+export const ACEPTAR_TEXTOS = Symbol('AceptarTextosVigentesUseCase');
 
 /** Derechos de supresion y de acceso: borrar la cuenta y exportar los datos. */
 export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   VERSION_VIGENTE_DE_LOS_TERMINOS,
   VERSION_VIGENTE_DEL_AVISO,
+  VERSIONES_VIGENTES,
 } from '../domain/model/AvisoDePrivacidad.js';
 import { AccountInactiveError } from '../domain/model/DomainError.js';
 import { FechaDeNacimiento } from '../domain/model/FechaDeNacimiento.js';
@@ -57,6 +58,7 @@ export function unaCuenta(
     rol?: Rol;
     nombre?: string;
     versionPolitica?: string;
+    versionTerminos?: string;
     aceptadoEn?: Date;
     anteriorAlRegistro?: boolean;
     modulosActivos?: readonly string[];
@@ -79,7 +81,10 @@ export function unaCuenta(
     ...(cambios.anteriorAlRegistro === true
       ? {}
       : {
-          terminos: { versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS, aceptadoEn },
+          terminos: {
+            versionPolitica: cambios.versionTerminos ?? VERSION_VIGENTE_DE_LOS_TERMINOS,
+            aceptadoEn,
+          },
           fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
         }),
     registradoEn: new Date('2026-09-01T10:00:00.000Z'),
@@ -256,6 +261,38 @@ export function pruebasDelPuertoDeUsuarios(
         );
 
         expect(avisos.map((fila) => fila.version)).toEqual(['2026-09-1', '2026-10-1b']);
+      });
+
+      it('volver a aceptar los dos textos cuando cambian anade una fila de cada uno y deja las anteriores (SCRUM-237)', async () => {
+        const antes = unaCuenta({ versionPolitica: '2026-09-1', versionTerminos: '2026-10-1' });
+        const ahora = new Date('2026-11-02T15:30:00.000Z');
+
+        await banco.repositorio.save(antes);
+        await banco.repositorio.save(
+          antes.conTextosAceptados(
+            {
+              aviso: { versionPolitica: VERSION_VIGENTE_DEL_AVISO, aceptadoEn: ahora },
+              terminos: { versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS, aceptadoEn: ahora },
+            },
+            ahora,
+          ),
+        );
+
+        const historial = await banco.repositorio.consentimientosDe(new UserId(PERSONA));
+
+        expect(historial.map((fila) => `${fila.tipo} ${fila.version}`).sort()).toEqual(
+          [
+            'aviso_de_privacidad 2026-09-1',
+            'terminos 2026-10-1',
+            `aviso_de_privacidad ${VERSION_VIGENTE_DEL_AVISO}`,
+            `terminos ${VERSION_VIGENTE_DE_LOS_TERMINOS}`,
+          ].sort(),
+        );
+
+        // Y la cuenta, al leerla de nuevo, esta al dia: lo guardado es lo vigente.
+        const recargada = await banco.repositorio.findById(new UserId(PERSONA));
+
+        expect(recargada?.textosPendientes(VERSIONES_VIGENTES)).toEqual([]);
       });
 
       it('aceptar de nuevo la misma version otro dia tambien queda anotado', async () => {

@@ -1,9 +1,11 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
+import { VERSIONES_VIGENTES } from '../../domain/model/AvisoDePrivacidad.js';
 import {
   AccountNotProvisionedError,
   IncompleteRegistrationError,
+  PendingTextsError,
 } from '../../domain/model/DomainError.js';
 import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
@@ -11,6 +13,7 @@ import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
 import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import type { PeticionConCuenta } from './CuentaActual.js';
 import { PERMITE_REGISTRO_INCOMPLETO } from './PermiteRegistroIncompleto.js';
+import { PERMITE_TEXTOS_PENDIENTES } from './PermiteTextosPendientes.js';
 import { ES_PUBLICO } from './Publico.js';
 import { NO_EXIGE_CUENTA } from './SinCuenta.js';
 
@@ -36,6 +39,14 @@ import { NO_EXIGE_CUENTA } from './SinCuenta.js';
  *
  * Se responde 403 con `REGISTRO_INCOMPLETO`, salvo en las rutas marcadas con
  * `@PermiteRegistroIncompleto()`. Ver ese decorador.
+ *
+ * ## Que ocurre si cambiaron el aviso o los terminos (SCRUM-237)
+ *
+ * Con el registro completo pero un texto que ya no es el vigente se responde 403
+ * `TEXTOS_PENDIENTES_DE_ACEPTAR`, salvo en las rutas marcadas con `@PermiteTextosPendientes()` (la que
+ * registra la aceptacion) o con `@PermiteRegistroIncompleto()` (ver, exportar y borrar la cuenta:
+ * derechos que no dependen de haber aceptado nada). El registro incompleto va primero: sin
+ * declarar la edad no hay nada que volver a aceptar.
  *
  * ## Que ocurre si la cuenta no existe
  *
@@ -92,11 +103,22 @@ export class GuardiaDeCuenta implements CanActivate {
     // de nacimiento y las casillas— solo entra a lo que se le marco como
     // permitido. Se comprueba aqui y no en cada caso de uso para que una ruta
     // nueva no pueda olvidarlo: lo que no se marca, lo exige.
-    if (
-      !cuenta.registroCompleto() &&
-      this.reflector.getAllAndOverride<boolean>(PERMITE_REGISTRO_INCOMPLETO, marcas) !== true
-    ) {
+    const permiteRegistroIncompleto =
+      this.reflector.getAllAndOverride<boolean>(PERMITE_REGISTRO_INCOMPLETO, marcas) === true;
+
+    if (!cuenta.registroCompleto() && !permiteRegistroIncompleto) {
       throw new IncompleteRegistrationError();
+    }
+
+    // Lo mismo cuando cambia el texto que la persona acepto: se comprueba aqui para que una ruta
+    // nueva no pueda olvidarlo. Lo que se puede ver, exportar y borrar sin estar al dia ya lleva la
+    // marca de arriba.
+    if (
+      !permiteRegistroIncompleto &&
+      this.reflector.getAllAndOverride<boolean>(PERMITE_TEXTOS_PENDIENTES, marcas) !== true &&
+      cuenta.textosPendientes(VERSIONES_VIGENTES).length > 0
+    ) {
+      throw new PendingTextsError();
     }
 
     peticion.cuenta = cuenta;

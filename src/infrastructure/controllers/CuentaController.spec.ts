@@ -652,3 +652,218 @@ describe('Las cuentas anteriores a que se pidiera el registro', () => {
     }
   });
 });
+
+describe('Cuando cambian el aviso o los terminos (SCRUM-237)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const CUENTA_DE_A = '77777777-7777-4777-8777-777777777777';
+  const CUENTA_DE_B = '88888888-8888-4888-8888-888888888888';
+
+  /** Una cuenta completa que acepto los textos de antes, no los vigentes. */
+  async function conLosTextosDeAntes(
+    servidor: NestExpressApplication,
+    token: string,
+    id: string,
+    cambios: { anteriorAlRegistro?: boolean } = {},
+  ): Promise<void> {
+    const identidad = SESIONES[token];
+
+    await servidor.get<UserRepositoryPort>(USER_REPOSITORY).save(
+      unaCuenta({
+        id,
+        idProveedorAuth: identidad?.id ?? '',
+        correo: identidad?.correo ?? '',
+        versionPolitica: '2026-09-1',
+        versionTerminos: '2026-10-1',
+        ...cambios,
+      }),
+    );
+  }
+
+  const ACEPTACION = {
+    aceptaAviso: true,
+    versionPolitica: VERSION_VIGENTE_DEL_AVISO,
+    aceptaTerminos: true,
+    versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+  } as const;
+
+  function aceptar(servidor: NestExpressApplication, token: string): request.Test {
+    return request(servidor.getHttpServer())
+      .post('/api/cuenta/aceptacion')
+      .set(...comoUsuario(token));
+  }
+
+  it('una cuenta recien creada no tiene nada pendiente', async () => {
+    const nueva = await levantarAplicacion();
+
+    try {
+      const respuesta = await alta(nueva, A).send(REGISTRO_DE_PRUEBA).expect(200);
+
+      expect(respuesta.body).toMatchObject({ registroCompleto: true, textosPendientes: [] });
+    } finally {
+      await nueva.close();
+    }
+  });
+
+  it('la consulta de la cuenta dice cuales hay que volver a aceptar', async () => {
+    await conLosTextosDeAntes(app, A, CUENTA_DE_A);
+
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(A))
+      .expect(200);
+
+    expect(respuesta.body).toMatchObject({
+      registroCompleto: true,
+      textosPendientes: ['aviso_de_privacidad', 'terminos'],
+    });
+  });
+
+  it.each([
+    ['PATCH', '/api/cuenta/preferencias'],
+    ['GET', '/api/pendientes'],
+    ['GET', '/api/diario'],
+    ['GET', '/api/progreso'],
+    ['GET', '/api/cuenta/foto'],
+  ] as const)(
+    '%s %s responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR hasta que acepte',
+    async (metodo, ruta) => {
+      const servidor = request(app.getHttpServer());
+      const peticion =
+        metodo === 'PATCH' ? servidor.patch(ruta).send({ nombre: 'Ana' }) : servidor.get(ruta);
+
+      const respuesta = await peticion.set(...comoUsuario(A)).expect(403);
+
+      expect(respuesta.body).toMatchObject({ codigo: 'TEXTOS_PENDIENTES_DE_ACEPTAR' });
+    },
+  );
+
+  it('pero puede exportar lo suyo: es un derecho', async () => {
+    await request(app.getHttpServer())
+      .get('/api/cuenta/exportacion')
+      .set(...comoUsuario(A))
+      .expect(200);
+  });
+
+  describe('aceptar', () => {
+    it('sin marcar las casillas no acepta nada', async () => {
+      const respuesta = await aceptar(app, A)
+        .send({ ...ACEPTACION, aceptaTerminos: false })
+        .expect(400);
+
+      expect(respuesta.body).toMatchObject({ codigo: 'CONSENTIMIENTO_NO_REGISTRADO' });
+
+      await request(app.getHttpServer())
+        .get('/api/diario')
+        .set(...comoUsuario(A))
+        .expect(403);
+    });
+
+    it('con una version que ya no es la vigente responde 409 y no acepta nada', async () => {
+      const respuesta = await aceptar(app, A)
+        .send({ ...ACEPTACION, versionPolitica: '2026-09-1' })
+        .expect(409);
+
+      expect(respuesta.body).toMatchObject({ codigo: 'VERSION_DEL_AVISO_NO_VIGENTE' });
+    });
+
+    it('aceptar lo vigente deja la cuenta al dia y le abre la aplicacion', async () => {
+      const respuesta = await aceptar(app, A).send(ACEPTACION).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        id: CUENTA_DE_A,
+        registroCompleto: true,
+        textosPendientes: [],
+        consentimiento: { versionPolitica: VERSION_VIGENTE_DEL_AVISO },
+        terminos: { versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS },
+      });
+
+      await request(app.getHttpServer())
+        .patch('/api/cuenta/preferencias')
+        .set(...comoUsuario(A))
+        .send({ nombre: 'Ana' })
+        .expect(200);
+    });
+
+    it('la exportacion conserva lo que acepto antes y suma lo de ahora', async () => {
+      const respuesta = await request(app.getHttpServer())
+        .get('/api/cuenta/exportacion')
+        .set(...comoUsuario(A))
+        .expect(200);
+
+      const { consentimientos } = respuesta.body as {
+        consentimientos: { tipo: string; version: string }[];
+      };
+
+      expect(consentimientos.map((c) => `${c.tipo} ${c.version}`)).toEqual(
+        expect.arrayContaining([
+          'aviso_de_privacidad 2026-09-1',
+          'terminos 2026-10-1',
+          `aviso_de_privacidad ${VERSION_VIGENTE_DEL_AVISO}`,
+          `terminos ${VERSION_VIGENTE_DE_LOS_TERMINOS}`,
+        ]),
+      );
+    });
+
+    it('repetirlo no cambia nada', async () => {
+      const respuesta = await aceptar(app, A).send(ACEPTACION).expect(200);
+
+      expect(respuesta.body).toMatchObject({ textosPendientes: [] });
+    });
+  });
+
+  it('aceptar es solo de quien firma el token: la otra cuenta sigue pendiente', async () => {
+    await conLosTextosDeAntes(app, B, CUENTA_DE_B);
+
+    // A ya acepto arriba; B no ha hecho nada.
+    const respuesta = await request(app.getHttpServer())
+      .get('/api/cuenta')
+      .set(...comoUsuario(B))
+      .expect(200);
+
+    expect(respuesta.body).toMatchObject({
+      id: CUENTA_DE_B,
+      textosPendientes: ['aviso_de_privacidad', 'terminos'],
+    });
+  });
+
+  it('quien no quiere aceptar puede borrar su cuenta: es un derecho', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/cuenta')
+      .set(...comoUsuario(B))
+      .send({ confirmacion: 'BORRAR MI CUENTA' })
+      .expect(204);
+  });
+
+  describe('con el registro incompleto', () => {
+    it('manda lo primero: completar el registro, no aceptar un texto', async () => {
+      const otra = await levantarAplicacion();
+
+      try {
+        await conLosTextosDeAntes(otra, A, CUENTA_DE_A, { anteriorAlRegistro: true });
+
+        const bloqueada = await request(otra.getHttpServer())
+          .get('/api/diario')
+          .set(...comoUsuario(A))
+          .expect(403);
+
+        expect(bloqueada.body).toMatchObject({ codigo: 'REGISTRO_INCOMPLETO' });
+
+        // Aceptar un texto no sustituye a declarar la edad.
+        const aceptando = await aceptar(otra, A).send(ACEPTACION).expect(403);
+
+        expect(aceptando.body).toMatchObject({ codigo: 'REGISTRO_INCOMPLETO' });
+      } finally {
+        await otra.close();
+      }
+    });
+  });
+});

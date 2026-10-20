@@ -270,6 +270,24 @@ export class IncompleteRegistrationError extends DomainError {
 }
 
 /**
+ * La cuenta tiene el registro completo, pero el aviso de privacidad o los terminos que acepto
+ * ya no son los vigentes (SCRUM-237).
+ *
+ * El aviso y los terminos prometen «te pediremos que la aceptes de nuevo» cuando cambian. Hasta
+ * que la persona lo hace no puede usar nada mas, pero si ver, exportar y borrar lo suyo: igual
+ * que con el registro incompleto, son derechos que no se condicionan a aceptar nada.
+ */
+export class PendingTextsError extends DomainError {
+  readonly code = 'TEXTOS_PENDIENTES_DE_ACEPTAR';
+
+  constructor() {
+    super(
+      'Actualizamos el aviso de privacidad o los términos. Antes de seguir tienes que leer la versión nueva y aceptarla.',
+    );
+  }
+}
+
+/**
  * Quien llama tiene un token valido pero todavia no tiene cuenta aqui.
  *
  * Supabase y VSD Health guardan identidades distintas a proposito: el token

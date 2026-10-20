@@ -110,9 +110,14 @@ Lo que condiciona la decisión:
   aquí, fechas y versiones) y es lo que la ley pide poder demostrar, pero **no es «todo»**. La
   política de privacidad dice hoy que se borra todo: **su texto debe actualizarse** (y eso cambia su
   versión), y quien lo decide es Diego con asesoría jurídica. No se tocó en este cambio.
-- **No hay plazo de retención.** Las constancias se conservan mientras haga falta demostrar la
-  autorización; cuánto es lo define la asesoría jurídica, y un purgado por plazo queda como trabajo
-  pendiente.
+  **Actualización (SCRUM-235, 2026-10-20):** el aviso de privacidad `2026-10-3` ya describe la
+  constancia (qué se conserva, que no lleva nombre, correo ni datos de bienestar, y para qué se
+  conserva) y los términos suben también a `2026-10-3`.
+- **El plazo de retención es de 10 años (SCRUM-235, 2026-10-20).** Es el que el aviso de privacidad
+  le promete a la persona («tras lo cual se elimina»), y lo decidió el equipo. **Todavía no hay
+  nada que lo cumpla:** el purgado por plazo sigue siendo trabajo pendiente, con el rol de
+  mantenimiento, y tiene que existir antes de que la primera constancia (octubre de 2026) cumpla 10
+  años. Hasta entonces el aviso se cumple solo por no haber llegado esa fecha.
 - **No se puede reactivar una cuenta.** No es un olvido: «sin retención de contenido de salud»
   descarta que haya algo que reactivar.
 - **El identificador del proveedor queda en la constancia.** Es opaco y la identidad ya no existe,

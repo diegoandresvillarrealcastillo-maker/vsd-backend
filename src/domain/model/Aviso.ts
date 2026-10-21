@@ -1,6 +1,8 @@
 import type { Dia } from './Calendario.js';
 import { InvalidNotificationSettingError } from './DomainError.js';
 import type { UserId } from './Identifier.js';
+import { FORMA_DE_LA_MASCOTA_PROPIA } from './Preferencias.js';
+import { esUnHito, type Racha } from './Racha.js';
 import {
   TEXTOS_DE_LA_MANANA,
   TEXTOS_DE_LA_NOCHE,
@@ -220,6 +222,17 @@ export interface MensajeDeAviso {
   readonly cuerpo: string;
   /** A donde lleva tocarlo. */
   readonly ruta: string;
+  /**
+   * La forma de la mascota de la cuenta, para que el aviso muestre su icono (SCRUM-242). No viaja
+   * la mascota propia: su dibujo es privado y no se puede pedir desde una notificacion.
+   */
+  readonly mascota?: string;
+}
+
+/** La mascota de la cuenta tal como la necesita un aviso. */
+export interface MascotaDelAviso {
+  readonly forma: string;
+  readonly nombre: string;
 }
 
 /** Cuantos pendientes se nombran; el resto se cuenta. */
@@ -248,13 +261,71 @@ export function mensajeDelSemaforo(pendientes: readonly string[]): MensajeDeAvis
   };
 }
 
-/** El recordatorio de la racha. Invita; no reclama. */
-export function mensajeDeLaRacha(): MensajeDeAviso {
+/** Cuantos caracteres del nombre de la mascota se ven en la pantalla bloqueada. */
+const LARGO_DEL_NOMBRE_EN_EL_AVISO = 20;
+
+function nombreParaElAviso(nombre: string): string {
+  return nombre.replace(/\s+/g, ' ').trim().slice(0, LARGO_DEL_NOMBRE_EN_EL_AVISO).trimEnd();
+}
+
+/** La frase con la voz de la mascota, o con mayuscula inicial si no hay nombre que decir. */
+function conLaVoz(nombre: string, frase: string): string {
+  return nombre === ''
+    ? `${frase.charAt(0).toUpperCase()}${frase.slice(1)}`
+    : `${nombre}: ${frase}`;
+}
+
+/**
+ * El recordatorio de la racha. Invita; no reclama.
+ *
+ * Sin argumentos dice lo de siempre. Con la racha de la persona (SCRUM-242) puede decir los dias
+ * que lleva, y con su mascota habla con su voz y muestra su icono. Se evalua en este orden:
+ *
+ * 1. Si la llama descansa: la invitacion de siempre, sin numero.
+ * 2. Si con una actividad hoy llegaria a un hito: lo dice.
+ * 3. Desde 3 dias, con congelamientos disponibles: una actividad evita gastar uno.
+ * 4. Desde 3 dias, sin congelamientos: la racha esta en juego. Es verdad, y por eso se dice.
+ * 5. Lo demas: la invitacion de siempre.
+ *
+ * Nunca dice que algo se perdio y nunca nombra un resultado, un nivel ni una emocion: sale en la
+ * pantalla bloqueada.
+ */
+export function mensajeDeLaRacha(racha?: Racha, mascota?: MascotaDelAviso | null): MensajeDeAviso {
+  const icono =
+    mascota != null && mascota.forma !== FORMA_DE_LA_MASCOTA_PROPIA
+      ? { mascota: mascota.forma }
+      : {};
+  const nombre = mascota == null ? '' : nombreParaElAviso(mascota.nombre);
+  const base = { tipo: TipoDeAviso.RACHA, ruta: '/panel', ...icono } as const;
+
+  if (racha !== undefined && !racha.enDescanso) {
+    if (esUnHito(racha.dias + 1)) {
+      return {
+        ...base,
+        titulo: `Hoy puedes llegar a ${String(racha.dias + 1)} días`,
+        cuerpo: conLaVoz(nombre, 'una actividad y lo logras.'),
+      };
+    }
+
+    if (racha.dias >= 3) {
+      return racha.congelamientosDisponibles > 0
+        ? {
+            ...base,
+            titulo: `Tu racha de ${String(racha.dias)} días`,
+            cuerpo: conLaVoz(nombre, 'una actividad hoy y no gastas un congelamiento.'),
+          }
+        : {
+            ...base,
+            titulo: `Tu racha de ${String(racha.dias)} días está en juego`,
+            cuerpo: conLaVoz(nombre, 'una actividad hoy la mantiene. Sin prisa.'),
+          };
+    }
+  }
+
   return {
-    tipo: TipoDeAviso.RACHA,
+    ...base,
     titulo: '¿Un momento para ti hoy?',
     cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
-    ruta: '/panel',
   };
 }
 

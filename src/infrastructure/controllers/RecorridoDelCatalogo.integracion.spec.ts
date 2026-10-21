@@ -79,6 +79,96 @@ interface ModuloDelProgreso {
   readonly hoy: readonly ActividadDeHoy[];
 }
 
+/** Una lista de rondas como la arman «Recuerda los colores» y «Secuencia de números». */
+function rondasDe(cuantas: number, campo: 'largo' | 'digitos') {
+  return Array.from({ length: cuantas }, (_unused, i) => ({
+    [campo]: 3 + Math.floor(i / 3),
+    acerto: true,
+  }));
+}
+
+const COLOCACIONES = {
+  manzana: 'frutas',
+  pera: 'frutas',
+  uva: 'frutas',
+  limon: 'frutas',
+  zanahoria: 'verduras',
+  lechuga: 'verduras',
+  tomate: 'verduras',
+  cebolla: 'verduras',
+};
+
+const PASOS_COMPLETOS = { completa: true, pasos: 5, total: 5, segundos: 180 };
+const RESPUESTAS_DE_PREGUNTAS = { dormir: 'si', pantallas: ['antes', 'durante'], ruido: 'poco' };
+
+/**
+ * Lo que de verdad manda la pantalla de cada actividad al terminarla: su `metadata`, con las claves y los tipos
+ * que arma el frontend (numeros, textos, booleanos, listas y objetos anidados) y no un `{}`. La clave es el final
+ * del identificador de la actividad. Una actividad nueva en el catalogo obliga a anadir la suya (hay una prueba
+ * que lo comprueba).
+ */
+const CARGAS: Readonly<Record<string, Record<string, unknown>>> = {
+  // Cognicion
+  '0001': { intentos: 8, parejas: 6, segundos: 95 },
+  '0002': { aciertos: 12, rondas: rondasDe(12, 'digitos'), largoMaximo: 7, segundos: 140 },
+  '0003': { aciertos: 15, fallos: 2, sinTiempo: 0, rondas: 15, segundos: 210 },
+  '000a': { aciertos: 12, rondas: rondasDe(12, 'largo'), largoMaximo: 8, segundos: 130 },
+  '0102': { aciertos: 6, rondas: 6, segundos: 70 },
+  '0103': {
+    colocaciones: COLOCACIONES,
+    segundos: 80,
+    aciertos: 8,
+    tarjetas: 8,
+    linea: 'Fue fácil',
+  },
+  '0104': { aciertos: 8, rondas: 8, segundos: 100 },
+  '0105': { aciertos: 15, objetivos: 15, otrosIntentos: 3, segundos: 150 },
+  '0106': { aciertos: 8, elementos: 8, elegidas: 8, segundos: 45 },
+  '0107': { aciertos: 6, palabras: 6, segundos: 90 },
+  '0108': { tocados: 12, puntos: 12, otrosIntentos: 1, segundos: 60 },
+  '0109': { aciertos: 5, rondas: 5, segundos: 65 },
+
+  // Bienestar
+  '0004': { horaDeAcostarse: '23:00', horasDormidas: 7, despertares: 0, comoAmaneciste: 'normal' },
+  '0005': { respuestas: { cansancio: 4, tension: 4, pendientes: 4, animo: 4, sueno: 4 } },
+  '0006': { seMovio: true, tipos: ['caminar', 'estiramientos'], duracion: '15-a-30' },
+  '000b': { segundos: 240, ciclos: 6, completa: true },
+  '0202': { ...PASOS_COMPLETOS },
+  '0203': { respuesta: 'ya-lo-hice' },
+  '0204': { respuesta: 'lo-intento-mañana' },
+  '0205': { respuesta: 'ya-lo-hice' },
+  '0206': { ...PASOS_COMPLETOS },
+  '0207': { marcados: ['agua', 'luz-baja'] },
+  '0208': { respuestas: RESPUESTAS_DE_PREGUNTAS },
+  '0209': { ...PASOS_COMPLETOS, eleccion: 'sentado' },
+
+  // Emociones
+  '0007': { respuestas: { animo: 2, energia: 2, calma: 2, compania: 2, esperanza: 2 } },
+  '0008': { marcadas: ['cansancio', 'pendientes', 'dinero'] },
+  '0009': { encontroUno: true, texto: 'Un café tranquilo con mi hermana' },
+  '000c': {
+    encontroUno: true,
+    textos: ['Un paseo corto', 'Un mensaje de una amiga', 'Un café caliente'],
+  },
+  '0301': { emocion: 'serenidad', camino: ['alegria'], linea: 'Un día tranquilo' },
+  '0303': { ...PASOS_COMPLETOS },
+  '0304': { colocaciones: COLOCACIONES, segundos: 70 },
+  '0305': { encontroUno: true, textos: ['Mañana empiezo con calma'] },
+  '0307': { ...PASOS_COMPLETOS, eleccion: 'playa' },
+  '0308': { respuestas: RESPUESTAS_DE_PREGUNTAS },
+  '0309': { encontroUno: true, textos: ['Hoy terminé lo importante'] },
+};
+
+/** Las pantallas donde la persona escribe, y el campo de texto libre de cada una. */
+const DONDE_SE_ESCRIBE: Readonly<Record<string, (frase: string) => Record<string, unknown>>> = {
+  '0009': (frase) => ({ encontroUno: true, texto: frase }),
+  '000c': (frase) => ({ encontroUno: true, textos: [frase] }),
+  '0103': (frase) => ({ ...CARGAS['0103'], linea: frase }),
+  '0301': (frase) => ({ ...CARGAS['0301'], linea: frase }),
+  '0305': (frase) => ({ encontroUno: true, textos: [frase] }),
+  '0309': (frase) => ({ encontroUno: true, textos: [frase] }),
+};
+
 describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a PostgreSQL', () => {
   let dueno: Client;
   let app: NestExpressApplication;
@@ -164,7 +254,10 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
 
   it('el catalogo las ofrece todas, repartidas en los tres modulos', async () => {
     const respuesta = await request(servidor()).get('/api/catalogo').expect(200);
-    const categorias = respuesta.body as { nombre: string; actividades: { id: string }[] }[];
+    const todas = respuesta.body as { nombre: string; actividades: { id: string }[] }[];
+    // La base se comparte con otras suites, que pueden dejar una categoria suya (en CI aparecio una de otra
+    // prueba): solo cuentan las que traen actividades del catalogo sembrado.
+    const categorias = todas.filter((c) => c.actividades.some((a) => a.id.startsWith('0acd0000-')));
 
     expect(categorias.map((c) => c.nombre).sort()).toEqual(['Bienestar', 'Cognición', 'Emociones']);
 
@@ -217,6 +310,75 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
         .expect(201);
 
       expect(respuesta.body, actividad.nombre).toMatchObject({ activityId: actividad.id });
+    });
+  });
+
+  describe('cada actividad guarda lo que manda su pantalla, y lo devuelve igual', () => {
+    function actividadDe(sufijo: string): Actividad {
+      const actividad = actividades.find((a) => a.id.endsWith(sufijo));
+
+      if (actividad === undefined) {
+        throw new Error(`No hay una actividad que termine en ${sufijo}.`);
+      }
+
+      return actividad;
+    }
+
+    it('hay una carga por cada actividad del catalogo, y ninguna de mas', () => {
+      expect(Object.keys(CARGAS).sort()).toEqual(actividades.map((a) => a.id.slice(-4)).sort());
+    });
+
+    it.each(Object.keys(CARGAS))('la actividad ...%s', async (sufijo) => {
+      const actividad = actividadDe(sufijo);
+      const metadata = CARGAS[sufijo];
+      const cuerpo = {
+        ...resultadoDe(actividad, actividad.maximo === null ? undefined : actividad.maximo),
+        metadata,
+      };
+
+      const respuesta = await conLaCuenta(request(servidor()).post('/api/resultados'))
+        .send(cuerpo)
+        .expect(201);
+      const dicho = respuesta.body as Record<string, unknown>;
+
+      // Vuelve como se mando: nada se pierde ni se cambia por el camino.
+      expect(dicho['metadata'], actividad.nombre).toEqual(metadata);
+      // Un resultado solo trae nivel si la actividad se valora, y uno solo no pide acompanamiento.
+      expect('nivelOrientativo' in dicho, actividad.nombre).toBe(actividad.maximo !== null);
+      expect(dicho['sugiereAcompanamiento'], actividad.nombre).toBe(false);
+
+      // Y esta en la base como se mando.
+      const { rows } = await dueno.query<{ metadata: unknown }>(
+        'SELECT metadata FROM resultado WHERE id_operacion_cliente = $1',
+        [cuerpo.clientOperationId],
+      );
+
+      expect(rows[0]?.metadata, actividad.nombre).toEqual(metadata);
+    });
+
+    describe('lo que la persona escribe pasa por la comprobacion de riesgo, en cada pantalla donde escribe', () => {
+      const FRASE_DE_RIESGO = 'quiero morirme';
+
+      it.each(Object.keys(DONDE_SE_ESCRIBE))('la actividad ...%s', async (sufijo) => {
+        const actividad = actividadDe(sufijo);
+        const escribir = DONDE_SE_ESCRIBE[sufijo];
+
+        expect(escribir, sufijo).toBeDefined();
+
+        const respuesta = await conLaCuenta(request(servidor()).post('/api/resultados'))
+          .send({
+            ...resultadoDe(actividad, actividad.maximo === null ? undefined : actividad.maximo),
+            metadata: escribir?.(FRASE_DE_RIESGO),
+          })
+          .expect(201);
+        const dicho = respuesta.body as {
+          sugiereAcompanamiento: boolean;
+          lineasDeAtencion: unknown[];
+        };
+
+        expect(dicho.sugiereAcompanamiento, actividad.nombre).toBe(true);
+        expect(dicho.lineasDeAtencion.length, actividad.nombre).toBeGreaterThan(0);
+      });
     });
   });
 

@@ -144,6 +144,53 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     });
   });
 
+  describe('la mascota del aviso (SCRUM-242)', () => {
+    /** Guarda la mascota de una cuenta como lo haria ella misma, con su identidad puesta. */
+    async function guardarMascota(persona: string, mascota: unknown): Promise<void> {
+      await dueno.query('BEGIN');
+      await dueno.query("SELECT set_config('vsd.usuario_actual', $1, true)", [persona]);
+      await dueno.query('UPDATE usuario SET mascota = $1::jsonb WHERE id_usuario = $2', [
+        JSON.stringify(mascota),
+        persona,
+      ]);
+      await dueno.query('COMMIT');
+    }
+
+    it('lee la forma y el nombre de la cuenta', async () => {
+      await guardarMascota(ANA, { forma: 'sparky', nombre: 'Sparky' });
+
+      await expect(avisos.mascotaDe(new UserId(ANA))).resolves.toEqual({
+        forma: 'sparky',
+        nombre: 'Sparky',
+      });
+    });
+
+    it('cada cuenta lee la suya, no la de otra', async () => {
+      await guardarMascota(ANA, { forma: 'sparky', nombre: 'Sparky' });
+      await guardarMascota(BETO, { forma: 'gato', nombre: 'Ojo de Gato' });
+
+      await expect(avisos.mascotaDe(new UserId(BETO))).resolves.toEqual({
+        forma: 'gato',
+        nombre: 'Ojo de Gato',
+      });
+    });
+
+    it('sin mascota guardada devuelve null', async () => {
+      await expect(avisos.mascotaDe(new UserId(BETO))).resolves.toBeNull();
+    });
+
+    it.each([
+      ['sin la forma', { nombre: 'Sparky' }],
+      ['con la forma que no es texto', { forma: 3, nombre: 'Sparky' }],
+      ['con la forma en blanco', { forma: '', nombre: 'Sparky' }],
+      ['sin el nombre', { forma: 'sparky' }],
+    ])('una mascota guardada %s se ignora', async (_caso, mascota) => {
+      await guardarMascota(ANA, mascota);
+
+      await expect(avisos.mascotaDe(new UserId(ANA))).resolves.toBeNull();
+    });
+  });
+
   it('nadie ve las horas de otra persona', async () => {
     await avisos.guardarPreferencias({
       userId: new UserId(ANA),

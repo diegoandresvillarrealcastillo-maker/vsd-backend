@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  MascotaDelAviso,
   MensajeDeAviso,
   PreferenciasDeAviso,
   SuscripcionPush,
@@ -37,6 +38,8 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   readonly horas = new Map<string, Horas>();
   readonly revisados = new Map<string, Dia>();
   suscripciones = new Map<string, SuscripcionPush[]>();
+  /** La mascota de cada cuenta (SCRUM-242). */
+  readonly mascotas = new Map<string, MascotaDelAviso>();
 
   elegir(persona: string, semaforo: number | null, racha: number | null, zona = 'America/Bogota') {
     this.poner(persona, { semaforo, racha, zona });
@@ -98,6 +101,10 @@ class AvisosDePrueba implements AvisosRepositoryPort {
 
   suscripcionesDe(userId: UserId) {
     return Promise.resolve(this.suscripciones.get(userId.value) ?? []);
+  }
+
+  mascotaDe(userId: UserId) {
+    return Promise.resolve(this.mascotas.get(userId.value) ?? null);
   }
 
   zonasEnUso() {
@@ -202,11 +209,25 @@ function pendientes(porPersona: Record<string, string[]>): PendientesRepositoryP
   };
 }
 
-/** Quien hizo alguna actividad desde el inicio del dia. */
-function resultados(conActividadHoy: string[]): ActivityResultRepositoryPort {
+/**
+ * Quien hizo alguna actividad desde el inicio del dia, y los dias en que cada quien hizo algo
+ * (SCRUM-242): con ellos se calcula la racha del aviso.
+ */
+function resultados(
+  conActividadHoy: string[],
+  diasPorPersona: Record<string, string[]> = {},
+): ActivityResultRepositoryPort {
   return {
     hayActividadDesde: (userId: UserId) => Promise.resolve(conActividadHoy.includes(userId.value)),
+    diasConActividad: (userId: UserId) => Promise.resolve(diasPorPersona[userId.value] ?? []),
   } as unknown as ActivityResultRepositoryPort;
+}
+
+/** Los `cuantos` dias seguidos que terminan el 4 de octubre, un dia antes del de las pruebas. */
+function diasHastaAyer(cuantos: number): string[] {
+  return Array.from({ length: cuantos }, (_, i) =>
+    new Date(Date.UTC(2026, 9, 4 - i)).toISOString().slice(0, 10),
+  );
 }
 
 /** Un servicio de push que tarda un poco, para ver cuantos envios hay a la vez. */
@@ -229,11 +250,13 @@ class EnviadorLento extends EnviadorDePrueba {
 function armar({
   conPendientes = { [ANA]: ['Pagar la matrícula', 'Pedir cita'] },
   conActividadHoy = [],
+  conDias = {},
   enviador = new EnviadorDePrueba(),
   personasALaVez,
 }: {
   conPendientes?: Record<string, string[]>;
   conActividadHoy?: string[];
+  conDias?: Record<string, string[]>;
   enviador?: EnviadorDePrueba;
   personasALaVez?: number;
 } = {}) {
@@ -244,7 +267,7 @@ function armar({
       compartidos,
       enviador,
       pendientes(conPendientes),
-      resultados(conActividadHoy),
+      resultados(conActividadHoy, conDias),
       { fallo: (_tipo, error) => fallos.push(error) },
       personasALaVez,
     );
@@ -384,6 +407,88 @@ describe('la revision de cada minuto', () => {
       await revision.revisar(OCHO);
 
       expect(enviador.entregados).toEqual([]);
+    });
+
+    describe('con los dias y la mascota (SCRUM-242)', () => {
+      it('dice cuantos dias lleva y habla con la voz de su mascota', async () => {
+        const { avisos, enviador, revision } = armar({ conDias: { [ANA]: diasHastaAyer(12) } });
+
+        avisos.elegir(ANA, null, 480);
+        avisos.mascotas.set(ANA, { forma: 'sparky', nombre: 'Sparky' });
+        await revision.revisar(OCHO);
+
+        expect(enviador.para(ANA)).toEqual([
+          expect.objectContaining({
+            tipo: 'racha',
+            titulo: 'Tu racha de 12 días',
+            cuerpo: 'Sparky: una actividad hoy y no gastas un congelamiento.',
+            mascota: 'sparky',
+          }),
+        ]);
+      });
+
+      it('sin mascota guardada, no lleva voz ni icono', async () => {
+        const { avisos, enviador, revision } = armar({ conDias: { [ANA]: diasHastaAyer(12) } });
+
+        avisos.elegir(ANA, null, 480);
+        await revision.revisar(OCHO);
+
+        const [mensaje] = enviador.para(ANA);
+
+        expect(mensaje?.cuerpo).toBe('Una actividad hoy y no gastas un congelamiento.');
+        expect(mensaje).not.toHaveProperty('mascota');
+      });
+
+      it('con la mascota propia habla con su nombre y no manda su forma', async () => {
+        const { avisos, enviador, revision } = armar({ conDias: { [ANA]: diasHastaAyer(12) } });
+
+        avisos.elegir(ANA, null, 480);
+        avisos.mascotas.set(ANA, { forma: 'propia', nombre: 'Luna' });
+        await revision.revisar(OCHO);
+
+        const [mensaje] = enviador.para(ANA);
+
+        expect(mensaje?.cuerpo).toBe('Luna: una actividad hoy y no gastas un congelamiento.');
+        expect(mensaje).not.toHaveProperty('mascota');
+      });
+
+      it('si hoy llegaria a un hito, lo dice', async () => {
+        const { avisos, enviador, revision } = armar({ conDias: { [ANA]: diasHastaAyer(13) } });
+
+        avisos.elegir(ANA, null, 480);
+        await revision.revisar(OCHO);
+
+        expect(enviador.para(ANA)[0]?.titulo).toBe('Hoy puedes llegar a 14 días');
+      });
+
+      it('con la llama en descanso (sin dias) dice lo de siempre', async () => {
+        const { avisos, enviador, revision } = armar();
+
+        avisos.elegir(ANA, null, 480);
+        avisos.mascotas.set(ANA, { forma: 'ori', nombre: 'Ori' });
+        await revision.revisar(OCHO);
+
+        expect(enviador.para(ANA)).toEqual([
+          expect.objectContaining({
+            titulo: '¿Un momento para ti hoy?',
+            cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
+          }),
+        ]);
+      });
+
+      it('el aviso de la noche sigue sin numero de dias ni mascota', async () => {
+        const { avisos, enviador, revision } = armar({ conDias: { [ANA]: diasHastaAyer(12) } });
+
+        avisos.recordatorios(ANA, null, 1200);
+        avisos.mascotas.set(ANA, { forma: 'sparky', nombre: 'Sparky' });
+        await revision.revisar(VEINTE);
+
+        const [mensaje] = enviador.para(ANA);
+
+        expect(mensaje?.tipo).toBe('noche');
+        expect(`${mensaje?.titulo ?? ''} ${mensaje?.cuerpo ?? ''}`).not.toMatch(/\d/);
+        expect(mensaje).not.toHaveProperty('mascota');
+      });
     });
   });
 

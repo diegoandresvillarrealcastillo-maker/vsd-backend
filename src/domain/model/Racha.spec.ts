@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CONGELAMIENTOS_POR_MES, calcularLaRacha, diaSiguiente, nivelDeLaLlama } from './Racha.js';
+import {
+  CONGELAMIENTOS_POR_MES,
+  calcularLaRacha,
+  diaSiguiente,
+  escaleraDeHitos,
+  esUnHito,
+  nivelDeLaLlama,
+  proximoHito,
+} from './Racha.js';
 
 /**
  * La racha (SCRUM-186): dias seguidos con al menos una actividad.
@@ -238,5 +246,95 @@ describe('calcularLaRacha', () => {
   it('rechaza un "hoy" que no es un dia', () => {
     expect(() => calcularLaRacha([], 'hoy')).toThrow(RangeError);
     expect(() => calcularLaRacha([], '2026-02-30')).toThrow(RangeError);
+  });
+});
+
+describe('la escalera de hitos (SCRUM-242)', () => {
+  it.each([
+    [0, 3],
+    [2, 3],
+    [3, 7],
+    [13, 14],
+    [14, 30],
+    [364, 365],
+    [365, 730],
+    [729, 730],
+    [730, 1095],
+  ])('proximoHito(%i) es %i', (dias, esperado) => {
+    expect(proximoHito(dias)).toBe(esperado);
+  });
+
+  it.each([
+    [3, true],
+    [4, false],
+    [0, false],
+    [365, true],
+    [730, true],
+    [366, false],
+  ])('esUnHito(%i) es %s', (dias, esperado) => {
+    expect(esUnHito(dias)).toBe(esperado);
+  });
+
+  it('la escalera de 12 dias trae dos logrados y los tres proximos', () => {
+    expect(escaleraDeHitos(12)).toEqual([
+      { dias: 3, logrado: true },
+      { dias: 7, logrado: true },
+      { dias: 14, logrado: false },
+      { dias: 30, logrado: false },
+      { dias: 50, logrado: false },
+    ]);
+  });
+
+  it('la escalera de 0 dias no trae logrados', () => {
+    expect(escaleraDeHitos(0)).toEqual([3, 7, 14].map((dias) => ({ dias, logrado: false })));
+  });
+
+  it('a los 365 dias trae los ocho de la tabla logrados y 730, 1095 y 1460 por lograr', () => {
+    const escalera = escaleraDeHitos(365);
+
+    expect(escalera.filter((hito) => hito.logrado).map((hito) => hito.dias)).toEqual([
+      3, 7, 14, 30, 50, 100, 200, 365,
+    ]);
+    expect(escalera.filter((hito) => !hito.logrado).map((hito) => hito.dias)).toEqual([
+      730, 1095, 1460,
+    ]);
+  });
+
+  it('pasado el primer ano, el segundo tambien cuenta como logrado', () => {
+    const escalera = escaleraDeHitos(800);
+
+    expect(escalera.filter((hito) => hito.logrado).map((hito) => hito.dias)).toEqual([
+      3, 7, 14, 30, 50, 100, 200, 365, 730,
+    ]);
+    expect(escalera.filter((hito) => !hito.logrado).map((hito) => hito.dias)).toEqual([
+      1095, 1460, 1825,
+    ]);
+  });
+
+  it('calcularLaRacha trae el proximo hito y la escalera de sus dias', () => {
+    const racha = calcularLaRacha(seguidos(12, antes(1)), HOY);
+
+    expect(racha.dias).toBe(12);
+    expect(racha.hechoHoy).toBe(false);
+    expect(racha.proximoHito).toBe(14);
+    expect(racha.escalera.map((hito) => hito.dias)).toEqual([3, 7, 14, 30, 50]);
+  });
+
+  it('cuando la llama descansa, el proximo hito es el primero', () => {
+    const racha = calcularLaRacha([], HOY);
+
+    expect(racha.enDescanso).toBe(true);
+    expect(racha.proximoHito).toBe(3);
+  });
+
+  it.each([
+    [0, 3, ['2026-10-01', '2026-10-02', '2026-10-03'], '2026-10-04'],
+    [1, 2, ['2026-10-01', '2026-10-03'], '2026-10-04'],
+    [3, 0, ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-07'], '2026-10-08'],
+  ])('con %i usados quedan %i congelamientos', (usados, quedan, dias, hoy) => {
+    const racha = calcularLaRacha(dias, hoy);
+
+    expect(racha.congelamientosUsados).toBe(usados);
+    expect(racha.congelamientosDisponibles).toBe(quedan);
   });
 });

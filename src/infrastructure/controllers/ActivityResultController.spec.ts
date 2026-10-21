@@ -606,3 +606,77 @@ describe('POST /api/resultados con la sesion que se hizo (ADR 0030)', () => {
     expect(JSON.stringify(respuesta.body)).not.toContain(SESION_DE_LA_ACTIVIDAD);
   });
 });
+
+describe('POST /api/resultados con el puntaje de una partida a medias (SCRUM-240)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // «Une los puntos en orden» y «Recuerda la lista» escalan lo logrado al maximo de la actividad y redondean
+  // a dos decimales (la escala de la columna): 3 puntos tocados de 8, en una escala de 10, son 3,75. Una
+  // partida completa da siempre un entero; una a medias, o la de quien para antes, casi nunca.
+  it.each([3.75, 5.33, 0.5, 9.99, 10])(
+    'acepta el puntaje %s, con sus decimales, y lo trae con su nivel',
+    async (puntaje) => {
+      const respuesta = await registrarComo(app, A).send(cuerpo({ score: puntaje }));
+
+      expect(respuesta.status).toBe(201);
+      expect(['favorable', 'en_seguimiento', 'requiere_atencion']).toContain(
+        respuestaDe(respuesta).nivelOrientativo,
+      );
+    },
+  );
+
+  it('el nivel de un puntaje con decimales es el que le toca por su valor, no por redondearlo', async () => {
+    // En una escala de 10 donde mas es mejor, 9,99 es lo mismo que casi 10 y 0,5 lo mismo que casi 0.
+    const alto = await registrarComo(app, A).send(cuerpo({ score: 9.99 }));
+    const bajo = await registrarComo(app, A).send(cuerpo({ score: 0.5 }));
+
+    expect(respuestaDe(alto).nivelOrientativo).toBe('favorable');
+    expect(respuestaDe(bajo).nivelOrientativo).toBe('requiere_atencion');
+  });
+
+  it('rechaza mas de dos decimales: la columna guarda dos y no se redondea en silencio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 3.751 }));
+
+    expect(respuesta.status).toBe(400);
+    expect(JSON.stringify(respuesta.body)).toContain('score');
+  });
+
+  it('sigue rechazando un puntaje negativo', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: -0.5 }));
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('sigue rechazando lo que no es un numero', async () => {
+    for (const score of ['3.75', null, true, [3], { valor: 3 }]) {
+      const respuesta = await registrarComo(app, A).send(cuerpo({ score }));
+
+      expect(respuesta.status, JSON.stringify(score)).toBe(400);
+    }
+  });
+
+  it('un puntaje con decimales por encima del maximo se rechaza con el codigo del dominio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 10.01 }));
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'PUNTAJE_FUERA_DE_RANGO' });
+  });
+
+  it('reintentar la misma operacion con decimales no duplica el resultado', async () => {
+    const fijo = cuerpo({ score: 3.75 });
+
+    const primera = await registrarComo(app, A).send(fijo);
+    const segunda = await registrarComo(app, A).send(fijo);
+
+    expect(segunda.status).toBe(201);
+    expect((segunda.body as { id: string }).id).toBe((primera.body as { id: string }).id);
+  });
+});

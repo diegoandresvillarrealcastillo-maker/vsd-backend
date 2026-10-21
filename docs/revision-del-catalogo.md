@@ -90,3 +90,17 @@ una persona.
 - `PublicacionDelCatalogo.integracion.spec.ts`: la migración aplicada a PostgreSQL de verdad **dentro de una
   transacción que se deshace**: publica las 714, con su revisor y su fecha; aplicarla dos veces no cambia nada; lo que
   se deja fuera se queda pendiente; la base no deja editar una sesión revisada.
+
+## Registro de publicaciones
+
+Cada publicación deja su hoja de respuestas en [`docs/revisiones/`](revisiones/README.md), y una prueba comprueba que la
+migración es **exactamente** la que sale de esa hoja. Es la constancia de quién aprobó qué, cuándo y con qué rol.
+
+- **2026-10-20 · `20261024120000_publicar_el_catalogo_revisado` (SCRUM-238):** las 18 mecánicas pendientes y las 6 sesiones
+  del piloto (720 sesiones), aprobadas por el equipo a nombre de Samuel Villa Pérez. **El rol dice «sin revisión
+  profesional» y es verdad**: la revisión de psicología y fisioterapia (D-C2) no se hizo. La base no guarda un segundo
+  revisor, y una sesión revisada ya no se edita; una revisión profesional posterior se hace sobre sesiones nuevas.
+
+Las pruebas de integración corren con **todas las migraciones aplicadas**, así que ven este catálogo ya publicado. Las que
+necesitan verlo pendiente (el generador) usan `enElCatalogoComoSembrado`, que lo deja así **solo dentro de una
+transacción que se deshace**; las demás exigen el estado que la base permite (`problemaDeLaRevision`).

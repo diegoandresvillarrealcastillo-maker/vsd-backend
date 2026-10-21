@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivityId, SesionId, UserId } from '../../domain/model/Identifier.js';
 import { type Motor } from '../../domain/model/Motor.js';
 import { problemaDeLosParametros } from '../../domain/model/ParametrosDelMotor.js';
+import { problemaDeLaRevision } from '../../pruebas/catalogo/estadoDeRevision.ts';
 import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -17,7 +18,12 @@ import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
 /**
  * El contenido del catalogo (SCRUM-222 a SCRUM-224), comprobado contra PostgreSQL de verdad: lo que cada
  * migracion siembra es exactamente el contenido que revisaron las pruebas, las que no piden revision salen
- * publicadas, las que la piden no, y todo se lee por el dominio. Un lote nuevo entra aqui solo.
+ * publicadas, las que la piden **no salen sin su revisor**, y todo se lee por el dominio. Un lote nuevo entra
+ * aqui solo.
+ *
+ * La base de estas pruebas tiene todas las migraciones, incluidas las que publican lo revisado (SCRUM-238):
+ * por eso lo que pide revision puede estar todavia pendiente o ya revisado a nombre de alguien, y lo que se
+ * exige es el estado que la base permite (`problemaDeLaRevision`), no el de la siembra.
  */
 const URL_DUENO = process.env['DATABASE_URL'];
 
@@ -48,6 +54,8 @@ interface FilaDeSesion {
   readonly parametros: unknown;
   readonly publicado: boolean;
   readonly revision: string;
+  readonly revisadaPor: string | null;
+  readonly revisadaEl: Date | null;
 }
 
 describe.skipIf(URL_DUENO === undefined)('el contenido del catalogo, contra PostgreSQL', () => {
@@ -73,7 +81,8 @@ describe.skipIf(URL_DUENO === undefined)('el contenido del catalogo, contra Post
   async function sesionesDe(idActividad: string): Promise<FilaDeSesion[]> {
     const { rows } = await dueno.query<FilaDeSesion>(
       `SELECT id_sesion::text AS id, id_actividad::text AS "idActividad", titulo, nivel::int AS nivel,
-              parametros, publicado, revision
+              parametros, publicado, revision,
+              revisada_por AS "revisadaPor", revisada_el AS "revisadaEl"
        FROM sesion_de_actividad WHERE id_actividad = $1 ORDER BY id_sesion`,
       [idActividad],
     );
@@ -105,8 +114,10 @@ describe.skipIf(URL_DUENO === undefined)('el contenido del catalogo, contra Post
           expect(fila?.titulo).toBe(sesion.titulo);
           expect(fila?.nivel).toBe(sesion.nivel);
           expect(fila?.parametros).toEqual(JSON.parse(JSON.stringify(sesion.parametros)));
-          expect(fila?.publicado, sesion.titulo).toBe(mecanica.publicar);
-          expect(fila?.revision, sesion.titulo).toBe(mecanica.revision);
+          expect(
+            fila === undefined ? 'no esta' : problemaDeLaRevision(mecanica, fila),
+            `${mecanica.codigo} ${sesion.titulo}`,
+          ).toBeUndefined();
         }
       });
 
@@ -132,23 +143,37 @@ describe.skipIf(URL_DUENO === undefined)('el contenido del catalogo, contra Post
       });
 
       it.runIf(mecanica.revision === 'pendiente')(
-        'pide revision: ninguna sesion nueva sale publicada y la base impide publicarla',
+        'pide revision: ninguna sesion nueva esta publicada sin su revisor, y la base impide publicar una pendiente',
         async () => {
           const nuevas = new Set(mecanica.sesiones.map((s) => s.id));
           const filas = (await sesionesDe(mecanica.id)).filter((fila) => nuevas.has(fila.id));
 
           expect(filas.length).toBeGreaterThan(0);
-          expect(filas.every((fila) => !fila.publicado && fila.revision === 'pendiente')).toBe(
-            true,
-          );
 
+          for (const fila of filas) {
+            // Pendiente y sin publicar, o revisada a nombre de alguien y con su fecha. Nunca publicada sin eso.
+            expect(problemaDeLaRevision(mecanica, fila), fila.titulo).toBeUndefined();
+            expect(!fila.publicado || fila.revision === 'revisada', fila.titulo).toBe(true);
+          }
+
+          // Y lo que la base impide es publicar una que sigue pendiente. Si ya no queda ninguna (se publico
+          // lo revisado), se crea una de esta mecanica en una transaccion que se deshace.
           await dueno.query('BEGIN');
 
           try {
+            await dueno.query(
+              `INSERT INTO sesion_de_actividad (id_sesion, id_actividad, titulo, nivel, parametros)
+               SELECT gen_random_uuid(), id_actividad, 'Pendiente de prueba', nivel, parametros
+                 FROM sesion_de_actividad WHERE id_sesion = $1`,
+              [filas[0]?.id],
+            );
+
             await expect(
-              dueno.query('UPDATE sesion_de_actividad SET publicado = true WHERE id_sesion = $1', [
-                filas[0]?.id,
-              ]),
+              dueno.query(
+                `UPDATE sesion_de_actividad SET publicado = true
+                  WHERE id_actividad = $1 AND titulo = 'Pendiente de prueba'`,
+                [mecanica.id],
+              ),
             ).rejects.toThrow(/sesion_de_actividad_publicada_revisada/);
           } finally {
             await dueno.query('ROLLBACK');
@@ -157,13 +182,19 @@ describe.skipIf(URL_DUENO === undefined)('el contenido del catalogo, contra Post
       );
     });
 
-    it('el sendero ofrece una sesion de cada mecanica publicada y ninguna de la que espera revision', async () => {
+    it('el sendero ofrece una sesion de cada mecanica que tiene alguna publicada, y ninguna de las demas', async () => {
       const persona = new UserId(randomUUID());
       const ids = lote.mecanicas.map((m) => new ActivityId(m.id));
       const deHoy = await repositorio.sesionesDeHoy(persona, ids, HOY);
       const conSesion = await repositorio.mecanicasConSesion(persona, ids, HOY);
-      // Las del piloto que esperan revision (BIE-01 y EMO-02) no tienen ninguna publicada todavia.
-      const publicadas = lote.mecanicas.filter((m) => m.publicar).map((m) => m.id);
+      // Las que tienen alguna sesion publicada: las que no piden revision y las que ya publico una revision.
+      // Una que espera revision no tiene ninguna, y no se ofrece.
+      const { rows } = await dueno.query<{ id: string }>(
+        `SELECT DISTINCT id_actividad::text AS id FROM sesion_de_actividad
+          WHERE publicado AND id_actividad = ANY($1::uuid[])`,
+        [lote.mecanicas.map((m) => m.id)],
+      );
+      const publicadas = rows.map((fila) => fila.id);
 
       expect([...deHoy.keys()].sort()).toEqual([...publicadas].sort());
       expect([...conSesion].sort()).toEqual([...publicadas].sort());

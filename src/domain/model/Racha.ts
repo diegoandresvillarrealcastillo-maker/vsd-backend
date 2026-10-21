@@ -93,6 +93,14 @@ export function escaleraDeHitos(dias: number): readonly HitoDeLaEscalera[] {
   ];
 }
 
+/** Como se ve un dia en la semana de la racha. */
+export type EstadoDelDia = 'hecho' | 'cubierto' | 'hoy' | 'sinActividad' | 'futuro';
+
+export interface DiaDeLaSemana {
+  readonly dia: Dia;
+  readonly estado: EstadoDelDia;
+}
+
 export interface Racha {
   /** Dias con actividad en la cadena de ahora. */
   readonly dias: number;
@@ -111,11 +119,60 @@ export interface Racha {
   readonly proximoHito: number;
   /** Los hitos logrados y los tres que siguen. */
   readonly escalera: readonly HitoDeLaEscalera[];
+  /** La semana de hoy, de lunes a domingo: siete dias, cada uno con su estado. */
+  readonly semana: readonly DiaDeLaSemana[];
   /** Los dias de la cadena de ahora que se cubrieron, del mas viejo al mas nuevo. */
   readonly diasCubiertos: readonly Dia[];
 }
 
 const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
+
+/** El dia que esta `cuantos` dias despues (o antes, si es negativo) de otro, con aritmetica de calendario. */
+function desplazarElDia(dia: Dia, cuantos: number): Dia {
+  return new Date(Date.parse(`${dia}T00:00:00Z`) + cuantos * UN_DIA_EN_MS)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** El dia de la semana no depende de la zona: un dia del calendario ya es local. */
+const CALENDARIO_DE_REFERENCIA = new Calendario();
+
+/** Los siete dias de la semana de `hoy`, de lunes a domingo, con el estado de cada uno. */
+function semanaDe(
+  hoy: Dia,
+  hechos: ReadonlySet<Dia>,
+  cubiertos: ReadonlySet<Dia>,
+): readonly DiaDeLaSemana[] {
+  // 1 es lunes: el lunes de esta semana esta `posicion - 1` dias atras.
+  const lunes = desplazarElDia(hoy, 1 - CALENDARIO_DE_REFERENCIA.diaDeLaSemana(hoy));
+
+  return Array.from({ length: 7 }, (_, indice) => {
+    const dia = desplazarElDia(lunes, indice);
+
+    return { dia, estado: estadoDelDia(dia, hoy, hechos, cubiertos) };
+  });
+}
+
+function estadoDelDia(
+  dia: Dia,
+  hoy: Dia,
+  hechos: ReadonlySet<Dia>,
+  cubiertos: ReadonlySet<Dia>,
+): EstadoDelDia {
+  if (dia > hoy) {
+    return 'futuro';
+  }
+
+  if (hechos.has(dia)) {
+    return 'hecho';
+  }
+
+  if (dia === hoy) {
+    return 'hoy';
+  }
+
+  return cubiertos.has(dia) ? 'cubierto' : 'sinActividad';
+}
 
 /** El dia siguiente de un dia del calendario, tambien al cruzar de mes, de ano y el 29 de febrero. */
 export function diaSiguiente(dia: Dia): Dia {
@@ -203,6 +260,7 @@ export function calcularLaRacha(dias: Iterable<Dia>, hoy: Dia): Racha {
     congelamientosDisponibles: Math.max(0, CONGELAMIENTOS_POR_MES - usadosEsteMes),
     proximoHito: proximoHito(racha),
     escalera: escaleraDeHitos(racha),
+    semana: semanaDe(hoy, hechos, new Set(cubiertos)),
     diasCubiertos: cubiertos,
   };
 }

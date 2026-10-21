@@ -1,5 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { NivelDeLaLlama, Racha } from '../../../domain/model/Racha.js';
+import type { EstadoDelDia, NivelDeLaLlama, Racha } from '../../../domain/model/Racha.js';
+
+/** Un hito de la escalera de la racha (SCRUM-242). */
+export class HitoDeLaEscaleraDto {
+  @ApiProperty({ description: 'Dias seguidos que pide este hito.', example: 14 })
+  dias!: number;
+
+  @ApiProperty({ description: 'Si la racha de ahora ya lo alcanzo.', example: false })
+  logrado!: boolean;
+}
+
+/** Un dia de la semana de la racha (SCRUM-242). */
+export class DiaDeLaSemanaDto {
+  @ApiProperty({ description: 'El dia del calendario local de la persona, AAAA-MM-DD.' })
+  dia!: string;
+
+  @ApiProperty({
+    description:
+      'hecho: hubo actividad; cubierto: lo cubrio un congelamiento; hoy: es hoy y todavia no hay actividad; sinActividad: paso sin actividad ni congelamiento; futuro: todavia no llega.',
+    enum: ['hecho', 'cubierto', 'hoy', 'sinActividad', 'futuro'],
+  })
+  estado!: EstadoDelDia;
+}
 
 /** La racha de la persona, tal como sale por la API (SCRUM-186). */
 export class RachaRespuestaDto {
@@ -41,6 +63,31 @@ export class RachaRespuestaDto {
   })
   diasCubiertos!: string[];
 
+  @ApiProperty({
+    description: 'Congelamientos que quedan este mes: los del mes menos los usados.',
+    example: 2,
+  })
+  congelamientosDisponibles!: number;
+
+  @ApiProperty({
+    description: 'El proximo hito de la escalera, siempre mayor que los dias de ahora.',
+    example: 14,
+  })
+  proximoHito!: number;
+
+  @ApiProperty({
+    type: [HitoDeLaEscaleraDto],
+    description:
+      'Los hitos logrados y los tres que siguen. Los hitos son 3, 7, 14, 30, 50, 100, 200 y 365 dias, y despues uno cada 365.',
+  })
+  escalera!: HitoDeLaEscaleraDto[];
+
+  @ApiProperty({
+    type: [DiaDeLaSemanaDto],
+    description: 'La semana de hoy, de lunes a domingo: siete dias, cada uno con su estado.',
+  })
+  semana!: DiaDeLaSemanaDto[];
+
   static desde(racha: Racha): RachaRespuestaDto {
     const dto = new RachaRespuestaDto();
 
@@ -51,6 +98,10 @@ export class RachaRespuestaDto {
     dto.congelamientosUsados = racha.congelamientosUsados;
     dto.congelamientosPorMes = racha.congelamientosPorMes;
     dto.diasCubiertos = [...racha.diasCubiertos];
+    dto.congelamientosDisponibles = racha.congelamientosDisponibles;
+    dto.proximoHito = racha.proximoHito;
+    dto.escalera = racha.escalera.map(({ dias, logrado }) => ({ dias, logrado }));
+    dto.semana = racha.semana.map(({ dia, estado }) => ({ dia, estado }));
 
     return dto;
   }

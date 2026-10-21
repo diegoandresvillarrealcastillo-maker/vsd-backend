@@ -77,3 +77,50 @@ tras un viaje, porque el día sale de `resultado.dia`. El mismo cálculo se prue
 
 - La llama, sus cuatro niveles y los textos («descansa», «se cubrió un día»), en el frontend.
 - Que Diego confirme D1 y D2 al probar.
+
+## Addendum (SCRUM-242): hitos, semana y avisos con riesgo honesto
+
+**Fecha:** 2026-10-21. **Pedido por:** Samuel. **Pide revisión de:** Diego (PO), porque cambia una regla de tono de
+este ADR.
+
+La racha se vuelve más visible: celebraciones por hito, una barra de progreso y avisos con la mascota. Sigue
+siendo una función pura de los días con actividad y de hoy; **no se agrega estado, columna ni migración**.
+
+1. **La escalera de hitos también se deduce.** `HITOS_DE_LA_RACHA` es `3, 7, 14, 30, 50, 100, 200, 365` y, pasado
+   el primer año, uno cada 365 días. `GET /api/racha` la devuelve ya armada (`escalera`: todos los logrados y los
+   tres que siguen) junto con `proximoHito`, así el frontend no repite la tabla. Los cuatro niveles de la llama
+   (7, 30, 90 y 365 días) no cambian: son otra cosa que los hitos.
+2. **La semana también.** `semana` trae los siete días de lunes a domingo de la semana de hoy, cada uno `hecho`,
+   `cubierto` (por un congelamiento), `hoy` (todavía sin actividad), `sinActividad` o `futuro`.
+   `congelamientosDisponibles` es lo que queda del mes. Todos los campos de antes se mantienen: un cliente viejo
+   sigue funcionando.
+3. **El aviso de la racha dice los días y habla con la voz de la mascota.** Cambia el punto 5 de la decisión
+   original («no hay una notificación de pérdida»), con esta regla:
+
+   > Un aviso **nunca culpa ni dramatiza y nunca dice que algo se perdió**. Puede decir qué está en juego **solo
+   > cuando es verdad**, una vez al día, y se apaga con el mismo interruptor del aviso de la racha.
+
+   Lo que dice el aviso de la racha (solo si ese día no hubo actividad), en este orden:
+
+   | Situación                                    | Título                                                                          |
+   | -------------------------------------------- | ------------------------------------------------------------------------------- |
+   | La llama descansa                            | ¿Un momento para ti hoy? (como siempre)                                         |
+   | Con una actividad hoy llegaría a un hito     | Hoy puedes llegar a 14 días                                                     |
+   | 3 días o más, con congelamientos disponibles | Tu racha de 12 días («una actividad hoy y no gastas un congelamiento»)          |
+   | 3 días o más, sin congelamientos             | Tu racha de 12 días está en juego («una actividad hoy la mantiene. Sin prisa.») |
+   | Lo demás (1 o 2 días sin hito)               | ¿Un momento para ti hoy? (como siempre)                                         |
+
+   «En juego» solo sale cuando los tres congelamientos del mes ya se usaron, que es cuando de verdad un día sin
+   actividad cortaría la cadena. Con congelamientos disponibles decir «vas a perder tu racha» sería falso, y no se
+   dice. «Perdiste» no existe: una racha que se corta sigue llamándose _descanso_.
+
+4. **La mascota viaja solo como forma.** El payload de Web Push suma `mascota` (la forma elegida, p. ej. `sparky`)
+   para que el service worker muestre su ícono. La mascota propia (un dibujo privado) no viaja: el aviso lleva el
+   ícono de la aplicación. El cuerpo puede empezar con el nombre de la mascota («Sparky: …»), recortado a 20
+   caracteres.
+5. **Lo que no cambia.** Los recordatorios de la mañana y de la noche siguen sin número de días ni «no pierdas»
+   (`TextosDeLosRecordatorios.ts`).
+
+**Costos aceptados:** un número de días en la pantalla bloqueada es un dato de uso (no de salud) a la vista de quien
+esté al lado; se apaga con el interruptor del aviso. Si Diego prefiere volver a «sin lenguaje de pérdida», basta
+con quitar las dos filas de riesgo de `mensajeDeLaRacha` y dejar los hitos.

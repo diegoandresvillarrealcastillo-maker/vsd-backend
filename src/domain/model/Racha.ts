@@ -37,6 +37,62 @@ export const DIAS_POR_NIVEL = [7, 30, 90, 365] as const;
 /** 0 es el ascua; 1 a 4 son los cuatro niveles de la llama. */
 export type NivelDeLaLlama = 0 | 1 | 2 | 3 | 4;
 
+/**
+ * Los hitos que se celebran con una escena propia (SCRUM-242): una escalera de dias seguidos
+ * que sube de a poco. Pasado el primer ano hay uno cada 365 dias.
+ *
+ * Es la unica fuente: el frontend recibe la escalera ya armada y no repite esta tabla.
+ */
+export const HITOS_DE_LA_RACHA = [3, 7, 14, 30, 50, 100, 200, 365] as const;
+
+const DIAS_DE_UN_ANO = 365;
+
+/** Un hito de la tabla con su estado en una racha de tantos dias. */
+export interface HitoDeLaEscalera {
+  readonly dias: number;
+  readonly logrado: boolean;
+}
+
+/** Si esa cantidad de dias seguidos es un hito: de la tabla, o un multiplo de 365. */
+export function esUnHito(dias: number): boolean {
+  return (
+    (HITOS_DE_LA_RACHA as readonly number[]).includes(dias) ||
+    (dias > DIAS_DE_UN_ANO && dias % DIAS_DE_UN_ANO === 0)
+  );
+}
+
+/** El menor hito estrictamente mayor que `dias`. */
+export function proximoHito(dias: number): number {
+  const deLaTabla = HITOS_DE_LA_RACHA.find((hito) => hito > dias);
+
+  return deLaTabla ?? (Math.floor(dias / DIAS_DE_UN_ANO) + 1) * DIAS_DE_UN_ANO;
+}
+
+/** Cuantos hitos por lograr se muestran detras del ultimo logrado. */
+const HITOS_POR_LOGRAR_QUE_SE_MUESTRAN = 3;
+
+/** Todos los hitos logrados con `dias` y los tres que siguen. */
+export function escaleraDeHitos(dias: number): readonly HitoDeLaEscalera[] {
+  const logrados: number[] = HITOS_DE_LA_RACHA.filter((hito) => hito <= dias);
+
+  for (let hito = DIAS_DE_UN_ANO * 2; hito <= dias; hito += DIAS_DE_UN_ANO) {
+    logrados.push(hito);
+  }
+
+  const porLograr: number[] = [];
+  let ultimo = dias;
+
+  for (let i = 0; i < HITOS_POR_LOGRAR_QUE_SE_MUESTRAN; i++) {
+    ultimo = proximoHito(ultimo);
+    porLograr.push(ultimo);
+  }
+
+  return [
+    ...logrados.map((hito) => ({ dias: hito, logrado: true })),
+    ...porLograr.map((hito) => ({ dias: hito, logrado: false })),
+  ];
+}
+
 export interface Racha {
   /** Dias con actividad en la cadena de ahora. */
   readonly dias: number;
@@ -49,6 +105,12 @@ export interface Racha {
   readonly congelamientosUsados: number;
   /** Cuantos hay por mes. */
   readonly congelamientosPorMes: number;
+  /** Cuantos quedan este mes: los de cada mes menos los usados, nunca menos de cero. */
+  readonly congelamientosDisponibles: number;
+  /** El proximo hito de la escalera, estrictamente mayor que los dias de ahora. */
+  readonly proximoHito: number;
+  /** Los hitos logrados y los tres que siguen. */
+  readonly escalera: readonly HitoDeLaEscalera[];
   /** Los dias de la cadena de ahora que se cubrieron, del mas viejo al mas nuevo. */
   readonly diasCubiertos: readonly Dia[];
 }
@@ -129,13 +191,18 @@ export function calcularLaRacha(dias: Iterable<Dia>, hoy: Dia): Racha {
     racha += 1;
   }
 
+  const usadosEsteMes = usadosPorMes.get(hoy.slice(0, 7)) ?? 0;
+
   return {
     dias: racha,
     nivel: nivelDeLaLlama(racha),
     hechoHoy,
     enDescanso: racha === 0,
-    congelamientosUsados: usadosPorMes.get(hoy.slice(0, 7)) ?? 0,
+    congelamientosUsados: usadosEsteMes,
     congelamientosPorMes: CONGELAMIENTOS_POR_MES,
+    congelamientosDisponibles: Math.max(0, CONGELAMIENTOS_POR_MES - usadosEsteMes),
+    proximoHito: proximoHito(racha),
+    escalera: escaleraDeHitos(racha),
     diasCubiertos: cubiertos,
   };
 }

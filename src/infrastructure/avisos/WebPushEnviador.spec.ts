@@ -66,6 +66,29 @@ describe('WebPushEnviador', () => {
     });
   });
 
+  it('manda la forma de la mascota para que el aviso muestre su icono (SCRUM-242)', async () => {
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    await new WebPushEnviador(CLAVES).enviar(SUSCRIPCION, {
+      ...mensajeDeLaRacha(),
+      mascota: 'sparky',
+    });
+
+    const [, cuerpo] = sendNotification.mock.calls[0] as [unknown, string];
+
+    expect(JSON.parse(cuerpo)).toMatchObject({ tipo: 'racha', mascota: 'sparky' });
+  });
+
+  it('sin mascota, el cuerpo no lleva la clave (SCRUM-242)', async () => {
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    await new WebPushEnviador(CLAVES).enviar(SUSCRIPCION, mensajeDeLaRacha());
+
+    const [, cuerpo] = sendNotification.mock.calls[0] as [unknown, string];
+
+    expect(JSON.parse(cuerpo)).not.toHaveProperty('mascota');
+  });
+
   it('no espera para siempre a un servicio que no contesta (SCRUM-153)', async () => {
     sendNotification.mockResolvedValue({ statusCode: 201 });
 

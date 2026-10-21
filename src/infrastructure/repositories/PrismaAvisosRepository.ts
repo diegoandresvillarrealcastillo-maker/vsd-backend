@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client';
-import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
+import type {
+  MascotaDelAviso,
+  PreferenciasDeAviso,
+  SuscripcionPush,
+} from '../../domain/model/Aviso.js';
 import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
 import { UserId } from '../../domain/model/Identifier.js';
@@ -154,6 +158,23 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
       p256dh: fila.claveP256dh,
       auth: fila.claveAuth,
     }));
+  }
+
+  async mascotaDe(userId: UserId): Promise<MascotaDelAviso | null> {
+    const fila = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.usuario.findUnique({ where: { id: userId.value }, select: { mascota: true } }),
+    );
+    const valor = fila?.mascota;
+
+    if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+      return null;
+    }
+
+    const { forma, nombre } = valor as Record<string, unknown>;
+
+    return typeof forma === 'string' && forma !== '' && typeof nombre === 'string'
+      ? { forma, nombre }
+      : null;
   }
 
   async zonasEnUso(): Promise<readonly string[]> {

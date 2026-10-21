@@ -48,6 +48,10 @@ describe('InMemoryAvisosRepository: los recordatorios (SCRUM-126)', () => {
     expect(await repositorio.zonasEnUso()).toEqual([]);
   });
 
+  it('en memoria no hay cuentas: no hay mascota que leer (SCRUM-242)', async () => {
+    await expect(repositorio.mascotaDe(ANA)).resolves.toBeNull();
+  });
+
   it('guarda y devuelve la manana y la noche', async () => {
     await repositorio.guardarPreferencias(
       preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA, minutoNoche: MINUTO_DE_LA_NOCHE }),

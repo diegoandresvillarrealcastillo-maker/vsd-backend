@@ -9,6 +9,7 @@ import {
 } from '../../domain/model/Aviso.js';
 import { Calendario } from '../../domain/model/Calendario.js';
 import type { UserId } from '../../domain/model/Identifier.js';
+import { calcularLaRacha } from '../../domain/model/Racha.js';
 import type {
   ResumenDeLaRevision,
   RevisarAvisosUseCase,
@@ -197,9 +198,15 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
       return null;
     }
 
-    return tipo === TipoDeAviso.NOCHE
-      ? mensajeDeLaNoche(semillaDelAviso(userId, dia))
-      : mensajeDeLaRacha();
+    if (tipo === TipoDeAviso.NOCHE) {
+      return mensajeDeLaNoche(semillaDelAviso(userId, dia));
+    }
+
+    // La racha (SCRUM-242) dice los dias que lleva y habla con la voz de la mascota. Los
+    // dias son los de siempre: de ellos sale tambien la llama de la aplicacion.
+    const racha = calcularLaRacha(await this.resultados.diasConActividad(userId), dia);
+
+    return mensajeDeLaRacha(racha, await this.avisos.mascotaDe(userId));
   }
 
   private async entregar(userId: UserId, mensaje: MensajeDeAviso, resumen: Cuentas): Promise<void> {

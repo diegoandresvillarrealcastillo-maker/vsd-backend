@@ -288,6 +288,71 @@ describe('el aviso de la racha con los dias y la mascota (SCRUM-242)', () => {
     expect(mensaje.mascota).toBe('ori');
   });
 
+  it('si la racha dice que hoy ya hizo algo, no se afirma nada de lo que esta en juego (revision final)', () => {
+    // Pasa si la persona cambio de zona el mismo dia: la racha cuenta el dia de entonces y el aviso
+    // mira el dia de ahora. Una frase de riesgo o de hito seria falsa.
+    const conHoyHecho = calcularLaRacha([...hastaAyer(13), HOY], HOY);
+
+    expect(conHoyHecho.hechoHoy).toBe(true);
+    expect(mensajeDeLaRacha(conHoyHecho, SPARKY)).toMatchObject({
+      titulo: '¿Un momento para ti hoy?',
+      cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
+    });
+    expect(
+      mensajeDeLaRacha(calcularLaRacha([...SIN_CONGELAMIENTOS, HOY], HOY), SPARKY).titulo,
+    ).toBe('¿Un momento para ti hoy?');
+  });
+
+  it('un nombre con emoji se recorta por caracteres, no por unidades: el emoji no se parte (revision final)', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'sparky',
+      nombre: 'Fueguito de la casa🔥',
+    });
+
+    // 20 caracteres, el ultimo es el emoji: entra entero.
+    expect(mensaje.cuerpo).toBe(
+      'Fueguito de la casa🔥: una actividad hoy y no gastas un congelamiento.',
+    );
+    expect(mensaje.cuerpo).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+
+  it('un nombre mas largo que 20 caracteres con emoji se corta limpio', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'sparky',
+      nombre: '🔥'.repeat(25),
+    });
+
+    expect(mensaje.cuerpo.startsWith(`${'🔥'.repeat(20)}: `)).toBe(true);
+    expect(mensaje.cuerpo).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+
+  it.each([
+    ['un espacio de ancho cero', '\u200b'],
+    ['varios invisibles', '\u200b\u200d\ufeff'],
+    ['un caracter de direccion', '\u202e'],
+    ['espacios y invisibles mezclados', ' \u200b '],
+  ])(
+    'un nombre que solo tiene %s se trata como vacio, sin dos puntos sueltos (revision final)',
+    (_caso, nombre) => {
+      const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+        forma: 'ori',
+        nombre,
+      });
+
+      expect(mensaje.cuerpo).toBe('Una actividad hoy y no gastas un congelamiento.');
+      expect(mensaje.mascota).toBe('ori');
+    },
+  );
+
+  it('los invisibles dentro de un nombre se quitan y lo visible se queda', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'ori',
+      nombre: 'Lu\u200bna\u202e',
+    });
+
+    expect(mensaje.cuerpo).toBe('Luna: una actividad hoy y no gastas un congelamiento.');
+  });
+
   it('ninguna variante dice que algo se perdio ni habla de salud', () => {
     const variantes = [
       calcularLaRacha(hastaAyer(12), HOY),

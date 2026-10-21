@@ -338,3 +338,93 @@ describe('la escalera de hitos (SCRUM-242)', () => {
     expect(racha.congelamientosDisponibles).toBe(quedan);
   });
 });
+
+describe('la semana, de lunes a domingo (SCRUM-242)', () => {
+  const estados = (dias: string[], hoy: string) =>
+    calcularLaRacha(dias, hoy).semana.map((dia) => dia.estado);
+
+  it('un miercoles sin hacer nada hoy', () => {
+    const { semana } = calcularLaRacha(['2026-10-19', '2026-10-20'], '2026-10-21');
+
+    expect(semana.map((dia) => dia.estado)).toEqual([
+      'hecho',
+      'hecho',
+      'hoy',
+      'futuro',
+      'futuro',
+      'futuro',
+      'futuro',
+    ]);
+    expect(semana[0]?.dia).toBe('2026-10-19');
+    expect(semana[6]?.dia).toBe('2026-10-25');
+  });
+
+  it('hoy hecho sale hecho', () => {
+    expect(estados(['2026-10-21'], '2026-10-21')[2]).toBe('hecho');
+  });
+
+  it('un hueco dentro de la cadena sale cubierto', () => {
+    // El 19 queda vacio entre el 18 y el 20: lo cubre un congelamiento.
+    const semana = estados(['2026-10-18', '2026-10-20'], '2026-10-21');
+
+    expect(semana[0]).toBe('cubierto');
+    expect(semana[1]).toBe('hecho');
+  });
+
+  it('un dia vacio sin cadena en pie sale sin actividad', () => {
+    // Del 12 al 16 se gastan los tres congelamientos y el cuarto hueco corta la cadena.
+    expect(estados(['2026-10-12'], '2026-10-21')[0]).toBe('sinActividad');
+  });
+
+  it('un dia hecho de una cadena que ya se corto sigue saliendo hecho', () => {
+    expect(estados(['2026-10-12', '2026-10-19'], '2026-10-21')[0]).toBe('hecho');
+  });
+
+  it('al cruzar de mes: el domingo 1 de noviembre', () => {
+    const { semana } = calcularLaRacha([], '2026-11-01');
+
+    expect(semana.map((dia) => dia.dia)).toEqual([
+      '2026-10-26',
+      '2026-10-27',
+      '2026-10-28',
+      '2026-10-29',
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+    ]);
+    expect(semana[6]?.estado).toBe('hoy');
+  });
+
+  it('al cruzar de ano: el viernes 1 de enero de 2027', () => {
+    const { semana } = calcularLaRacha([], '2027-01-01');
+
+    expect(semana[0]?.dia).toBe('2026-12-28');
+    expect(semana[4]?.dia).toBe('2027-01-01');
+    expect(semana[6]?.dia).toBe('2027-01-03');
+  });
+
+  it('en lunes, la semana empieza hoy', () => {
+    const { semana } = calcularLaRacha([], '2026-10-19');
+
+    expect(semana[0]).toEqual({ dia: '2026-10-19', estado: 'hoy' });
+  });
+
+  it('un 29 de febrero cae en su semana', () => {
+    // 2028-02-29 es martes.
+    const { semana } = calcularLaRacha([], '2028-02-29');
+
+    expect(semana.map((dia) => dia.dia)).toEqual([
+      '2028-02-28',
+      '2028-02-29',
+      '2028-03-01',
+      '2028-03-02',
+      '2028-03-03',
+      '2028-03-04',
+      '2028-03-05',
+    ]);
+  });
+
+  it('siempre son siete dias', () => {
+    expect(calcularLaRacha([], '2026-02-28').semana).toHaveLength(7);
+  });
+});

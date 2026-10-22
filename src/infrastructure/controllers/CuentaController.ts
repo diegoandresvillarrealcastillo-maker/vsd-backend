@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import type { User } from '../../domain/model/User.js';
+import type { AceptarTextosVigentesUseCase } from '../../domain/ports/in/AceptarTextosVigentesUseCase.js';
 import type { ActualizarPreferenciasUseCase } from '../../domain/ports/in/ActualizarPreferenciasUseCase.js';
 import type { BorrarCuentaUseCase } from '../../domain/ports/in/BorrarCuentaUseCase.js';
 import type { ExportarDatosUseCase } from '../../domain/ports/in/ExportarDatosUseCase.js';
@@ -20,10 +21,12 @@ import type { RegistrarCuentaUseCase } from '../../domain/ports/in/RegistrarCuen
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { PermiteRegistroIncompleto } from '../auth/PermiteRegistroIncompleto.js';
+import { PermiteTextosPendientes } from '../auth/PermiteTextosPendientes.js';
 import { SinCuenta } from '../auth/SinCuenta.js';
 import { UsuarioActual } from '../auth/UsuarioActual.js';
 import type { Identidad } from '../auth/VerificadorDeIdentidad.js';
 import {
+  ACEPTAR_TEXTOS,
   ACTUALIZAR_PREFERENCIAS,
   BORRAR_CUENTA,
   EXPORTAR_DATOS,
@@ -33,6 +36,7 @@ import {
 import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
 import { LIMITE_DE_EXPORTAR } from '../limites/limites.js';
 import { ContextoDeSeguridad } from '../seguridad/contextoDeLaPeticion.js';
+import { AceptarTextosDto } from './dto/AceptarTextosDto.js';
 import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
@@ -61,6 +65,8 @@ export class CuentaController {
     private readonly borrado: BorrarCuentaUseCase,
     @Inject(REGISTRO_DE_SEGURIDAD)
     private readonly seguridad: RegistroDeSeguridadPort,
+    @Inject(ACEPTAR_TEXTOS)
+    private readonly aceptacion: AceptarTextosVigentesUseCase,
   ) {}
 
   /**
@@ -134,6 +140,52 @@ export class CuentaController {
   @ApiResponse({ status: 403, description: 'Hay sesion pero todavia no hay cuenta.' })
   consultar(@CuentaActual() cuenta: User): CuentaRespuestaDto {
     return CuentaRespuestaDto.desde(cuenta);
+  }
+
+  @Post('aceptacion')
+  // Es la ruta que deja de estar bloqueada: sin ella nadie podria aceptar. Sigue exigiendo el registro
+  // completo; aceptar un texto no sustituye a declarar la edad.
+  @PermiteTextosPendientes()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Volver a aceptar el aviso de privacidad y los términos cuando cambian',
+    description:
+      'El aviso y los términos prometen que, si cambian, se le pedirá a la persona que los acepte de nuevo. Cuando la versión que aceptó ya no es la vigente, `GET /api/cuenta` lo dice en `textosPendientes` y la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo lo demás, salvo ver, exportar y borrar la cuenta. Esta ruta guarda la aceptación de **todo** lo pendiente (casilla y versión vigente de cada texto, como en el registro) y la fecha la pone el servidor. La aceptación se añade al historial y no reemplaza la anterior, que es la prueba de lo que la persona aceptó antes. Sin nada pendiente no cambia nada, así que se puede reintentar.',
+  })
+  @ApiBody({ type: AceptarTextosDto })
+  @ApiResponse({
+    status: 200,
+    description: 'La cuenta, ya al día.',
+    type: CuentaRespuestaDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Falta marcar una casilla o mandar una versión de lo que está pendiente (CONSENTIMIENTO_NO_REGISTRADO).',
+  })
+  @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'REGISTRO_INCOMPLETO: antes hay que completar el registro (la fecha de nacimiento); aceptar un texto no la sustituye.',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'La versión del aviso o de los términos que se mandó ya no es la vigente (VERSION_DEL_AVISO_NO_VIGENTE o VERSION_DE_LOS_TERMINOS_NO_VIGENTE).',
+  })
+  async aceptarTextos(
+    @Body() dto: AceptarTextosDto,
+    @CuentaActual() cuenta: User,
+  ): Promise<CuentaRespuestaDto> {
+    const aceptada = await this.aceptacion.execute(cuenta.id, {
+      ...(dto.aceptaAviso === undefined ? {} : { aceptaAviso: dto.aceptaAviso }),
+      ...(dto.versionPolitica === undefined ? {} : { versionPolitica: dto.versionPolitica }),
+      ...(dto.aceptaTerminos === undefined ? {} : { aceptaTerminos: dto.aceptaTerminos }),
+      ...(dto.versionTerminos === undefined ? {} : { versionTerminos: dto.versionTerminos }),
+    });
+
+    return CuentaRespuestaDto.desde(aceptada);
   }
 
   @Patch('preferencias')

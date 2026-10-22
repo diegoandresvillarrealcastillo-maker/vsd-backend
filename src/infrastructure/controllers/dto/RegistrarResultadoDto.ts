@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsObject, IsOptional, IsUUID, Min } from 'class-validator';
+import { IsDate, IsNumber, IsObject, IsOptional, IsUUID, Min } from 'class-validator';
 
 /**
  * Cuerpo de la peticion para registrar el resultado de una actividad.
@@ -49,12 +49,16 @@ export class RegistrarResultadoDto {
 
   @ApiPropertyOptional({
     description:
-      'Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.',
+      'Puntaje crudo obtenido, en la escala de la actividad, con hasta dos decimales: son los de la columna donde se guarda, y los de un juego que escala lo logrado al maximo (3 puntos de 8 en una escala de 10 son 3,75). Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.',
+    type: Number,
     example: 8,
     minimum: 0,
   })
   @IsOptional()
-  @IsInt()
+  // Dos decimales y no un entero (SCRUM-240): una partida a medias escala lo logrado al maximo de la actividad
+  // y casi nunca da un entero. Mas de dos se rechaza en lugar de redondearse en silencio: el dato que se guarda
+  // es el que se mando.
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
   @Min(0)
   score?: number;
 

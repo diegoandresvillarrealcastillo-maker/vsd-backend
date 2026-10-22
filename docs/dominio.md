@@ -313,6 +313,19 @@ comprobaciones que un alta. Lo que habian aceptado antes queda en el historial.
 
 Ver [ADR 0021](adr/0021-la-edad-y-el-consentimiento-se-comprueban-en-el-servidor.md).
 
+#### Cuando cambian el aviso o los términos
+
+La versión que aceptó cada cuenta se compara con la vigente (`User.textosPendientes`).
+Si alguna cambió, `GET /api/cuenta` la lista en `textosPendientes` y `GuardiaDeCuenta`
+responde 403 `TEXTOS_PENDIENTES_DE_ACEPTAR` en todo menos en lo que lleva
+`@PermiteRegistroIncompleto()` (ver, exportar y borrar) y en `POST /api/cuenta/aceptacion`,
+que lleva `@PermiteTextosPendientes()` y guarda la aceptación de todo lo pendiente con
+las casillas y las versiones vigentes. La aceptación nueva se **añade** al historial:
+la anterior queda. La versión solo sube cuando el cambio afecta a lo que las personas
+autorizan, porque bloquea a todas las cuentas hasta que acepten.
+
+Ver [ADR 0032](adr/0032-cuando-cambian-el-aviso-o-los-terminos-la-cuenta-vuelve-a-aceptarlos.md).
+
 ### El administrador gestiona contenidos, no personas
 
 `puedeLeerDatosDe()` solo devuelve verdadero para el propio dueno. **El rol de

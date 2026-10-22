@@ -1,3 +1,5 @@
+import type { VersionesVigentes } from './User.js';
+
 /**
  * La version vigente del aviso de tratamiento de datos.
  *
@@ -10,10 +12,18 @@
  * permiso cada persona (Ley 1581 de 2012), asi que no puede haber dos.
  *
  * Cuando el texto del aviso cambie, cambia esta cadena y nada mas. Las cuentas
- * existentes conservan la version con la que se crearon: eso es justamente lo
- * que documenta su consentimiento real.
+ * existentes conservan la version con la que se crearon, que es lo que documenta
+ * su consentimiento real, y tienen que aceptar la nueva para seguir usando la
+ * aplicacion (SCRUM-237): la nueva aceptacion se anade al historial, no lo
+ * reemplaza.
+ *
+ * `2026-10-3` (SCRUM-235): el aviso describe la constancia que deja la baja de
+ * la cuenta y su plazo de 10 anos (ADR 0026), la transferencia internacional
+ * con autorizacion expresa y el plazo de las copias de respaldo. Con
+ * `2026-09-1` el aviso decia que al borrar la cuenta se eliminaba todo, y ya no
+ * es cierto.
  */
-export const VERSION_VIGENTE_DEL_AVISO = '2026-09-1';
+export const VERSION_VIGENTE_DEL_AVISO = '2026-10-3';
 
 /** Si la version que trae alguien es la que esta vigente. */
 export function esLaVersionVigente(version: string): boolean {
@@ -29,11 +39,28 @@ export function esLaVersionVigente(version: string): boolean {
  * documentos distintos y cada uno cambia por su lado.
  *
  * La version cambia junto con el texto, que se publica en las paginas legales
- * del frontend (T-02 de la auditoria 360). Hasta entonces es provisional.
+ * del frontend (T-02 de la auditoria 360).
+ *
+ * `2026-10-3` (SCRUM-235): los terminos ya traen la limitacion de
+ * responsabilidad, redactada dentro de lo que permite el Estatuto del
+ * Consumidor, y dejan de ser un borrador. Lleva el mismo numero que el aviso
+ * porque se publicaron juntos, pero son dos documentos y cada uno cambia por su
+ * lado.
  */
-export const VERSION_VIGENTE_DE_LOS_TERMINOS = '2026-10-1';
+export const VERSION_VIGENTE_DE_LOS_TERMINOS = '2026-10-3';
 
 /** Si la version de los terminos que trae alguien es la que esta vigente. */
 export function esLaVersionVigenteDeLosTerminos(version: string): boolean {
   return version.trim() === VERSION_VIGENTE_DE_LOS_TERMINOS;
 }
+
+/**
+ * Las dos versiones juntas, para comparar con lo que acepto cada cuenta (SCRUM-237).
+ *
+ * No es una copia nueva: lleva las mismas dos constantes de arriba. Cuando cambia una, cambia
+ * aqui, y toda cuenta que acepto la anterior pasa a tener ese texto pendiente de aceptar.
+ */
+export const VERSIONES_VIGENTES: VersionesVigentes = {
+  aviso: VERSION_VIGENTE_DEL_AVISO,
+  terminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+};

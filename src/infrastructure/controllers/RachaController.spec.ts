@@ -23,6 +23,10 @@ interface Racha {
   congelamientosUsados: number;
   congelamientosPorMes: number;
   diasCubiertos: string[];
+  congelamientosDisponibles: number;
+  proximoHito: number;
+  escalera: { dias: number; logrado: boolean }[];
+  semana: { dia: string; estado: string }[];
 }
 
 async function levantarAplicacion(): Promise<NestExpressApplication> {
@@ -69,7 +73,8 @@ describe('GET /api/racha (SCRUM-186)', () => {
   });
 
   it('sin actividad la llama descansa, y dice cuantos congelamientos hay', async () => {
-    await expect(rachaDe(B)).resolves.toEqual({
+    // Los campos de siempre no cambian (SCRUM-242 solo suma).
+    await expect(rachaDe(B)).resolves.toMatchObject({
       dias: 0,
       nivel: 0,
       hechoHoy: false,
@@ -78,6 +83,28 @@ describe('GET /api/racha (SCRUM-186)', () => {
       congelamientosPorMes: 3,
       diasCubiertos: [],
     });
+  });
+
+  it('suma la escalera, los congelamientos disponibles y el proximo hito (SCRUM-242)', async () => {
+    const racha = await rachaDe(B);
+
+    expect(racha.congelamientosDisponibles).toBe(3);
+    expect(racha.proximoHito).toBe(3);
+    expect(racha.escalera).toEqual([
+      { dias: 3, logrado: false },
+      { dias: 7, logrado: false },
+      { dias: 14, logrado: false },
+    ]);
+  });
+
+  it('trae la semana de lunes a domingo, con hoy en su sitio (SCRUM-242)', async () => {
+    const { semana } = await rachaDe(B);
+
+    expect(semana).toHaveLength(7);
+    expect(semana.filter((dia) => dia.estado === 'hoy')).toHaveLength(1);
+    // Los siete dias son seguidos y empiezan en lunes.
+    expect(new Date(`${semana[0]?.dia ?? ''}T00:00:00Z`).getUTCDay()).toBe(1);
+    expect(new Date(`${semana[6]?.dia ?? ''}T00:00:00Z`).getUTCDay()).toBe(0);
   });
 
   it('hacer una actividad hoy enciende la racha con un dia', async () => {
@@ -92,12 +119,12 @@ describe('GET /api/racha (SCRUM-186)', () => {
       })
       .expect(201);
 
-    await expect(rachaDe(A)).resolves.toMatchObject({
-      dias: 1,
-      hechoHoy: true,
-      enDescanso: false,
-      nivel: 0,
-    });
+    const racha = await rachaDe(A);
+
+    expect(racha).toMatchObject({ dias: 1, hechoHoy: true, enDescanso: false, nivel: 0 });
+    // Hoy ya no es «hoy por hacer» sino hecho (SCRUM-242).
+    expect(racha.semana.filter((dia) => dia.estado === 'hecho')).toHaveLength(1);
+    expect(racha.semana.some((dia) => dia.estado === 'hoy')).toBe(false);
   });
 
   it('otra actividad el mismo dia no suma otro dia', async () => {

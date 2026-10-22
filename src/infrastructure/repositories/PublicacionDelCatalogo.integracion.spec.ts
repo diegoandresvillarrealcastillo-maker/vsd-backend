@@ -3,17 +3,19 @@ import 'dotenv/config';
 
 import { Client, type QueryResult } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { enElCatalogoComoSembrado } from '../../pruebas/catalogo/estadoDeRevision.ts';
 import { mecanicasPorRevisar } from '../../pruebas/catalogo/revision/porRevisar.ts';
 import { generarLaPublicacion } from '../../pruebas/catalogo/revision/publicacion.ts';
 
 /**
  * La migracion que publica lo revisado (SCRUM-228), aplicada a PostgreSQL de verdad.
  *
- * Cada prueba corre en una transaccion que se **deshace** al terminar: la base queda como estaba, y las demas
- * pruebas de integracion, que esperan el catalogo pendiente y sin publicar, no se enteran. Lo que se comprueba es
- * lo que la base exige de verdad: que el SQL se aplica sin romper el `CHECK` (lo que pide revision no se publica
- * sin ella), que deja a cada sesion con su revisor y su fecha, que aplicarla dos veces no cambia nada, y que lo
- * que la hoja deja fuera o no aprueba se queda pendiente.
+ * Cada prueba corre en una transaccion que se **deshace** al terminar y que parte del catalogo **como lo dejo la
+ * siembra** (pendiente y sin publicar): la base de las pruebas ya tiene aplicada la publicacion real (SCRUM-238), y
+ * `enElCatalogoComoSembrado` la «desaplica» solo dentro de esa transaccion, para poder probar el generador sin
+ * que cambie nada fuera. Lo que se comprueba es lo que la base exige de verdad: que el SQL se aplica sin romper el
+ * `CHECK` (lo que pide revision no se publica sin ella), que deja a cada sesion con su revisor y su fecha, que
+ * aplicarla dos veces no cambia nada, y que lo que la hoja deja fuera o no aprueba se queda pendiente.
  */
 const URL_DUENO = process.env['DATABASE_URL'];
 
@@ -68,25 +70,21 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
     await dueno.end();
   });
 
-  /** Corre `prueba` dentro de una transaccion y la deshace siempre. */
-  async function enUnaTransaccion(prueba: () => Promise<void>): Promise<void> {
-    await dueno.query('BEGIN');
-
-    try {
-      await prueba();
-    } finally {
-      await dueno.query('ROLLBACK');
-    }
+  /** Corre `prueba` con el catalogo como lo dejo la siembra, dentro de una transaccion que se deshace siempre. */
+  function enUnaTransaccion(prueba: () => Promise<void>): Promise<void> {
+    return enElCatalogoComoSembrado(dueno, prueba);
   }
 
-  it('el catalogo esta sembrado, pendiente y sin publicar: es lo que la migracion va a publicar', async () => {
-    const { rows } = await dueno.query<{ n: string }>(
-      `SELECT count(*) AS n FROM sesion_de_actividad
-       WHERE id_sesion::text = ANY($1) AND revision = 'pendiente' AND NOT publicado`,
-      [catalogo.flatMap((m) => m.sesiones.map((s) => s.id))],
-    );
+  it('el catalogo sembrado esta pendiente y sin publicar: es lo que la publicacion va a publicar', async () => {
+    await enUnaTransaccion(async () => {
+      const { rows } = await dueno.query<{ n: string }>(
+        `SELECT count(*) AS n FROM sesion_de_actividad
+         WHERE id_sesion::text = ANY($1) AND revision = 'pendiente' AND NOT publicado`,
+        [catalogo.flatMap((m) => m.sesiones.map((s) => s.id))],
+      );
 
-    expect(Number(rows[0]?.n)).toBe(714);
+      expect(Number(rows[0]?.n)).toBe(714);
+    });
   });
 
   it('aprobar todo publica las 714 sesiones, cada una con su revisor y su fecha', async () => {

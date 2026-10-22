@@ -110,9 +110,20 @@ Lo que condiciona la decisión:
   aquí, fechas y versiones) y es lo que la ley pide poder demostrar, pero **no es «todo»**. La
   política de privacidad dice hoy que se borra todo: **su texto debe actualizarse** (y eso cambia su
   versión), y quien lo decide es Diego con asesoría jurídica. No se tocó en este cambio.
-- **No hay plazo de retención.** Las constancias se conservan mientras haga falta demostrar la
-  autorización; cuánto es lo define la asesoría jurídica, y un purgado por plazo queda como trabajo
-  pendiente.
+  **Actualización (SCRUM-235, 2026-10-20):** el aviso de privacidad `2026-10-3` ya describe la
+  constancia (qué se conserva, que no lleva nombre, correo ni datos de bienestar, y para qué se
+  conserva) y los términos suben también a `2026-10-3`.
+- **El plazo de retención es de 10 años (SCRUM-235, 2026-10-20).** Es el que el aviso de privacidad
+  le promete a la persona («tras lo cual se elimina»), y lo decidió el equipo. **Lo cumple
+  `npm run mantenimiento:constancias` (SCRUM-236):** borra de `cuenta_inactiva` y de
+  `consentimiento_de_cuenta_inactiva` lo dado de baja hace **más** de 10 años (la que cumple el
+  plazo justo hoy se conserva un día más), todo o nada en una transacción. Por defecto es un
+  **simulacro**: dice qué borraría y no escribe, porque la transacción es de solo lectura; para
+  borrar de verdad hay que pasar `--aplicar`. Se conecta con el rol de mantenimiento (`DIRECT_URL`)
+  y se **niega a trabajar con otro**: las constancias tienen RLS forzado y sin política de borrado,
+  así que con un rol normal un `DELETE` no falla, simplemente borra cero filas. **No corre solo en
+  ningún ambiente:** lo ejecuta una persona. La primera constancia (octubre de 2026) no cumple 10
+  años hasta octubre de 2036, así que no hay nada que borrar antes; después, una vez al año basta.
 - **No se puede reactivar una cuenta.** No es un olvido: «sin retención de contenido de salud»
   descarta que haya algo que reactivar.
 - **El identificador del proveedor queda en la constancia.** Es opaco y la identidad ya no existe,

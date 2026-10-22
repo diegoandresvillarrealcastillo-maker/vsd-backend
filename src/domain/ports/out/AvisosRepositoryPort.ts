@@ -1,4 +1,9 @@
-import type { PreferenciasDeAviso, SuscripcionPush, TipoDeAviso } from '../../model/Aviso.js';
+import type {
+  MascotaDelAviso,
+  PreferenciasDeAviso,
+  SuscripcionPush,
+  TipoDeAviso,
+} from '../../model/Aviso.js';
 import type { Dia } from '../../model/Calendario.js';
 import type { UserId } from '../../model/Identifier.js';
 
@@ -21,6 +26,12 @@ export interface AvisosRepositoryPort {
   desuscribir(userId: UserId, endpoint: string): Promise<void>;
 
   suscripcionesDe(userId: UserId): Promise<readonly SuscripcionPush[]>;
+
+  /**
+   * La mascota de la cuenta, para que el aviso de la racha hable con su voz y muestre su icono
+   * (SCRUM-242). `null` si la persona no eligio ninguna. Se lee en nombre de la persona.
+   */
+  mascotaDe(userId: UserId): Promise<MascotaDelAviso | null>;
 
   /**
    * Las zonas horarias en que hay alguien con algun aviso encendido

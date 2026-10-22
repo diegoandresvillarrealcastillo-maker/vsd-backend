@@ -218,6 +218,56 @@
         ]
       }
     },
+    "/api/cuenta/aceptacion": {
+      "post": {
+        "description": "El aviso y los términos prometen que, si cambian, se le pedirá a la persona que los acepte de nuevo. Cuando la versión que aceptó ya no es la vigente, `GET /api/cuenta` lo dice en `textosPendientes` y la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo lo demás, salvo ver, exportar y borrar la cuenta. Esta ruta guarda la aceptación de **todo** lo pendiente (casilla y versión vigente de cada texto, como en el registro) y la fecha la pone el servidor. La aceptación se añade al historial y no reemplaza la anterior, que es la prueba de lo que la persona aceptó antes. Sin nada pendiente no cambia nada, así que se puede reintentar.",
+        "operationId": "CuentaController_aceptarTextos",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AceptarTextosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta, ya al día.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Falta marcar una casilla o mandar una versión de lo que está pendiente (CONSENTIMIENTO_NO_REGISTRADO)."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "REGISTRO_INCOMPLETO: antes hay que completar el registro (la fecha de nacimiento); aceptar un texto no la sustituye."
+          },
+          "409": {
+            "description": "La versión del aviso o de los términos que se mandó ya no es la vigente (VERSION_DEL_AVISO_NO_VIGENTE o VERSION_DE_LOS_TERMINOS_NO_VIGENTE)."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Volver a aceptar el aviso de privacidad y los términos cuando cambian",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
     "/api/cuenta/preferencias": {
       "patch": {
         "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.",
@@ -1223,7 +1273,7 @@
     },
     "/api/racha": {
       "get": {
-        "description": "Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte.",
+        "description": "Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte. Trae tambien la escalera de hitos, la semana de lunes a domingo y cuantos congelamientos quedan.",
         "operationId": "RachaController_consultar",
         "parameters": [],
         "responses": {
@@ -1384,7 +1434,7 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad, con hasta dos decimales: son los de la columna donde se guarda, y los de un juego que escala lo logrado al maximo (3 puntos de 8 en una escala de 10 son 3,75). Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
           },
@@ -1577,14 +1627,14 @@
           "versionPolitica": {
             "type": "string",
             "description": "Versión del aviso de tratamiento de datos que la persona aceptó. No basta un sí o un no: las políticas cambian, y ante una reclamación hay que poder demostrar a qué se dio permiso y cuándo. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
-            "example": "2026-09-1",
+            "example": "2026-10-3",
             "minLength": 1,
             "maxLength": 20
           },
           "versionTerminos": {
             "type": "string",
             "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
-            "example": "2026-10-1",
+            "example": "2026-10-3",
             "minLength": 1,
             "maxLength": 20
           },
@@ -1735,6 +1785,17 @@
             "type": "boolean",
             "description": "Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro»."
           },
+          "textosPendientes": {
+            "type": "array",
+            "description": "Los textos que hay que volver a aceptar porque cambiaron desde la última vez que la persona los aceptó (SCRUM-237): `aviso_de_privacidad`, `terminos`, ninguno o los dos. Si no está vacío, la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo menos a ver, exportar y borrar la cuenta y a `POST /api/cuenta/aceptacion`, y el frontend lleva a la pantalla «Actualizamos nuestros textos».",
+            "items": {
+              "type": "string",
+              "enum": [
+                "aviso_de_privacidad",
+                "terminos"
+              ]
+            }
+          },
           "registradoEn": {
             "type": "string",
             "description": "Cuando se creo la cuenta.",
@@ -1799,6 +1860,7 @@
           "consentimiento",
           "terminos",
           "registroCompleto",
+          "textosPendientes",
           "registradoEn",
           "modulosActivos",
           "mascota",
@@ -1807,6 +1869,33 @@
           "foto",
           "mascotaPropia"
         ]
+      },
+      "AceptarTextosDto": {
+        "type": "object",
+        "properties": {
+          "aceptaAviso": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla del aviso de privacidad. Tiene que ser true si el aviso está pendiente (`textosPendientes` de la cuenta lo incluye); si no lo está, se ignora."
+          },
+          "versionPolitica": {
+            "type": "string",
+            "description": "Versión del aviso que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "aceptaTerminos": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla de los términos. Tiene que ser true si los términos están pendientes; si no lo están, se ignora."
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          }
+        }
       },
       "ActualizarPreferenciasDto": {
         "type": "object",
@@ -2285,12 +2374,12 @@
           "version": {
             "type": "string",
             "description": "Version vigente del aviso de privacidad. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
-            "example": "2026-09-1"
+            "example": "2026-10-3"
           },
           "versionTerminos": {
             "type": "string",
             "description": "Version vigente de los terminos. Es la que hay que enviar en `versionTerminos` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
-            "example": "2026-10-1"
+            "example": "2026-10-3"
           }
         },
         "required": [
@@ -3042,6 +3131,49 @@
           "siguientePagina"
         ]
       },
+      "HitoDeLaEscaleraDto": {
+        "type": "object",
+        "properties": {
+          "dias": {
+            "type": "number",
+            "description": "Dias seguidos que pide este hito.",
+            "example": 14
+          },
+          "logrado": {
+            "type": "boolean",
+            "description": "Si la racha de ahora ya lo alcanzo.",
+            "example": false
+          }
+        },
+        "required": [
+          "dias",
+          "logrado"
+        ]
+      },
+      "DiaDeLaSemanaDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El dia del calendario local de la persona, AAAA-MM-DD."
+          },
+          "estado": {
+            "type": "string",
+            "description": "hecho: hubo actividad; cubierto: lo cubrio un congelamiento; hoy: es hoy y todavia no hay actividad; sinActividad: paso sin actividad ni congelamiento; futuro: todavia no llega.",
+            "enum": [
+              "hecho",
+              "cubierto",
+              "hoy",
+              "sinActividad",
+              "futuro"
+            ]
+          }
+        },
+        "required": [
+          "dia",
+          "estado"
+        ]
+      },
       "RachaRespuestaDto": {
         "type": "object",
         "properties": {
@@ -3089,6 +3221,30 @@
             "items": {
               "type": "string"
             }
+          },
+          "congelamientosDisponibles": {
+            "type": "number",
+            "description": "Congelamientos que quedan este mes: los del mes menos los usados.",
+            "example": 2
+          },
+          "proximoHito": {
+            "type": "number",
+            "description": "El proximo hito de la escalera, siempre mayor que los dias de ahora.",
+            "example": 14
+          },
+          "escalera": {
+            "description": "Los hitos logrados y los tres que siguen. Los hitos son 3, 7, 14, 30, 50, 100, 200 y 365 dias, y despues uno cada 365.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HitoDeLaEscaleraDto"
+            }
+          },
+          "semana": {
+            "description": "La semana de hoy, de lunes a domingo: siete dias, cada uno con su estado.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiaDeLaSemanaDto"
+            }
           }
         },
         "required": [
@@ -3098,7 +3254,11 @@
           "enDescanso",
           "congelamientosUsados",
           "congelamientosPorMes",
-          "diasCubiertos"
+          "diasCubiertos",
+          "congelamientosDisponibles",
+          "proximoHito",
+          "escalera",
+          "semana"
         ]
       },
       "ConsultarAsistenteDto": {

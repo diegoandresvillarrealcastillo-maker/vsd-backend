@@ -14,6 +14,7 @@ import {
 } from './Aviso.js';
 import { InvalidNotificationSettingError } from './DomainError.js';
 import { UserId } from './Identifier.js';
+import { calcularLaRacha } from './Racha.js';
 import { TEXTOS_DE_LA_MANANA, TEXTOS_DE_LA_NOCHE } from './TextosDeLosRecordatorios.js';
 
 const SUSCRIPCION = {
@@ -158,6 +159,228 @@ describe('lo que dicen los avisos', () => {
       'salud',
     ]) {
       expect(textos).not.toContain(palabra);
+    }
+  });
+});
+
+describe('el aviso de la racha con los dias y la mascota (SCRUM-242)', () => {
+  const HOY = '2026-10-21';
+
+  /** `cuantos` dias seguidos que terminan ayer: hoy todavia no hizo nada. */
+  function hastaAyer(cuantos: number): string[] {
+    return Array.from({ length: cuantos }, (_, i) => {
+      const fecha = new Date(Date.UTC(2026, 9, 20 - i));
+
+      return fecha.toISOString().slice(0, 10);
+    });
+  }
+
+  const SPARKY = { forma: 'sparky', nombre: 'Sparky' };
+
+  /** La racha de 17 dias de octubre que ya uso sus tres congelamientos (huecos el 2, el 4 y el 6). */
+  const SIN_CONGELAMIENTOS = [
+    '2026-10-01',
+    '2026-10-03',
+    '2026-10-05',
+    ...Array.from({ length: 14 }, (_, i) => `2026-10-${String(7 + i).padStart(2, '0')}`),
+  ];
+
+  it('sin argumentos dice lo de siempre, sin numero de dias', () => {
+    expect(mensajeDeLaRacha()).toEqual({
+      tipo: 'racha',
+      titulo: '¿Un momento para ti hoy?',
+      cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
+      ruta: '/panel',
+    });
+  });
+
+  it('con congelamientos disponibles dice que una actividad evita gastar uno', () => {
+    const racha = calcularLaRacha(hastaAyer(12), HOY);
+
+    expect(mensajeDeLaRacha(racha, SPARKY)).toMatchObject({
+      tipo: 'racha',
+      titulo: 'Tu racha de 12 días',
+      cuerpo: 'Sparky: una actividad hoy y no gastas un congelamiento.',
+      mascota: 'sparky',
+      ruta: '/panel',
+    });
+  });
+
+  it('sin congelamientos dice que la racha esta en juego, sin prisa', () => {
+    const racha = calcularLaRacha(SIN_CONGELAMIENTOS, HOY);
+
+    expect(racha.dias).toBe(17);
+    expect(racha.congelamientosDisponibles).toBe(0);
+    expect(mensajeDeLaRacha(racha, SPARKY)).toMatchObject({
+      titulo: 'Tu racha de 17 días está en juego',
+      cuerpo: 'Sparky: una actividad hoy la mantiene. Sin prisa.',
+    });
+  });
+
+  it('si con una actividad hoy llega a un hito, lo dice', () => {
+    expect(mensajeDeLaRacha(calcularLaRacha(hastaAyer(13), HOY), SPARKY)).toMatchObject({
+      titulo: 'Hoy puedes llegar a 14 días',
+      cuerpo: 'Sparky: una actividad y lo logras.',
+    });
+    expect(mensajeDeLaRacha(calcularLaRacha(hastaAyer(2), HOY), SPARKY)).toMatchObject({
+      titulo: 'Hoy puedes llegar a 3 días',
+    });
+  });
+
+  it('el hito gana al riesgo, tambien sin congelamientos', () => {
+    // 32 dias de agosto y septiembre, y los 17 de octubre con los tres congelamientos usados.
+    const antesDeOctubre = Array.from({ length: 32 }, (_, i) =>
+      new Date(Date.UTC(2026, 7, 30 + i)).toISOString().slice(0, 10),
+    );
+    const racha = calcularLaRacha([...antesDeOctubre, ...SIN_CONGELAMIENTOS], HOY);
+
+    expect(racha.dias).toBe(49);
+    expect(racha.congelamientosDisponibles).toBe(0);
+    expect(mensajeDeLaRacha(racha, SPARKY).titulo).toBe('Hoy puedes llegar a 50 días');
+  });
+
+  it.each([
+    ['con un dia', hastaAyer(1)],
+    ['sin ningun dia, con la llama en descanso', []],
+  ])('%s dice lo de siempre', (_nombre, dias) => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(dias, HOY), SPARKY);
+
+    expect(mensaje.titulo).toBe('¿Un momento para ti hoy?');
+    expect(mensaje.cuerpo).toBe('Tus actividades de hoy te esperan, cuando quieras.');
+  });
+
+  it('sin mascota la frase empieza con mayuscula y no lleva la clave mascota', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), null);
+
+    expect(mensaje.cuerpo).toBe('Una actividad hoy y no gastas un congelamiento.');
+    expect(mensaje).not.toHaveProperty('mascota');
+  });
+
+  it('la mascota propia habla con su nombre pero no manda su forma', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'propia',
+      nombre: 'Luna',
+    });
+
+    expect(mensaje.cuerpo).toBe('Luna: una actividad hoy y no gastas un congelamiento.');
+    expect(mensaje).not.toHaveProperty('mascota');
+  });
+
+  it('un nombre largo y con espacios de mas se limpia y se recorta a 20 caracteres', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'gato',
+      nombre: '  Chispa   la   Grande y larguísima  ',
+    });
+
+    expect(mensaje.cuerpo).toBe(
+      'Chispa la Grande y l: una actividad hoy y no gastas un congelamiento.',
+    );
+    expect(mensaje.mascota).toBe('gato');
+  });
+
+  it('un nombre en blanco no deja dos puntos sueltos', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'ori',
+      nombre: '   ',
+    });
+
+    expect(mensaje.cuerpo).toBe('Una actividad hoy y no gastas un congelamiento.');
+    expect(mensaje.mascota).toBe('ori');
+  });
+
+  it('si la racha dice que hoy ya hizo algo, no se afirma nada de lo que esta en juego (revision final)', () => {
+    // Pasa si la persona cambio de zona el mismo dia: la racha cuenta el dia de entonces y el aviso
+    // mira el dia de ahora. Una frase de riesgo o de hito seria falsa.
+    const conHoyHecho = calcularLaRacha([...hastaAyer(13), HOY], HOY);
+
+    expect(conHoyHecho.hechoHoy).toBe(true);
+    expect(mensajeDeLaRacha(conHoyHecho, SPARKY)).toMatchObject({
+      titulo: '¿Un momento para ti hoy?',
+      cuerpo: 'Tus actividades de hoy te esperan, cuando quieras.',
+    });
+    expect(
+      mensajeDeLaRacha(calcularLaRacha([...SIN_CONGELAMIENTOS, HOY], HOY), SPARKY).titulo,
+    ).toBe('¿Un momento para ti hoy?');
+  });
+
+  it('un nombre con emoji se recorta por caracteres, no por unidades: el emoji no se parte (revision final)', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'sparky',
+      nombre: 'Fueguito de la casa🔥',
+    });
+
+    // 20 caracteres, el ultimo es el emoji: entra entero.
+    expect(mensaje.cuerpo).toBe(
+      'Fueguito de la casa🔥: una actividad hoy y no gastas un congelamiento.',
+    );
+    expect(mensaje.cuerpo).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+
+  it('un nombre mas largo que 20 caracteres con emoji se corta limpio', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'sparky',
+      nombre: '🔥'.repeat(25),
+    });
+
+    expect(mensaje.cuerpo.startsWith(`${'🔥'.repeat(20)}: `)).toBe(true);
+    expect(mensaje.cuerpo).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+
+  it.each([
+    ['un espacio de ancho cero', '\u200b'],
+    ['varios invisibles', '\u200b\u200d\ufeff'],
+    ['un caracter de direccion', '\u202e'],
+    ['espacios y invisibles mezclados', ' \u200b '],
+  ])(
+    'un nombre que solo tiene %s se trata como vacio, sin dos puntos sueltos (revision final)',
+    (_caso, nombre) => {
+      const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+        forma: 'ori',
+        nombre,
+      });
+
+      expect(mensaje.cuerpo).toBe('Una actividad hoy y no gastas un congelamiento.');
+      expect(mensaje.mascota).toBe('ori');
+    },
+  );
+
+  it('los invisibles dentro de un nombre se quitan y lo visible se queda', () => {
+    const mensaje = mensajeDeLaRacha(calcularLaRacha(hastaAyer(12), HOY), {
+      forma: 'ori',
+      nombre: 'Lu\u200bna\u202e',
+    });
+
+    expect(mensaje.cuerpo).toBe('Luna: una actividad hoy y no gastas un congelamiento.');
+  });
+
+  it('ninguna variante dice que algo se perdio ni habla de salud', () => {
+    const variantes = [
+      calcularLaRacha(hastaAyer(12), HOY),
+      calcularLaRacha(SIN_CONGELAMIENTOS, HOY),
+      calcularLaRacha(hastaAyer(13), HOY),
+      calcularLaRacha(hastaAyer(2), HOY),
+      calcularLaRacha([], HOY),
+    ].map((racha) => mensajeDeLaRacha(racha, SPARKY));
+    const texto = variantes
+      .flatMap((mensaje) => [mensaje.titulo, mensaje.cuerpo])
+      .join(' ')
+      .toLowerCase();
+
+    for (const palabra of [
+      'perdi',
+      'perdiste',
+      'rompi',
+      'fall',
+      'castig',
+      'culpa',
+      'resultado',
+      'nivel',
+      'ánimo',
+      'estrés',
+      'ansiedad',
+      'salud',
+    ]) {
+      expect(texto).not.toContain(palabra);
     }
   });
 });

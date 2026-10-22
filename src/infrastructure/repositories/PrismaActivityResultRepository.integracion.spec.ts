@@ -271,6 +271,40 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     expect(recuperado?.metadata).toMatchObject({ aciertos: 8, intentos: 10 });
   });
 
+  // Una partida a medias escala lo logrado al maximo y casi nunca da un entero (SCRUM-240): lo que llega a la
+  // base, ya normalizado de 0 a 100, tiene que caber en la columna (dos decimales) y volver con el mismo nivel.
+  it.each([
+    { crudo: 3.75, guardado: 37.5, id: 'a1' },
+    { crudo: 5.33, guardado: 53.3, id: 'a2' },
+    { crudo: 0.5, guardado: 5, id: 'a3' },
+  ])(
+    'un puntaje crudo con decimales ($crudo) se guarda como $guardado y vuelve con su nivel',
+    async ({ crudo, guardado, id }) => {
+      const resultado = await unResultado({
+        id: `40000000-0000-4000-8000-0000000000${id}`,
+        usuario: USUARIO_A,
+        actividad: ACTIVIDAD_MEMORIA,
+        operacion: `50000000-0000-4000-8000-0000000000${id}`,
+        puntajeCrudo: crudo,
+      });
+
+      await repositorio.save(resultado);
+
+      const { rows } = await dueno.query<{ puntaje: string }>(
+        'SELECT puntaje FROM resultado WHERE id_resultado = $1',
+        [resultado.id.value],
+      );
+      const recuperado = await repositorio.findByClientOperationId(
+        resultado.clientOperationId,
+        new UserId(USUARIO_A),
+      );
+
+      expect(Number(rows[0]?.puntaje)).toBeCloseTo(guardado, 2);
+      expect(recuperado?.score?.level).toBe(resultado.score?.level);
+      expect(recuperado?.score?.value).toBeCloseTo(guardado, 2);
+    },
+  );
+
   it('el dia queda guardado como se registro, no se recalcula al leer (SCRUM-123)', async () => {
     // El mismo instante, 9 p. m. del 14 en Bogota y 4 a. m. del 15 en Madrid,
     // registrado por dos personas que estaban en sitios distintos.

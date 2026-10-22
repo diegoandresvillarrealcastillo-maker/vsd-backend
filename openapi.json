@@ -1434,7 +1434,7 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad, con hasta dos decimales: son los de la columna donde se guarda, y los de un juego que escala lo logrado al maximo (3 puntos de 8 en una escala de 10 son 3,75). Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
           },

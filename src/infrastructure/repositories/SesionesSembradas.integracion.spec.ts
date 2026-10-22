@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivityId, UserId } from '../../domain/model/Identifier.js';
 import { Motor } from '../../domain/model/Motor.js';
 import { problemaDeLosParametros } from '../../domain/model/ParametrosDelMotor.js';
+import { problemaDeLaRevision } from '../../pruebas/catalogo/estadoDeRevision.ts';
 import { problemasDeContenido } from '../../pruebas/contenidoDeSesiones.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -256,6 +257,8 @@ interface FilaDeSesion {
   readonly parametros: Record<string, unknown>;
   readonly publicado: boolean;
   readonly revision: string;
+  readonly revisadaPor: string | null;
+  readonly revisadaEl: Date | null;
 }
 
 describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra PostgreSQL', () => {
@@ -292,7 +295,8 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
   async function sesionesDe(ids: readonly string[]): Promise<FilaDeSesion[]> {
     const { rows } = await dueno.query<FilaDeSesion>(
       `SELECT id_sesion::text AS id, id_actividad::text AS "idActividad", titulo, nivel::int AS nivel,
-              parametros, publicado, revision
+              parametros, publicado, revision,
+              revisada_por AS "revisadaPor", revisada_el AS "revisadaEl"
        FROM sesion_de_actividad WHERE id_actividad = ANY($1::uuid[]) ORDER BY id_actividad, id_sesion`,
       [ids],
     );
@@ -555,7 +559,7 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       );
     });
 
-    it('las cuatro de COG-01 estan publicadas y las seis de BIE-01 y EMO-02 siguen sin publicar y pendientes', async () => {
+    it('las cuatro de COG-01 estan publicadas y las seis de BIE-01 y EMO-02 no estan publicadas sin su revisor', async () => {
       const sesiones = await sesionesDelPiloto();
 
       expect(sesiones).toHaveLength(10);
@@ -564,9 +568,16 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
         const esperada = SESIONES_DEL_PILOTO.find((una) => una.id === sesion.id);
         const esDeColores = sesion.idActividad === COLORES.id;
 
-        // COG-01 no pide revision y se publico (SCRUM-217); las otras dos esperan a quien las revise.
-        expect(sesion.publicado, sesion.titulo).toBe(esDeColores);
-        expect(sesion.revision, sesion.titulo).toBe(esperada?.actividad.revision);
+        // COG-01 no pide revision y se publico (SCRUM-217). Las otras dos piden revision: o siguen esperando a
+        // quien las revise, o ya las reviso alguien (SCRUM-238) y estan a su nombre y con su fecha. Nunca publicadas
+        // sin eso.
+        expect(
+          problemaDeLaRevision(
+            { publicar: esDeColores, revision: esperada?.actividad.revision ?? '' },
+            sesion,
+          ),
+          sesion.titulo,
+        ).toBeUndefined();
       }
     });
 
@@ -586,21 +597,32 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
       }
     });
 
-    it('solo se ofrece «Recuerda los colores»: BIE-01 y EMO-02 no salen mientras esperen revision', async () => {
-      // Existen las tres, y solo la que tiene una sesion publicada se ofrece.
+    it('se ofrece lo que tiene una sesion publicada: «Recuerda los colores» siempre, y BIE-01 y EMO-02 solo cuando alguien las reviso', async () => {
+      // Existen las tres, y solo las que tienen una sesion publicada se ofrecen.
       expect(await fichas()).toHaveLength(3);
 
       const persona = new UserId(randomUUID());
       const actividades = idsDeLasActividades.map((id) => new ActivityId(id));
+      const { rows: conPublicadas } = await dueno.query<{ id: string }>(
+        `SELECT DISTINCT id_actividad::text AS id FROM sesion_de_actividad
+          WHERE publicado AND id_actividad = ANY($1::uuid[])`,
+        [idsDeLasActividades],
+      );
+      const ofrecidas = conPublicadas.map((fila) => fila.id).sort();
+
+      // «Recuerda los colores» no pide revision: sale publicada siempre.
+      expect(ofrecidas).toContain(COLORES.id);
 
       // Las dos lecturas que usa el sendero: la sesion que toca, y si la mecanica tiene alguna.
       const hoy = await repositorio.sesionesDeHoy(persona, actividades, HOY);
 
-      expect([...hoy.keys()]).toEqual([COLORES.id]);
+      expect([...hoy.keys()].sort()).toEqual(ofrecidas);
       expect(
         (await repositorio.mecanicasConSesion(persona, actividades, HOY)).has(COLORES.id),
       ).toBe(true);
-      expect((await repositorio.mecanicasConSesion(persona, actividades, HOY)).size).toBe(1);
+      expect([...(await repositorio.mecanicasConSesion(persona, actividades, HOY))].sort()).toEqual(
+        ofrecidas,
+      );
 
       // Y la que se ofrece es una de «Recuerda los colores» (las cuatro del piloto y las 36 de SCRUM-222), ya
       // leida por el dominio: cumple el contrato de su motor (un contenido que no lo cumpliera haria fallar
@@ -612,15 +634,24 @@ describe.skipIf(URL_DUENO === undefined)('las sesiones sembradas, contra Postgre
     });
 
     it.each(SESIONES_DEL_PILOTO.filter((sesion) => sesion.actividad.revision === 'pendiente'))(
-      '«$titulo» espera revision: la base impide publicarla',
+      '«$titulo» pide revision: la base impide publicar una pendiente como ella',
       async ({ id }) => {
+        // La sesion de verdad puede estar ya revisada (SCRUM-238). Lo que la base impide es publicar una que
+        // sigue pendiente, y se prueba con una copia pendiente que se crea y se deshace.
         await dueno.query('BEGIN');
 
         try {
+          await dueno.query(
+            `INSERT INTO sesion_de_actividad (id_sesion, id_actividad, titulo, nivel, parametros)
+             SELECT gen_random_uuid(), id_actividad, 'Pendiente de prueba', nivel, parametros
+               FROM sesion_de_actividad WHERE id_sesion = $1`,
+            [id],
+          );
+
           await expect(
-            dueno.query('UPDATE sesion_de_actividad SET publicado = true WHERE id_sesion = $1', [
-              id,
-            ]),
+            dueno.query(
+              `UPDATE sesion_de_actividad SET publicado = true WHERE titulo = 'Pendiente de prueba'`,
+            ),
           ).rejects.toThrow(/sesion_de_actividad_publicada_revisada/);
         } finally {
           await dueno.query('ROLLBACK');

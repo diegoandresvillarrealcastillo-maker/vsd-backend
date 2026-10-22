@@ -80,8 +80,8 @@ tras un viaje, porque el día sale de `resultado.dia`. El mismo cálculo se prue
 
 ## Addendum (SCRUM-242): hitos, semana y avisos con riesgo honesto
 
-**Fecha:** 2026-10-21. **Pedido por:** Samuel. **Pide revisión de:** Diego (PO), porque cambia una regla de tono de
-este ADR.
+**Fecha:** 2026-10-21. **Pedido por:** Samuel. **Decidido el 2026-10-22:** Diego (PO) dejó en manos del equipo
+técnico la regla de tono que este addendum cambia, y el equipo mantiene el «aviso honesto» tal como se describe aquí.
 
 La racha se vuelve más visible: celebraciones por hito, una barra de progreso y avisos con la mascota. Sigue
 siendo una función pura de los días con actividad y de hoy; **no se agrega estado, columna ni migración**.
@@ -122,5 +122,5 @@ siendo una función pura de los días con actividad y de hoy; **no se agrega est
    (`TextosDeLosRecordatorios.ts`).
 
 **Costos aceptados:** un número de días en la pantalla bloqueada es un dato de uso (no de salud) a la vista de quien
-esté al lado; se apaga con el interruptor del aviso. Si Diego prefiere volver a «sin lenguaje de pérdida», basta
-con quitar las dos filas de riesgo de `mensajeDeLaRacha` y dejar los hitos.
+esté al lado; se apaga con el interruptor del aviso. Si más adelante se prefiere volver a «sin lenguaje de
+pérdida», basta con quitar las dos filas de riesgo de `mensajeDeLaRacha` y dejar los hitos.

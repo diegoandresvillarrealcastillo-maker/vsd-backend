@@ -109,6 +109,26 @@ describe('CORS (S-12)', () => {
     }
   });
 
+  // El frontend pregunta «¿cambio el catalogo?» con `If-None-Match` (SCRUM-138). No es una cabecera
+  // segura de CORS: sin permiso en el preflight, el navegador corta la peticion con un error de red
+  // y la copia del catalogo no se renueva nunca, aunque haya conexion.
+  it('deja pasar el preflight de la lectura condicional del catalogo', async () => {
+    const servidor = await levantar(Ambiente.PRUEBAS);
+
+    const respuesta = await request(servidor.getHttpServer())
+      .options('/api/catalogo')
+      .set('Origin', ORIGEN)
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization,if-none-match,accept');
+    const permitidas = String(respuesta.headers['access-control-allow-headers'])
+      .split(',')
+      .map((una) => una.toLowerCase());
+
+    for (const cabecera of ['authorization', 'if-none-match', 'accept']) {
+      expect(permitidas).toContain(cabecera);
+    }
+  });
+
   it('el navegador recuerda el preflight diez minutos', async () => {
     const servidor = await levantar(Ambiente.PRUEBAS);
 

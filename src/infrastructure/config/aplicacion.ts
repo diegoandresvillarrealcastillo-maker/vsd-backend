@@ -44,9 +44,17 @@ export const METODOS_PERMITIDOS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELET
 
 /**
  * Las cabeceras que el frontend escribe a mano en sus peticiones: el tipo del
- * cuerpo, lo que acepta y el token. Cualquier otra no pasa el preflight.
+ * cuerpo, lo que acepta, el token y el `ETag` de su copia del catalogo
+ * (`If-None-Match`, SCRUM-138). Cualquier otra no pasa el preflight, y el navegador
+ * corta la peticion con un error de red: si el frontend escribe una cabecera nueva,
+ * va aqui tambien.
  */
-export const CABECERAS_PERMITIDAS = ['Authorization', 'Content-Type', 'Accept'] as const;
+export const CABECERAS_PERMITIDAS = [
+  'Authorization',
+  'Content-Type',
+  'Accept',
+  'If-None-Match',
+] as const;
 
 /**
  * Aplica a la aplicacion todo lo que no son rutas: protecciones, validacion

@@ -133,6 +133,11 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     return Promise.resolve();
   }
 
+  /** En memoria no hay cuentas: el aviso sale sin la voz ni el icono de la mascota (SCRUM-242). */
+  mascotaDe(_userId: UserId): Promise<null> {
+    return Promise.resolve(null);
+  }
+
   desuscribir(userId: UserId, endpoint: string): Promise<void> {
     if (this.suscripciones.get(endpoint)?.userId === userId.value) {
       this.suscripciones.delete(endpoint);

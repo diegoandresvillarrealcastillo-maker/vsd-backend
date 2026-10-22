@@ -22,7 +22,7 @@ export class RachaController {
   @ApiOperation({
     summary: 'Consultar la racha de quien firma el token',
     description:
-      'Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte.',
+      'Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte. Trae tambien la escalera de hitos, la semana de lunes a domingo y cuantos congelamientos quedan.',
   })
   @ApiResponse({ status: 200, type: RachaRespuestaDto })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })

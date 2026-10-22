@@ -73,6 +73,8 @@ export class WebPushEnviador implements EnviadorDePushPort {
           titulo: mensaje.titulo,
           cuerpo: mensaje.cuerpo,
           ruta: mensaje.ruta,
+          // Solo la forma, para el icono (SCRUM-242); sin mascota, la clave no viaja.
+          ...(mensaje.mascota === undefined ? {} : { mascota: mensaje.mascota }),
         }),
         {
           TTL: VIGENCIA_EN_SEGUNDOS,

@@ -61,6 +61,10 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve(this.suscripciones);
   }
 
+  mascotaDe() {
+    return Promise.resolve(null);
+  }
+
   zonasEnUso() {
     return Promise.resolve([]);
   }

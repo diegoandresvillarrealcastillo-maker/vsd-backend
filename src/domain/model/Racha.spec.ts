@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CONGELAMIENTOS_POR_MES, calcularLaRacha, diaSiguiente, nivelDeLaLlama } from './Racha.js';
+import {
+  CONGELAMIENTOS_POR_MES,
+  calcularLaRacha,
+  diaSiguiente,
+  escaleraDeHitos,
+  esUnHito,
+  nivelDeLaLlama,
+  proximoHito,
+} from './Racha.js';
 
 /**
  * La racha (SCRUM-186): dias seguidos con al menos una actividad.
@@ -238,5 +246,185 @@ describe('calcularLaRacha', () => {
   it('rechaza un "hoy" que no es un dia', () => {
     expect(() => calcularLaRacha([], 'hoy')).toThrow(RangeError);
     expect(() => calcularLaRacha([], '2026-02-30')).toThrow(RangeError);
+  });
+});
+
+describe('la escalera de hitos (SCRUM-242)', () => {
+  it.each([
+    [0, 3],
+    [2, 3],
+    [3, 7],
+    [13, 14],
+    [14, 30],
+    [364, 365],
+    [365, 730],
+    [729, 730],
+    [730, 1095],
+  ])('proximoHito(%i) es %i', (dias, esperado) => {
+    expect(proximoHito(dias)).toBe(esperado);
+  });
+
+  it.each([
+    [3, true],
+    [4, false],
+    [0, false],
+    [365, true],
+    [730, true],
+    [366, false],
+  ])('esUnHito(%i) es %s', (dias, esperado) => {
+    expect(esUnHito(dias)).toBe(esperado);
+  });
+
+  it('la escalera de 12 dias trae dos logrados y los tres proximos', () => {
+    expect(escaleraDeHitos(12)).toEqual([
+      { dias: 3, logrado: true },
+      { dias: 7, logrado: true },
+      { dias: 14, logrado: false },
+      { dias: 30, logrado: false },
+      { dias: 50, logrado: false },
+    ]);
+  });
+
+  it('la escalera de 0 dias no trae logrados', () => {
+    expect(escaleraDeHitos(0)).toEqual([3, 7, 14].map((dias) => ({ dias, logrado: false })));
+  });
+
+  it('a los 365 dias trae los ocho de la tabla logrados y 730, 1095 y 1460 por lograr', () => {
+    const escalera = escaleraDeHitos(365);
+
+    expect(escalera.filter((hito) => hito.logrado).map((hito) => hito.dias)).toEqual([
+      3, 7, 14, 30, 50, 100, 200, 365,
+    ]);
+    expect(escalera.filter((hito) => !hito.logrado).map((hito) => hito.dias)).toEqual([
+      730, 1095, 1460,
+    ]);
+  });
+
+  it('pasado el primer ano, el segundo tambien cuenta como logrado', () => {
+    const escalera = escaleraDeHitos(800);
+
+    expect(escalera.filter((hito) => hito.logrado).map((hito) => hito.dias)).toEqual([
+      3, 7, 14, 30, 50, 100, 200, 365, 730,
+    ]);
+    expect(escalera.filter((hito) => !hito.logrado).map((hito) => hito.dias)).toEqual([
+      1095, 1460, 1825,
+    ]);
+  });
+
+  it('calcularLaRacha trae el proximo hito y la escalera de sus dias', () => {
+    const racha = calcularLaRacha(seguidos(12, antes(1)), HOY);
+
+    expect(racha.dias).toBe(12);
+    expect(racha.hechoHoy).toBe(false);
+    expect(racha.proximoHito).toBe(14);
+    expect(racha.escalera.map((hito) => hito.dias)).toEqual([3, 7, 14, 30, 50]);
+  });
+
+  it('cuando la llama descansa, el proximo hito es el primero', () => {
+    const racha = calcularLaRacha([], HOY);
+
+    expect(racha.enDescanso).toBe(true);
+    expect(racha.proximoHito).toBe(3);
+  });
+
+  it.each([
+    [0, 3, ['2026-10-01', '2026-10-02', '2026-10-03'], '2026-10-04'],
+    [1, 2, ['2026-10-01', '2026-10-03'], '2026-10-04'],
+    [3, 0, ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-07'], '2026-10-08'],
+  ])('con %i usados quedan %i congelamientos', (usados, quedan, dias, hoy) => {
+    const racha = calcularLaRacha(dias, hoy);
+
+    expect(racha.congelamientosUsados).toBe(usados);
+    expect(racha.congelamientosDisponibles).toBe(quedan);
+  });
+});
+
+describe('la semana, de lunes a domingo (SCRUM-242)', () => {
+  const estados = (dias: string[], hoy: string) =>
+    calcularLaRacha(dias, hoy).semana.map((dia) => dia.estado);
+
+  it('un miercoles sin hacer nada hoy', () => {
+    const { semana } = calcularLaRacha(['2026-10-19', '2026-10-20'], '2026-10-21');
+
+    expect(semana.map((dia) => dia.estado)).toEqual([
+      'hecho',
+      'hecho',
+      'hoy',
+      'futuro',
+      'futuro',
+      'futuro',
+      'futuro',
+    ]);
+    expect(semana[0]?.dia).toBe('2026-10-19');
+    expect(semana[6]?.dia).toBe('2026-10-25');
+  });
+
+  it('hoy hecho sale hecho', () => {
+    expect(estados(['2026-10-21'], '2026-10-21')[2]).toBe('hecho');
+  });
+
+  it('un hueco dentro de la cadena sale cubierto', () => {
+    // El 19 queda vacio entre el 18 y el 20: lo cubre un congelamiento.
+    const semana = estados(['2026-10-18', '2026-10-20'], '2026-10-21');
+
+    expect(semana[0]).toBe('cubierto');
+    expect(semana[1]).toBe('hecho');
+  });
+
+  it('un dia vacio sin cadena en pie sale sin actividad', () => {
+    // Del 12 al 16 se gastan los tres congelamientos y el cuarto hueco corta la cadena.
+    expect(estados(['2026-10-12'], '2026-10-21')[0]).toBe('sinActividad');
+  });
+
+  it('un dia hecho de una cadena que ya se corto sigue saliendo hecho', () => {
+    expect(estados(['2026-10-12', '2026-10-19'], '2026-10-21')[0]).toBe('hecho');
+  });
+
+  it('al cruzar de mes: el domingo 1 de noviembre', () => {
+    const { semana } = calcularLaRacha([], '2026-11-01');
+
+    expect(semana.map((dia) => dia.dia)).toEqual([
+      '2026-10-26',
+      '2026-10-27',
+      '2026-10-28',
+      '2026-10-29',
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+    ]);
+    expect(semana[6]?.estado).toBe('hoy');
+  });
+
+  it('al cruzar de ano: el viernes 1 de enero de 2027', () => {
+    const { semana } = calcularLaRacha([], '2027-01-01');
+
+    expect(semana[0]?.dia).toBe('2026-12-28');
+    expect(semana[4]?.dia).toBe('2027-01-01');
+    expect(semana[6]?.dia).toBe('2027-01-03');
+  });
+
+  it('en lunes, la semana empieza hoy', () => {
+    const { semana } = calcularLaRacha([], '2026-10-19');
+
+    expect(semana[0]).toEqual({ dia: '2026-10-19', estado: 'hoy' });
+  });
+
+  it('un 29 de febrero cae en su semana', () => {
+    // 2028-02-29 es martes.
+    const { semana } = calcularLaRacha([], '2028-02-29');
+
+    expect(semana.map((dia) => dia.dia)).toEqual([
+      '2028-02-28',
+      '2028-02-29',
+      '2028-03-01',
+      '2028-03-02',
+      '2028-03-03',
+      '2028-03-04',
+      '2028-03-05',
+    ]);
+  });
+
+  it('siempre son siete dias', () => {
+    expect(calcularLaRacha([], '2026-02-28').semana).toHaveLength(7);
   });
 });

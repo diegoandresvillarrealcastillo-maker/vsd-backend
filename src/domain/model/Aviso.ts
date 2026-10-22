@@ -264,8 +264,18 @@ export function mensajeDelSemaforo(pendientes: readonly string[]): MensajeDeAvis
 /** Cuantos caracteres del nombre de la mascota se ven en la pantalla bloqueada. */
 const LARGO_DEL_NOMBRE_EN_EL_AVISO = 20;
 
+/**
+ * El nombre tal como se ve en la pantalla bloqueada: sin caracteres invisibles (espacios de ancho cero,
+ * marcas de direccion, controles), con los espacios colapsados y recortado **por caracteres**, no por
+ * unidades de UTF-16: un emoji no se parte por la mitad. Un nombre que solo tiene invisibles queda vacio.
+ */
 function nombreParaElAviso(nombre: string): string {
-  return nombre.replace(/\s+/g, ' ').trim().slice(0, LARGO_DEL_NOMBRE_EN_EL_AVISO).trimEnd();
+  const visible = nombre
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return Array.from(visible).slice(0, LARGO_DEL_NOMBRE_EN_EL_AVISO).join('').trimEnd();
 }
 
 /** La frase con la voz de la mascota, o con mayuscula inicial si no hay nombre que decir. */
@@ -298,7 +308,9 @@ export function mensajeDeLaRacha(racha?: Racha, mascota?: MascotaDelAviso | null
   const nombre = mascota == null ? '' : nombreParaElAviso(mascota.nombre);
   const base = { tipo: TipoDeAviso.RACHA, ruta: '/panel', ...icono } as const;
 
-  if (racha !== undefined && !racha.enDescanso) {
+  // Si la racha dice que hoy ya sumo, no se afirma nada de lo que esta en juego: puede pasar si la persona
+  // cambio de zona el mismo dia (la racha cuenta el dia de entonces y el aviso mira el de ahora).
+  if (racha !== undefined && !racha.enDescanso && !racha.hechoHoy) {
     if (esUnHito(racha.dias + 1)) {
       return {
         ...base,

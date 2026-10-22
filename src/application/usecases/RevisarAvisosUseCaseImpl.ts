@@ -206,6 +206,12 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     // dias son los de siempre: de ellos sale tambien la llama de la aplicacion.
     const racha = calcularLaRacha(await this.resultados.diasConActividad(userId), dia);
 
+    // La fecha del resultado (arriba) y el dia de la racha pueden no coincidir tras un cambio de zona el
+    // mismo dia: si la racha dice que hoy ya sumo, la persona no recibe la invitacion.
+    if (racha.hechoHoy) {
+      return null;
+    }
+
     return mensajeDeLaRacha(racha, await this.avisos.mascotaDe(userId));
   }
 

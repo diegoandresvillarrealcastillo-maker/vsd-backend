@@ -461,6 +461,19 @@ describe('la revision de cada minuto', () => {
         expect(enviador.para(ANA)[0]?.titulo).toBe('Hoy puedes llegar a 14 días');
       });
 
+      it('si la racha dice que hoy ya sumo aunque la fecha del resultado no lo diga, no manda nada (revision final)', async () => {
+        // Cambio de zona el mismo dia: `hayActividadDesde` mira la hora de ahora y no lo ve, pero
+        // `resultado.dia` guardo el dia de entonces. Decir «tu racha esta en juego» seria falso.
+        const { avisos, enviador, revision } = armar({
+          conDias: { [ANA]: ['2026-10-05', ...diasHastaAyer(12)] },
+        });
+
+        avisos.elegir(ANA, null, 480);
+        await revision.revisar(OCHO);
+
+        expect(enviador.para(ANA)).toEqual([]);
+      });
+
       it('con la llama en descanso (sin dias) dice lo de siempre', async () => {
         const { avisos, enviador, revision } = armar();
 

@@ -98,6 +98,44 @@ export function configurarAplicacion(
   // encuadre de la API en marcos ajenos y la fuga del referente.
   app.use(helmet());
 
+  // Antes del limite de peticiones, a proposito (SCRUM-244). Un 429 que sale sin las cabeceras de
+  // CORS el navegador lo descarta, y `fetch` falla con un error de red: el frontend lo cuenta
+  // como «sin conexión» y nunca se entera de que la API solo pidio esperar. El preflight, que
+  // `cors` responde aqui mismo, tampoco cuenta contra el limite: es una respuesta vacia.
+  app.enableCors({
+    // Se copia porque enableCors espera un arreglo mutable.
+    origin: [...configuracion.origenesAutorizados],
+
+    // Sin `credentials` (SCRUM-155). La API autentica con la cabecera
+    // `Authorization`, no con cookies, asi que permitir credenciales no hacia
+    // falta y le daba a un origen autorizado mas alcance del necesario: que el
+    // navegador adjunte cookies y certificados a sus peticiones.
+    credentials: false,
+
+    // Lo que usa el frontend y nada mas. TRACE y CONNECT, por ejemplo, no.
+    methods: [...METODOS_PERMITIDOS],
+    allowedHeaders: [...CABECERAS_PERMITIDAS],
+
+    // El navegador recuerda la respuesta del preflight diez minutos. Sin esto
+    // pregunta antes de cada PATCH o DELETE: una peticion de mas por cada
+    // escritura.
+    maxAge: 600,
+
+    // Sin esto el navegador **no deja leer** la cabecera desde otro origen,
+    // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
+    // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
+    // curl, y `headers.get` devuelve null en el navegador.
+    //
+    // ETag: la aplicacion guarda copias de lo publico para usarlo sin conexion
+    // (SCRUM-133) y con el puede preguntar "cambio?" sin descargarlo entero.
+    // Express ya lo calcula; solo faltaba dejarlo leer.
+    //
+    // Retry-After: lo manda el 429 y el 503, y el frontend lo respeta para no martillar. Sin
+    // exponerlo, `headers.get('retry-after')` es null desde otro origen y espera lo que
+    // quiere (SCRUM-244).
+    exposedHeaders: [CABECERA_DE_PETICION, 'ETag', 'Retry-After'],
+  });
+
   // Limite por direccion IP. Es imperfecto, porque varias personas detras del
   // mismo enrutador comparten direccion, pero es lo que se puede hacer antes de
   // saber quien es cada una. Las rutas que cuestan llevan ademas un tope por
@@ -108,6 +146,9 @@ export function configurarAplicacion(
       limit: LIMITE_DE_PETICIONES,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
+      // La comprobacion de conexion del frontend (`GET /health`, sin base de datos): si el limite la
+      // cortara, la aplicacion diria «sin conexión» con la API sana (SCRUM-244).
+      skip: (peticion) => peticion.path === '/health',
       message: {
         codigo: 'DEMASIADAS_PETICIONES',
         mensaje: 'Has hecho demasiadas peticiones. Espera un momento.',
@@ -165,36 +206,6 @@ export function configurarAplicacion(
       lectorDeLaMascota(peticion, respuesta, siguiente);
     },
   );
-
-  app.enableCors({
-    // Se copia porque enableCors espera un arreglo mutable.
-    origin: [...configuracion.origenesAutorizados],
-
-    // Sin `credentials` (SCRUM-155). La API autentica con la cabecera
-    // `Authorization`, no con cookies, asi que permitir credenciales no hacia
-    // falta y le daba a un origen autorizado mas alcance del necesario: que el
-    // navegador adjunte cookies y certificados a sus peticiones.
-    credentials: false,
-
-    // Lo que usa el frontend y nada mas. TRACE y CONNECT, por ejemplo, no.
-    methods: [...METODOS_PERMITIDOS],
-    allowedHeaders: [...CABECERAS_PERMITIDAS],
-
-    // El navegador recuerda la respuesta del preflight diez minutos. Sin esto
-    // pregunta antes de cada PATCH o DELETE: una peticion de mas por cada
-    // escritura.
-    maxAge: 600,
-
-    // Sin esto el navegador **no deja leer** la cabecera desde otro origen,
-    // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
-    // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
-    // curl, y `headers.get` devuelve null en el navegador.
-    //
-    // ETag: la aplicacion guarda copias de lo publico para usarlo sin conexion
-    // (SCRUM-133) y con el puede preguntar "cambio?" sin descargarlo entero.
-    // Express ya lo calcula; solo faltaba dejarlo leer.
-    exposedHeaders: [CABECERA_DE_PETICION, 'ETag'],
-  });
 
   app.useGlobalPipes(
     new ValidationPipe({

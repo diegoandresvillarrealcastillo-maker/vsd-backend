@@ -72,7 +72,8 @@ mismos permisos que el nuestro. Tres controles, ademas de Gitleaks:
   `Authorization`, no con cookies, asi que `credentials: true` no hacia falta y
   le daba a un origen autorizado mas alcance del necesario. Ahora los origenes
   autorizados pueden usar solo `GET`, `HEAD`, `POST`, `PUT`, `PATCH` y `DELETE`,
-  con las cabeceras `Authorization`, `Content-Type` y `Accept`; el navegador
+  con las cabeceras `Authorization`, `Content-Type`, `Accept` e `If-None-Match`
+  (la pregunta «¿cambio el catalogo?» de la copia sin conexion); el navegador
   recuerda el preflight diez minutos. Si el frontend empieza a mandar otra
   cabecera propia, hay que agregarla a `CABECERAS_PERMITIDAS` en
   `aplicacion.ts`: el preflight la rechaza hasta entonces.

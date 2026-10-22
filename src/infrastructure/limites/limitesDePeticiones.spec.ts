@@ -104,6 +104,36 @@ describe('El limite general por direccion IP, detras de un proxy', () => {
     expect(respuesta.headers['x-request-id']).toBeTruthy();
   });
 
+  // Sin las cabeceras de CORS el navegador descarta la respuesta y `fetch` falla con un error de red:
+  // el frontend lo cuenta como «sin conexión» y nunca se entera de que fue un «espera un momento» (SCRUM-244).
+  it('el 429 se puede leer desde el navegador: lleva CORS y deja ver cuanto esperar', async () => {
+    const app = await levantar(1);
+
+    await agotar(app, '203.0.113.10');
+    const respuesta = await desde(app, '203.0.113.10')
+      .set('Origin', 'http://localhost:5173')
+      .expect(429);
+
+    expect(respuesta.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(String(respuesta.headers['access-control-expose-headers']).toLowerCase()).toContain(
+      'retry-after',
+    );
+    expect(respuesta.headers['retry-after']).toBeTruthy();
+  });
+
+  // El frontend pregunta a /health si hay conexion antes de enviar lo guardado: un 429 ahi se leia como
+  // «el servidor no responde», y bloqueaba el envio aunque la API estuviera sana.
+  it('/health no gasta ni se queda sin cupo: es la comprobacion de conexion del frontend', async () => {
+    const app = await levantar(1);
+
+    await agotar(app, '203.0.113.10');
+
+    await request(app.getHttpServer())
+      .get('/health')
+      .set('X-Forwarded-For', '203.0.113.10')
+      .expect(200);
+  });
+
   it('no se esquiva escribiendo otra direccion antes: cuenta la que anadio el proxy', async () => {
     // Render no reescribe X-Forwarded-For: anade la direccion que ve al final de lo
     // que traiga quien llama. Contando saltos desde la derecha se toma esa, y lo

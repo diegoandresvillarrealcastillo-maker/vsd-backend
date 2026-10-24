@@ -735,6 +735,43 @@
         ]
       }
     },
+    "/api/diario/cartas-en-espera": {
+      "get": {
+        "description": "Las «cartas a mí de mañana» de un día que ya pasó, sin abrir y dentro de su semana de espera, la más reciente primero. Sin su texto: la tarjeta «Ayer te dejaste esto» las ofrece, y la persona decide abrirlas (POST /api/diario/{id}/abrir) o borrarlas sin leerlas (DELETE /api/diario/{id}). El día es el de la persona, no el del servidor. Ninguna notificación lleva su contenido.",
+        "operationId": "DiarioController_cartasEnEsperaDe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CartaEnEsperaDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Las cartas que la persona se dejó y todavía no abrió ni borró (SCRUM-230)",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
     "/api/diario/{id}": {
       "patch": {
         "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). El plazo se mide contra la hora de la corrección que manda el dispositivo en editadaEn (acotada: nunca en el futuro ni de hace más de 30 días) y, sin ella, contra la de la petición. Los límites los impone también la base de datos, no solo la API.",
@@ -786,6 +823,86 @@
           }
         ],
         "summary": "Corregir una anotación durante su primera hora",
+        "tags": [
+          "Diario"
+        ]
+      },
+      "delete": {
+        "description": "A cualquier hora y sin leerla antes: una carta escrita en un mal día siempre se puede borrar sin abrirla. Idempotente por el identificador: borrar lo que ya no está, o lo que es de otra persona, responde igual y no cambia nada, para poder reintentar y encolar sin conexión. Quita la fila entera: no queda el texto en la base ni en la exportación, y la petición no lleva cuerpo que registrar.",
+        "operationId": "DiarioController_borrar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ya no está."
+          },
+          "400": {
+            "description": "El identificador no es válido."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Borrar una anotación propia, la haya leído o no (SCRUM-230)",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
+    "/api/diario/{id}/abrir": {
+      "post": {
+        "description": "Es lo único que entrega el texto de una carta que espera. Solo desde el día siguiente al que se escribió, en el calendario de la persona. Abrirla otra vez devuelve lo mismo. Desde entonces la carta sale completa en el diario como cualquier anotación.",
+        "operationId": "DiarioController_abrir",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntradaDelDiarioDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe, es de otra persona o no es una carta; las tres se responden igual."
+          },
+          "409": {
+            "description": "CARTA_PARA_MANANA: todavía es de hoy. Se puede borrar sin leerla, pero no abrir."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Abrir una carta a mí de mañana para leerla (SCRUM-230)",
         "tags": [
           "Diario"
         ]
@@ -2124,7 +2241,15 @@
           "editableHasta": {
             "type": "string",
             "format": "date-time",
-            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación. Una carta que espera no se edita: trae la hora en que se escribió, que ya pasó."
+          },
+          "carta": {
+            "type": "boolean",
+            "description": "Si es una «carta a mí de mañana» (SCRUM-230): se escribe hoy y se lee, si la persona quiere, desde mañana."
+          },
+          "sellada": {
+            "type": "boolean",
+            "description": "Si es una carta que todavía espera: sin abrir y dentro de su semana. Mientras espera, titulo, contenido y adjuntos vienen vacíos: el texto solo sale al abrirla (POST /api/diario/{id}/abrir). Pasada la semana sin abrir vuelve al diario como cualquier anotación."
           }
         },
         "required": [
@@ -2136,7 +2261,9 @@
           "version",
           "creadaEn",
           "editadaEn",
-          "editableHasta"
+          "editableHasta",
+          "carta",
+          "sellada"
         ]
       },
       "PendienteDto": {
@@ -2421,6 +2548,25 @@
           "versionTerminos"
         ]
       },
+      "CartaEnEsperaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día en que se escribió, en el calendario de la persona.",
+            "example": "2026-10-03",
+            "format": "date"
+          }
+        },
+        "required": [
+          "id",
+          "dia"
+        ]
+      },
       "EscribirEnElDiarioDto": {
         "type": "object",
         "properties": {
@@ -2451,6 +2597,10 @@
               "additionalProperties": true
             },
             "description": "Los diagramas: { id, tipo: \"diagrama\", datos }. Como mucho diez."
+          },
+          "cartaAManana": {
+            "type": "boolean",
+            "description": "Si la anotación es una «carta a mí de mañana» (EMO-05, SCRUM-230): se guarda hoy, su texto no sale en ninguna respuesta hasta que la persona la abre desde el día siguiente, y se puede borrar sin abrirla. Sin esto, es una anotación corriente."
           },
           "escritaEn": {
             "type": "string",
@@ -2539,7 +2689,15 @@
           "editableHasta": {
             "type": "string",
             "format": "date-time",
-            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación. Una carta que espera no se edita: trae la hora en que se escribió, que ya pasó."
+          },
+          "carta": {
+            "type": "boolean",
+            "description": "Si es una «carta a mí de mañana» (SCRUM-230): se escribe hoy y se lee, si la persona quiere, desde mañana."
+          },
+          "sellada": {
+            "type": "boolean",
+            "description": "Si es una carta que todavía espera: sin abrir y dentro de su semana. Mientras espera, titulo, contenido y adjuntos vienen vacíos: el texto solo sale al abrirla (POST /api/diario/{id}/abrir). Pasada la semana sin abrir vuelve al diario como cualquier anotación."
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
@@ -2556,6 +2714,8 @@
           "creadaEn",
           "editadaEn",
           "editableHasta",
+          "carta",
+          "sellada",
           "sugiereAcompanamiento"
         ]
       },

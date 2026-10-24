@@ -69,6 +69,7 @@ export class EscribirEnElDiarioUseCaseImpl implements EscribirEnElDiarioUseCase 
         titulo: command.titulo,
         documento: DocumentoDelDiario.desde(command.contenido),
         adjuntos: adjuntosDesde(command.adjuntos),
+        cartaAManana: command.cartaAManana === true,
       },
       ultimoDiaAdmitido,
       escritaEn,

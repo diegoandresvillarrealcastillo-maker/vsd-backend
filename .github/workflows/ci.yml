@@ -440,7 +440,14 @@ jobs:
             exit 1
           fi
 
-          curl --silent --show-error --fail http://localhost:8080/ | grep -q 'id="raiz"'
+          # `grep -q` sale en cuanto encuentra la primera coincidencia. Si `curl`
+          # todavia esta escribiendo, recibe un error de escritura (codigo 23) o
+          # SIGPIPE, y con `pipefail` el paso falla de forma intermitente aunque
+          # la comprobacion se cumpla (SCRUM-231). Por eso la salida de `curl` se
+          # guarda antes en una variable y `grep` la lee con `<<<`, sin tuberia de
+          # por medio. Es la misma solucion del `ci.yml` del frontend.
+          pagina="$(curl --silent --show-error --fail http://localhost:8080/)"
+          grep -q 'id="raiz"' <<<"$pagina"
 
           # Las variables VITE_* se pasaron como argumentos de compilacion: la
           # direccion de Supabase de prueba tiene que estar dentro del paquete.

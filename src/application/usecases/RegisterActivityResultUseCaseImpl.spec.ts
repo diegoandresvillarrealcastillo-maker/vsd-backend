@@ -88,6 +88,11 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     );
   }
 
+  diasConAtencion(): Promise<readonly string[]> {
+    // El acompanamiento por dias seguidos (SCRUM-177) no se ejercita aqui.
+    return Promise.resolve([]);
+  }
+
   get cantidad(): number {
     return this.porOperacion.size;
   }

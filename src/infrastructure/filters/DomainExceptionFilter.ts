@@ -109,6 +109,8 @@ const ESTADO_POR_CODIGO: Record<string, HttpStatus> = {
   // resuelven igual, guardando lo que se traia como una anotacion nueva.
   EDICION_FUERA_DE_PLAZO: HttpStatus.CONFLICT,
   VERSION_DESACTUALIZADA: HttpStatus.CONFLICT,
+  // Tambien 409: la carta es suya y la peticion esta bien, pero todavia es de hoy (SCRUM-230).
+  CARTA_PARA_MANANA: HttpStatus.CONFLICT,
 
   // Semaforo de pendientes (SCRUM-97).
   PENDIENTE_INVALIDO: HttpStatus.BAD_REQUEST,

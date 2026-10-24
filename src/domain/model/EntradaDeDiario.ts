@@ -22,6 +22,12 @@ export const MINUTOS_PARA_EDITAR = 60;
 /** Coincide con la columna `titulo`, VARCHAR(120). */
 export const LARGO_MAXIMO_DEL_TITULO = 120;
 
+/**
+ * Cuantos dias espera una carta sin abrir antes de volver al diario como cualquier anotacion
+ * (SCRUM-230). Pasada la semana nadie la persigue: ni tarjeta ni texto oculto.
+ */
+export const DIAS_DE_ESPERA_DE_LA_CARTA = 7;
+
 export interface DatosDeEntrada {
   readonly id: EntradaId;
   readonly userId: UserId;
@@ -30,6 +36,10 @@ export interface DatosDeEntrada {
   readonly titulo?: string | undefined;
   readonly documento: DocumentoDelDiario;
   readonly adjuntos?: readonly Adjunto[] | undefined;
+  /** «Carta a mi de manana» (EMO-05): se guarda hoy y se lee, si la persona quiere, desde manana. */
+  readonly cartaAManana?: boolean | undefined;
+  /** Cuando la persona la abrio para leerla. Sin esto, la carta sigue esperando. */
+  readonly cartaAbiertaEn?: Date | undefined;
   readonly version: number;
   readonly creadaEn: Date;
   readonly editadaEn: Date;
@@ -92,6 +102,8 @@ export class EntradaDeDiario {
   readonly titulo: string | undefined;
   readonly documento: DocumentoDelDiario;
   readonly adjuntos: readonly Adjunto[];
+  readonly cartaAManana: boolean;
+  readonly cartaAbiertaEn: Date | undefined;
   readonly version: number;
   readonly creadaEn: Date;
   readonly editadaEn: Date;
@@ -104,6 +116,9 @@ export class EntradaDeDiario {
     this.titulo = datos.titulo;
     this.documento = datos.documento;
     this.adjuntos = datos.adjuntos ?? [];
+    this.cartaAManana = datos.cartaAManana ?? false;
+    this.cartaAbiertaEn =
+      datos.cartaAbiertaEn === undefined ? undefined : new Date(datos.cartaAbiertaEn.getTime());
     this.version = datos.version;
     this.creadaEn = new Date(datos.creadaEn.getTime());
     this.editadaEn = new Date(datos.editadaEn.getTime());
@@ -119,7 +134,7 @@ export class EntradaDeDiario {
    * depender de cuando se ejecuten las pruebas.
    */
   static nueva(
-    datos: Omit<DatosDeEntrada, 'version' | 'creadaEn' | 'editadaEn'>,
+    datos: Omit<DatosDeEntrada, 'version' | 'creadaEn' | 'editadaEn' | 'cartaAbiertaEn'>,
     ultimoDiaAdmitido: Dia,
     ahora: Date,
   ): EntradaDeDiario {
@@ -221,6 +236,35 @@ export class EntradaDeDiario {
 
   perteneceA(userId: UserId): boolean {
     return this.userId.equals(userId);
+  }
+
+  /**
+   * Una carta que todavia espera: sin abrir y dentro de su semana. Mientras espera, **su texto no
+   * sale por ninguna respuesta de la API** salvo la de abrirla: lo escrito en un mal dia lo lee quien
+   * despierta manana, y solo si quiere (SCRUM-230).
+   *
+   * `hoy` es el dia de la persona. Una carta de un dia que aun no llega tambien espera.
+   */
+  estaSellada(hoy: Dia): boolean {
+    return (
+      this.cartaAManana &&
+      this.cartaAbiertaEn === undefined &&
+      Calendario.diasEntre(this.dia, hoy) <= DIAS_DE_ESPERA_DE_LA_CARTA
+    );
+  }
+
+  /** Una carta se puede abrir desde el dia siguiente al que se escribio, nunca el mismo dia. */
+  sePuedeAbrir(hoy: Dia): boolean {
+    return this.cartaAManana && Calendario.diasEntre(this.dia, hoy) >= 1;
+  }
+
+  /** La misma carta, ya abierta en `cuando`. Abrirla no cambia su texto ni su version. */
+  abierta(cuando: Date): EntradaDeDiario {
+    if (!this.cartaAManana) {
+      throw new InvalidJournalEntryError('solo una carta se puede abrir');
+    }
+
+    return new EntradaDeDiario({ ...this, cartaAbiertaEn: cuando });
   }
 
   /**

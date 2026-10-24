@@ -92,6 +92,43 @@ describe('ContadorPorVentana', () => {
     expect(contador.contar('ana', { maximo: 0, ventanaMs: 1000 }).permitido).toBe(false);
   });
 
+  it('avisa del primer rechazo de la ventana y de ninguno mas', () => {
+    const contador = new ContadorPorVentana(relojFijo().ahora);
+
+    expect([1, 2, 3, 4, 5].map(() => contador.contar('ana', REGLA).primerRechazo)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it('con un tope de cero el primer rechazo es la primera peticion', () => {
+    const contador = new ContadorPorVentana(relojFijo().ahora);
+
+    expect(contador.contar('ana', { maximo: 0, ventanaMs: 1000 }).primerRechazo).toBe(true);
+    expect(contador.contar('ana', { maximo: 0, ventanaMs: 1000 }).primerRechazo).toBe(false);
+  });
+
+  it('el primer rechazo vuelve a darse en la ventana siguiente', () => {
+    const reloj = relojFijo();
+    const contador = new ContadorPorVentana(reloj.ahora);
+
+    for (let i = 0; i < 4; i += 1) {
+      contador.contar('ana', REGLA);
+    }
+
+    reloj.avanzar(REGLA.ventanaMs);
+
+    expect([1, 2, 3, 4].map(() => contador.contar('ana', REGLA).primerRechazo)).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+  });
+
   describe('la memoria esta acotada', () => {
     it('barre las ventanas vencidas al llegar al tope', () => {
       const reloj = relojFijo();

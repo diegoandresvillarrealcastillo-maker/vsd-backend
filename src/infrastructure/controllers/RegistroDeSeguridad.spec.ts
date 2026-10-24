@@ -3,6 +3,13 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  VERSION_VIGENTE_DE_LOS_TERMINOS,
+  VERSION_VIGENTE_DEL_AVISO,
+} from '../../domain/model/AvisoDePrivacidad.js';
+import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { unaCuenta } from '../../pruebas/contratoDeUsuarios.js';
+import {
+  REGISTRO_DE_PRUEBA,
   SESIONES,
   VerificadorFalso,
   comoUsuario,
@@ -12,7 +19,7 @@ import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
-import { CONFIGURACION, REGISTRO_DE_SEGURIDAD } from '../config/tokens.js';
+import { CONFIGURACION, REGISTRO_DE_SEGURIDAD, USER_REPOSITORY } from '../config/tokens.js';
 import { crearHuellaDeIp } from '../seguridad/huellaDeIp.js';
 import { RegistroDeSeguridadEnSalida } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 import { FRASE_DE_CONFIRMACION } from './dto/BorrarCuentaDto.js';
@@ -170,8 +177,75 @@ describe('El registro de seguridad por HTTP (SCRUM-163)', () => {
       expect(lineas.join('')).not.toContain('sesion-de-prueba.test');
     });
 
-    it('darse de alta no es un hecho de seguridad', async () => {
+    it('darse de alta anota la cuenta creada y el consentimiento, sin nada de la persona (SCRUM-167)', async () => {
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/cuenta')
+        .set(...comoUsuario(A))
+        .send(REGISTRO_DE_PRUEBA)
+        .expect(200);
+      const id = String((respuesta.body as Linea)['id']);
+
+      expect(eventos()).toEqual([
+        expect.objectContaining({
+          tipo: 'CUENTA_CREADA',
+          idUsuario: id,
+          idPeticion: respuesta.headers['x-request-id'],
+          huellaDeIp: expect.stringMatching(/^[0-9a-f]{16}$/) as unknown,
+        }),
+        expect.objectContaining({
+          tipo: 'CONSENTIMIENTO_REGISTRADO',
+          idUsuario: id,
+          versionAviso: VERSION_VIGENTE_DEL_AVISO,
+          versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+        }),
+      ]);
+
+      const todo = lineas.join('');
+
+      expect(todo).not.toContain(REGISTRO_DE_PRUEBA.fechaNacimiento);
+      expect(todo).not.toContain(SESIONES[A]?.correo ?? 'sin-correo');
+    });
+
+    it('volver a entrar con la cuenta ya creada no anota nada', async () => {
       await darDeAlta(app.getHttpServer(), [A]);
+      lineas.length = 0;
+
+      await darDeAlta(app.getHttpServer(), [A]);
+
+      expect(eventos()).toEqual([]);
+    });
+
+    it('un menor se anota como MENOR_RECHAZADO sin su fecha, su correo ni a quien es (SCRUM-167)', async () => {
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/cuenta')
+        .set(...comoUsuario(A))
+        .send({ ...REGISTRO_DE_PRUEBA, fechaNacimiento: '2015-05-05' })
+        .expect(403);
+
+      expect(respuesta.body).toMatchObject({ codigo: 'MENOR_DE_EDAD' });
+
+      const [evento, ...otros] = eventos();
+
+      expect(otros).toEqual([]);
+      expect(evento).toMatchObject({
+        tipo: 'MENOR_RECHAZADO',
+        idPeticion: respuesta.headers['x-request-id'],
+        huellaDeIp: expect.stringMatching(/^[0-9a-f]{16}$/) as unknown,
+      });
+      // El unico dato propio del evento es que ocurrio: ningun campo mas.
+      expect(Object.keys(evento ?? {}).sort()).toEqual(
+        ['ambiente', 'canal', 'en', 'huellaDeIp', 'idPeticion', 'tipo', 'version'].sort(),
+      );
+      expect(lineas.join('')).not.toContain('2015');
+      expect(lineas.join('')).not.toContain(SESIONES[A]?.correo ?? 'sin-correo');
+    });
+
+    it('un alta rechazada por otra cosa no anota nada', async () => {
+      await request(app.getHttpServer())
+        .post('/api/cuenta')
+        .set(...comoUsuario(A))
+        .send({ ...REGISTRO_DE_PRUEBA, aceptaTerminos: false })
+        .expect(400);
 
       expect(eventos()).toEqual([]);
     });
@@ -245,6 +319,65 @@ describe('El registro de seguridad por HTTP (SCRUM-163)', () => {
       await como(A).borrar('/api/cuenta', { confirmacion: 'borrar' }).expect(400);
 
       expect(eventos()).toEqual([]);
+    });
+
+    it('pasar el tope por cuenta se anota una sola vez por ventana, con la ruta como plantilla (SCRUM-167)', async () => {
+      // Exportar admite 5 por minuto y por cuenta.
+      for (let i = 0; i < 5; i += 1) {
+        await como(A).get('/api/cuenta/exportacion').expect(200);
+      }
+
+      const sexta = await como(A).get('/api/cuenta/exportacion').expect(429);
+      await como(A).get('/api/cuenta/exportacion').expect(429);
+      await como(A).get('/api/cuenta/exportacion').expect(429);
+
+      const limites = eventos().filter((evento) => evento['tipo'] === 'LIMITE_SUPERADO');
+
+      expect(limites).toEqual([
+        expect.objectContaining({
+          tipo: 'LIMITE_SUPERADO',
+          ruta: 'CuentaController.exportar',
+          idUsuario: idDeLaCuenta,
+          idPeticion: sexta.headers['x-request-id'],
+        }),
+      ]);
+      // La ruta es una plantilla, no la direccion que se pidio.
+      expect(JSON.stringify(limites)).not.toContain('/api/cuenta/exportacion');
+    });
+
+    it('volver a aceptar los textos que cambiaron anota el consentimiento; repetirlo, no (SCRUM-167)', async () => {
+      await app.get<UserRepositoryPort>(USER_REPOSITORY).save(
+        unaCuenta({
+          id: idDeLaCuenta,
+          idProveedorAuth: SESIONES[A]?.id ?? '',
+          correo: SESIONES[A]?.correo ?? '',
+          versionPolitica: '2026-09-1',
+          versionTerminos: '2026-10-1',
+        }),
+      );
+
+      const aceptar = (): request.Test =>
+        request(app.getHttpServer())
+          .post('/api/cuenta/aceptacion')
+          .set(...comoUsuario(A))
+          .send({
+            aceptaAviso: true,
+            versionPolitica: VERSION_VIGENTE_DEL_AVISO,
+            aceptaTerminos: true,
+            versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+          });
+
+      await aceptar().expect(200);
+      await aceptar().expect(200);
+
+      expect(eventos()).toEqual([
+        expect.objectContaining({
+          tipo: 'CONSENTIMIENTO_REGISTRADO',
+          idUsuario: idDeLaCuenta,
+          versionAviso: VERSION_VIGENTE_DEL_AVISO,
+          versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+        }),
+      ]);
     });
 
     it('un SVG peligroso se anota como ARCHIVO_PELIGROSO_RECHAZADO, sin lo que traia', async () => {

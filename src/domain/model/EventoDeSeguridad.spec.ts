@@ -6,21 +6,37 @@ import {
 } from './EventoDeSeguridad.js';
 
 describe('El catalogo de eventos de seguridad', () => {
-  it('declara los seis hechos acordados y ninguno mas', () => {
+  it('declara los diez hechos acordados y ninguno mas', () => {
     expect(Object.keys(CAMPOS_POR_TIPO).sort()).toEqual([
       'ARCHIVO_PELIGROSO_RECHAZADO',
+      'CONSENTIMIENTO_REGISTRADO',
       'CUENTA_BORRADA',
+      'CUENTA_CREADA',
       'CUENTA_NO_REGISTRADA',
       'DATOS_EXPORTADOS',
+      'LIMITE_SUPERADO',
+      'MENOR_RECHAZADO',
       'PERMISO_DEL_DIARIO_CAMBIADO',
       'TOKEN_RECHAZADO',
     ]);
   });
 
+  it('de un menor rechazado no se anota ningun dato propio', () => {
+    expect(CAMPOS_POR_TIPO.MENOR_RECHAZADO).toEqual([]);
+  });
+
   it('solo admite campos que son identificadores, banderas o codigos cerrados', () => {
     // Si alguien agrega aqui «correo», «nombre» o «contenido», esta prueba
     // obliga a discutirlo antes de que llegue al registro.
-    const permitidos = new Set(['idUsuario', 'idProveedor', 'activado', 'motivo']);
+    const permitidos = new Set([
+      'idUsuario',
+      'idProveedor',
+      'activado',
+      'motivo',
+      'versionAviso',
+      'versionTerminos',
+      'ruta',
+    ]);
 
     for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
       for (const campo of campos) {

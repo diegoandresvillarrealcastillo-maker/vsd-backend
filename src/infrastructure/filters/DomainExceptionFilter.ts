@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DomainError } from '../../domain/model/DomainError.js';
-import { esArchivoPeligroso } from '../../domain/model/EventoDeSeguridad.js';
+import {
+  type ContextoDeLaPeticion,
+  esArchivoPeligroso,
+} from '../../domain/model/EventoDeSeguridad.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { PeticionConCuenta } from '../auth/CuentaActual.js';
 import { REGISTRO_DE_SEGURIDAD } from '../config/tokens.js';
@@ -306,20 +309,29 @@ export class DomainExceptionFilter implements ExceptionFilter {
   }
 
   /**
-   * Un archivo que no es lo que dice ser, o que trae algo que no debe, se anota
-   * como hecho de seguridad (SCRUM-163). La respuesta no cambia en nada.
+   * Lo que se anota como hecho de seguridad cuando un error del dominio sale por
+   * aqui (SCRUM-163 y SCRUM-167). La respuesta no cambia en nada.
+   *
+   * - **Un archivo peligroso**, con la cuenta que lo subio.
+   * - **Un menor rechazado**, sin ningun dato: ni cuenta (no queda ninguna) ni
+   *   fecha. Se anota aqui y no en el caso de uso porque este es el unico sitio
+   *   que conoce la IP de la peticion.
    */
   private registrarSiEsDeSeguridad(codigo: string, host: ArgumentsHost): void {
-    if (!esArchivoPeligroso(codigo)) {
-      return;
-    }
-
     try {
       const http = host.switchToHttp();
       const peticion = http.getRequest<PeticionConCuenta & Request>();
+      const contexto = (): ContextoDeLaPeticion =>
+        contextoDeLaPeticion(peticion, http.getResponse<Response>());
+
+      if (codigo === 'MENOR_DE_EDAD') {
+        this.seguridad.registrar({ tipo: 'MENOR_RECHAZADO', ...contexto() });
+
+        return;
+      }
 
       // Sin cuenta no hay a quien atribuirlo; la ruta lo exige, asi que no deberia pasar.
-      if (peticion.cuenta === undefined) {
+      if (!esArchivoPeligroso(codigo) || peticion.cuenta === undefined) {
         return;
       }
 
@@ -327,7 +339,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
         tipo: 'ARCHIVO_PELIGROSO_RECHAZADO',
         idUsuario: peticion.cuenta.id.value,
         motivo: codigo,
-        ...contextoDeLaPeticion(peticion, http.getResponse<Response>()),
+        ...contexto(),
       });
     } catch {
       // Anotar el hecho nunca puede impedir que la persona reciba su respuesta.

@@ -92,6 +92,7 @@ export const CONSULTAR_HISTORIAL_DEL_MODULO = Symbol('ConsultarHistorialDelModul
 
 /** La racha: dias seguidos con al menos una actividad (SCRUM-186). */
 export const CONSULTAR_RACHA = Symbol('ConsultarRachaUseCase');
+export const CONSULTAR_ACOMPANAMIENTO = Symbol('ConsultarAcompanamientoUseCase');
 
 /** Lectura del catalogo: categorias con sus actividades. */
 export const CONSULTAR_CATALOGO = Symbol('ConsultarCatalogoUseCase');

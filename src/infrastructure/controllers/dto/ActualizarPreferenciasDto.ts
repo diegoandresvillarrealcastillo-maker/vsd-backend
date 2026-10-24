@@ -93,4 +93,13 @@ export class ActualizarPreferenciasDto {
   @IsOptional()
   @IsBoolean()
   diarioConRecomendaciones?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Si permite que se miren sus resultados, día tras día, para ofrecerle acompañamiento cuando lleva varios días seguidos con atención. Es una inferencia sobre su estado, así que está apagado por defecto y solo lo cambia ella (SCRUM-177, ADR 0034).',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  acompanamientoPorDias?: boolean;
 }

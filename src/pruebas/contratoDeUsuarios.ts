@@ -397,6 +397,38 @@ export function pruebasDelPuertoDeUsuarios(
       ).toBe(true);
     });
 
+    it('el permiso del acompanamiento por dias seguidos empieza apagado y se conserva al cambiarlo (SCRUM-177)', async () => {
+      await banco.repositorio.save(unaCuenta());
+
+      expect((await banco.repositorio.findById(new UserId(PERSONA)))?.acompanamientoPorDias).toBe(
+        false,
+      );
+
+      await banco.repositorio.save(unaCuenta().conPreferencias({ acompanamientoPorDias: true }));
+
+      expect((await banco.repositorio.findById(new UserId(PERSONA)))?.acompanamientoPorDias).toBe(
+        true,
+      );
+    });
+
+    it('cambiar otra preferencia no apaga el permiso del acompanamiento ni el del diario', async () => {
+      await banco.repositorio.save(
+        unaCuenta().conPreferencias({
+          acompanamientoPorDias: true,
+          diarioConRecomendaciones: true,
+        }),
+      );
+
+      const antes = await banco.repositorio.findById(new UserId(PERSONA));
+
+      await banco.repositorio.save(antes!.conPreferencias({ nombre: 'Luna' }));
+
+      const despues = await banco.repositorio.findById(new UserId(PERSONA));
+
+      expect(despues?.acompanamientoPorDias).toBe(true);
+      expect(despues?.diarioConRecomendaciones).toBe(true);
+    });
+
     it('la zona horaria empieza en la de Colombia y se conserva al cambiarla (SCRUM-123)', async () => {
       await banco.repositorio.save(unaCuenta());
 

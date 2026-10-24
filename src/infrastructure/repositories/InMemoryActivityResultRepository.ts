@@ -2,6 +2,7 @@ import type { ActivityResult } from '../../domain/model/ActivityResult.js';
 import type { Dia } from '../../domain/model/Calendario.js';
 import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
 import type { ActivityId, ClientOperationId, UserId } from '../../domain/model/Identifier.js';
+import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 
 /**
@@ -71,6 +72,22 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     );
 
     // AAAA-MM-DD: el orden de texto es el del calendario.
+    return Promise.resolve([...dias].sort());
+  }
+
+  diasConAtencion(userId: UserId, actividades: readonly ActivityId[]): Promise<readonly Dia[]> {
+    const cuentan = new Set(actividades.map((actividad) => actividad.value));
+    const dias = new Set(
+      [...this.porOperacion.values()]
+        .filter(
+          (resultado) =>
+            resultado.perteneceA(userId) &&
+            cuentan.has(resultado.activityId.value) &&
+            resultado.score?.level === NivelOrientativo.REQUIERE_ATENCION,
+        )
+        .map((resultado) => resultado.dia),
+    );
+
     return Promise.resolve([...dias].sort());
   }
 

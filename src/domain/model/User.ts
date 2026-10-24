@@ -135,6 +135,8 @@ export interface DatosDeUsuario {
   readonly mascota?: Mascota | undefined;
   /** Si la persona permite que lo que escribe en el diario se lea para recomendarle. Por defecto, no. */
   readonly diarioConRecomendaciones?: boolean | undefined;
+  /** Si la persona permite el acompanamiento por dias seguidos con atencion (SCRUM-177). Por defecto, no. */
+  readonly acompanamientoPorDias?: boolean | undefined;
   /** Zona IANA de la persona (SCRUM-123). Sin ella, `America/Bogota`. */
   readonly zonaHoraria?: string | undefined;
   /** Cuando se guardo su foto de perfil (SCRUM-120). Sin ella, no tiene foto. */
@@ -155,6 +157,7 @@ interface Cambios {
   readonly modulosActivos?: readonly Modulo[] | undefined;
   readonly mascota?: Mascota | undefined;
   readonly diarioConRecomendaciones?: boolean | undefined;
+  readonly acompanamientoPorDias?: boolean | undefined;
   readonly zonaHoraria?: string | undefined;
   readonly fotoActualizadaEl?: Date | undefined;
   readonly mascotaPropiaActualizadaEl?: Date | undefined;
@@ -167,6 +170,7 @@ export interface CambiosDePreferencias {
   readonly modulosActivos?: readonly string[] | undefined;
   readonly mascota?: Mascota | undefined;
   readonly diarioConRecomendaciones?: boolean | undefined;
+  readonly acompanamientoPorDias?: boolean | undefined;
 }
 
 const LARGO_MAXIMO_DEL_NOMBRE = 100;
@@ -234,6 +238,16 @@ export class User {
   readonly diarioConRecomendaciones: boolean;
 
   /**
+   * Si la persona permite que la aplicacion mire sus resultados, dia tras dia, para ofrecerle
+   * acompanamiento cuando lleva varios dias seguidos con atencion (SCRUM-177, ADR 0034).
+   *
+   * Es una inferencia sobre su estado, asi que va **apagada por defecto** y asi quedan las
+   * cuentas que ya existian. Con esto apagado no se calcula nada ni se ofrece nada. Solo la
+   * cambia la propia persona, desde su perfil.
+   */
+  readonly acompanamientoPorDias: boolean;
+
+  /**
    * Donde esta la persona, como zona IANA (SCRUM-123, ADR 0014).
    *
    * Es lo que decide que dia es para ella: sus actividades, su sendero, su
@@ -274,6 +288,7 @@ export class User {
     this.modulosActivos = [...datos.modulosActivos];
     this.mascota = datos.mascota;
     this.diarioConRecomendaciones = datos.diarioConRecomendaciones ?? false;
+    this.acompanamientoPorDias = datos.acompanamientoPorDias ?? false;
     this.zonaHoraria = datos.zonaHoraria ?? ZONA_HORARIA_POR_DEFECTO;
     this.fotoActualizadaEl =
       datos.fotoActualizadaEl === undefined
@@ -434,6 +449,7 @@ export class User {
           : elegirModulos(cambios.modulosActivos),
       mascota: mascota ?? this.mascota,
       diarioConRecomendaciones: cambios.diarioConRecomendaciones ?? this.diarioConRecomendaciones,
+      acompanamientoPorDias: cambios.acompanamientoPorDias ?? this.acompanamientoPorDias,
     });
   }
 
@@ -532,6 +548,9 @@ export class User {
       diarioConRecomendaciones: cambia('diarioConRecomendaciones')
         ? cambios.diarioConRecomendaciones
         : this.diarioConRecomendaciones,
+      acompanamientoPorDias: cambia('acompanamientoPorDias')
+        ? cambios.acompanamientoPorDias
+        : this.acompanamientoPorDias,
       zonaHoraria: cambia('zonaHoraria') ? cambios.zonaHoraria : this.zonaHoraria,
       fotoActualizadaEl: cambia('fotoActualizadaEl')
         ? cambios.fotoActualizadaEl

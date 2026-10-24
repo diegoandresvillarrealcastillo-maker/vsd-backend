@@ -624,6 +624,66 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     });
   });
 
+  describe('diasConAtencion (SCRUM-177)', () => {
+    /** Un resultado de ese dia: con puntaje crudo 1 requiere atencion, con 8 es favorable, sin puntaje no puntua. */
+    async function guardarEnElDia(
+      usuario: string,
+      numero: number,
+      dia: string,
+      puntajeCrudo: number | undefined,
+    ): Promise<void> {
+      await repositorio.save(
+        await unResultado({
+          id: `40000000-0000-4000-8000-0000000000e${numero}`,
+          usuario,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: `50000000-0000-4000-8000-0000000000e${numero}`,
+          ...(puntajeCrudo === undefined ? {} : { puntajeCrudo }),
+          completedAt: new Date(`${dia}T15:00:00.000Z`),
+          dia,
+        }),
+      );
+    }
+
+    it('devuelve solo los dias con un resultado que requiere atencion, sin repetir y en orden', async () => {
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-16', 1);
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-14', 1);
+      // Dos el mismo dia son un solo dia.
+      await guardarEnElDia(USUARIO_A, 3, '2026-09-16', 1);
+      // Un dia solo favorable no cuenta.
+      await guardarEnElDia(USUARIO_A, 4, '2026-09-15', 8);
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([
+        '2026-09-14',
+        '2026-09-16',
+      ]);
+    });
+
+    it('un dia con uno favorable y uno que requiere atencion cuenta como dia con atencion', async () => {
+      await guardarEnElDia(USUARIO_A, 5, '2026-09-14', 8);
+      await guardarEnElDia(USUARIO_A, 6, '2026-09-14', 1);
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([
+        '2026-09-14',
+      ]);
+    });
+
+    it('lo que no puntua no cuenta', async () => {
+      await guardarEnElDia(USUARIO_A, 7, '2026-09-14', undefined);
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([]);
+    });
+
+    it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
+      await guardarEnElDia(USUARIO_B, 8, '2026-09-14', 1);
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([]);
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_B))).resolves.toEqual([
+        '2026-09-14',
+      ]);
+    });
+  });
+
   describe('historialDe (SCRUM-184)', () => {
     async function guardarHecho(
       n: number,

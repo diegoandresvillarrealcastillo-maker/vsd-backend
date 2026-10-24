@@ -10,7 +10,7 @@ import {
   SesionId,
   UserId,
 } from '../../domain/model/Identifier.js';
-import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import { NivelOrientativo, OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
@@ -143,6 +143,21 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     );
 
     // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+    return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
+  }
+
+  async diasConAtencion(userId: UserId): Promise<readonly Dia[]> {
+    // Solo la columna `dia` de lo que requiere atencion, sin repetir y ordenada en la base: ni el
+    // puntaje ni la actividad salen de ella.
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.findMany({
+        where: { idUsuario: userId.value, nivelOrientativo: NivelOrientativo.REQUIERE_ATENCION },
+        select: { dia: true },
+        distinct: ['dia'],
+        orderBy: { dia: 'asc' },
+      }),
+    );
+
     return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
   }
 

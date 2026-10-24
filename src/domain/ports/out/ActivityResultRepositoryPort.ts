@@ -73,6 +73,16 @@ export interface ActivityResultRepositoryPort {
   diasConActividad(userId: UserId): Promise<readonly Dia[]>;
 
   /**
+   * Los dias del calendario local en que esa persona tuvo al menos un resultado que requiere
+   * atencion, sin repetir y del mas antiguo al mas reciente (SCRUM-177).
+   *
+   * Es lo unico que necesita el acompanamiento por dias seguidos: **que dias**, no el puntaje ni
+   * que actividad fue. Solo cuenta lo que puntua: una actividad de registro no produce nivel.
+   * Usa `resultado.dia`, el dia fijado al registrar el resultado (SCRUM-123).
+   */
+  diasConAtencion(userId: UserId): Promise<readonly Dia[]>;
+
+  /**
    * Una pagina de lo que esa persona hizo en un conjunto de actividades, del mas reciente al
    * mas antiguo (SCRUM-184). Es el historial de un modulo.
    *

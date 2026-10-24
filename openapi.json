@@ -1305,6 +1305,40 @@
         ]
       }
     },
+    "/api/acompanamiento": {
+      "get": {
+        "description": "Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.",
+        "operationId": "AcompanamientoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcompanamientoRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar si conviene ofrecer acompanamiento a quien firma el token",
+        "tags": [
+          "Acompanamiento"
+        ]
+      }
+    },
     "/api/asistente": {
       "post": {
         "description": "VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.",
@@ -3259,6 +3293,32 @@
           "proximoHito",
           "escalera",
           "semana"
+        ]
+      },
+      "AcompanamientoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "nivel": {
+            "type": "string",
+            "description": "ninguno: nada que ofrecer. moderado: 3 dias seguidos con atencion, se ofrece hablarlo con un profesional en un aviso que se puede cerrar. critico: 7 dias seguidos, el aviso se queda a la vista con las lineas de atencion. No sale ningun puntaje ni cuantos dias van.",
+            "enum": [
+              "ninguno",
+              "moderado",
+              "critico"
+            ],
+            "example": "ninguno"
+          },
+          "lineasDeAtencion": {
+            "description": "Las lineas de atencion del pais de la persona, ordenadas por alcance. Solo con el nivel critico; vacio en los demas.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "nivel",
+          "lineasDeAtencion"
         ]
       },
       "ConsultarAsistenteDto": {

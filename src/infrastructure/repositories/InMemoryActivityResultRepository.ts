@@ -75,12 +75,14 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve([...dias].sort());
   }
 
-  diasConAtencion(userId: UserId): Promise<readonly Dia[]> {
+  diasConAtencion(userId: UserId, actividades: readonly ActivityId[]): Promise<readonly Dia[]> {
+    const cuentan = new Set(actividades.map((actividad) => actividad.value));
     const dias = new Set(
       [...this.porOperacion.values()]
         .filter(
           (resultado) =>
             resultado.perteneceA(userId) &&
+            cuentan.has(resultado.activityId.value) &&
             resultado.score?.level === NivelOrientativo.REQUIERE_ATENCION,
         )
         .map((resultado) => resultado.dia),

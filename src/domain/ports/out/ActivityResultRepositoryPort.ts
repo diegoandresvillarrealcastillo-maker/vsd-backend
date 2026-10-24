@@ -79,8 +79,11 @@ export interface ActivityResultRepositoryPort {
    * Es lo unico que necesita el acompanamiento por dias seguidos: **que dias**, no el puntaje ni
    * que actividad fue. Solo cuenta lo que puntua: una actividad de registro no produce nivel.
    * Usa `resultado.dia`, el dia fijado al registrar el resultado (SCRUM-123).
+   *
+   * Solo se miran los resultados de `actividades`: quien llama decide cuales cuentan (las de
+   * «mayor requiere atencion», ADR 0034). Sin ninguna, no hay dias.
    */
-  diasConAtencion(userId: UserId): Promise<readonly Dia[]>;
+  diasConAtencion(userId: UserId, actividades: readonly ActivityId[]): Promise<readonly Dia[]>;
 
   /**
    * Una pagina de lo que esa persona hizo en un conjunto de actividades, del mas reciente al

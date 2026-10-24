@@ -72,8 +72,14 @@ import { UsuariosModule } from './UsuariosModule.js';
         cuentas: UserRepositoryPort,
         resultados: ActivityResultRepositoryPort,
         recursos: RecursoApoyoRepositoryPort,
-      ) => new ConsultarAcompanamientoUseCaseImpl(cuentas, resultados, recursos),
-      inject: [USER_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, RECURSO_APOYO_REPOSITORY],
+        actividades: ActivityRepositoryPort,
+      ) => new ConsultarAcompanamientoUseCaseImpl(cuentas, resultados, recursos, actividades),
+      inject: [
+        USER_REPOSITORY,
+        ACTIVITY_RESULT_REPOSITORY,
+        RECURSO_APOYO_REPOSITORY,
+        ACTIVITY_REPOSITORY,
+      ],
     },
   ],
 })

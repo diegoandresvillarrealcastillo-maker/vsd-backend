@@ -1978,6 +1978,10 @@
             "type": "boolean",
             "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
           },
+          "acompanamientoPorDias": {
+            "type": "boolean",
+            "description": "Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177)."
+          },
           "zonaHoraria": {
             "type": "string",
             "description": "Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).",
@@ -2016,6 +2020,7 @@
           "modulosActivos",
           "mascota",
           "diarioConRecomendaciones",
+          "acompanamientoPorDias",
           "zonaHoraria",
           "foto",
           "mascotaPropia"
@@ -2084,6 +2089,11 @@
           "diarioConRecomendaciones": {
             "type": "boolean",
             "description": "Si permite que lo que escribe en el diario se lea para recomendarle algo, como las líneas de atención si aparece una señal de riesgo. Apagado por defecto (SCRUM-108).",
+            "example": false
+          },
+          "acompanamientoPorDias": {
+            "type": "boolean",
+            "description": "Si permite que se miren sus resultados, día tras día, para ofrecerle acompañamiento cuando lleva varios días seguidos con atención. Es una inferencia sobre su estado, así que está apagado por defecto y solo lo cambia ella (SCRUM-177, ADR 0034).",
             "example": false
           }
         }

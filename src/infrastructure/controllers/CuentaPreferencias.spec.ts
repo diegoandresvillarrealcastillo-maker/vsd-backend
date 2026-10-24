@@ -25,6 +25,7 @@ interface Cuenta {
   modulosActivos: string[];
   mascota: { forma: string; nombre: string; color?: string; accesorio?: string } | null;
   diarioConRecomendaciones: boolean;
+  acompanamientoPorDias: boolean;
 }
 
 /** `PATCH /api/cuenta/preferencias` por HTTP, con la tuberia de verdad. */
@@ -111,6 +112,25 @@ describe('PATCH /api/cuenta/preferencias', () => {
 
   it('el permiso sobre el diario solo admite si o no', async () => {
     await preferencias(B).send({ diarioConRecomendaciones: 'si' }).expect(400);
+  });
+
+  it('el permiso del acompanamiento por dias empieza apagado, y solo la persona lo enciende (SCRUM-177)', async () => {
+    expect((await cuentaDe(B)).acompanamientoPorDias).toBe(false);
+
+    const encendido = await preferencias(B).send({ acompanamientoPorDias: true }).expect(200);
+
+    expect(encendido.body).toMatchObject({ acompanamientoPorDias: true });
+    // Encender el permiso de una persona no toca el de otra, ni el del diario.
+    expect((await cuentaDe(A)).acompanamientoPorDias).toBe(false);
+    expect((await cuentaDe(B)).diarioConRecomendaciones).toBe(false);
+
+    await preferencias(B).send({ acompanamientoPorDias: false }).expect(200);
+
+    expect((await cuentaDe(B)).acompanamientoPorDias).toBe(false);
+  });
+
+  it('el permiso del acompanamiento por dias solo admite si o no', async () => {
+    await preferencias(B).send({ acompanamientoPorDias: 'si' }).expect(400);
   });
 
   it('lo que no se manda se queda como estaba', async () => {

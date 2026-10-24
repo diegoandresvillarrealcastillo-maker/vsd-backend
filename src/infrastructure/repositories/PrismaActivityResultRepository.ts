@@ -146,12 +146,23 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
   }
 
-  async diasConAtencion(userId: UserId): Promise<readonly Dia[]> {
+  async diasConAtencion(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+  ): Promise<readonly Dia[]> {
+    if (actividades.length === 0) {
+      return [];
+    }
+
     // Solo la columna `dia` de lo que requiere atencion, sin repetir y ordenada en la base: ni el
     // puntaje ni la actividad salen de ella.
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
       cliente.resultado.findMany({
-        where: { idUsuario: userId.value, nivelOrientativo: NivelOrientativo.REQUIERE_ATENCION },
+        where: {
+          idUsuario: userId.value,
+          idActividad: { in: actividades.map((actividad) => actividad.value) },
+          nivelOrientativo: NivelOrientativo.REQUIERE_ATENCION,
+        },
         select: { dia: true },
         distinct: ['dia'],
         orderBy: { dia: 'asc' },

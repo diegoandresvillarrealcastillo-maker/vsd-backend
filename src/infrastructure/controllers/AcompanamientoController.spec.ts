@@ -12,7 +12,13 @@ import { CONFIGURACION } from '../config/tokens.js';
 const A = 'token-de-A';
 const B = 'token-de-B';
 
-/** Secuencias, del catalogo en memoria: de 0 a 10, donde 1 requiere atencion y 8 es favorable. */
+/**
+ * «Tu semana en una hoja», del catalogo en memoria: de 0 a 20 y de «mayor requiere atencion», asi
+ * que 20 es una semana pesada. Es de las que cuentan para el acompanamiento (ADR 0034).
+ */
+const CARGA = '77777777-7777-4777-a777-777777777777';
+
+/** Secuencias, un juego de cognicion: aunque le vaya mal, no cuenta para el acompanamiento. */
 const SECUENCIAS = '33333333-3333-4333-a333-333333333333';
 
 const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
@@ -57,17 +63,33 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
     return respuesta.body as Acompanamiento;
   }
 
-  /** Registra un resultado que requiere atencion de hace `diasAtras` dias, como lo hace el dispositivo. */
-  async function conAtencionHace(token: string, diasAtras: number): Promise<void> {
+  /** Da o quita el permiso del acompanamiento, como lo hace la persona desde su perfil. */
+  async function darPermiso(token: string, permiso: boolean): Promise<void> {
+    await request(servidor())
+      .patch('/api/cuenta/preferencias')
+      .set(...comoUsuario(token))
+      .send({ acompanamientoPorDias: permiso })
+      .expect(200);
+  }
+
+  /**
+   * Registra un resultado que lo pone en «requiere atencion» de hace `diasAtras` dias, como lo hace
+   * el dispositivo: 20 de 20 en la carga, o 1 de 10 en un juego de cognicion.
+   */
+  async function conAtencionHace(
+    token: string,
+    diasAtras: number,
+    actividad: string = CARGA,
+  ): Promise<void> {
     contador += 1;
 
     await request(servidor())
       .post('/api/resultados')
       .set(...comoUsuario(token))
       .send({
-        activityId: SECUENCIAS,
+        activityId: actividad,
         clientOperationId: `44444444-4444-4444-b444-${String(contador).padStart(12, '0')}`,
-        score: 1,
+        score: actividad === CARGA ? 20 : 1,
         completedAt: new Date(Date.now() - diasAtras * UN_DIA_EN_MS - 1000).toISOString(),
       })
       .expect(201);
@@ -76,6 +98,8 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
   beforeAll(async () => {
     app = await levantarAplicacion();
     await darDeAlta(servidor());
+    // Solo A da su permiso al empezar: sin el, el acompanamiento no mira nada (ADR 0034, pregunta 3).
+    await darPermiso(A, true);
   });
 
   afterAll(async () => {
@@ -121,6 +145,34 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
   });
 
   it('lo de una persona no cuenta para otra', async () => {
+    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+  });
+
+  it('un juego de cognicion que le va mal no cuenta, ni siquiera con permiso', async () => {
+    await darPermiso(B, true);
+
+    // Tres dias seguidos que terminan hoy, con lo mas bajo en un juego de cognicion.
+    for (const diasAtras of [0, 1, 2]) {
+      await conAtencionHace(B, diasAtras, SECUENCIAS);
+    }
+
+    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+
+    await darPermiso(B, false);
+  });
+
+  it('sin el permiso de la persona no mira nada, aunque lleve siete dias con atencion', async () => {
+    for (const diasAtras of [0, 1, 2, 3, 4, 5, 6]) {
+      await conAtencionHace(B, diasAtras);
+    }
+
+    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+
+    // En cuanto la persona da su permiso, lo que ya hizo cuenta; al quitarlo, deja de contar.
+    await darPermiso(B, true);
+    expect((await acompanamientoDe(B)).nivel).toBe('critico');
+
+    await darPermiso(B, false);
     await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
   });
 

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  actividadesQueCuentanParaAcompanar,
   DIAS_PARA_ACOMPANAR,
   DIAS_PARA_LAS_LINEAS,
   diasSeguidosConAtencion,
   nivelDeAcompanamiento,
 } from './AcompanamientoPorRiesgo.js';
+import { Activity, DireccionEscala } from './Activity.js';
+import { Categoria } from './Categoria.js';
+import { ActivityId, CategoryId } from './Identifier.js';
 
 /** Los dias de octubre de 2026 que se pidan, como AAAA-MM-DD. */
 function dias(...numeros: number[]): string[] {
@@ -92,5 +96,51 @@ describe('nivelDeAcompanamiento', () => {
 
   it('si ni ayer ni hoy hubo atencion, la cadena ya se rompio y no hay nada que ofrecer', () => {
     expect(nivelDeAcompanamiento(dias(10, 11, 12, 13), HOY)).toBe('ninguno');
+  });
+});
+
+describe('actividadesQueCuentanParaAcompanar (ADR 0034, pregunta 1)', () => {
+  const MEMORIA = '33333333-3333-4333-a333-333333333331';
+  const CARGA = '33333333-3333-4333-a333-333333333332';
+  const ANIMO = '33333333-3333-4333-a333-333333333333';
+  const RESPIRACION = '33333333-3333-4333-a333-333333333334';
+
+  function actividad(id: string, direccionEscala: DireccionEscala): Activity {
+    return Activity.create({
+      id: new ActivityId(id),
+      nombre: `Actividad ${id.slice(-1)}`,
+      direccionEscala,
+      puntajeMaximo: direccionEscala === DireccionEscala.SIN_PUNTAJE ? undefined : 10,
+    });
+  }
+
+  function catalogo(): readonly Categoria[] {
+    return [
+      Categoria.create({
+        id: new CategoryId('44444444-4444-4444-8444-444444444441'),
+        nombre: 'Cognición',
+        actividades: [actividad(MEMORIA, DireccionEscala.MAYOR_ES_MEJOR)],
+      }),
+      Categoria.create({
+        id: new CategoryId('44444444-4444-4444-8444-444444444442'),
+        nombre: 'Emociones',
+        actividades: [
+          actividad(CARGA, DireccionEscala.MAYOR_REQUIERE_ATENCION),
+          actividad(ANIMO, DireccionEscala.MAYOR_REQUIERE_ATENCION),
+          actividad(RESPIRACION, DireccionEscala.SIN_PUNTAJE),
+        ],
+      }),
+    ];
+  }
+
+  it('solo cuentan las de «mayor requiere atencion»: un juego de memoria bajo no es una senal emocional', () => {
+    expect(actividadesQueCuentanParaAcompanar(catalogo()).map((id) => id.value)).toEqual([
+      CARGA,
+      ANIMO,
+    ]);
+  });
+
+  it('sin catalogo no cuenta ninguna', () => {
+    expect(actividadesQueCuentanParaAcompanar([])).toEqual([]);
   });
 });

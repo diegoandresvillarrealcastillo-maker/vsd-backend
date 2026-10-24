@@ -1,4 +1,7 @@
+import { DireccionEscala } from './Activity.js';
 import { Calendario, type Dia } from './Calendario.js';
+import type { Categoria } from './Categoria.js';
+import type { ActivityId } from './Identifier.js';
 
 /**
  * El acompanamiento por dias seguidos con atencion (SCRUM-177).
@@ -46,6 +49,20 @@ export const NivelDeAcompanamiento = {
 
 export type NivelDeAcompanamiento =
   (typeof NivelDeAcompanamiento)[keyof typeof NivelDeAcompanamiento];
+
+/**
+ * Las actividades cuyo resultado puede encender el acompanamiento: las de escala «mayor requiere
+ * atencion» (carga y emociones). Un puntaje bajo en un juego de cognicion no dice nada de como se
+ * siente la persona, y contarlo daria falsas alarmas (ADR 0034, pregunta 1).
+ */
+export function actividadesQueCuentanParaAcompanar(
+  catalogo: readonly Categoria[],
+): readonly ActivityId[] {
+  return catalogo
+    .flatMap((categoria) => categoria.actividades)
+    .filter((actividad) => actividad.direccionEscala === DireccionEscala.MAYOR_REQUIERE_ATENCION)
+    .map((actividad) => actividad.id);
+}
 
 /**
  * Cuantos dias seguidos con atencion lleva la persona, contando hacia atras desde hoy (o desde

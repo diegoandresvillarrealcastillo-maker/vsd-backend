@@ -194,6 +194,8 @@ describe('InMemoryActivityResultRepository', () => {
   describe('diasConAtencion (SCRUM-177)', () => {
     const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
     const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+    /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
+    const CUENTAN = [new ActivityId(ACTIVIDAD)];
 
     /** Un resultado de ese dia con ese puntaje crudo (de 0 a 10: 1 requiere atencion, 8 es favorable). */
     function conPuntaje(dia: string, crudo: number, n: number, usuario = USUARIO) {
@@ -219,7 +221,7 @@ describe('InMemoryActivityResultRepository', () => {
       // Un dia solo favorable no cuenta.
       await repositorio.save(conPuntaje('2026-09-15', 8, 4));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO))).toEqual([
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([
         '2026-09-14',
         '2026-09-16',
       ]);
@@ -229,7 +231,9 @@ describe('InMemoryActivityResultRepository', () => {
       await repositorio.save(conPuntaje('2026-09-14', 8, 5));
       await repositorio.save(conPuntaje('2026-09-14', 1, 6));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO))).toEqual(['2026-09-14']);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([
+        '2026-09-14',
+      ]);
     });
 
     it('lo que no puntua no cuenta: no suma a favor ni en contra', async () => {
@@ -244,14 +248,25 @@ describe('InMemoryActivityResultRepository', () => {
         }),
       );
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO))).toEqual([]);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([]);
+    });
+
+    it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
+      await repositorio.save(conPuntaje('2026-09-14', 1, 9));
+
+      const OTRA_ACTIVIDAD = new ActivityId('33333333-3333-4333-a333-333333333399');
+
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [OTRA_ACTIVIDAD])).toEqual([]);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [])).toEqual([]);
     });
 
     it('lo de otra persona no cuenta', async () => {
       await repositorio.save(conPuntaje('2026-09-14', 1, 8, OTRO_USUARIO));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO))).toEqual([]);
-      expect(await repositorio.diasConAtencion(new UserId(OTRO_USUARIO))).toEqual(['2026-09-14']);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([]);
+      expect(await repositorio.diasConAtencion(new UserId(OTRO_USUARIO), CUENTAN)).toEqual([
+        '2026-09-14',
+      ]);
     });
   });
 });

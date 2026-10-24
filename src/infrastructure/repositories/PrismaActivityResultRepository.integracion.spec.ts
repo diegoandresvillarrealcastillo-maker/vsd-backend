@@ -625,6 +625,9 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   });
 
   describe('diasConAtencion (SCRUM-177)', () => {
+    /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
+    const CUENTAN = [new ActivityId(ACTIVIDAD_MEMORIA)];
+
     /** Un resultado de ese dia: con puntaje crudo 1 requiere atencion, con 8 es favorable, sin puntaje no puntua. */
     async function guardarEnElDia(
       usuario: string,
@@ -653,7 +656,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       // Un dia solo favorable no cuenta.
       await guardarEnElDia(USUARIO_A, 4, '2026-09-15', 8);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
         '2026-09-14',
         '2026-09-16',
       ]);
@@ -663,7 +666,7 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       await guardarEnElDia(USUARIO_A, 5, '2026-09-14', 8);
       await guardarEnElDia(USUARIO_A, 6, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
         '2026-09-14',
       ]);
     });
@@ -671,14 +674,27 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     it('lo que no puntua no cuenta', async () => {
       await guardarEnElDia(USUARIO_A, 7, '2026-09-14', undefined);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([]);
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
+        [],
+      );
+    });
+
+    it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
+      await guardarEnElDia(USUARIO_A, 9, '2026-09-14', 1);
+
+      const otra = new ActivityId('33333333-3333-4333-a333-333333333399');
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [otra])).resolves.toEqual([]);
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [])).resolves.toEqual([]);
     });
 
     it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
       await guardarEnElDia(USUARIO_B, 8, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A))).resolves.toEqual([]);
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_B))).resolves.toEqual([
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
+        [],
+      );
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_B), CUENTAN)).resolves.toEqual([
         '2026-09-14',
       ]);
     });

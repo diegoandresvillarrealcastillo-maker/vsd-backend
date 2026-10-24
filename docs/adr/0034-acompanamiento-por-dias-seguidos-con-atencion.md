@@ -1,9 +1,10 @@
 # ADR 0034: Acompañamiento por días seguidos con atención: moderado a los 3 y crítico a los 7
 
-- **Estado:** propuesta (SCRUM-177, `[C7-08]`). **El ticket pide la decisión de Diego antes de
-  escribir código**: esto es una propuesta completa para que la revise, no una decisión tomada. No
-  debe fusionarse sin sus respuestas a las cinco preguntas de abajo.
-- **Fecha:** 2026-10-23
+- **Estado:** aceptada con ajustes (SCRUM-177, `[C7-08]`). Diego respondió las cinco preguntas el
+  2026-10-24 (ver «Las cinco preguntas y lo que decidió Diego»). **El criterio clínico (qué cuenta,
+  3 y 7 días) sigue pendiente de la revisión de una persona de salud**; lo que está aquí es la
+  decisión de producto, no una validación clínica.
+- **Fecha:** 2026-10-23 (propuesta); 2026-10-24 (decisión)
 - **Se relaciona con:** ADR 0029 (el apoyo de una actividad sale con un patrón de la semana), ADR 0028
   (el diario no manda líneas de atención) y ADR 0024 (la racha como función de los resultados).
 - **Infiere algo sobre la persona a partir de sus resultados:** por eso va con un ADR y no se activa
@@ -24,19 +25,25 @@ Hoy el cliente no cuenta nada por su cuenta: lo que depende de los días lo calc
 hora de la persona. El contenido del diario no se evalúa salvo permiso (SCRUM-108). La aplicación no
 diagnostica.
 
-## Decisión (propuesta)
+## Decisión
 
 1. **Un «indicador alto» es un día con al menos un resultado que requiere atención**
-   (`nivelOrientativo = requiere_atencion`). Es la misma definición de «día con atención» del ADR 0029. Hoy `sugiereAcompanamiento` es exactamente ese nivel, así que las dos lecturas que el ticket
-   dudaba («solo `requiere_atencion` o también `sugiereAcompanamiento`») **dan el mismo resultado**;
-   si algún día `sugiereAcompanamiento` incluye otra cosa, habrá que decidir de nuevo.
+   (`nivelOrientativo = requiere_atencion`) **en una actividad de escala «mayor requiere
+   atención»** (carga y emociones). Un puntaje bajo en un juego de cognición no cuenta: no dice
+   nada de cómo se siente la persona y daría falsas alarmas. Esto afina la definición de «día con
+   atención» del ADR 0029, que sigue contando todas las actividades para el texto del resultado.
+   El caso de uso pide el catálogo, toma las actividades con esa escala
+   (`actividadesQueCuentanParaAcompanar`) y se las pasa al repositorio. Hoy `sugiereAcompanamiento`
+   es exactamente ese nivel, así que las dos lecturas que el ticket dudaba **dan el mismo
+   resultado**; si algún día `sugiereAcompanamiento` incluye otra cosa, habrá que decidir de nuevo.
 2. **«Continuo» son días del calendario seguidos, cada uno con atención.** Un día sin atención rompe
    la cadena, y **también un día sin ningún dato**. **Hoy no rompe nada hasta que termina**, igual que
    la racha: sin nada hoy, la cadena de ayer sigue en pie. Lo posterior a hoy se ignora.
 3. **3 días seguidos: `moderado`. 7 seguidos: `critico`.** Las dos constantes, `DIAS_PARA_ACOMPANAR`
    y `DIAS_PARA_LAS_LINEAS`, tienen su prueba.
-4. **Es una función de los resultados, no hay nada guardado** (`AcompanamientoPorRiesgo.ts`, como
-   `Racha.ts` y `PatronDeLaSemana.ts`): sin contador que se desincronice ni migración. Los días son
+4. **Es una función de los resultados, no hay ningún contador guardado** (`AcompanamientoPorRiesgo.ts`,
+   como `Racha.ts` y `PatronDeLaSemana.ts`): nada que se desincronice. Lo único que se guarda es
+   el **permiso** de la persona (punto 7). Los días son
    `resultado.dia`, fijados al registrar (SCRUM-123): viajar no mueve los de antes. «Hoy» sale del
    calendario de la zona de la persona.
 5. **Un endpoint, `GET /api/acompanamiento`**, para quien firma el token. Responde
@@ -45,30 +52,42 @@ diagnostica.
    país** (SCRUM-124, ordenadas por alcance) y solo vienen con el nivel crítico; en una zona sin
    líneas verificadas viene el directorio, nunca el número de otro país.
 6. **No sale por notificación** ni por ningún otro canal que no sea la propia aplicación abierta.
+7. **Solo se mira lo de quien lo permite.** La cuenta tiene un permiso, `acompanamientoPorDias`,
+   **apagado por defecto** (las cuentas que ya existen quedan apagadas: nadie lo dio, no se supone).
+   Se cambia desde el perfil con `PATCH /api/cuenta/preferencias` y sale en `GET /api/cuenta`, igual
+   que `diarioConRecomendaciones` (SCRUM-108). Sin el permiso, `GET /api/acompanamiento` responde
+   `{ nivel: 'ninguno', lineasDeAtencion: [] }` **sin leer un solo resultado**. Es una columna
+   nueva en `usuario` (migración `20261024140000_acompanamiento_por_dias`, que aplica una persona,
+   en PRE y después en PROD, antes de desplegar este backend).
 
-## Las cinco preguntas para Diego
+## Las cinco preguntas y lo que decidió Diego
 
-1. **¿Qué es un indicador alto?** Se propone solo `requiere_atencion` (punto 1). ¿Se quiere algo más
-   fino, por ejemplo solo las actividades de «mayor requiere atención» (emociones y carga) y no un
-   juego de cognición bajo?
-2. **¿Un día sin datos rompe la cadena?** Se propone que sí (lectura estricta: pide más para avisar).
-   La alternativa es tolerar un hueco, que avisa antes pero más veces de más. Quien está peor puede
-   dejar de usar la aplicación justo entonces: con la lectura estricta, ese silencio **apaga** el
-   aviso en lugar de encenderlo.
-3. **¿Hace falta el consentimiento de la persona para este seguimiento, y cómo se explica?** Se usan
-   solo resultados que la persona ya generó y solo se le muestran a ella; no se envían a nadie. Pero
-   es una inferencia, y SCRUM-108 pidió permiso para la del diario. Si se decide que hace falta, se
-   puede condicionar el endpoint a un permiso nuevo (columna en la cuenta, migración que aplica una
-   persona).
-4. **Los textos de los dos niveles y la línea a la que llama «Llamar ahora».** Los del frontend son
-   una propuesta. **El botón «Llamar ahora» no se construyó:** las líneas guardan el número dentro
-   del título («Línea 192, opción 4») y no en un campo propio, y un `tel:` hecho a partir de texto
-   libre podría marcar mal en una crisis; algunas llevan una opción que `tel:` no sabe marcar. Se
-   muestran las líneas de siempre, con su enlace. Para un botón de llamada de verdad hace falta una
-   columna `telefono` verificada en `recurso_apoyo` (migración y una persona que la confirme).
-5. **¿Los dos umbrales (3 y 7) y su relación con el «4 de 7» del ADR 0029?** Son reglas distintas:
-   aquella decide el texto del resultado; esta, un aviso continuo. Se solapan sin contradecirse, pero
-   3 seguidos es más estricto que 4 de 7 en algunos casos y más laxo en otros.
+Respondidas por Diego el 2026-10-24.
+
+1. **¿Qué es un indicador alto?** **Afinarlo:** solo las actividades de «mayor requiere atención»
+   (emociones y carga). Con el nivel general, a quien le va mal en un juego de cognición se le
+   ofrecería acompañamiento sin que haya una señal emocional. Era un filtro sencillo y se hizo en
+   este mismo cambio (punto 1). **Deuda anotada:** repasar qué actividades entran después de la
+   revisión clínica.
+2. **¿Un día sin datos rompe la cadena?** **Sí**, como se proponía. Tratar el silencio como una
+   señal convertiría en alerta a quien solo olvidó abrir la aplicación (fatiga de alertas). El
+   riesgo que señalaba la pregunta es real: quien está peor puede dejar de usarla. **Eso debe ser
+   una regla de abandono independiente, en un ticket propio, y no un parche sobre esta regla de
+   continuidad.**
+3. **¿Hace falta el permiso de la persona?** **Sí.** Aunque ningún dato salga de su cuenta, es una
+   inferencia sobre su salud mental, y SCRUM-108 ya sentó el precedente con el diario. Se asumió el
+   costo de la migración ahora para no arriesgar su confianza ni el cumplimiento más adelante
+   (punto 7). **No se anota todavía en el registro de seguridad** cuando cambia: ese catálogo es una
+   lista cerrada de seis hechos acordados y ampliarla es el ticket SCRUM-167; allí debería entrar
+   `PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO`, como ya está `PERMISO_DEL_DIARIO_CAMBIADO`.
+4. **Textos y botón «Llamar ahora».** Los textos del frontend quedan como **versión inicial**. Las
+   líneas se muestran dentro del texto, con su enlace, como hasta ahora. **Se abre de inmediato un
+   ticket para estructurar una columna `telefono` verificada en `recurso_apoyo`** (con una persona
+   que confirme cada número): en una crisis, copiar y pegar un número es una fricción grave, y el
+   botón «Llamar ahora» hace falta pronto.
+5. **¿Los umbrales 3 y 7 frente al «4 de 7»?** **Coexisten.** Detectan cosas distintas: «3
+   seguidos» es una caída aguda y rápida; el «4 de 7» (ADR 0029), una inestabilidad más sostenida.
+   No se contradicen.
 
 ## Alternativas consideradas
 
@@ -81,13 +100,13 @@ diagnostica.
   vara.
 - **Un modal obligatorio para el nivel crítico.** Descartado, como recomienda el ticket: un modal que
   atrapa a la persona puede dañar justo a quien está peor.
-- **Un interruptor de configuración que lo apague.** No se añadió: la puerta es la revisión de este
-  PR. Si Diego quiere poder encenderlo por ambiente, es una variable más y una prueba.
+- **Un interruptor de configuración que lo apague por ambiente.** No se añadió: la puerta es el
+  permiso de cada persona, apagado por defecto.
 
 ## Consecuencias
 
 - **Se gana:** una forma de acompañar a quien lleva días mal sin esperar a que escriba nada ni a que
-  un solo resultado «lo diga», sin guardar nada nuevo ni exponer puntajes.
+  un solo resultado «lo diga», sin guardar ningún contador ni exponer puntajes, y solo con su permiso.
 - **Se pierde:**
   - Quien está mal **y deja de usar la aplicación** no recibe el aviso (ver pregunta 2). El aviso
     habla de lo que se registró, no de cómo está la persona.
@@ -96,5 +115,7 @@ diagnostica.
   - Un falso positivo es un aviso que se puede cerrar (moderado); en el crítico, un banner que se
     queda a la vista. Por eso el nivel crítico es lo que más conviene que revise Diego.
 - **El frontend tiene su parte** (PR aparte, dependiente de este): el aviso con los dos niveles,
-  accesible, y la copia de este equipo sin conexión. El backend es aditivo y se puede desplegar antes.
+  accesible, y la casilla del permiso en el perfil. **Orden:** primero la migración en PRE (la aplica
+  una persona), después este backend y al final el frontend. Sin el permiso encendido, nada cambia
+  para nadie.
 - **Un ADR y dos constantes:** cambiar los umbrales es cambiar dos números y su prueba.

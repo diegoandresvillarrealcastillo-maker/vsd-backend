@@ -368,6 +368,25 @@ Lo que la persona escribe por su cuenta. Corresponde al RF14.
 | `version`              | INTEGER      | no   | Aumenta con cada edición.                                                           |
 | `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió, según el dispositivo y acotada por la base. No se puede editar. |
 | `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición, según el dispositivo y acotada por la base.                         |
+| `carta_a_manana`       | BOOLEAN      | no   | `false` por omisión. «Carta a mí de mañana» (SCRUM-230). Se decide al escribir.     |
+| `carta_abierta_en`     | TIMESTAMPTZ  | sí   | Cuándo se abrió la carta. Solo una carta la tiene (`CHECK`).                        |
+
+### La carta a mí de mañana (SCRUM-230, ADR 0033)
+
+Una anotación con `carta_a_manana = true` se escribe hoy y espera: **su texto, su título y sus diagramas no salen por
+ninguna respuesta de la API** hasta que la persona la abre (`POST /api/diario/{id}/abrir`), y solo desde el día
+siguiente al suyo. Espera una semana (`DIAS_DE_ESPERA_DE_LA_CARTA`); si nadie la abre, vuelve al diario como cualquier
+anotación. Se puede borrar sin abrirla, a cualquier hora (`DELETE /api/diario/{id}`, que borra la fila entera).
+
+- `carta_a_manana` no se puede cambiar después de escribir: `vsd_app` no tiene permiso de UPDATE sobre esa columna.
+- `carta_abierta_en` solo la admite una carta (`entrada_diario_solo_una_carta_se_abre`), y solo pasa de vacío a un
+  valor.
+- **Una salida estrecha en el disparador de la hora para editar.** Abrir una carta ocurre un día después, cuando
+  `entrada_diario_hora_de_edicion` ya devuelve `NULL`. El disparador deja pasar un UPDATE que **no cambia nada más**
+  que `carta_abierta_en` (de vacío a un valor, acotado: nunca en el futuro ni de hace más de un día). Un UPDATE que
+  cambie el texto y de paso marque la carta no la abre.
+- **El sellado es de la API, no de la base**: quien lea las tablas con el rol dueño ve el texto, como con cualquier
+  anotación del diario.
 
 ### Un registro por día, con una hora para editar (SCRUM-95)
 

@@ -508,3 +508,55 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     ).rejects.toThrow(InvalidIdentifierError);
   });
 });
+
+describe('La carta a mi de manana (SCRUM-230)', () => {
+  const carta = (extra: Record<string, unknown> = {}) => ({
+    userId: PERSONA,
+    zonaHoraria: ZONA,
+    conRecomendaciones: false,
+    clientOperationId: operacion(),
+    contenido: documentoCon('Manana, calma'),
+    ...extra,
+  });
+
+  it('una anotacion corriente no es una carta', async () => {
+    const { casoDeUso } = armar();
+
+    expect((await casoDeUso.execute(carta())).entrada.cartaAManana).toBe(false);
+  });
+
+  it('con la etiqueta se guarda como carta, de hoy, y sin abrir', async () => {
+    const { casoDeUso } = armar();
+
+    const { entrada } = await casoDeUso.execute(carta({ cartaAManana: true }));
+
+    expect(entrada.cartaAManana).toBe(true);
+    expect(entrada.cartaAbiertaEn).toBeUndefined();
+    expect(entrada.dia).toBe('2026-10-02');
+  });
+
+  it('un reintento devuelve la misma carta y no la duplica', async () => {
+    const { casoDeUso, diario } = armar();
+    const peticion = carta({ cartaAManana: true });
+
+    const primera = await casoDeUso.execute(peticion);
+    const segunda = await casoDeUso.execute(peticion);
+
+    expect(segunda.entrada.id.value).toBe(primera.entrada.id.value);
+    expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(1);
+  });
+
+  it('la deteccion de riesgo de siempre mira el texto de la carta antes de guardarla (R8)', async () => {
+    const { casoDeUso } = armar();
+
+    const { sugiereAcompanamiento } = await casoDeUso.execute(
+      carta({
+        cartaAManana: true,
+        conRecomendaciones: true,
+        contenido: documentoCon('A veces pienso que quiero morir'),
+      }),
+    );
+
+    expect(sugiereAcompanamiento).toBe(true);
+  });
+});

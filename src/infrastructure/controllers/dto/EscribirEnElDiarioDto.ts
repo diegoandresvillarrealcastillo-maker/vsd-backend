@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Allow,
   IsArray,
-  IsBoolean,
   IsObject,
   IsOptional,
   IsString,
@@ -61,14 +60,6 @@ export class EscribirEnElDiarioDto {
   @IsOptional()
   @IsArray()
   adjuntos?: unknown[];
-
-  @ApiPropertyOptional({
-    description:
-      'Si la anotación es una «carta a mí de mañana» (EMO-05, SCRUM-230): se guarda hoy, su texto no sale en ninguna respuesta hasta que la persona la abre desde el día siguiente, y se puede borrar sin abrirla. Sin esto, es una anotación corriente.',
-  })
-  @IsOptional()
-  @IsBoolean()
-  cartaAManana?: boolean;
 
   @ApiPropertyOptional({
     type: String,

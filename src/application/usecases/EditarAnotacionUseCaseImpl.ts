@@ -1,9 +1,7 @@
-import { Calendario } from '../../domain/model/Calendario.js';
 import { adjuntosDesde, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import {
   EditWindowClosedError,
   JournalEntryNotFoundError,
-  SealedLetterError,
   StaleJournalEntryError,
 } from '../../domain/model/DomainError.js';
 import { horaDelDispositivo } from '../../domain/model/HoraDelDispositivo.js';
@@ -39,12 +37,6 @@ export class EditarAnotacionUseCaseImpl implements EditarAnotacionUseCase {
 
     if (actual === null) {
       throw new JournalEntryNotFoundError();
-    }
-
-    // Una carta que espera no se corrige: su texto no se ve, y corregir a ciegas la dejaria peor.
-    // Borrarla y escribir otra si (SCRUM-230).
-    if (actual.estaSellada(Calendario.de(command.zonaHoraria).diaDe(this.reloj()))) {
-      throw new SealedLetterError();
     }
 
     // La hora de la edicion es la que dijo el dispositivo, no la de cuando llega:

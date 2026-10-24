@@ -75,7 +75,12 @@ export type EventoDeSeguridad = ContextoDeLaPeticion &
         readonly idUsuario: string;
         readonly motivo: CodigoDeArchivoPeligroso;
       }
-    // SCRUM-167: el alta y sus limites.
+    // SCRUM-167: el alta, sus limites y el permiso del acompanamiento (ADR 0034).
+    | {
+        readonly tipo: 'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO';
+        readonly idUsuario: string;
+        readonly activado: boolean;
+      }
     | { readonly tipo: 'CUENTA_CREADA'; readonly idUsuario: string }
     | {
         readonly tipo: 'CONSENTIMIENTO_REGISTRADO';
@@ -109,6 +114,7 @@ export const CAMPOS_POR_TIPO: Readonly<Record<TipoDeEventoDeSeguridad, readonly 
   TOKEN_RECHAZADO: ['motivo'],
   CUENTA_NO_REGISTRADA: ['idProveedor'],
   ARCHIVO_PELIGROSO_RECHAZADO: ['idUsuario', 'motivo'],
+  PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO: ['idUsuario', 'activado'],
   CUENTA_CREADA: ['idUsuario'],
   CONSENTIMIENTO_REGISTRADO: ['idUsuario', 'versionAviso', 'versionTerminos'],
   MENOR_RECHAZADO: [],

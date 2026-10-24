@@ -6,7 +6,7 @@ import {
 } from './EventoDeSeguridad.js';
 
 describe('El catalogo de eventos de seguridad', () => {
-  it('declara los diez hechos acordados y ninguno mas', () => {
+  it('declara los once hechos acordados y ninguno mas', () => {
     expect(Object.keys(CAMPOS_POR_TIPO).sort()).toEqual([
       'ARCHIVO_PELIGROSO_RECHAZADO',
       'CONSENTIMIENTO_REGISTRADO',
@@ -16,6 +16,7 @@ describe('El catalogo de eventos de seguridad', () => {
       'DATOS_EXPORTADOS',
       'LIMITE_SUPERADO',
       'MENOR_RECHAZADO',
+      'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO',
       'PERMISO_DEL_DIARIO_CAMBIADO',
       'TOKEN_RECHAZADO',
     ]);

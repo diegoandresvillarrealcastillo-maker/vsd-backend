@@ -299,6 +299,25 @@ describe('El registro de seguridad por HTTP (SCRUM-163)', () => {
       ]);
     });
 
+    it('cambiar el permiso del acompanamiento se anota; repetir el mismo valor, no (SCRUM-167)', async () => {
+      await como(A).patch('/api/cuenta/preferencias', { acompanamientoPorDias: true }).expect(200);
+      await como(A).patch('/api/cuenta/preferencias', { acompanamientoPorDias: true }).expect(200);
+      await como(A).patch('/api/cuenta/preferencias', { acompanamientoPorDias: false }).expect(200);
+
+      expect(eventos()).toEqual([
+        expect.objectContaining({
+          tipo: 'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO',
+          idUsuario: idDeLaCuenta,
+          activado: true,
+        }),
+        expect.objectContaining({
+          tipo: 'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO',
+          idUsuario: idDeLaCuenta,
+          activado: false,
+        }),
+      ]);
+    });
+
     it('cambiar otra preferencia no anota nada, y el nombre menos', async () => {
       await como(A)
         .patch('/api/cuenta/preferencias', { nombre: 'Una Persona Secreta' })

@@ -248,6 +248,17 @@ export class CuentaController {
       });
     }
 
+    // Lo mismo con el acompanamiento por dias seguidos: es una inferencia sobre la salud de la
+    // persona, y solo se hace con su permiso (ADR 0034, SCRUM-167).
+    if (actualizada.acompanamientoPorDias !== cuenta.acompanamientoPorDias) {
+      this.seguridad.registrar({
+        tipo: 'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO',
+        idUsuario: cuenta.id.value,
+        activado: actualizada.acompanamientoPorDias,
+        ...origen,
+      });
+    }
+
     return CuentaRespuestaDto.desde(actualizada);
   }
 

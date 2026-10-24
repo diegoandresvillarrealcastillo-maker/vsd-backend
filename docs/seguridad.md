@@ -466,18 +466,19 @@ escribio, solo que hizo algo.
 Un catalogo **cerrado** (`src/domain/model/EventoDeSeguridad.ts`). No hay
 mensajes libres: cada tipo declara los unicos campos que lleva.
 
-| Evento                        | Cuando                                                                                  | Campos propios                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `CUENTA_BORRADA`              | Termina el borrado de una cuenta (204)                                                  | `idUsuario`                                    |
-| `DATOS_EXPORTADOS`            | Se entrega la exportacion de los datos                                                  | `idUsuario`                                    |
-| `PERMISO_DEL_DIARIO_CAMBIADO` | El permiso de recomendaciones del diario cambia                                         | `idUsuario`, `activado`                        |
-| `TOKEN_RECHAZADO`             | Un token no pasa la verificacion                                                        | `motivo`                                       |
-| `CUENTA_NO_REGISTRADA`        | Sesion valida de alguien sin cuenta (403)                                               | `idProveedor`                                  |
-| `ARCHIVO_PELIGROSO_RECHAZADO` | Una foto o un SVG que no es lo que dice ser                                             | `idUsuario`, `motivo`                          |
-| `CUENTA_CREADA`               | Se da de alta una cuenta nueva (SCRUM-167)                                              | `idUsuario`                                    |
-| `CONSENTIMIENTO_REGISTRADO`   | Se guarda un consentimiento: alta, registro completado o nueva aceptacion de los textos | `idUsuario`, `versionAviso`, `versionTerminos` |
-| `MENOR_RECHAZADO`             | Un alta se rechaza por ser menor de 18 (403)                                            | ninguno                                        |
-| `LIMITE_SUPERADO`             | Una cuenta llega al tope por cuenta de una ruta                                         | `ruta`, `idUsuario` (si ya hay cuenta)         |
+| Evento                                | Cuando                                                                                  | Campos propios                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `CUENTA_BORRADA`                      | Termina el borrado de una cuenta (204)                                                  | `idUsuario`                                    |
+| `DATOS_EXPORTADOS`                    | Se entrega la exportacion de los datos                                                  | `idUsuario`                                    |
+| `PERMISO_DEL_DIARIO_CAMBIADO`         | El permiso de recomendaciones del diario cambia                                         | `idUsuario`, `activado`                        |
+| `TOKEN_RECHAZADO`                     | Un token no pasa la verificacion                                                        | `motivo`                                       |
+| `CUENTA_NO_REGISTRADA`                | Sesion valida de alguien sin cuenta (403)                                               | `idProveedor`                                  |
+| `ARCHIVO_PELIGROSO_RECHAZADO`         | Una foto o un SVG que no es lo que dice ser                                             | `idUsuario`, `motivo`                          |
+| `PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO` | El permiso del acompanamiento por dias seguidos cambia (ADR 0034)                       | `idUsuario`, `activado`                        |
+| `CUENTA_CREADA`                       | Se da de alta una cuenta nueva (SCRUM-167)                                              | `idUsuario`                                    |
+| `CONSENTIMIENTO_REGISTRADO`           | Se guarda un consentimiento: alta, registro completado o nueva aceptacion de los textos | `idUsuario`, `versionAviso`, `versionTerminos` |
+| `MENOR_RECHAZADO`                     | Un alta se rechaza por ser menor de 18 (403)                                            | ninguno                                        |
+| `LIMITE_SUPERADO`                     | Una cuenta llega al tope por cuenta de una ruta                                         | `ruta`, `idUsuario` (si ya hay cuenta)         |
 
 Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente`,
 `tipo`, y cuando se conocen `idPeticion` (el `x-request-id` de la respuesta) y
@@ -496,7 +497,9 @@ Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente
 }
 ```
 
-Los cuatro ultimos (SCRUM-167) siguen las mismas reglas, con matices:
+Los cinco ultimos (SCRUM-167) siguen las mismas reglas, con matices. El del
+acompanamiento es igual que el del diario: cambiar el permiso se anota, repetir el
+mismo valor no, y nunca lleva lo que el acompanamiento haya inferido.
 
 - **`CONSENTIMIENTO_REGISTRADO`** lleva solo las versiones de los textos que se
   aceptaron (por ejemplo `2026-10-3`), nunca su contenido ni la fecha de

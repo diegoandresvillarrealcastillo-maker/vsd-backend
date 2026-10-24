@@ -2,6 +2,12 @@ import type { Dia } from '../../model/Calendario.js';
 import type { EntradaDeDiario } from '../../model/EntradaDeDiario.js';
 import type { ClientOperationId, EntradaId, UserId } from '../../model/Identifier.js';
 
+/** Una carta que espera ser leida. Sin su texto: solo lo que hace falta para ofrecerla. */
+export interface CartaEnEspera {
+  readonly id: EntradaId;
+  readonly dia: Dia;
+}
+
 /**
  * Puerto de salida del diario.
  *
@@ -43,4 +49,23 @@ export interface DiarioRepositoryPort {
     editada: EntradaDeDiario,
     versionAnterior: number,
   ): Promise<EntradaDeDiario | null>;
+
+  /**
+   * Borra una anotacion propia, la lea o no. No dice si existia: una que ya no esta, o que es de otra
+   * persona, se trata igual, para que se pueda reintentar sin que cambie nada (SCRUM-230). Tampoco
+   * deja el texto en ningun otro sitio: la fila era lo unico que lo guardaba.
+   */
+  borrar(userId: UserId, id: EntradaId): Promise<void>;
+
+  /**
+   * Las cartas de un rango de dias que todavia no se abrieron, la mas reciente primero y **sin
+   * su texto**. Lo que necesita la tarjeta para ofrecerlas y nada mas.
+   */
+  cartasEnEspera(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly CartaEnEspera[]>;
+
+  /**
+   * Marca la carta como abierta en `cuando` y devuelve la anotacion. Si ya estaba abierta no cambia
+   * la hora de la primera vez. Devuelve `null` si no existe, es de otra persona o no es una carta.
+   */
+  abrirCarta(userId: UserId, id: EntradaId, cuando: Date): Promise<EntradaDeDiario | null>;
 }

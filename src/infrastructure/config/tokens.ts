@@ -42,6 +42,9 @@ export const DIARIO_REPOSITORY = Symbol('DiarioRepositoryPort');
 export const CONSULTAR_DIARIO = Symbol('ConsultarDiarioUseCase');
 export const ESCRIBIR_EN_EL_DIARIO = Symbol('EscribirEnElDiarioUseCase');
 export const EDITAR_ANOTACION = Symbol('EditarAnotacionUseCase');
+export const BORRAR_ANOTACION = Symbol('BorrarAnotacionUseCase');
+export const ABRIR_CARTA = Symbol('AbrirCartaUseCase');
+export const CONSULTAR_CARTAS_EN_ESPERA = Symbol('ConsultarCartasEnEsperaUseCase');
 
 /** El semaforo de pendientes (SCRUM-97). */
 export const PENDIENTES_REPOSITORY = Symbol('PendientesRepositoryPort');

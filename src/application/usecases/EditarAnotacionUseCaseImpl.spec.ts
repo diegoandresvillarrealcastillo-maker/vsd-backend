@@ -3,6 +3,7 @@ import { DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import {
   EditWindowClosedError,
   JournalEntryNotFoundError,
+  SealedLetterError,
   StaleJournalEntryError,
 } from '../../domain/model/DomainError.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
@@ -49,6 +50,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -66,6 +68,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
   describe('La hora del dispositivo (SCRUM-144)', () => {
     const peticion = (extra: Record<string, unknown> = {}) => ({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -221,6 +224,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -239,6 +243,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -248,6 +253,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -266,6 +272,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: OTRA,
+        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -283,6 +290,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
     await expect(
       casoDeUso.execute({
         userId: PERSONA,
+        zonaHoraria: 'America/Bogota',
         conRecomendaciones: false,
         entradaId: ENTRADA,
         version: 1,
@@ -296,6 +304,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: true,
       entradaId: ENTRADA,
       version: 1,
@@ -311,6 +320,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const guardada = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -326,6 +336,7 @@ describe('EditarAnotacionUseCaseImpl', () => {
 
     const { entrada } = await casoDeUso.execute({
       userId: PERSONA,
+      zonaHoraria: 'America/Bogota',
       conRecomendaciones: false,
       entradaId: ENTRADA,
       version: 1,
@@ -333,5 +344,57 @@ describe('EditarAnotacionUseCaseImpl', () => {
     });
 
     expect(entrada.adjuntos).toEqual([]);
+  });
+});
+
+describe('Una carta que espera no se corrige (SCRUM-230)', () => {
+  const CARTA = '55555555-5555-4555-8555-555555555555';
+
+  function conCarta() {
+    const { diario, reloj, casoDeUso } = armar();
+
+    diario.agregar(
+      EntradaDeDiario.guardada({
+        id: new EntradaId(CARTA),
+        userId: new UserId(PERSONA),
+        clientOperationId: new ClientOperationId('44444444-4444-4444-b444-000000000009'),
+        dia: '2026-10-03',
+        documento: DocumentoDelDiario.desdeTextoPlano('Manana, calma'),
+        cartaAManana: true,
+        version: 1,
+        creadaEn: ESCRITA,
+        editadaEn: ESCRITA,
+      }),
+    );
+
+    return { diario, reloj, casoDeUso };
+  }
+
+  const correccion = {
+    userId: PERSONA,
+    zonaHoraria: 'America/Bogota',
+    conRecomendaciones: false,
+    entradaId: CARTA,
+    version: 1,
+    contenido: documentoCon('Lo cambio sin verla'),
+  };
+
+  it('dentro de su hora tampoco: su texto no se ve, y corregir a ciegas la dejaria peor', async () => {
+    const { casoDeUso, diario } = conCarta();
+
+    await expect(casoDeUso.execute(correccion)).rejects.toThrow(SealedLetterError);
+
+    const guardada = await diario.porId(new UserId(PERSONA), new EntradaId(CARTA));
+
+    expect(guardada?.documento.textoPlano()).toBe('Manana, calma');
+    expect(guardada?.version).toBe(1);
+  });
+
+  it('una anotacion corriente de ese dia si se corrige, como siempre', async () => {
+    const { casoDeUso } = armar();
+
+    const { entrada } = await casoDeUso.execute({ ...correccion, entradaId: ENTRADA });
+
+    expect(entrada.version).toBe(2);
   });
 });

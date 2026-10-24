@@ -1,7 +1,10 @@
 import type { Dia } from '../../domain/model/Calendario.js';
 import type { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import type { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
-import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type {
+  CartaEnEspera,
+  DiarioRepositoryPort,
+} from '../../domain/ports/out/DiarioRepositoryPort.js';
 
 /**
  * Diario en memoria, para el arranque sin base de datos y para las pruebas.
@@ -76,6 +79,47 @@ export class InMemoryDiarioRepository implements DiarioRepositoryPort {
     );
 
     return Promise.resolve(editada);
+  }
+
+  borrar(userId: UserId, id: EntradaId): Promise<void> {
+    this.porPersona.set(
+      userId.value,
+      this.de(userId).filter((entrada) => !entrada.id.equals(id)),
+    );
+
+    return Promise.resolve();
+  }
+
+  cartasEnEspera(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly CartaEnEspera[]> {
+    return Promise.resolve(
+      this.de(userId)
+        .filter(
+          (entrada) =>
+            entrada.cartaAManana &&
+            entrada.cartaAbiertaEn === undefined &&
+            entrada.dia >= desde &&
+            entrada.dia <= hasta,
+        )
+        .sort((una, otra) => otra.dia.localeCompare(una.dia))
+        .map((entrada) => ({ id: entrada.id, dia: entrada.dia })),
+    );
+  }
+
+  abrirCarta(userId: UserId, id: EntradaId, cuando: Date): Promise<EntradaDeDiario | null> {
+    const actual = this.de(userId).find((entrada) => entrada.id.equals(id));
+
+    if (actual === undefined || !actual.cartaAManana) {
+      return Promise.resolve(null);
+    }
+
+    const abierta = actual.cartaAbiertaEn === undefined ? actual.abierta(cuando) : actual;
+
+    this.porPersona.set(
+      userId.value,
+      this.de(userId).map((entrada) => (entrada === actual ? abierta : entrada)),
+    );
+
+    return Promise.resolve(abierta);
   }
 
   /** Solo para pruebas: deja una anotacion tal cual, sin pasar por las reglas. */

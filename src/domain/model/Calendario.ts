@@ -118,6 +118,13 @@ export class Calendario {
     );
   }
 
+  /** El dia `cantidad` dias despues de otro: antes, si es negativa. */
+  static sumarDias(dia: Dia, cantidad: number): Dia {
+    return new Date(Date.parse(`${dia}T00:00:00Z`) + cantidad * UN_DIA_EN_MS)
+      .toISOString()
+      .slice(0, 10);
+  }
+
   /** El dia local al que pertenece un instante. */
   diaDe(instante: Date): Dia {
     const { anio, mes, dia } = this.partesLocales(instante);

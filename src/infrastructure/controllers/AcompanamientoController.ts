@@ -6,7 +6,7 @@ import { CuentaActual } from '../auth/CuentaActual.js';
 import { CONSULTAR_ACOMPANAMIENTO } from '../config/tokens.js';
 import { AcompanamientoRespuestaDto } from './dto/AcompanamientoRespuestaDto.js';
 
-/** El acompanamiento por dias seguidos con atencion (SCRUM-177). */
+/** El acompanamiento por dias seguidos con atencion (SCRUM-177) y por abandono (SCRUM-256). */
 @ApiTags('Acompanamiento')
 @ApiBearerAuth('sesion')
 @Controller('api/acompanamiento')
@@ -22,7 +22,7 @@ export class AcompanamientoController {
   @ApiOperation({
     summary: 'Consultar si conviene ofrecer acompanamiento a quien firma el token',
     description:
-      'Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.',
+      'Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Aparte, `abandono` (SCRUM-256) dice si la persona venia de 3 o mas dias seguidos con atencion, su ultimo registro fue de atencion y lleva de 3 a 30 dias sin registrar nada: moderado si venia de 3 a 6 dias, critico (con lineas) si venia de 7 o mas; nunca es distinto de ninguno a la vez que `nivel`. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.',
   })
   @ApiResponse({ status: 200, type: AcompanamientoRespuestaDto })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })

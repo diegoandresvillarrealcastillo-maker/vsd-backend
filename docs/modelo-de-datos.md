@@ -94,6 +94,7 @@ queda su identificador. Ver
 | `modulos_activos`               | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                                      |
 | `mascota`                       | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.                              |
 | `diario_con_recomendaciones`    | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108).                |
+| `acompanamiento_por_dias`       | BOOLEAN      | no   | Si permite mirar sus resultados día tras día para acompañarla. `false` por defecto (SCRUM-177).    |
 | `foto_actualizada_el`           | TIMESTAMPTZ  | sí   | Cuándo se guardó la foto de perfil. NULL: no tiene. La foto vive en Storage (ADR 0016).            |
 | `mascota_propia_actualizada_el` | TIMESTAMPTZ  | sí   | Cuándo se guardó la mascota propia, un SVG. NULL: no tiene. El archivo vive en Storage (ADR 0017). |
 

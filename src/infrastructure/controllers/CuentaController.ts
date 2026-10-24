@@ -215,6 +215,9 @@ export class CuentaController {
       ...(dto.diarioConRecomendaciones === undefined
         ? {}
         : { diarioConRecomendaciones: dto.diarioConRecomendaciones }),
+      ...(dto.acompanamientoPorDias === undefined
+        ? {}
+        : { acompanamientoPorDias: dto.acompanamientoPorDias }),
     });
 
     // Dejar que el diario reciba recomendaciones es dar permiso sobre lo mas

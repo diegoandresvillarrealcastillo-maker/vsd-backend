@@ -105,6 +105,12 @@ export class CuentaRespuestaDto {
 
   @ApiProperty({
     description:
+      'Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177).',
+  })
+  acompanamientoPorDias!: boolean;
+
+  @ApiProperty({
+    description:
       'Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).',
     example: 'America/Bogota',
   })
@@ -136,6 +142,7 @@ export class CuentaRespuestaDto {
     dto.modulosActivos = [...cuenta.modulosActivos];
     dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
     dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
+    dto.acompanamientoPorDias = cuenta.acompanamientoPorDias;
     dto.zonaHoraria = cuenta.zonaHoraria;
     dto.foto =
       cuenta.fotoActualizadaEl === undefined ? null : { actualizadaEl: cuenta.fotoActualizadaEl };

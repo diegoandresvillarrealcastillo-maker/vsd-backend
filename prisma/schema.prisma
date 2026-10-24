@@ -175,6 +175,8 @@ model Usuario {
   mascota                 Json?    @db.JsonB
   /// Si permite que el diario se lea para recomendarle. Apagado por defecto (SCRUM-108).
   diarioConRecomendaciones Boolean @default(false) @map("diario_con_recomendaciones")
+  /// Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177).
+  acompanamientoPorDias Boolean @default(false) @map("acompanamiento_por_dias")
   /// Zona IANA de la persona, informada por su dispositivo (SCRUM-123). Decide
   /// que dia es para ella. Las cuentas anteriores quedan en America/Bogota.
   zonaHoraria String @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)

@@ -527,6 +527,15 @@ model EntradaDiario {
   /// la copia local se guarda aparte. Ver ADR 0009.
   version Int @default(1)
 
+  /// «Carta a mi de manana» (EMO-05, SCRUM-230): una anotacion que se escribe hoy y
+  /// cuyo texto no sale por la API hasta que la persona la abre, desde el dia
+  /// siguiente. Se puede borrar sin abrirla. Ver ADR 0033.
+  cartaAManana Boolean @default(false) @map("carta_a_manana")
+
+  /// Cuando se abrio. Solo una carta se abre, y se puede marcar pasada la hora para
+  /// editar: es el unico cambio que el disparador deja pasar sin tocar el texto.
+  cartaAbiertaEn DateTime? @map("carta_abierta_en") @db.Timestamptz(3)
+
   /// La hora en que, segun el dispositivo, se escribio la anotacion: de ella se
   /// cuenta la hora para editar. La base la acota (nunca en el futuro, nunca de
   /// hace mas de 30 dias) y no se puede editar despues. Ver las migraciones

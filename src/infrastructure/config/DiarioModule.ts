@@ -1,4 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
+import { AbrirCartaUseCaseImpl } from '../../application/usecases/AbrirCartaUseCaseImpl.js';
+import { BorrarAnotacionUseCaseImpl } from '../../application/usecases/BorrarAnotacionUseCaseImpl.js';
+import { ConsultarCartasEnEsperaUseCaseImpl } from '../../application/usecases/ConsultarCartasEnEsperaUseCaseImpl.js';
 import { ConsultarDiarioUseCaseImpl } from '../../application/usecases/ConsultarDiarioUseCaseImpl.js';
 import { EditarAnotacionUseCaseImpl } from '../../application/usecases/EditarAnotacionUseCaseImpl.js';
 import { EscribirEnElDiarioUseCaseImpl } from '../../application/usecases/EscribirEnElDiarioUseCaseImpl.js';
@@ -9,6 +12,9 @@ import { InMemoryDiarioRepository } from '../repositories/InMemoryDiarioReposito
 import { PrismaDiarioRepository } from '../repositories/PrismaDiarioRepository.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
 import {
+  ABRIR_CARTA,
+  BORRAR_ANOTACION,
+  CONSULTAR_CARTAS_EN_ESPERA,
   CONSULTAR_DIARIO,
   DIARIO_REPOSITORY,
   EDITAR_ANOTACION,
@@ -61,6 +67,21 @@ import {
     {
       provide: EDITAR_ANOTACION,
       useFactory: (diario: DiarioRepositoryPort) => new EditarAnotacionUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
+    },
+    {
+      provide: BORRAR_ANOTACION,
+      useFactory: (diario: DiarioRepositoryPort) => new BorrarAnotacionUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
+    },
+    {
+      provide: ABRIR_CARTA,
+      useFactory: (diario: DiarioRepositoryPort) => new AbrirCartaUseCaseImpl(diario),
+      inject: [DIARIO_REPOSITORY],
+    },
+    {
+      provide: CONSULTAR_CARTAS_EN_ESPERA,
+      useFactory: (diario: DiarioRepositoryPort) => new ConsultarCartasEnEsperaUseCaseImpl(diario),
       inject: [DIARIO_REPOSITORY],
     },
   ],

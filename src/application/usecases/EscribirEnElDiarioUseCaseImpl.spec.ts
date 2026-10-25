@@ -6,6 +6,7 @@ import {
 } from '../../domain/model/DomainError.js';
 import { EntradaId, UserId } from '../../domain/model/Identifier.js';
 import { DiarioDePrueba, documentoCon } from '../../pruebas/diarioDePrueba.js';
+import { reunir } from '../../pruebas/reunir.js';
 import { EscribirEnElDiarioUseCaseImpl } from './EscribirEnElDiarioUseCaseImpl.js';
 
 const ZONA = 'America/Bogota';
@@ -301,7 +302,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
         contenido: documentoCon('Manana'),
       }),
     ).rejects.toThrow(FutureJournalDayError);
-    expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(0);
+    expect(await reunir(diario.paginasDeEntradas(new UserId(PERSONA)))).toHaveLength(0);
   });
 
   it('el mismo clientOperationId devuelve la misma anotacion, sin duplicarla', async () => {
@@ -324,7 +325,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
     });
 
     expect(segunda.entrada.id.equals(primera.entrada.id)).toBe(true);
-    expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(1);
+    expect(await reunir(diario.paginasDeEntradas(new UserId(PERSONA)))).toHaveLength(1);
   });
 
   it('la operacion es por persona: la misma clave de otra crea la suya', async () => {
@@ -346,7 +347,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
       contenido: documentoCon('B'),
     });
 
-    expect(await diario.todasDe(new UserId(OTRA))).toHaveLength(1);
+    expect(await reunir(diario.paginasDeEntradas(new UserId(OTRA)))).toHaveLength(1);
   });
 
   it('sin senal de riesgo no se sugiere acompanamiento', async () => {
@@ -413,7 +414,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
       const { casoDeUso, diario } = armar(dos('04:54'));
 
       await expect(escribir(casoDeUso, '2026-10-03')).rejects.toThrow(FutureJournalDayError);
-      expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(0);
+      expect(await reunir(diario.paginasDeEntradas(new UserId(PERSONA)))).toHaveLength(0);
     });
 
     it('a las 23:55 justo si: el limite exacto se admite', async () => {
@@ -491,7 +492,7 @@ describe('EscribirEnElDiarioUseCaseImpl', () => {
         contenido: '<p>hola</p>',
       }),
     ).rejects.toThrow(InvalidJournalEntryError);
-    expect(await diario.todasDe(new UserId(PERSONA))).toHaveLength(0);
+    expect(await reunir(diario.paginasDeEntradas(new UserId(PERSONA)))).toHaveLength(0);
   });
 
   it('una operacion mal formada se rechaza antes de buscar nada', async () => {

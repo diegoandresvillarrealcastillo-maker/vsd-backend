@@ -4,6 +4,7 @@ import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/Histo
 import type { ActivityId, ClientOperationId, UserId } from '../../domain/model/Identifier.js';
 import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { FILAS_POR_PAGINA } from '../../domain/ports/out/LecturaPorPaginas.js';
 
 /**
  * Adaptador de persistencia en memoria.
@@ -59,9 +60,25 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
     const suyos = [...this.porOperacion.values()]
       .filter((resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde)
-      .sort((uno, otro) => otro.completedAt.getTime() - uno.completedAt.getTime());
+      // Del mas reciente al mas antiguo y, a igual hora, por identificador: el orden de PostgreSQL.
+      .sort(
+        (uno, otro) =>
+          otro.completedAt.getTime() - uno.completedAt.getTime() ||
+          Number(otro.id.value > uno.id.value) - Number(otro.id.value < uno.id.value),
+      );
 
     return Promise.resolve(suyos);
+  }
+
+  async *paginasDeResultados(
+    userId: UserId,
+    desde: Date,
+  ): AsyncGenerator<readonly ActivityResult[], void, undefined> {
+    const todos = await this.ultimosDe(userId, desde);
+
+    for (let inicio = 0; inicio < todos.length; inicio += FILAS_POR_PAGINA) {
+      yield todos.slice(inicio, inicio + FILAS_POR_PAGINA);
+    }
   }
 
   hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {

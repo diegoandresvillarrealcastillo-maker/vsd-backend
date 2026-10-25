@@ -59,6 +59,16 @@ export interface ActivityResultRepositoryPort {
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]>;
 
   /**
+   * Lo mismo que `ultimosDe`, **por paginas** de `FILAS_POR_PAGINA` (SCRUM-262): del mas reciente al
+   * mas antiguo, sin repetir ni saltarse ninguno aunque dos compartan la hora.
+   *
+   * Es lo que se usa cuando se necesita todo lo de la persona y no una ventana: su exportacion y su
+   * progreso. Quien lo consume decide que conserva de cada pagina; no hace falta tenerlas todas a la
+   * vez. Una persona sin resultados no produce ninguna pagina.
+   */
+  paginasDeResultados(userId: UserId, desde: Date): AsyncIterable<readonly ActivityResult[]>;
+
+  /**
    * Si esa persona hizo alguna actividad desde una fecha.
    *
    * Es lo unico que necesitan los recordatorios de la racha y de la noche:

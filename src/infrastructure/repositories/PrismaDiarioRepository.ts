@@ -5,6 +5,7 @@ import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
+import { porPaginas } from '../persistence/porPaginas.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /** Un dia como lo guarda una columna DATE: la medianoche UTC de esa fecha. */
@@ -41,15 +42,35 @@ function documentoDe(fila: EntradaDiario): DocumentoDelDiario {
 export class PrismaDiarioRepository implements DiarioRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
-  async todasDe(userId: UserId): Promise<readonly EntradaDeDiario[]> {
-    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.entradaDiario.findMany({
-        where: { idUsuario: userId.value },
-        orderBy: { fechaCreacion: 'asc' },
-      }),
+  async *paginasDeEntradas(
+    userId: UserId,
+  ): AsyncGenerator<readonly EntradaDeDiario[], void, undefined> {
+    // El cursor es (fecha de creacion, id), el orden total de la lectura: lo que sigue es lo
+    // estrictamente posterior y, a igual hora, el de mayor identificador. La columna guarda
+    // milisegundos, los mismos que entrega Prisma, asi que la comparacion es exacta.
+    const paginas = porPaginas<EntradaDiario>((ultima, limite) =>
+      this.prisma.comoUsuario(userId.value, (cliente) =>
+        cliente.entradaDiario.findMany({
+          where: {
+            idUsuario: userId.value,
+            ...(ultima === undefined
+              ? {}
+              : {
+                  OR: [
+                    { fechaCreacion: { gt: ultima.fechaCreacion } },
+                    { fechaCreacion: ultima.fechaCreacion, id: { gt: ultima.id } },
+                  ],
+                }),
+          },
+          orderBy: [{ fechaCreacion: 'asc' }, { id: 'asc' }],
+          take: limite,
+        }),
+      ),
     );
 
-    return filas.map((fila) => this.aDominio(fila));
+    for await (const filas of paginas) {
+      yield filas.map((fila) => this.aDominio(fila));
+    }
   }
 
   async entreDias(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly EntradaDeDiario[]> {

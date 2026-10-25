@@ -754,4 +754,75 @@ describe.skipIf(URL_DUENO === undefined)('El diario en PostgreSQL', () => {
       expect(rows).toHaveLength(0);
     });
   });
+
+  describe('paginasDeEntradas (SCRUM-262)', () => {
+    const TOTAL = 450;
+
+    /**
+     * 450 anotaciones de PERSONA y 3 de OTRA. Cada hora la comparten tres de PERSONA: con 200 por
+     * pagina, el limite de la primera parte justo un empate, que es donde un cursor mal hecho repite
+     * o se salta filas.
+     */
+    async function sembrarMuchas(): Promise<void> {
+      await dueno.query(
+        `INSERT INTO entrada_diario (id_entrada, id_usuario, contenido, id_operacion_cliente, fecha_creacion, fecha_edicion)
+         SELECT ('96000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, 'Entrada ' || i,
+                ('97000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute'),
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute')
+           FROM generate_series(1, $2::int) AS i`,
+        [PERSONA, TOTAL],
+      );
+      await dueno.query(
+        `INSERT INTO entrada_diario (id_entrada, id_usuario, contenido, id_operacion_cliente, fecha_creacion, fecha_edicion)
+         SELECT ('98000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, 'De la otra persona',
+                ('99000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, now(), now()
+           FROM generate_series(1, 3) AS i`,
+        [OTRA],
+      );
+    }
+
+    async function paginas(persona: string): Promise<EntradaDeDiario[][]> {
+      const todas: EntradaDeDiario[][] = [];
+
+      for await (const pagina of diario.paginasDeEntradas(new UserId(persona))) {
+        todas.push([...pagina]);
+      }
+
+      return todas;
+    }
+
+    it('entrega todo en paginas de 200, de la mas antigua a la mas reciente, sin repetir ni saltarse ninguna', async () => {
+      await sembrarMuchas();
+
+      const recibidas = await paginas(PERSONA);
+
+      expect(recibidas.map((pagina) => pagina.length)).toEqual([200, 200, 50]);
+
+      const ids = recibidas.flat().map((entrada) => entrada.id.value);
+      const { rows } = await dueno.query<{ id: string }>(
+        `SELECT id_entrada AS id FROM entrada_diario WHERE id_usuario = $1
+          ORDER BY fecha_creacion ASC, id_entrada ASC`,
+        [PERSONA],
+      );
+
+      expect(new Set(ids).size).toBe(TOTAL);
+      expect(ids).toEqual(rows.map((fila) => fila.id));
+    });
+
+    it('lo de otra persona no aparece: el aislamiento lo pone la base', async () => {
+      await sembrarMuchas();
+
+      const entradas = (await paginas(OTRA)).flat();
+
+      expect(entradas).toHaveLength(3);
+      expect(
+        entradas.every((entrada) => entrada.documento.textoPlano() === 'De la otra persona'),
+      ).toBe(true);
+    });
+
+    it('una persona sin anotaciones no produce ninguna pagina', async () => {
+      await expect(paginas(PERSONA)).resolves.toEqual([]);
+    });
+  });
 });

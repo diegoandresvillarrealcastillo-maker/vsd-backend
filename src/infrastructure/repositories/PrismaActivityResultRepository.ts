@@ -14,6 +14,7 @@ import { NivelOrientativo, OrientativeScore } from '../../domain/model/Orientati
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
+import { porPaginas } from '../persistence/porPaginas.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /**
@@ -119,16 +120,56 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   }
 
   async ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
-    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
-        where: { idUsuario: userId.value, fecha: { gte: desde } },
-        orderBy: { fecha: 'desc' },
-      }),
+    // Por paginas: ninguna consulta trae mas de `FILAS_POR_PAGINA` filas. Lo que se devuelve sigue
+    // siendo todo lo de la ventana, para quien la necesita entera.
+    const resultados: ActivityResult[] = [];
+
+    for await (const pagina of this.paginasDeResultados(userId, desde)) {
+      resultados.push(...pagina);
+    }
+
+    return resultados;
+  }
+
+  async *paginasDeResultados(
+    userId: UserId,
+    desde: Date,
+  ): AsyncGenerator<readonly ActivityResult[], void, undefined> {
+    // El catalogo se recuerda entre paginas: una actividad se consulta una sola vez en todo el recorrido.
+    const catalogo = new Map<string, Activity | null>();
+
+    // El cursor es (fecha, id), el orden total de la lectura: lo que sigue es lo estrictamente
+    // anterior y, a igual fecha, el de menor identificador. Dos resultados con la misma hora no
+    // quedan uno en cada lado de una pagina ni se repiten.
+    const paginas = porPaginas<Resultado>((ultima, limite) =>
+      this.prisma.comoUsuario(userId.value, (cliente) =>
+        cliente.resultado.findMany({
+          where: {
+            idUsuario: userId.value,
+            fecha: { gte: desde },
+            ...(ultima === undefined
+              ? {}
+              : {
+                  OR: [
+                    { fecha: { lt: ultima.fecha } },
+                    { fecha: ultima.fecha, id: { lt: ultima.id } },
+                  ],
+                }),
+          },
+          orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
+          take: limite,
+        }),
+      ),
     );
 
-    const catalogo = await this.catalogoDe(filas.map((fila) => fila.idActividad));
+    for await (const filas of paginas) {
+      await this.catalogoDe(
+        filas.map((fila) => fila.idActividad),
+        catalogo,
+      );
 
-    return filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
+      yield filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
+    }
   }
 
   async hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
@@ -248,11 +289,14 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
    * El catalogo se consulta una vez por actividad distinta y no una vez por fila: un historial de
    * treinta resultados de la misma actividad no puede costar treinta consultas.
    */
-  private async catalogoDe(ids: Iterable<string>): Promise<Map<string, Activity | null>> {
-    const catalogo = new Map<string, Activity | null>();
-
+  private async catalogoDe(
+    ids: Iterable<string>,
+    catalogo = new Map<string, Activity | null>(),
+  ): Promise<Map<string, Activity | null>> {
     for (const idActividad of new Set(ids)) {
-      catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+      if (!catalogo.has(idActividad)) {
+        catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+      }
     }
 
     return catalogo;

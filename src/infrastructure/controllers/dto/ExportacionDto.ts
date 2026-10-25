@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { horaDeMinuto } from '../../../domain/model/Aviso.js';
-import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
+import type {
+  DatosExportados,
+  ResultadoExportado,
+} from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { CuentaRespuestaDto } from './CuentaRespuestaDto.js';
 import { EntradaDelDiarioDto } from './EntradaDelDiarioDto.js';
 import { PendienteDto } from './PendienteDto.js';
@@ -106,6 +109,10 @@ export class DatoCuriosoExportadoDto {
  *
  * Las anotaciones del diario salen igual que en `GET /api/diario` (SCRUM-95):
  * con su dia, el documento del editor y sus diagramas.
+ *
+ * Esta clase **describe** la respuesta (es lo que documenta `openapi.json`); no se arma entera. Los
+ * resultados, el diario y los pendientes salen por paginas, uno a uno, con el mismo JSON de
+ * siempre (SCRUM-262): ver `exportacionEnFlujo.ts`. Aqui se arma cada pieza.
  */
 export class ExportacionDto {
   @ApiProperty({ type: String, format: 'date-time', description: 'Cuándo se generó.' })
@@ -163,67 +170,63 @@ export class ExportacionDto {
   })
   datoCurioso!: DatoCuriosoExportadoDto | null;
 
-  static desde(datos: DatosExportados): ExportacionDto {
-    const dto = new ExportacionDto();
+  /** Un resultado de la lista `resultados`, con el titulo de su sesion si la hizo. */
+  static resultado(exportado: ResultadoExportado): ResultadoExportadoDto {
+    const dto: ResultadoExportadoDto = ResultadoRespuestaDto.desde(exportado.resultado);
 
-    dto.generadoEn = datos.generadoEn.toISOString();
-    dto.cuenta = CuentaRespuestaDto.desde(datos.cuenta);
-    dto.fechaNacimiento = datos.cuenta.fechaDeNacimiento?.valor ?? null;
-    dto.consentimientos = datos.consentimientos.map((aceptado) => ({
-      tipo: aceptado.tipo,
-      version: aceptado.version,
-      aceptadoEn: aceptado.aceptadoEn.toISOString(),
-    }));
-    dto.resultados = datos.resultados.map((resultado) => {
-      const exportado: ResultadoExportadoDto = ResultadoRespuestaDto.desde(resultado);
-      const titulo =
-        resultado.sessionId === undefined
-          ? undefined
-          : datos.titulosDeSesiones.get(resultado.sessionId.value);
-
-      if (titulo !== undefined) {
-        exportado.sesion = titulo;
-      }
-
-      return exportado;
-    });
-    dto.entradasDeDiario = datos.entradasDeDiario.map((entrada) =>
-      EntradaDelDiarioDto.desde(entrada),
-    );
-    dto.pendientes = datos.pendientes.map((pendiente) => PendienteDto.desde(pendiente));
-
-    const { preferencias, navegadores } = datos.avisos;
-
-    dto.avisos = {
-      horaSemaforo:
-        preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
-      frecuenciaSemaforo: preferencias.frecuenciaSemaforo,
-      horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
-      recordatorioManana: preferencias.minutoManana !== null,
-      recordatorioNoche: preferencias.minutoNoche !== null,
-      navegadores,
-    };
-
-    dto.foto =
-      datos.foto === null
-        ? null
-        : {
-            tipo: datos.foto.tipo,
-            actualizadaEl: datos.foto.actualizadaEl.toISOString(),
-            contenidoBase64: Buffer.from(datos.foto.contenido).toString('base64'),
-          };
-
-    dto.mascotaPropia =
-      datos.mascotaPropia === null
-        ? null
-        : {
-            tipo: datos.mascotaPropia.tipo,
-            actualizadaEl: datos.mascotaPropia.actualizadaEl.toISOString(),
-            contenido: new TextDecoder().decode(datos.mascotaPropia.contenido),
-          };
-
-    dto.datoCurioso = datos.datoCurioso;
+    if (exportado.titulo !== undefined) {
+      dto.sesion = exportado.titulo;
+    }
 
     return dto;
   }
+
+  /** Todo menos las tres listas, que no caben en una pieza: salen por paginas. */
+  static sinListas(datos: DatosExportados): ExportacionSinListas {
+    const { preferencias, navegadores } = datos.avisos;
+
+    return {
+      generadoEn: datos.generadoEn.toISOString(),
+      cuenta: CuentaRespuestaDto.desde(datos.cuenta),
+      fechaNacimiento: datos.cuenta.fechaDeNacimiento?.valor ?? null,
+      consentimientos: datos.consentimientos.map((aceptado) => ({
+        tipo: aceptado.tipo,
+        version: aceptado.version,
+        aceptadoEn: aceptado.aceptadoEn.toISOString(),
+      })),
+      avisos: {
+        horaSemaforo:
+          preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
+        frecuenciaSemaforo: preferencias.frecuenciaSemaforo,
+        horaRacha:
+          preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
+        recordatorioManana: preferencias.minutoManana !== null,
+        recordatorioNoche: preferencias.minutoNoche !== null,
+        navegadores,
+      },
+      foto:
+        datos.foto === null
+          ? null
+          : {
+              tipo: datos.foto.tipo,
+              actualizadaEl: datos.foto.actualizadaEl.toISOString(),
+              contenidoBase64: Buffer.from(datos.foto.contenido).toString('base64'),
+            },
+      mascotaPropia:
+        datos.mascotaPropia === null
+          ? null
+          : {
+              tipo: datos.mascotaPropia.tipo,
+              actualizadaEl: datos.mascotaPropia.actualizadaEl.toISOString(),
+              contenido: new TextDecoder().decode(datos.mascotaPropia.contenido),
+            },
+      datoCurioso: datos.datoCurioso,
+    };
+  }
 }
+
+/** De la exportacion, lo que se arma de una pieza: todo menos las tres listas por paginas. */
+export type ExportacionSinListas = Omit<
+  ExportacionDto,
+  'resultados' | 'entradasDeDiario' | 'pendientes'
+>;

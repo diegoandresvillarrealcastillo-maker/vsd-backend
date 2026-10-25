@@ -9,6 +9,7 @@ import {
 } from '../../../domain/model/Identifier.js';
 import type { DatosExportados } from '../../../domain/ports/in/ExportarDatosUseCase.js';
 import { unaCuenta } from '../../../pruebas/contratoDeUsuarios.js';
+import { sinFilas } from '../../../pruebas/reunir.js';
 import { PNG_REAL_DE_8_X_6 } from '../../../pruebas/fotosDePrueba.js';
 import { ExportacionDto } from './ExportacionDto.js';
 
@@ -21,10 +22,9 @@ function datosConAvisos(
     generadoEn: new Date('2026-10-08T15:00:00.000Z'),
     cuenta: unaCuenta(),
     consentimientos: [],
-    resultados: [],
-    titulosDeSesiones: new Map(),
-    entradasDeDiario: [],
-    pendientes: [],
+    resultados: sinFilas(),
+    entradasDeDiario: sinFilas(),
+    pendientes: sinFilas(),
     avisos: {
       preferencias: {
         userId: new UserId(PERSONA),
@@ -47,7 +47,7 @@ function datosConAvisos(
 /** La exportacion es el derecho de acceso de la Ley 1581: todo lo que se guarda, sale. */
 describe('ExportacionDto: los avisos', () => {
   it('sin nada encendido, todo sale apagado', () => {
-    expect(ExportacionDto.desde(datosConAvisos({})).avisos).toEqual({
+    expect(ExportacionDto.sinListas(datosConAvisos({})).avisos).toEqual({
       horaSemaforo: null,
       frecuenciaSemaforo: 'manana',
       horaRacha: null,
@@ -58,7 +58,7 @@ describe('ExportacionDto: los avisos', () => {
   });
 
   it('las horas salen como HH:MM y los recordatorios de las 8:00 y las 20:00, encendidos (SCRUM-126)', () => {
-    const { avisos } = ExportacionDto.desde(
+    const { avisos } = ExportacionDto.sinListas(
       datosConAvisos({
         minutoSemaforo: 480,
         minutoRacha: 1170,
@@ -78,7 +78,7 @@ describe('ExportacionDto: los avisos', () => {
   });
 
   it('cada recordatorio sale por separado', () => {
-    expect(ExportacionDto.desde(datosConAvisos({ minutoNoche: 1200 })).avisos).toMatchObject({
+    expect(ExportacionDto.sinListas(datosConAvisos({ minutoNoche: 1200 })).avisos).toMatchObject({
       recordatorioManana: false,
       recordatorioNoche: true,
     });
@@ -96,11 +96,11 @@ describe('ExportacionDto: la foto de perfil (SCRUM-120)', () => {
   };
 
   it('sin foto, sale null', () => {
-    expect(ExportacionDto.desde(datosConAvisos({})).foto).toBeNull();
+    expect(ExportacionDto.sinListas(datosConAvisos({})).foto).toBeNull();
   });
 
   it('con foto, sale el archivo en base64, con su tipo y su fecha', () => {
-    expect(ExportacionDto.desde(CON_FOTO).foto).toEqual({
+    expect(ExportacionDto.sinListas(CON_FOTO).foto).toEqual({
       tipo: 'image/png',
       actualizadaEl: '2026-10-09T15:30:00.123Z',
       contenidoBase64: Buffer.from(PNG_REAL_DE_8_X_6).toString('base64'),
@@ -109,7 +109,7 @@ describe('ExportacionDto: la foto de perfil (SCRUM-120)', () => {
 
   it('el base64 vuelve a ser exactamente la imagen', () => {
     const devuelta = new Uint8Array(
-      Buffer.from(ExportacionDto.desde(CON_FOTO).foto?.contenidoBase64 ?? '', 'base64'),
+      Buffer.from(ExportacionDto.sinListas(CON_FOTO).foto?.contenidoBase64 ?? '', 'base64'),
     );
 
     expect(devuelta).toEqual(PNG_REAL_DE_8_X_6);
@@ -128,11 +128,11 @@ describe('ExportacionDto: la mascota propia (SCRUM-122)', () => {
   };
 
   it('sin mascota propia, sale null', () => {
-    expect(ExportacionDto.desde(datosConAvisos({})).mascotaPropia).toBeNull();
+    expect(ExportacionDto.sinListas(datosConAvisos({})).mascotaPropia).toBeNull();
   });
 
   it('con mascota propia, sale el SVG como texto, con su tipo y su fecha', () => {
-    expect(ExportacionDto.desde(CON_MASCOTA).mascotaPropia).toEqual({
+    expect(ExportacionDto.sinListas(CON_MASCOTA).mascotaPropia).toEqual({
       tipo: 'image/svg+xml',
       actualizadaEl: '2026-10-12T09:00:00.000Z',
       contenido: SVG,
@@ -140,7 +140,7 @@ describe('ExportacionDto: la mascota propia (SCRUM-122)', () => {
   });
 
   it('el texto con tildes y enes sale tal cual', () => {
-    const dto = ExportacionDto.desde({
+    const dto = ExportacionDto.sinListas({
       ...CON_MASCOTA,
       mascotaPropia: {
         contenido: new TextEncoder().encode('<svg><g id="ñandú-áé"/></svg>'),
@@ -156,7 +156,7 @@ describe('ExportacionDto: la mascota propia (SCRUM-122)', () => {
 /** El cursor de los datos curiosos es un dato personal (SCRUM-185): sale en la exportacion. */
 describe('ExportacionDto: el dato curioso', () => {
   it('sin ninguno, es nulo', () => {
-    expect(ExportacionDto.desde(datosConAvisos({})).datoCurioso).toBeNull();
+    expect(ExportacionDto.sinListas(datosConAvisos({})).datoCurioso).toBeNull();
   });
 
   it('con uno, sale el texto y el dia, no el identificador', () => {
@@ -165,7 +165,7 @@ describe('ExportacionDto: el dato curioso', () => {
       datoCurioso: { dia: '2026-10-12', texto: 'Los pulpos tienen tres corazones.' },
     };
 
-    expect(ExportacionDto.desde(datos).datoCurioso).toEqual({
+    expect(ExportacionDto.sinListas(datos).datoCurioso).toEqual({
       dia: '2026-10-12',
       texto: 'Los pulpos tienen tres corazones.',
     });
@@ -196,35 +196,32 @@ describe('ExportacionDto: la sesion de cada resultado (ADR 0030, Ley 1581)', () 
   }
 
   it('el resultado de una sesion lleva su titulo, y no su identificador', () => {
-    const datos = {
-      ...datosConAvisos({}),
-      resultados: [resultado(SESION)],
-      titulosDeSesiones: new Map([[SESION, 'Respiración 4-6']]),
-    };
+    const dto = ExportacionDto.resultado({
+      resultado: resultado(SESION),
+      titulo: 'Respiración 4-6',
+    });
 
-    const dto = ExportacionDto.desde(datos);
-
-    expect(dto.resultados[0]).toMatchObject({ sesion: 'Respiración 4-6' });
+    expect(dto).toMatchObject({ sesion: 'Respiración 4-6' });
     expect(JSON.stringify(dto)).not.toContain(SESION);
   });
 
   it('un resultado sin sesion sale como siempre, sin el campo', () => {
-    const dto = ExportacionDto.desde({ ...datosConAvisos({}), resultados: [resultado()] });
+    const dto = ExportacionDto.resultado({ resultado: resultado() });
 
-    expect(dto.resultados[0]).not.toHaveProperty('sesion');
+    expect(dto).not.toHaveProperty('sesion');
   });
 
   it('una sesion que ya no existe no inventa un titulo: el resultado sale sin el campo', () => {
-    const dto = ExportacionDto.desde({ ...datosConAvisos({}), resultados: [resultado(SESION)] });
+    const dto = ExportacionDto.resultado({ resultado: resultado(SESION), titulo: undefined });
 
-    expect(dto.resultados[0]).not.toHaveProperty('sesion');
+    expect(dto).not.toHaveProperty('sesion');
     expect(JSON.stringify(dto)).not.toContain(SESION);
   });
 });
 
 describe('ExportacionDto: la frecuencia del semaforo (SCRUM-146)', () => {
   it('sale lo que la persona eligio, sin convertirlo en horas', () => {
-    const { avisos } = ExportacionDto.desde(
+    const { avisos } = ExportacionDto.sinListas(
       datosConAvisos({ minutoSemaforo: 480, frecuenciaSemaforo: 'dos_veces' }),
     );
 

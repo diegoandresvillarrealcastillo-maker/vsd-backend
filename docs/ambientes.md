@@ -120,17 +120,29 @@ pone un numero, **nunca** `true`:
 
 ### Como comprobar el numero en PRE (hay que hacerlo, no se supone)
 
-1. Pon `TRUST_PROXY_HOPS=1` en las variables de entorno del servicio y reinicia.
+1. Empieza con `TRUST_PROXY_HOPS=1` en las variables de entorno del servicio y reinicia.
 2. Desde **dos conexiones con direccion distinta** (por ejemplo, el computador y el
    celular con datos moviles) haz peticiones a `GET /api/aviso` y mira la cabecera
    `RateLimit` de cada respuesta (`remaining`).
 3. Si los dos contadores bajan **por separado**, el numero esta bien. Si bajan
-   **juntos**, siguen compartiendo el cupo: sube a 2 y repite.
+   **juntos**, siguen compartiendo el cupo: sube de a uno (2, 3...) y repite. El
+   tope es 5.
 4. Para descartar que se pueda esquivar, manda una peticion con la cabecera
    `X-Forwarded-For: 203.0.113.9` y comprueba que el contador no se reinicia ni se
    separa del que ya tenias.
 5. Anota el numero que funciono aqui. Cualquier cambio de infraestructura delante
    de Render (un CDN, otro proxy) cambia la cuenta: repetir la comprobacion.
+
+### Lo que salio en PRE (23/10/2026)
+
+**El valor correcto en PRE es `TRUST_PROXY_HOPS=3`**, no 1 ni 2. Con 1 y con 2 el
+contador se repartia en varios cupos (segun lo observado, cada servidor de
+Cloudflare cuenta aparte). Con 3 baja en un solo contador, y las peticiones con un
+`X-Forwarded-For` inventado no lo separan ni lo reinician: el limite no se esquiva.
+Lo comprobo Diego el 23/10 siguiendo los pasos de arriba (SCRUM-151 y SCRUM-169).
+
+**Para PROD, repetir la prueba y no copiar el numero:** otra cadena de proxies da
+otra cuenta, y contar de mas deja esquivar el limite.
 
 Ademas del limite general, las rutas que cuestan llevan un tope **por cuenta**
 (`@LimitePorCuenta`, valores en `src/infrastructure/limites/limites.ts`): exportar

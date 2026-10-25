@@ -712,6 +712,28 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       );
     });
 
+    it('el nivel se deriva con la interpretacion vigente, no se toma de la columna (SCRUM-259)', async () => {
+      // El acompanamiento y el historial tienen que leer lo mismo de un resultado: si uno filtrara
+      // por la columna guardada al registrar y el otro volviera a derivar el nivel, un cambio de
+      // umbrales los haria discrepar sobre el mismo dia.
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-14', 1);
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-15', 8);
+
+      // La columna dice lo contrario de lo que toca en los dos.
+      await dueno.query(
+        `UPDATE resultado SET nivel_orientativo = 'favorable' WHERE id_resultado = $1`,
+        ['40000000-0000-4000-8000-0000000000e1'],
+      );
+      await dueno.query(
+        `UPDATE resultado SET nivel_orientativo = 'requiere_atencion' WHERE id_resultado = $1`,
+        ['40000000-0000-4000-8000-0000000000e2'],
+      );
+
+      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
+        '2026-09-14',
+      ]);
+    });
+
     it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
       await guardarEnElDia(USUARIO_A, 9, '2026-09-14', 1);
 

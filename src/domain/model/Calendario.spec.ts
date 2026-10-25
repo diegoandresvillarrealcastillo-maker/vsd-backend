@@ -122,14 +122,6 @@ describe('Calendario, los dias como texto (SCRUM-95)', () => {
     expect(Calendario.diasEntre('2026-10-03', '2026-09-27')).toBe(-6);
     expect(Calendario.diasEntre('2025-10-03', '2026-10-03')).toBe(365);
   });
-
-  it('suma dias, tambien hacia atras y cruzando meses y anos (SCRUM-230)', () => {
-    expect(Calendario.sumarDias('2026-10-03', 0)).toBe('2026-10-03');
-    expect(Calendario.sumarDias('2026-10-03', -7)).toBe('2026-09-26');
-    expect(Calendario.sumarDias('2026-10-03', -1)).toBe('2026-10-02');
-    expect(Calendario.sumarDias('2026-12-31', 1)).toBe('2027-01-01');
-    expect(Calendario.sumarDias('2028-03-01', -1)).toBe('2028-02-29');
-  });
 });
 
 describe('minutoDelDia (SCRUM-102)', () => {

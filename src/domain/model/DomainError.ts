@@ -651,21 +651,6 @@ export class StaleJournalEntryError extends DomainError {
 }
 
 /**
- * La carta a mi de manana todavia es de hoy: no se lee ni se corrige (SCRUM-230).
- *
- * Borrarla si se puede, a cualquier hora y sin leerla: es la baranda de la ficha.
- */
-export class SealedLetterError extends DomainError {
-  readonly code = 'CARTA_PARA_MANANA';
-
-  constructor() {
-    super(
-      'Esta carta está guardada para mañana. La puedes leer desde entonces, y si prefieres, la puedes borrar sin leerla.',
-    );
-  }
-}
-
-/**
  * El pendiente no se puede guardar tal cual. Como en el diario, el motivo
  * dice que parte esta mal y nunca repite lo escrito.
  */

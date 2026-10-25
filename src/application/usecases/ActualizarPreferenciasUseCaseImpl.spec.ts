@@ -35,6 +35,20 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.porId.set(quedo.id.value, quedo);
+
+    return Promise.resolve(quedo);
+  }
+
   consentimientosDe(): Promise<[]> {
     return Promise.resolve([]);
   }
@@ -117,5 +131,65 @@ describe('ActualizarPreferenciasUseCaseImpl', () => {
         modulosActivos: ['bienestar'],
       }),
     ).rejects.toThrow(AccountNotProvisionedError);
+  });
+});
+
+describe('ActualizarPreferenciasUseCaseImpl: lo que otra peticion cambio entretanto (SCRUM-258)', () => {
+  it('guardar el nombre no enciende los permisos que otra peticion acababa de apagar', async () => {
+    const cuentas = new RepositorioDoble();
+    const casoDeUso = new ActualizarPreferenciasUseCaseImpl(cuentas);
+    const persona = new UserId(PERSONA);
+
+    await cuentas.save(
+      unaCuenta().conPreferencias({ diarioConRecomendaciones: true, acompanamientoPorDias: true }),
+    );
+
+    // Justo despues de que este caso de uso lee la cuenta, otra peticion apaga los permisos.
+    const leer = cuentas.findById.bind(cuentas);
+
+    cuentas.findById = async (id) => {
+      const leida = await leer(id);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ diarioConRecomendaciones: false, acompanamientoPorDias: false }),
+        );
+      }
+
+      return leida;
+    };
+
+    const respuesta = await casoDeUso.execute(persona, { nombre: 'Ana' });
+    const guardada = await leer(persona);
+
+    expect(respuesta.nombre).toBe('Ana');
+    expect(respuesta.diarioConRecomendaciones).toBe(false);
+    expect(respuesta.acompanamientoPorDias).toBe(false);
+    expect(guardada?.nombre).toBe('Ana');
+    expect(guardada?.diarioConRecomendaciones).toBe(false);
+    expect(guardada?.acompanamientoPorDias).toBe(false);
+  });
+
+  it('si la cuenta se borra entre leerla y guardarla, no se vuelve a crear', async () => {
+    const cuentas = new RepositorioDoble();
+    const casoDeUso = new ActualizarPreferenciasUseCaseImpl(cuentas);
+
+    await cuentas.save(unaCuenta());
+
+    const leer = cuentas.findById.bind(cuentas);
+
+    cuentas.findById = async (id) => {
+      const leida = await leer(id);
+
+      await cuentas.borrarConTodo(id, () => Promise.resolve());
+
+      return leida;
+    };
+
+    await expect(casoDeUso.execute(new UserId(PERSONA), { nombre: 'Ana' })).rejects.toThrow(
+      AccountNotProvisionedError,
+    );
+    expect(await leer(new UserId(PERSONA))).toBeNull();
   });
 });

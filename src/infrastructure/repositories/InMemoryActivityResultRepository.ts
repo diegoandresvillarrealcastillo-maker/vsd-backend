@@ -42,10 +42,18 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve(this.porOperacion.get(this.clave(clientOperationId, userId)) ?? null);
   }
 
-  save(result: ActivityResult): Promise<void> {
-    this.porOperacion.set(this.clave(result.clientOperationId, result.userId), result);
+  save(result: ActivityResult): Promise<ActivityResult> {
+    const clave = this.clave(result.clientOperationId, result.userId);
+    const ganadora = this.porOperacion.get(clave);
 
-    return Promise.resolve();
+    // Como la clave unica de la base: si la operacion de esa persona ya estaba, gana la que estaba.
+    if (ganadora !== undefined) {
+      return Promise.resolve(ganadora);
+    }
+
+    this.porOperacion.set(clave, result);
+
+    return Promise.resolve(result);
   }
 
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {

@@ -352,6 +352,8 @@ deja por escrito para que no se confunda lo que se verificó con lo que no.
 Son 30 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
 tildes y en minúscula, porque nadie escribe con tildes cuando está mal. Se buscan en el texto tal
 cual **y** con las erratas leídas como se quisieron escribir (la segunda búsqueda solo suma).
+Los caracteres invisibles (el espacio de ancho cero, el guion blando) no esconden una frase: se quitan, y
+también se busca leyéndolos como espacio (ADR 0038).
 
 ```
 quiero morir · quiero morirme · me quiero morir · quiero matarme

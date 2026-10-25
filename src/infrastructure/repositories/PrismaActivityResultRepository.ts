@@ -13,6 +13,7 @@ import {
 import { NivelOrientativo, OrientativeScore } from '../../domain/model/OrientativeScore.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /**
@@ -64,37 +65,57 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return this.aDominio(fila, actividad);
   }
 
-  async save(result: ActivityResult): Promise<void> {
+  async save(result: ActivityResult): Promise<ActivityResult> {
     const tieneMetadata = Object.keys(result.metadata).length > 0;
 
-    // La sesion es lo que permite que la base aplique sus politicas: dentro
-    // de ella solo existen las filas de esta persona. El WHERE de arriba y el
-    // id_usuario de aqui dejan de ser la unica defensa y pasan a ser la
-    // primera de dos.
-    await this.prisma.comoUsuario(result.userId.value, (cliente) =>
-      cliente.resultado.create({
-        data: {
-          id: result.id.value,
-          idUsuario: result.userId.value,
-          idActividad: result.activityId.value,
-          idOperacionCliente: result.clientOperationId.value,
-          // La sesion (contenido) que se hizo, si la mecanica las tiene (ADR 0030). La clave se omite
-          // cuando no hay, como la metadata: el modo estricto no acepta `undefined` y asi queda NULL.
-          ...(result.sessionId === undefined ? {} : { idSesion: result.sessionId.value }),
-          // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
-          // hace falta, vive en `metadata`.
-          puntaje: result.score?.value ?? null,
-          nivelOrientativo: result.score?.level ?? null,
-          // La clave se omite cuando no hay nada, en lugar de mandarla en
-          // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
-          // omitirla deja la columna en NULL, que es lo que queremos.
-          ...(tieneMetadata ? { metadata: result.metadata } : {}),
-          fecha: result.completedAt,
-          // Una columna DATE: Prisma la recibe como la medianoche UTC del dia.
-          dia: new Date(`${result.dia}T00:00:00.000Z`),
-        },
-      }),
-    );
+    try {
+      // La sesion es lo que permite que la base aplique sus politicas: dentro
+      // de ella solo existen las filas de esta persona. El WHERE de arriba y el
+      // id_usuario de aqui dejan de ser la unica defensa y pasan a ser la
+      // primera de dos.
+      await this.prisma.comoUsuario(result.userId.value, (cliente) =>
+        cliente.resultado.create({
+          data: {
+            id: result.id.value,
+            idUsuario: result.userId.value,
+            idActividad: result.activityId.value,
+            idOperacionCliente: result.clientOperationId.value,
+            // La sesion (contenido) que se hizo, si la mecanica las tiene (ADR 0030). La clave se omite
+            // cuando no hay, como la metadata: el modo estricto no acepta `undefined` y asi queda NULL.
+            ...(result.sessionId === undefined ? {} : { idSesion: result.sessionId.value }),
+            // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
+            // hace falta, vive en `metadata`.
+            puntaje: result.score?.value ?? null,
+            nivelOrientativo: result.score?.level ?? null,
+            // La clave se omite cuando no hay nada, en lugar de mandarla en
+            // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
+            // omitirla deja la columna en NULL, que es lo que queremos.
+            ...(tieneMetadata ? { metadata: result.metadata } : {}),
+            fecha: result.completedAt,
+            // Una columna DATE: Prisma la recibe como la medianoche UTC del dia.
+            dia: new Date(`${result.dia}T00:00:00.000Z`),
+          },
+        }),
+      );
+
+      return result;
+    } catch (error) {
+      // La misma operacion llego dos veces a la vez y la otra gano (SCRUM-258). Es un reintento, no
+      // un error: se devuelve lo que ella guardo. Fuera de la transaccion que fallo: la clave unica
+      // solo protesta cuando la otra ya confirmo, asi que la fila ya se ve.
+      if (esOperacionRepetida(error)) {
+        const ganadora = await this.findByClientOperationId(
+          result.clientOperationId,
+          result.userId,
+        );
+
+        if (ganadora !== null) {
+          return ganadora;
+        }
+      }
+
+      throw error;
+    }
   }
 
   async ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {

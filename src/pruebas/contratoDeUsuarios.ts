@@ -8,7 +8,7 @@ import { AccountInactiveError } from '../domain/model/DomainError.js';
 import { FechaDeNacimiento } from '../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../domain/model/Identifier.js';
 import type { Mascota } from '../domain/model/Preferencias.js';
-import { Rol, TipoDeConsentimiento, User } from '../domain/model/User.js';
+import { CAMPOS_MODIFICABLES, Rol, TipoDeConsentimiento, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
 
 /**
@@ -747,6 +747,277 @@ export function pruebasDelPuertoDeUsuarios(
         await expect(
           banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
         ).resolves.toBe(true);
+      });
+    });
+
+    describe('guardarCambios: solo lo que cambio (SCRUM-258)', () => {
+      const CUANDO = new Date('2026-10-20T09:00:00.000Z');
+      const LUMA = { forma: 'brote', nombre: 'Luma', color: '#a2d9b6', accesorio: 'ninguno' };
+      const leer = () => banco.repositorio.findById(new UserId(PERSONA));
+
+      /** Lo que lee una peticion antes de cambiar lo suyo. */
+      async function leida(): Promise<User> {
+        const cuenta = await leer();
+
+        if (cuenta === null) {
+          throw new Error('La cuenta de la prueba no esta guardada.');
+        }
+
+        return cuenta;
+      }
+
+      it('una peticion que solo cambia la foto no enciende lo que otra acababa de apagar', async () => {
+        // Es la carrera de la auditoria: la peticion de la foto lee la cuenta, sube el archivo
+        // (lo lento) y guarda. Entretanto la persona apago dos permisos. Guardar la cuenta entera
+        // los dejaba otra vez encendidos con lo que habia leido.
+        await banco.repositorio.save(
+          unaCuenta().conPreferencias({
+            diarioConRecomendaciones: true,
+            acompanamientoPorDias: true,
+          }),
+        );
+        const laDeLaFoto = await leida();
+        const laDeLosPermisos = await leida();
+
+        await banco.repositorio.guardarCambios(
+          laDeLosPermisos,
+          laDeLosPermisos.conPreferencias({
+            diarioConRecomendaciones: false,
+            acompanamientoPorDias: false,
+          }),
+        );
+
+        const quedo = await banco.repositorio.guardarCambios(
+          laDeLaFoto,
+          laDeLaFoto.conFoto(CUANDO),
+        );
+
+        // Lo que devuelve es lo que quedo guardado, no lo que se habia leido.
+        expect(quedo?.fotoActualizadaEl).toEqual(CUANDO);
+        expect(quedo?.diarioConRecomendaciones).toBe(false);
+        expect(quedo?.acompanamientoPorDias).toBe(false);
+
+        const guardada = await leida();
+
+        expect(guardada.fotoActualizadaEl).toEqual(CUANDO);
+        expect(guardada.diarioConRecomendaciones).toBe(false);
+        expect(guardada.acompanamientoPorDias).toBe(false);
+      });
+
+      it('lo que el dispositivo informa de la zona no pisa lo que la persona acababa de elegir', async () => {
+        await banco.repositorio.save(unaCuenta({ modulosActivos: ['cognicion'] }));
+        const laDeLaZona = await leida();
+        const laDeLasPreferencias = await leida();
+
+        await banco.repositorio.guardarCambios(
+          laDeLasPreferencias,
+          laDeLasPreferencias.conPreferencias({
+            nombre: 'Ana',
+            modulosActivos: ['emociones'],
+            mascota: LUMA,
+          }),
+        );
+        await banco.repositorio.guardarCambios(
+          laDeLaZona,
+          laDeLaZona.conZonaHoraria('Europe/Madrid'),
+        );
+
+        const guardada = await leida();
+
+        expect(guardada.zonaHoraria).toBe('Europe/Madrid');
+        expect(guardada.nombre).toBe('Ana');
+        expect(guardada.modulosActivos).toEqual(['emociones']);
+        expect(guardada.mascota).toEqual(LUMA);
+      });
+
+      it('cambiar las preferencias no pisa la foto que se subio entretanto', async () => {
+        await banco.repositorio.save(unaCuenta());
+        const laDeLasPreferencias = await leida();
+        const laDeLaFoto = await leida();
+
+        await banco.repositorio.guardarCambios(laDeLaFoto, laDeLaFoto.conFoto(CUANDO));
+        await banco.repositorio.guardarCambios(
+          laDeLasPreferencias,
+          laDeLasPreferencias.conPreferencias({ nombre: 'Ana' }),
+        );
+
+        const guardada = await leida();
+
+        expect(guardada.nombre).toBe('Ana');
+        expect(guardada.fotoActualizadaEl).toEqual(CUANDO);
+      });
+
+      it('quitar la foto la deja vacia, y quitar la mascota propia devuelve al personaje de siempre', async () => {
+        await banco.repositorio.save(
+          unaCuenta({ nombre: 'Ana' })
+            .conFoto(CUANDO)
+            .conMascotaPropia(CUANDO)
+            .conPreferencias({ mascota: { forma: 'propia', nombre: 'Luma' } }),
+        );
+
+        const antes = await leida();
+        await banco.repositorio.guardarCambios(antes, antes.sinFoto().sinMascotaPropia());
+
+        const guardada = await leida();
+
+        expect(guardada.fotoActualizadaEl).toBeUndefined();
+        expect(guardada.mascotaPropiaActualizadaEl).toBeUndefined();
+        // Conserva el nombre que le habia puesto.
+        expect(guardada.mascota?.nombre).toBe('Luma');
+        expect(guardada.mascota?.forma).not.toBe('propia');
+        expect(guardada.nombre).toBe('Ana');
+      });
+
+      it('volver a aceptar un texto guarda la version nueva, la anota en el historial y no toca lo demas', async () => {
+        await banco.repositorio.save(
+          unaCuenta({ versionPolitica: '2026-09-1', versionTerminos: '2026-09-1' }),
+        );
+        const laDeLosTextos = await leida();
+        const laDeLasPreferencias = await leida();
+
+        await banco.repositorio.guardarCambios(
+          laDeLasPreferencias,
+          laDeLasPreferencias.conPreferencias({ acompanamientoPorDias: true }),
+        );
+        await banco.repositorio.guardarCambios(
+          laDeLosTextos,
+          laDeLosTextos.conTextosAceptados(
+            { aviso: { versionPolitica: '2026-10-3', aceptadoEn: CUANDO } },
+            CUANDO,
+          ),
+        );
+
+        const guardada = await leida();
+
+        expect(guardada.consentimiento?.versionPolitica).toBe('2026-10-3');
+        // Los terminos no se tocaron, y lo que la persona acababa de encender sigue encendido.
+        expect(guardada.terminos?.versionPolitica).toBe('2026-09-1');
+        expect(guardada.acompanamientoPorDias).toBe(true);
+
+        const historial = await banco.repositorio.consentimientosDe(new UserId(PERSONA));
+
+        expect(
+          historial
+            .filter((fila) => fila.tipo === TipoDeConsentimiento.AVISO_DE_PRIVACIDAD)
+            .map((fila) => fila.version),
+        ).toEqual(['2026-09-1', '2026-10-3']);
+        expect(
+          historial.filter((fila) => fila.tipo === TipoDeConsentimiento.TERMINOS),
+        ).toHaveLength(1);
+      });
+
+      it('completar el registro de una cuenta anterior guarda la fecha de nacimiento y lo aceptado', async () => {
+        await banco.repositorio.save(unaCuenta({ anteriorAlRegistro: true }));
+        const antes = await leida();
+
+        const completa = antes.conRegistroCompleto(
+          {
+            fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+            consentimiento: { versionPolitica: VERSION_VIGENTE_DEL_AVISO, aceptadoEn: CUANDO },
+            terminos: { versionPolitica: VERSION_VIGENTE_DE_LOS_TERMINOS, aceptadoEn: CUANDO },
+          },
+          CUANDO,
+        );
+
+        await banco.repositorio.guardarCambios(antes, completa);
+
+        const guardada = await leida();
+
+        expect(guardada.registroCompleto()).toBe(true);
+        expect(guardada.fechaDeNacimiento?.valor).toBe('1998-03-14');
+        expect(guardada.terminos?.versionPolitica).toBe(VERSION_VIGENTE_DE_LOS_TERMINOS);
+        await expect(
+          banco.repositorio.consentimientosDe(new UserId(PERSONA)),
+        ).resolves.toHaveLength(3);
+      });
+
+      it('guarda todos los campos que se pueden cambiar, ninguno se queda por el camino', async () => {
+        await banco.repositorio.save(unaCuenta({ anteriorAlRegistro: true }));
+        const antes = await leida();
+
+        const despues = antes
+          .conRegistroCompleto(
+            {
+              fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+              consentimiento: { versionPolitica: '2026-10-1', aceptadoEn: CUANDO },
+              terminos: { versionPolitica: '2026-10-1', aceptadoEn: CUANDO },
+            },
+            CUANDO,
+          )
+          .conPreferencias({
+            nombre: 'Ana',
+            modulosActivos: ['emociones', 'bienestar'],
+            mascota: LUMA,
+            diarioConRecomendaciones: true,
+            acompanamientoPorDias: true,
+          })
+          .conZonaHoraria('Asia/Tokyo')
+          .conFoto(CUANDO)
+          .conMascotaPropia(CUANDO);
+
+        // Si algun campo no cambiara aqui, la prueba no probaria ese campo.
+        expect(despues.camposCambiadosDesde(antes).size).toBe(CAMPOS_MODIFICABLES.length);
+
+        await banco.repositorio.guardarCambios(antes, despues);
+
+        expect((await leida()).camposCambiadosDesde(despues).size).toBe(0);
+      });
+
+      it('sin cambios no escribe nada y devuelve la cuenta como esta guardada', async () => {
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+        const antes = await leida();
+
+        const quedo = await banco.repositorio.guardarCambios(antes, antes);
+
+        expect(quedo?.camposCambiadosDesde(antes).size).toBe(0);
+        expect(quedo?.nombre).toBe('Ana');
+      });
+
+      it('una cuenta que ya no existe no se vuelve a crear', async () => {
+        await banco.repositorio.save(unaCuenta());
+        const cargada = await leida();
+
+        await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+
+        await expect(
+          banco.repositorio.guardarCambios(cargada, cargada.conFoto(CUANDO)),
+        ).resolves.toBeNull();
+        await expect(leer()).resolves.toBeNull();
+        expect(await banco.contar()).toBe(0);
+      });
+
+      it('una cuenta dada de baja tampoco se vuelve a crear', async () => {
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+        const cargada = await leida();
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
+          Promise.resolve(),
+        );
+
+        await expect(
+          banco.repositorio.guardarCambios(cargada, cargada.conZonaHoraria('Europe/Madrid')),
+        ).resolves.toBeNull();
+        await expect(leer()).resolves.toBeNull();
+      });
+
+      it('solo toca la cuenta de quien es: la de otra persona queda como estaba', async () => {
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+        await banco.repositorio.save(
+          unaCuenta({
+            id: OTRA_PERSONA,
+            correo: 'otra@ejemplo.test',
+            idProveedorAuth: 'supabase|bbbb-2222',
+            nombre: 'Luis',
+          }),
+        );
+        const antes = await leida();
+
+        await banco.repositorio.guardarCambios(antes, antes.conPreferencias({ nombre: 'Ana M.' }));
+
+        const deLaOtra = await banco.repositorio.findById(new UserId(OTRA_PERSONA));
+
+        expect(deLaOtra?.nombre).toBe('Luis');
+        expect((await leida()).nombre).toBe('Ana M.');
       });
     });
   });

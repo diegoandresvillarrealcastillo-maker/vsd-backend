@@ -196,17 +196,17 @@ describe('MascotaPropiaUseCaseImpl (SCRUM-122)', () => {
     it('guarda el archivo antes que la marca', async () => {
       const orden: string[] = [];
       const guardarEnElAlmacen = almacen.guardar.bind(almacen);
-      const guardarLaCuenta = cuentas.save.bind(cuentas);
+      const guardarLaCuenta = cuentas.guardarCambios.bind(cuentas);
 
       almacen.guardar = (persona, archivo) => {
         orden.push('archivo');
 
         return guardarEnElAlmacen(persona, archivo);
       };
-      cuentas.save = (cuenta) => {
+      cuentas.guardarCambios = (antes, despues) => {
         orden.push('marca');
 
-        return guardarLaCuenta(cuenta);
+        return guardarLaCuenta(antes, despues);
       };
 
       await casoDeUso.guardar(new UserId(ANA), bytes(DIBUJO), SVG_TIPO);
@@ -336,5 +336,63 @@ describe('MascotaPropiaUseCaseImpl (SCRUM-122)', () => {
       expect((await casoDeUso.leer(new UserId(ANA))).tipo).toBe(SVG_TIPO);
       await expect(casoDeUso.leer(new UserId(BETO))).rejects.toThrow(OwnPetNotFoundError);
     });
+  });
+});
+
+describe('MascotaPropiaUseCaseImpl: lo que pasa mientras se sube el dibujo (SCRUM-258)', () => {
+  const persona = new UserId(ANA);
+  let cuentas: RepositorioDeCuentasDoble;
+  let almacen: AlmacenDoble;
+  let casoDeUso: MascotaPropiaUseCaseImpl;
+
+  beforeEach(async () => {
+    cuentas = new RepositorioDeCuentasDoble();
+    almacen = new AlmacenDoble();
+    casoDeUso = new MascotaPropiaUseCaseImpl(cuentas, almacen, () => AHORA);
+
+    await cuentas.save(
+      unaCuenta({ id: ANA, correo: 'ana@ejemplo.test', idProveedorAuth: 'p-ana' }).conPreferencias({
+        diarioConRecomendaciones: true,
+      }),
+    );
+  });
+
+  it('subir la mascota no enciende el permiso que la persona apago mientras tanto', async () => {
+    const guardar = almacen.guardar.bind(almacen);
+
+    almacen.guardar = async (quien, archivo) => {
+      const leida = await cuentas.findById(persona);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ diarioConRecomendaciones: false }),
+        );
+      }
+
+      return guardar(quien, archivo);
+    };
+
+    const respuesta = await casoDeUso.guardar(persona, bytes(DIBUJO), SVG_TIPO);
+
+    expect(respuesta.mascotaPropiaActualizadaEl).toEqual(AHORA);
+    expect(respuesta.diarioConRecomendaciones).toBe(false);
+    expect((await cuentas.findById(persona))?.diarioConRecomendaciones).toBe(false);
+  });
+
+  it('si la cuenta se borra mientras se sube, no queda el dibujo de una cuenta que ya no existe', async () => {
+    const guardar = almacen.guardar.bind(almacen);
+
+    almacen.guardar = async (quien, archivo) => {
+      await cuentas.borrarConTodo(persona, () => Promise.resolve());
+
+      return guardar(quien, archivo);
+    };
+
+    await expect(casoDeUso.guardar(persona, bytes(DIBUJO), SVG_TIPO)).rejects.toThrow(
+      AccountNotProvisionedError,
+    );
+
+    expect(almacen.mirar(persona)).toBeUndefined();
   });
 });

@@ -41,8 +41,32 @@ export interface UserRepositoryPort {
    *
    * Guardar dos veces la misma cuenta la deja como esta la segunda vez, no
    * crea otra. Es lo que permite reintentar sin mirar antes si existia.
+   *
+   * Escribe **la cuenta entera**, y por eso sirve para crearla (el alta) y no para cambiar una
+   * que ya existe: quien la leyo, la cambio y la guarda entera pisa, con lo que leyo, lo que otra
+   * peticion hubiera cambiado entretanto. Para eso, `guardarCambios` (SCRUM-258).
    */
   save(user: User): Promise<void>;
+
+  /**
+   * Guarda **solo lo que cambio** entre `antes`, la cuenta como se leyo, y `despues`, y devuelve la
+   * cuenta tal como quedo guardada (SCRUM-258).
+   *
+   * Es la forma de cambiar una cuenta que ya existe. Una peticion que solo cambia la foto no puede
+   * tocar nada mas: si la persona acababa de apagar un permiso, sigue apagado. Los campos que
+   * cambian a la vez en dos peticiones los gana la ultima, campo por campo.
+   *
+   * Lo que devuelve es lo que hay guardado despues de escribir, con lo que otras peticiones
+   * hubieran cambiado, y no lo que se habia leido: es lo que la respuesta tiene que contar.
+   *
+   * Devuelve `null` si la cuenta ya no existe (se borro o se dio de baja entretanto) y **no la crea
+   * de nuevo**: una orden que cargo la cuenta antes de la baja no puede devolverle la vida con sus
+   * datos personales (SCRUM-190, ADR 0026).
+   *
+   * Falla si `antes` y `despues` no son la misma cuenta, o si cambia el correo, el rol o el
+   * proveedor: por aqui no se cambian y se perderian sin avisar.
+   */
+  guardarCambios(antes: User, despues: User): Promise<User | null>;
 
   /**
    * Todo lo que la persona ha aceptado, version por version, de la mas antigua

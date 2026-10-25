@@ -181,8 +181,8 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
       ahora,
     );
 
-    await this.repositorio.save(resultado);
-
-    return resultado;
+    // Lo que devuelve es lo que quedo guardado: si otro reintento de esta misma operacion llego a
+    // la vez y gano, es el suyo (SCRUM-258). Quien repite ve lo mismo que la primera vez.
+    return this.repositorio.save(resultado);
   }
 }

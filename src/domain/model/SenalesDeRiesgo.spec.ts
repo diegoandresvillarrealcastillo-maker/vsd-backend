@@ -54,6 +54,54 @@ describe('el riesgo con erratas (SCRUM-193): la tolerancia amplia la lista, no l
   );
 });
 
+describe('el riesgo con caracteres invisibles (SCRUM-258): lo que no se ve no esconde lo que se dice', () => {
+  const INVISIBLES = [
+    ['U+00AD', '\u{AD}'],
+    ['U+200B', '\u{200B}'],
+    ['U+200C', '\u{200C}'],
+    ['U+200D', '\u{200D}'],
+    ['U+200E', '\u{200E}'],
+    ['U+2060', '\u{2060}'],
+    ['U+FEFF', '\u{FEFF}'],
+  ] as const;
+
+  it.each(EXPRESIONES_DE_RIESGO)(
+    '«%s» se detecta con un invisible entre cada caracter',
+    (expresion) => {
+      expect(hayRiesgo([...expresion].join('\u{200B}'))).toBe(true);
+    },
+  );
+
+  it.each(INVISIBLES)(
+    'el invisible %s en medio de la palabra no la esconde',
+    (_codigo, invisible) => {
+      expect(hayRiesgo(`quiero mo${invisible}rirme`)).toBe(true);
+      expect(hayRiesgo(`quiero${invisible} morirme`)).toBe(true);
+    },
+  );
+
+  it.each(INVISIBLES)(
+    'el invisible %s usado como separador, sin espacio, tampoco',
+    (_codigo, invisible) => {
+      expect(hayRiesgo(`quiero${invisible}morirme`)).toBe(true);
+    },
+  );
+
+  it('con una errata y un invisible a la vez', () => {
+    expect(hayRiesgo('kiero mo\u{200B}rirme')).toBe(true);
+    expect(hayRiesgo('me kie\u{AD}ro matar')).toBe(true);
+  });
+
+  it('con letras de ancho completo', () => {
+    expect(hayRiesgo('ｑｕｉｅｒｏ ｍｏｒｉｒｍｅ')).toBe(true);
+  });
+
+  it('un texto sin riesgo no empieza a dispararlo por llevar invisibles', () => {
+    expect(hayRiesgo('hola\u{200B} buenas\u{AD}tardes\u{FEFF}')).toBe(false);
+    expect(hayRiesgo('\u{200B}\u{200C}\u{200D}')).toBe(false);
+  });
+});
+
 describe('Senales de riesgo', () => {
   describe('normalizar', () => {
     it('quita las tildes', () => {

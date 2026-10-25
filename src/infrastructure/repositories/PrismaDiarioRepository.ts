@@ -4,26 +4,8 @@ import { adjuntosGuardados, DocumentoDelDiario } from '../../domain/model/Docume
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
-
-/**
- * Si el error es el de la clave unica de la operacion: dos peticiones con el
- * mismo `clientOperationId` que llegaron a la vez. Se mira por su forma, como
- * en `PrismaUserRepository`, sin importar los tipos de error del cliente.
- *
- * Con el adaptador de PostgreSQL de Prisma 7 no viene `meta.target`: el
- * nombre del indice llega dentro de `meta.driverAdapterError`. Se busca en
- * toda la `meta` para que valga con cualquiera de las dos formas.
- */
-function esOperacionRepetida(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-
-  const posible = error as { code?: unknown; meta?: unknown };
-
-  return posible.code === 'P2002' && /operacion_?cliente/i.test(JSON.stringify(posible.meta ?? {}));
-}
 
 /** Un dia como lo guarda una columna DATE: la medianoche UTC de esa fecha. */
 function aFecha(dia: Dia): Date {

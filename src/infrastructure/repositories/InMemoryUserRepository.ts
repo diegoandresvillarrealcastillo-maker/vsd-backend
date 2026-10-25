@@ -61,6 +61,23 @@ export class InMemoryUserRepository implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const campos = despues.camposCambiadosDesde(antes);
+    const actual = this.porId.get(despues.id.value);
+
+    // Una cuenta borrada o dada de baja ya no esta aqui: no se vuelve a crear.
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, campos);
+
+    this.porId.set(quedo.id.value, quedo);
+    this.anotarLoAceptado(quedo);
+
+    return Promise.resolve(quedo);
+  }
+
   consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
     return Promise.resolve([...(this.historial.get(id.value) ?? [])]);
   }

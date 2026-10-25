@@ -372,11 +372,46 @@ describe.skipIf(URL_DUENO === undefined)('Aislamiento impuesto por PostgreSQL', 
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
          AND c.relkind = 'r'
-         AND c.relname NOT LIKE '\\_prisma%'
          AND c.relrowsecurity = false`,
     );
 
+    // Tampoco se salva `_prisma_migrations`: la crea Prisma, pero queda en
+    // `public`, y con la API REST de Supabase activa quien tenga la clave
+    // publica podria leerla o alterarla (aviso del asesor de seguridad).
     expect(rows.map((fila) => fila.tablename)).toEqual([]);
+  });
+
+  it('las funciones vsd_* fijan su search_path', async () => {
+    // Sin `search_path` fijo, una funcion resuelve los nombres con el de quien
+    // la llama, y alguien con permiso para crear objetos podria ponerse delante
+    // de lo que ella cree estar usando. Una funcion nueva sin esto falla aqui.
+    const { rows } = await dueno.query<{ proname: string }>(
+      `SELECT p.proname
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
+         AND p.proname LIKE 'vsd\\_%'
+         AND NOT COALESCE(p.proconfig::text LIKE '%search_path=%', false)`,
+    );
+
+    expect(rows.map((fila) => fila.proname)).toEqual([]);
+  });
+
+  it('los roles publicos de Supabase no tocan la tabla de migraciones', async () => {
+    // `anon` y `authenticated` solo existen en Supabase: en una base local no
+    // hay nada que comprobar, y eso es correcto.
+    const { rows } = await dueno.query<{ rolname: string }>(
+      `SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')`,
+    );
+
+    for (const { rolname } of rows) {
+      const { rows: permisos } = await dueno.query<{ puede: boolean }>(
+        `SELECT has_table_privilege($1, 'public._prisma_migrations', 'SELECT, INSERT, UPDATE, DELETE') AS puede`,
+        [rolname],
+      );
+
+      expect(permisos[0]?.puede, rolname).toBe(false);
+    }
   });
 
   it('las tablas con datos personales ademas fuerzan las politicas al dueno', async () => {

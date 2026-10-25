@@ -9,7 +9,7 @@ import type {
  * dentro de una transaccion abierta, y una transaccion no puede quedarse
  * esperando a la red indefinidamente.
  */
-const ESPERA_MAXIMA_MS = 5000;
+export const ESPERA_MAXIMA_MS = 5000;
 
 /** Lo que el bucket hace cumplir por su cuenta, aunque la API fallara. */
 export interface RestriccionesDelBucket {

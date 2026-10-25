@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AislamientoInactivoError, PrismaService } from './PrismaService.js';
+import {
+  AislamientoInactivoError,
+  PrismaService,
+  TRANSACCION_DE_BORRADO,
+} from './PrismaService.js';
 
 /**
  * El ciclo de vida de la conexion, y la comprobacion de que las politicas de
@@ -108,6 +112,46 @@ describe('PrismaService', () => {
       const servicio = servicioCon({ rol: 'postgres', privilegiado: true }, true);
 
       await expect(servicio.onModuleInit()).rejects.toThrow(/postgres[\s\S]*vsd_app/);
+    });
+  });
+
+  describe('los tiempos de la transaccion (SCRUM-260)', () => {
+    const PERSONA = '11111111-1111-4111-8111-111111111111';
+
+    /** Un servicio cuya `$transaction` solo anota con que tiempos la pidieron. */
+    function servicioQueAnotaLosTiempos(): { servicio: PrismaService; tiempos: unknown[] } {
+      const servicio = new PrismaService(URL_FICTICIA);
+      const tiempos: unknown[] = [];
+
+      vi.spyOn(servicio, '$transaction').mockImplementation((async (
+        tarea: (tx: unknown) => Promise<unknown>,
+        opciones?: unknown,
+      ) => {
+        tiempos.push(opciones);
+
+        return tarea({ $queryRaw: () => Promise.resolve([]) });
+      }) as unknown as PrismaService['$transaction']);
+
+      return { servicio, tiempos };
+    }
+
+    it('borrar espera hasta 20 s a lo de fuera y 2 s por una conexion libre', async () => {
+      const { servicio, tiempos } = servicioQueAnotaLosTiempos();
+
+      await expect(
+        servicio.comoUsuarioParaBorrar(PERSONA, () => Promise.resolve('hecho')),
+      ).resolves.toBe('hecho');
+
+      expect(tiempos).toEqual([{ maxWait: 2_000, timeout: 20_000 }]);
+      expect(tiempos[0]).toBe(TRANSACCION_DE_BORRADO);
+    });
+
+    it('lo demas conserva los tiempos por omision de Prisma', async () => {
+      const { servicio, tiempos } = servicioQueAnotaLosTiempos();
+
+      await servicio.comoUsuario(PERSONA, () => Promise.resolve(null));
+
+      expect(tiempos).toEqual([undefined]);
     });
   });
 

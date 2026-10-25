@@ -43,6 +43,21 @@ export const RolDeSesion = {
 export type RolDeSesion = (typeof RolDeSesion)[keyof typeof RolDeSesion];
 
 /**
+ * Los tiempos de la transaccion de una baja o un borrado de cuenta (SCRUM-260).
+ *
+ * Prisma da 5 s a una transaccion interactiva si nadie dice otra cosa. Lo externo de la baja
+ * (los archivos de la persona y su identidad en el proveedor) corre **dentro** de ella, y es lo
+ * unico que se espera a la red: con dos almacenes de 5 s de tope y la identidad de 4 s caben 14 s.
+ * Con el tiempo por omision la transaccion vencia con lo irreversible ya hecho: las filas volvian
+ * y los archivos y la identidad ya no estaban.
+ *
+ * `maxWait` es lo que se espera por una conexion libre del pool, y `timeout` lo que dura la
+ * transaccion. Solo valen para borrar: el resto de lo que se hace con la base sigue con el
+ * tiempo corto, que es lo que corta una consulta colgada.
+ */
+export const TRANSACCION_DE_BORRADO = { maxWait: 2_000, timeout: 20_000 } as const;
+
+/**
  * Se lanza cuando la conexion no esta sujeta a las politicas de la base.
  *
  * Es el fallo que el Row Level Security no puede avisar por su cuenta: si la
@@ -132,12 +147,26 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     userId: string,
     tarea: (cliente: ClienteConSesion) => Promise<T>,
     rol: RolDeSesion = RolDeSesion.USUARIO,
+    tiempos?: { readonly maxWait: number; readonly timeout: number },
   ): Promise<T> {
     return this.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
-    });
+    }, tiempos);
+  }
+
+  /**
+   * Como `comoUsuario`, con los tiempos de una baja o un borrado (`TRANSACCION_DE_BORRADO`).
+   *
+   * Es la unica via con tiempos largos: asi se ve en cada sitio que la llama que lo que hay
+   * dentro espera a algo de fuera, y el resto de las transacciones no hereda esa espera.
+   */
+  async comoUsuarioParaBorrar<T>(
+    userId: string,
+    tarea: (cliente: ClienteConSesion) => Promise<T>,
+  ): Promise<T> {
+    return this.comoUsuario(userId, tarea, RolDeSesion.USUARIO, TRANSACCION_DE_BORRADO);
   }
 
   /**

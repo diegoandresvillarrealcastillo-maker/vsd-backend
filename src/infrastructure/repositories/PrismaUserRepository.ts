@@ -368,14 +368,15 @@ export class PrismaUserRepository implements UserRepositoryPort {
    *
    * `antesDeConfirmar` corre dentro de la transaccion, con todo ya hecho y sin confirmar: si
    * lanza, PostgreSQL deshace la baja y la constancia. Dar de baja una cuenta que no existe no
-   * hace nada ni llama a `antesDeConfirmar`.
+   * hace nada ni llama a `antesDeConfirmar`. Como espera a la red, la transaccion tiene los
+   * tiempos de `TRANSACCION_DE_BORRADO` y no los cortos de siempre (SCRUM-260).
    */
   async inactivarConTodo(
     id: UserId,
     inactivadaEl: Date,
     antesDeConfirmar: () => Promise<void>,
   ): Promise<void> {
-    await this.prisma.comoUsuario(id.value, async (cliente) => {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       const fila = await cliente.usuario.findUnique({ where: { id: id.value } });
 
       if (fila === null) {
@@ -439,10 +440,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
    * cada tabla con columna `id_usuario`, no una lista escrita a mano.
    *
    * `antesDeConfirmar` corre dentro de la transaccion: si lanza, PostgreSQL
-   * deshace el borrado.
+   * deshace el borrado. Espera a la red, asi que la transaccion tiene los
+   * tiempos de `TRANSACCION_DE_BORRADO` y no los cortos de siempre (SCRUM-260).
    */
   async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await this.prisma.comoUsuario(id.value, async (cliente) => {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       await cliente.usuario.deleteMany({ where: { id: id.value } });
       await antesDeConfirmar();
     });

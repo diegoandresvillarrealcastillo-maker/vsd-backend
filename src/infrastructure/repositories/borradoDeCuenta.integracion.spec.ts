@@ -120,6 +120,11 @@ async function limpiar(dueno: Client): Promise<void> {
   await dueno.query('DELETE FROM entrada_diario WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM usuario WHERE id_usuario = ANY($1)', [nuestras]);
+  // La constancia de la baja no cuelga de `usuario`: la deja `inactivarConTodo` (SCRUM-260).
+  await dueno.query('DELETE FROM consentimiento_de_cuenta_inactiva WHERE id_cuenta = ANY($1)', [
+    nuestras,
+  ]);
+  await dueno.query('DELETE FROM cuenta_inactiva WHERE id_cuenta = ANY($1)', [nuestras]);
 }
 
 describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () => {
@@ -196,6 +201,33 @@ describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () =
       resultado: 1,
       entrada_diario: 1,
     });
+  });
+
+  describe('con una espera externa mayor que la de Prisma por omision (SCRUM-260)', () => {
+    // Prisma da 5 s a una transaccion si nadie dice otra cosa. Lo externo de la baja (dos almacenes
+    // y la identidad, cada uno con su tope) puede pasarse de eso: la transaccion venceria con lo
+    // irreversible ya hecho, y las filas volverian sin archivos ni identidad.
+    const ESPERA_EXTERNA_MS = 6_000;
+    const esperar = () => new Promise<void>((resolve) => setTimeout(resolve, ESPERA_EXTERNA_MS));
+
+    it('borrarConTodo espera a lo de fuera y confirma el borrado', async () => {
+      await cuentas.borrarConTodo(new UserId(PERSONA), esperar);
+
+      const rastro = await rastroDe(dueno, PERSONA);
+
+      expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
+    }, 20_000);
+
+    it('inactivarConTodo espera a lo de fuera y confirma la baja con su constancia', async () => {
+      await cuentas.inactivarConTodo(new UserId(PERSONA), new Date(), esperar);
+
+      const rastro = await rastroDe(dueno, PERSONA);
+
+      expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
+      await expect(
+        cuentas.estaInactivadaPorProveedor(`proveedor-borrado-${PERSONA}`),
+      ).resolves.toBe(true);
+    }, 20_000);
   });
 
   it('el diario se lee en nombre de la persona y solo trae lo suyo', async () => {

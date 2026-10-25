@@ -71,6 +71,10 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     );
   }
 
+  async *paginasDeResultados(userId: UserId, desde: Date) {
+    yield await this.ultimosDe(userId, desde);
+  }
+
   hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
     return Promise.resolve(
       [...this.porOperacion.values()].some(

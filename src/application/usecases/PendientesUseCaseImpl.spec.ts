@@ -29,8 +29,8 @@ class PendientesDePrueba implements PendientesRepositoryPort {
     );
   }
 
-  todosDe(userId: UserId) {
-    return Promise.resolve(this.de(userId));
+  async *paginasDePendientes(userId: UserId) {
+    yield await Promise.resolve(this.de(userId));
   }
 
   porId(userId: UserId, id: PendienteId) {

@@ -65,10 +65,7 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const calendario = Calendario.de(cuenta.zonaHoraria);
 
-    const [categorias, resultados] = await Promise.all([
-      this.catalogo.listarCatalogo(),
-      this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
-    ]);
+    const categorias = await this.catalogo.listarCatalogo();
 
     const moduloDeActividad = new Map<string, Modulo>();
 
@@ -84,20 +81,24 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const hechosPorModulo = new Map<Modulo, Hecho[]>();
 
-    for (const resultado of resultados) {
-      const modulo = moduloDeActividad.get(resultado.activityId.value);
+    // Todo el historial, de a paginas (SCRUM-262): de cada resultado solo se guarda la actividad y el
+    // dia, que es lo unico que el sendero necesita, y se suelta el resto.
+    for await (const pagina of this.resultados.paginasDeResultados(id, DESDE_EL_PRINCIPIO)) {
+      for (const resultado of pagina) {
+        const modulo = moduloDeActividad.get(resultado.activityId.value);
 
-      if (modulo === undefined) {
-        continue;
+        if (modulo === undefined) {
+          continue;
+        }
+
+        const hechos = hechosPorModulo.get(modulo) ?? [];
+
+        hechos.push({
+          actividad: resultado.activityId.value,
+          dia: resultado.dia,
+        });
+        hechosPorModulo.set(modulo, hechos);
       }
-
-      const hechos = hechosPorModulo.get(modulo) ?? [];
-
-      hechos.push({
-        actividad: resultado.activityId.value,
-        dia: resultado.dia,
-      });
-      hechosPorModulo.set(modulo, hechos);
     }
 
     const hoy = calendario.diaDe(this.reloj());

@@ -353,7 +353,13 @@ no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
     pendientes, la hora de cada aviso y la foto de perfil, si tiene (en
     base64). De los navegadores suscritos solo dice cuántos son: sus
     direcciones y claves sirven para mandarle avisos a ese equipo, no para
-    leerlas.
+    leerlas. Se escribe **por piezas** (SCRUM-262): los resultados, el
+    diario y los pendientes se leen de a 200 con un cursor y salen uno a uno,
+    sin armar todo en memoria, para que lo de una persona con años de uso no
+    pueda agotarla. Es el mismo JSON de siempre, sin `Content-Length`. Si
+    algo falla a mitad, la conexión se **corta** en lugar de cerrarse como si
+    hubiera terminado: un archivo cortado no es un JSON válido, y entregarlo
+    con pinta de completo cumpliría a medias el derecho de acceso.
   - `DELETE /api/cuenta`, con la frase `BORRAR MI CUENTA`, da de baja la
     cuenta (SCRUM-190, ADR 0026): borra la cuenta con todo lo suyo, sus
     archivos en Storage y su identidad en Supabase Auth, y **deja una

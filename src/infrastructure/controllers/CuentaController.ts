@@ -7,10 +7,13 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Logger,
   Patch,
   Post,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Readable } from 'node:stream';
 import { VERSIONES_VIGENTES } from '../../domain/model/AvisoDePrivacidad.js';
 import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import type { User } from '../../domain/model/User.js';
@@ -42,6 +45,7 @@ import { ActualizarPreferenciasDto } from './dto/ActualizarPreferenciasDto.js';
 import { BorrarCuentaDto } from './dto/BorrarCuentaDto.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
 import { ExportacionDto } from './dto/ExportacionDto.js';
+import { exportacionEnFlujo } from './dto/exportacionEnFlujo.js';
 import { RegistrarCuentaDto } from './dto/RegistrarCuentaDto.js';
 
 /**
@@ -55,6 +59,8 @@ import { RegistrarCuentaDto } from './dto/RegistrarCuentaDto.js';
 @ApiBearerAuth('sesion')
 @Controller('api/cuenta')
 export class CuentaController {
+  private readonly registro = new Logger('Exportacion');
+
   constructor(
     @Inject(REGISTRAR_CUENTA)
     private readonly cuentas: RegistrarCuentaUseCase,
@@ -268,11 +274,12 @@ export class CuentaController {
   @LimitePorCuenta(LIMITE_DE_EXPORTAR)
   // Son datos personales: ni el navegador ni un proxy deben guardar copia.
   @Header('Cache-Control', 'no-store')
+  @Header('Content-Type', 'application/json; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="vsd-health-mis-datos.json"')
   @ApiOperation({
     summary: 'Exportar los datos propios',
     description:
-      'Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas.',
+      'Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas. Se escribe por piezas, sin armar todo en memoria: los resultados, el diario y los pendientes se leen de a 200 y salen uno a uno (SCRUM-262). Es el mismo JSON de siempre, pero sin `Content-Length`: si algo falla a mitad la conexion se corta, y un archivo cortado no es un JSON valido.',
   })
   @ApiResponse({ status: 200, description: 'Los datos, en JSON.', type: ExportacionDto })
   @ApiResponse({ status: 401, description: 'Falta la sesion o el token no es valido.' })
@@ -280,14 +287,35 @@ export class CuentaController {
   async exportar(
     @CuentaActual() cuenta: User,
     @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
-  ): Promise<ExportacionDto> {
+  ): Promise<StreamableFile> {
+    // Lo acotado (la cuenta, los avisos, los dos archivos) se lee aqui y, si falla, la respuesta es
+    // un error de verdad. Lo que crece con el uso sale por paginas mientras se escribe.
     const datos = await this.exportacion.execute(cuenta.id);
 
     // Todo lo de una persona sale en un solo archivo: si alguien lo hace con un
     // token robado, este es el rastro (SCRUM-163).
     this.seguridad.registrar({ tipo: 'DATOS_EXPORTADOS', idUsuario: cuenta.id.value, ...origen });
 
-    return ExportacionDto.desde(datos);
+    return new StreamableFile(Readable.from(exportacionEnFlujo(datos)))
+      .setErrorLogger(() => undefined)
+      .setErrorHandler((error, respuesta) => {
+        // A estas alturas ya salio la cabecera y parte del archivo: no hay forma de cambiar el
+        // estado. Cerrar la respuesta como si hubiera terminado entregaria un JSON cortado con
+        // pinta de completo (y el derecho de acceso, cumplido a medias). Se corta la conexion.
+        // Del error solo su nombre: el mensaje de una base puede traer datos de la persona.
+        this.registro.error(`La exportacion se corto a mitad: ${error.name}`);
+
+        // Es una respuesta de Express: lo que Nest declara de ella no incluye `destroy`.
+        const cortable = respuesta as typeof respuesta & { destroy?: (causa?: Error) => void };
+
+        if (cortable.destroy === undefined) {
+          respuesta.end();
+
+          return;
+        }
+
+        cortable.destroy(error);
+      });
   }
 
   @Delete()

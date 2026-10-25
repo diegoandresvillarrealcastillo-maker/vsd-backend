@@ -8,7 +8,25 @@ import type { ConsentimientoAceptado, User } from '../../model/User.js';
 import type { FotoLeida } from './FotoDePerfilUseCase.js';
 import type { MascotaPropiaLeida } from './MascotaPropiaUseCase.js';
 
-/** Todo lo que VSD Health guarda de una persona. */
+/** Un resultado de la exportacion, con el titulo de la sesion que hizo si la actividad las tiene. */
+export interface ResultadoExportado {
+  readonly resultado: ActivityResult;
+  /**
+   * El titulo de la sesion que hizo (SCRUM-205, ADR 0030). Es lo unico de la sesion que sale: ni su
+   * identificador ni sus parametros, que son contenido de todos y no le dicen nada a la persona.
+   * Ausente si no hizo ninguna o si la sesion ya no existe.
+   */
+  readonly titulo?: string | undefined;
+}
+
+/**
+ * Todo lo que VSD Health guarda de una persona.
+ *
+ * Lo que crece con los anos de uso (resultados, diario, pendientes) no viene en listas sino en
+ * flujos que se leen **por paginas y se consumen una sola vez, en orden** (SCRUM-262): quien
+ * escribe la respuesta los recorre y los suelta, sin tenerlos todos en memoria. Lo demas (la cuenta,
+ * las aceptaciones, los avisos, los dos archivos) tiene un tamano acotado y viene ya leido.
+ */
 export interface DatosExportados {
   readonly generadoEn: Date;
   readonly cuenta: User;
@@ -17,16 +35,12 @@ export interface DatosExportados {
    * 360). La cuenta dice lo vigente; aqui esta tambien lo anterior.
    */
   readonly consentimientos: readonly ConsentimientoAceptado[];
-  readonly resultados: readonly ActivityResult[];
-  /**
-   * El titulo de cada sesion que hizo, por el identificador de la sesion (SCRUM-205, ADR 0030). Es lo
-   * unico de la sesion que sale: ni su identificador ni sus parametros, que son contenido de todos y
-   * no le dicen nada a la persona. Vacio si no hizo ninguna.
-   */
-  readonly titulosDeSesiones: ReadonlyMap<string, string>;
-  readonly entradasDeDiario: readonly EntradaDeDiario[];
-  /** Los del semaforo, hechos o no (SCRUM-97). */
-  readonly pendientes: readonly Pendiente[];
+  /** Del mas reciente al mas antiguo. */
+  readonly resultados: AsyncIterable<ResultadoExportado>;
+  /** De la mas antigua a la mas reciente. */
+  readonly entradasDeDiario: AsyncIterable<EntradaDeDiario>;
+  /** Los del semaforo, hechos o no (SCRUM-97), del mas antiguo al mas reciente. */
+  readonly pendientes: AsyncIterable<Pendiente>;
   /**
    * A que hora quiere cada aviso, y en cuantos navegadores (SCRUM-102). Las
    * direcciones y claves de los navegadores no salen: sirven para mandarle

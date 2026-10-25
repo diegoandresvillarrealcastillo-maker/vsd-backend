@@ -152,7 +152,9 @@ function armar(
     listarCatalogo: () => Promise.resolve(opciones.catalogo ?? CATALOGO),
   } as unknown as ActivityRepositoryPort;
   const repositorio = {
-    ultimosDe: () => Promise.resolve(resultados),
+    paginasDeResultados: async function* () {
+      yield await Promise.resolve(resultados);
+    },
   } as unknown as ActivityResultRepositoryPort;
 
   return new ConsultarProgresoUseCaseImpl(

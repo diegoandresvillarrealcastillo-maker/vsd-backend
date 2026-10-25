@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { UserId } from '../../domain/model/Identifier.js';
+import { reunir } from '../../pruebas/reunir.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaDiarioRepository } from './PrismaDiarioRepository.js';
@@ -199,7 +200,7 @@ describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () =
   });
 
   it('el diario se lee en nombre de la persona y solo trae lo suyo', async () => {
-    const entradas = await diario.todasDe(new UserId(PERSONA));
+    const entradas = await reunir(diario.paginasDeEntradas(new UserId(PERSONA)));
 
     expect(entradas).toHaveLength(1);
     expect(entradas[0]?.id.value).toBe(ENTRADA);

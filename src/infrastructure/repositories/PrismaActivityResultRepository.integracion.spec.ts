@@ -867,4 +867,117 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       ).resolves.toEqual([]);
     });
   });
+
+  describe('paginasDeResultados (SCRUM-262)', () => {
+    const TOTAL = 450;
+
+    /**
+     * 450 resultados de A y 3 de B. Cada hora la comparten tres resultados de A: con 200 por
+     * pagina, el limite de la primera parte justo un empate, que es donde un cursor mal hecho
+     * repite o se salta filas.
+     */
+    async function sembrarMuchos(): Promise<void> {
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('42000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('52000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute'),
+                date '2026-09-01'
+           FROM generate_series(1, $3::int) AS i`,
+        [USUARIO_A, ACTIVIDAD_BITACORA, TOTAL],
+      );
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('43000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('53000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00', date '2026-09-01'
+           FROM generate_series(1, 3) AS i`,
+        [USUARIO_B, ACTIVIDAD_BITACORA],
+      );
+    }
+
+    async function paginas(usuario: string, desde = new Date(0)): Promise<ActivityResult[][]> {
+      const todas: ActivityResult[][] = [];
+
+      for await (const pagina of repositorio.paginasDeResultados(new UserId(usuario), desde)) {
+        todas.push([...pagina]);
+      }
+
+      return todas;
+    }
+
+    /** Los identificadores de A en el orden que promete el puerto, segun la base. */
+    async function ordenDeLaBase(): Promise<string[]> {
+      const { rows } = await dueno.query<{ id: string }>(
+        `SELECT id_resultado AS id FROM resultado WHERE id_usuario = $1
+          ORDER BY fecha DESC, id_resultado DESC`,
+        [USUARIO_A],
+      );
+
+      return rows.map((fila) => fila.id);
+    }
+
+    it('entrega todo en paginas de 200, del mas reciente al mas antiguo, sin repetir ni saltarse ninguno', async () => {
+      await sembrarMuchos();
+
+      const recibidas = await paginas(USUARIO_A);
+
+      expect(recibidas.map((pagina) => pagina.length)).toEqual([200, 200, 50]);
+
+      const ids = recibidas.flat().map((resultado) => resultado.id.value);
+
+      expect(new Set(ids).size).toBe(TOTAL);
+      expect(ids).toEqual(await ordenDeLaBase());
+    });
+
+    it('lo de otra persona no aparece: el aislamiento lo pone la base', async () => {
+      await sembrarMuchos();
+
+      const ids = (await paginas(USUARIO_B)).flat().map((resultado) => resultado.id.value);
+
+      expect(ids).toHaveLength(3);
+      expect(ids.every((id) => id.startsWith('43000000'))).toBe(true);
+    });
+
+    it('respeta la fecha desde la que se pide', async () => {
+      await sembrarMuchos();
+
+      // Las ultimas 60 horas distintas: grupos 90 a 150 -> desde el minuto 90.
+      const desde = new Date('2026-09-01T01:30:00.000Z');
+      const esperados = await dueno.query<{ n: string }>(
+        'SELECT count(*) AS n FROM resultado WHERE id_usuario = $1 AND fecha >= $2',
+        [USUARIO_A, desde],
+      );
+
+      const recibidos = (await paginas(USUARIO_A, desde)).flat();
+
+      expect(recibidos).toHaveLength(Number(esperados.rows[0]?.n));
+      expect(recibidos.every((resultado) => resultado.completedAt >= desde)).toBe(true);
+    });
+
+    it('una persona sin resultados no produce ninguna pagina', async () => {
+      await expect(paginas(USUARIO_A)).resolves.toEqual([]);
+    });
+
+    it('una cantidad exacta de paginas llenas no inventa una pagina vacia al final', async () => {
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('44000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('54000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + (i * interval '1 minute'), date '2026-09-01'
+           FROM generate_series(1, 400) AS i`,
+        [USUARIO_A, ACTIVIDAD_BITACORA],
+      );
+
+      expect((await paginas(USUARIO_A)).map((pagina) => pagina.length)).toEqual([200, 200]);
+    });
+
+    it('ultimosDe sigue entregando todo, ahora leido por paginas', async () => {
+      await sembrarMuchos();
+
+      const todos = await repositorio.ultimosDe(new UserId(USUARIO_A), new Date(0));
+
+      expect(todos.map((resultado) => resultado.id.value)).toEqual(await ordenDeLaBase());
+    });
+  });
 });

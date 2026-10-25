@@ -9,8 +9,12 @@ import type { ClientOperationId, EntradaId, UserId } from '../../model/Identifie
  * el diario de otra, ni siquiera conociendo el identificador de su anotacion.
  */
 export interface DiarioRepositoryPort {
-  /** Todas sus anotaciones, de la mas antigua a la mas reciente. Para la exportacion. */
-  todasDe(userId: UserId): Promise<readonly EntradaDeDiario[]>;
+  /**
+   * Todas sus anotaciones, de la mas antigua a la mas reciente, **por paginas** de
+   * `FILAS_POR_PAGINA` (SCRUM-262). Para la exportacion: quien la consume escribe cada pagina y
+   * sigue, sin tenerlas todas a la vez. No repite ni se salta ninguna aunque dos compartan la hora.
+   */
+  paginasDeEntradas(userId: UserId): AsyncIterable<readonly EntradaDeDiario[]>;
 
   /** Las de un rango de dias, ambos incluidos, por dia y despues por hora. */
   entreDias(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly EntradaDeDiario[]>;

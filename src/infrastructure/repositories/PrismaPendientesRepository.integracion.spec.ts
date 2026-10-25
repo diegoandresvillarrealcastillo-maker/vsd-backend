@@ -419,4 +419,73 @@ describe.skipIf(URL_DUENO === undefined)('El semaforo en PostgreSQL', () => {
       ),
     ).rejects.toThrow(/pendiente_texto_no_vacio/);
   });
+
+  describe('paginasDePendientes (SCRUM-262)', () => {
+    const TOTAL = 450;
+
+    /**
+     * 450 pendientes de PERSONA y 3 de OTRA. Cada hora la comparten tres de PERSONA: con 200 por
+     * pagina, el limite de la primera parte justo un empate, que es donde un cursor mal hecho repite
+     * o se salta filas.
+     */
+    async function sembrarMuchos(): Promise<void> {
+      await dueno.query(
+        `INSERT INTO pendiente (id_pendiente, id_usuario, texto, nivel, id_operacion_cliente, fecha_creacion, fecha_edicion)
+         SELECT ('96000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, 'Pendiente ' || i, 'urgente',
+                ('97000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute'),
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute')
+           FROM generate_series(1, $2::int) AS i`,
+        [PERSONA, TOTAL],
+      );
+      await dueno.query(
+        `INSERT INTO pendiente (id_pendiente, id_usuario, texto, nivel, id_operacion_cliente, fecha_creacion, fecha_edicion)
+         SELECT ('98000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, 'De la otra persona', 'urgente',
+                ('99000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, now(), now()
+           FROM generate_series(1, 3) AS i`,
+        [OTRA],
+      );
+    }
+
+    async function paginas(persona: string): Promise<Pendiente[][]> {
+      const todas: Pendiente[][] = [];
+
+      for await (const pagina of pendientes.paginasDePendientes(new UserId(persona))) {
+        todas.push([...pagina]);
+      }
+
+      return todas;
+    }
+
+    it('entrega todo en paginas de 200, del mas antiguo al mas reciente, sin repetir ni saltarse ninguno', async () => {
+      await sembrarMuchos();
+
+      const recibidas = await paginas(PERSONA);
+
+      expect(recibidas.map((pagina) => pagina.length)).toEqual([200, 200, 50]);
+
+      const ids = recibidas.flat().map((pendiente) => pendiente.id.value);
+      const { rows } = await dueno.query<{ id: string }>(
+        `SELECT id_pendiente AS id FROM pendiente WHERE id_usuario = $1
+          ORDER BY fecha_creacion ASC, id_pendiente ASC`,
+        [PERSONA],
+      );
+
+      expect(new Set(ids).size).toBe(TOTAL);
+      expect(ids).toEqual(rows.map((fila) => fila.id));
+    });
+
+    it('lo de otra persona no aparece: el aislamiento lo pone la base', async () => {
+      await sembrarMuchos();
+
+      const suyos = (await paginas(OTRA)).flat();
+
+      expect(suyos).toHaveLength(3);
+      expect(suyos.every((pendiente) => pendiente.texto === 'De la otra persona')).toBe(true);
+    });
+
+    it('una persona sin pendientes no produce ninguna pagina', async () => {
+      await expect(paginas(PERSONA)).resolves.toEqual([]);
+    });
+  });
 });

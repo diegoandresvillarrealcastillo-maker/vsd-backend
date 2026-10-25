@@ -317,7 +317,7 @@
     },
     "/api/cuenta/exportacion": {
       "get": {
-        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas.",
+        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas. Se escribe por piezas, sin armar todo en memoria: los resultados, el diario y los pendientes se leen de a 200 y salen uno a uno (SCRUM-262). Es el mismo JSON de siempre, pero sin `Content-Length`: si algo falla a mitad la conexion se corta, y un archivo cortado no es un JSON valido.",
         "operationId": "CuentaController_exportar",
         "parameters": [],
         "responses": {

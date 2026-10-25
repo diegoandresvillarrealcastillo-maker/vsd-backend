@@ -220,7 +220,9 @@ function pendientes(porPersona: Record<string, string[]>): PendientesRepositoryP
 
   return {
     vigentesDe: (userId) => Promise.resolve(de(userId)),
-    todosDe: (userId) => Promise.resolve(de(userId)),
+    paginasDePendientes: async function* (userId) {
+      yield await Promise.resolve(de(userId));
+    },
     porId: () => Promise.resolve(null),
     porOperacion: () => Promise.resolve(null),
     guardarNuevo: (pendiente) => Promise.resolve(pendiente),

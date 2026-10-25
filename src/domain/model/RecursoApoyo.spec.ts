@@ -54,6 +54,56 @@ describe('RecursoApoyo', () => {
     });
   });
 
+  describe('el telefono que se marca con «Llamar ahora» (SCRUM-257)', () => {
+    it.each(['192', '123', '024', '8009112000', '+573112801363'])(
+      'una linea verificada acepta "%s"',
+      (telefono) => {
+        expect(RecursoApoyo.create({ ...LINEA, telefono }).telefono).toBe(telefono);
+      },
+    );
+
+    it('sin telefono, no lo tiene (el directorio internacional)', () => {
+      expect(RecursoApoyo.create({ ...LINEA }).telefono).toBeUndefined();
+    });
+
+    it.each([
+      '',
+      '12',
+      '1234567890123456',
+      '192, opción 4',
+      '192,4',
+      '192 4',
+      '800 911 2000',
+      '(1) 234',
+      'tel:192',
+      '+',
+      '++192',
+      '192+',
+      'uno',
+      '192;4',
+      '1.2.3',
+    ])('no acepta "%s": no es algo que se pueda marcar tal cual', (telefono) => {
+      expect(() => RecursoApoyo.create({ ...LINEA, telefono })).toThrow(InvalidResourceError);
+    });
+
+    it('una lectura o un ejercicio no pueden llevar telefono', () => {
+      for (const tipo of [TipoDeRecurso.LECTURA, TipoDeRecurso.EJERCICIO]) {
+        expect(() =>
+          RecursoApoyo.create({ id: 'x', titulo: 'Algo para leer', tipo, telefono: '192' }),
+        ).toThrow(InvalidResourceError);
+      }
+    });
+
+    it('sin fuente o sin fecha no hay linea, y por tanto no hay telefono que marcar', () => {
+      expect(() => RecursoApoyo.create({ ...LINEA, fuente: undefined, telefono: '192' })).toThrow(
+        InvalidResourceError,
+      );
+      expect(() =>
+        RecursoApoyo.create({ ...LINEA, verificadoEl: undefined, telefono: '192' }),
+      ).toThrow(InvalidResourceError);
+    });
+  });
+
   describe('el pais', () => {
     it.each(['CO', 'MX', 'ES', 'US'])('acepta "%s"', (pais) => {
       expect(RecursoApoyo.create({ ...LINEA, pais }).pais).toBe(pais);

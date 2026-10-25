@@ -1049,6 +1049,13 @@ las de otro pais**.
 (`AAAA-MM-DD`), y la base impone lo mismo con una restriccion. Quien quiera
 agregar una linea sin decir de donde sale, no puede.
 
+**El telefono de «Llamar ahora»** (SCRUM-257, ADR 0037). `RecursoApoyo.telefono`
+es opcional: solo cifras, con un `+` opcional, y solo en un contacto (que ya
+tiene fuente y fecha). `RecursoDto.telefono` lo lleva a todo lo que ensena
+lineas: el asistente, los resultados y el acompanamiento. Sin telefono no hay
+boton, y el directorio internacional no lo lleva. Una prueba comprueba que el
+numero de la columna es siempre el que dice el texto de la linea.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no

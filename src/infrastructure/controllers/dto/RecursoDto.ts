@@ -30,6 +30,14 @@ export class RecursoDto {
   @ApiPropertyOptional({ format: 'uri' })
   enlace?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'El numero que marca el boton «Llamar ahora» (SCRUM-257): solo cifras, con un + delante si lleva prefijo de pais. Solo lo traen las lineas de atencion verificadas; el directorio internacional no. Si la linea pide elegir una opcion al contestar, la opcion esta en la descripcion y no se marca sola.',
+    example: '192',
+    pattern: '^\\+?\\d{3,15}$',
+  })
+  telefono?: string;
+
   static desde(recurso: RecursoApoyo): RecursoDto {
     const dto = new RecursoDto();
 
@@ -47,6 +55,10 @@ export class RecursoDto {
 
     if (recurso.enlace !== undefined) {
       dto.enlace = recurso.enlace;
+    }
+
+    if (recurso.telefono !== undefined) {
+      dto.telefono = recurso.telefono;
     }
 
     return dto;

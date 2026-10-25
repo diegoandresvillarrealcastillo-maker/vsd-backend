@@ -50,6 +50,7 @@ export class PrismaRecursoApoyoRepository implements RecursoApoyoRepositoryPort 
       enlace: fila.enlace ?? undefined,
       pais: fila.pais ?? undefined,
       fuente: fila.fuente ?? undefined,
+      telefono: fila.telefono ?? undefined,
       // Un DATE llega como medianoche UTC: sus diez primeras letras son el dia.
       verificadoEl: fila.verificadoEl?.toISOString().slice(0, 10),
     });

@@ -141,3 +141,65 @@ describe('InMemoryRecursoApoyoRepository: lineas por pais', () => {
     }
   });
 });
+
+describe('InMemoryRecursoApoyoRepository: el telefono de «Llamar ahora» (SCRUM-257)', () => {
+  /** Lo que una persona confirmo en la fuente de cada linea, y lo que marca el boton. */
+  const TELEFONOS_VERIFICADOS: Readonly<Record<string, string>> = {
+    '0192c0de-0000-4000-8000-000000000192': '192',
+    '0123c0de-0000-4000-8000-000000000123': '123',
+    '0106c0de-0000-4000-8000-000000000106': '106',
+    '8009c0de-0000-4000-8000-000000911200': '8009112000',
+    '0911c0de-0000-4000-8000-000000000911': '911',
+    '0024c0de-0000-4000-8000-000000000024': '024',
+    '0112c0de-0000-4000-8000-000000000112': '112',
+    '0988c0de-0000-4000-8000-000000000988': '988',
+    '1911c0de-0000-4000-8000-000000000911': '911',
+  };
+
+  it('cada linea trae exactamente el telefono verificado, y ninguna otra trae uno', () => {
+    const encontrados = Object.fromEntries(
+      catalogoDeLineas()
+        .filter((linea) => linea.telefono !== undefined)
+        .map((linea) => [linea.id, linea.telefono]),
+    );
+
+    expect(encontrados).toEqual(TELEFONOS_VERIFICADOS);
+  });
+
+  it('el telefono es siempre el numero que dice el texto de la linea', () => {
+    // Lo que se marca nunca puede ser distinto de lo que la persona lee: un
+    // numero en la columna que el titulo o la descripcion no mencionan es un
+    // error de copia, y en una crisis es el peor.
+    for (const linea of catalogoDeLineas()) {
+      if (linea.telefono === undefined) {
+        continue;
+      }
+
+      const texto = `${linea.titulo} ${linea.descripcion ?? ''}`.replace(/\s/gu, '');
+
+      expect(texto, linea.titulo).toContain(linea.telefono);
+    }
+  });
+
+  it('el directorio internacional no trae ningun telefono: no se sabe cual seria el de esa persona', async () => {
+    for (const pais of [undefined, 'PE', 'FR']) {
+      const lineas = await new InMemoryRecursoApoyoRepository().lineasDeAtencion(pais);
+
+      expect(lineas.every((linea) => linea.telefono === undefined)).toBe(true);
+    }
+  });
+
+  it('un pais solo recibe telefonos de sus propias lineas', async () => {
+    const repositorio = new InMemoryRecursoApoyoRepository();
+
+    for (const pais of PAISES_CON_LINEAS) {
+      const lineas = await repositorio.lineasDeAtencion(pais);
+
+      expect(
+        lineas
+          .filter((linea) => linea.telefono !== undefined)
+          .every((linea) => linea.pais === pais),
+      ).toBe(true);
+    }
+  });
+});

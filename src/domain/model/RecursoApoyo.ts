@@ -41,6 +41,13 @@ const PRIORIDAD: Record<string, number> = {
 /** Una fecha sin hora, como AAAA-MM-DD. */
 const FECHA = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
+/**
+ * Lo unico que puede ir en un `tel:`: cifras, con un `+` delante si lleva el
+ * prefijo del pais. Sin espacios, letras ni signos de pausa: lo que se marca es
+ * exactamente esto, y la base impone la misma forma.
+ */
+const TELEFONO = /^\+?\d{3,15}$/;
+
 export interface DatosDeRecurso {
   readonly id: string;
   readonly titulo: string;
@@ -58,6 +65,14 @@ export interface DatosDeRecurso {
   readonly fuente?: string | undefined;
   /** El dia en que una persona lo confirmo en esa fuente, como AAAA-MM-DD. */
   readonly verificadoEl?: string | undefined;
+  /**
+   * El numero que se marca desde el boton «Llamar ahora» (SCRUM-257, ADR 0037):
+   * solo cifras, y solo en una linea de atencion que ya tiene fuente y fecha de
+   * verificacion. Vacio cuando no hay nada que marcar, como en el directorio
+   * internacional. Si la linea pide elegir una opcion al contestar, la opcion
+   * va en la descripcion y no aqui: no se marca sola.
+   */
+  readonly telefono?: string | undefined;
 }
 
 /**
@@ -80,6 +95,7 @@ export class RecursoApoyo {
     readonly pais: string | undefined,
     readonly fuente: string | undefined,
     readonly verificadoEl: string | undefined,
+    readonly telefono: string | undefined,
   ) {
     Object.freeze(this);
   }
@@ -108,6 +124,22 @@ export class RecursoApoyo {
       throw new InvalidResourceError(`"${datos.pais}" no es un código de país de dos letras`);
     }
 
+    // Un numero que se marca con un boton solo sale de una linea verificada: sin
+    // fuente y fecha no hay contacto, y sin contacto no hay telefono (SCRUM-257).
+    if (datos.telefono !== undefined) {
+      if (datos.tipo !== TipoDeRecurso.CONTACTO) {
+        throw new InvalidResourceError(
+          `"${datos.titulo}" no es una línea de atención y no puede llevar un teléfono`,
+        );
+      }
+
+      if (!TELEFONO.test(datos.telefono)) {
+        throw new InvalidResourceError(
+          `"${datos.telefono}" no es un teléfono que se pueda marcar (solo cifras, con un + opcional)`,
+        );
+      }
+    }
+
     return new RecursoApoyo(
       datos.id,
       datos.titulo,
@@ -119,6 +151,7 @@ export class RecursoApoyo {
       datos.pais,
       datos.fuente,
       datos.verificadoEl,
+      datos.telefono,
     );
   }
 

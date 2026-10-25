@@ -485,6 +485,13 @@ model RecursoApoyo {
   /// contactos, junto a la fuente.
   verificadoEl DateTime? @map("verificado_el") @db.Date
 
+  /// El numero que marca el boton «Llamar ahora» (SCRUM-257, ADR 0037): solo
+  /// cifras, con un `+` delante si lleva prefijo de pais. Solo en contactos, que
+  /// ya tienen fuente y fecha de verificacion; vacio en el directorio
+  /// internacional. Una opcion que se elige al contestar (el 192, opcion 4) va
+  /// en la descripcion: no se marca sola.
+  telefono String? @db.VarChar(16)
+
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])

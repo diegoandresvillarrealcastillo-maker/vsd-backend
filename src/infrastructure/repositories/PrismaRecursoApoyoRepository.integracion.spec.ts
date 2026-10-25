@@ -38,6 +38,7 @@ function ficha(linea: RecursoApoyo): Record<string, string | undefined> {
     pais: linea.pais,
     fuente: linea.fuente,
     verificadoEl: linea.verificadoEl,
+    telefono: linea.telefono,
   };
 }
 
@@ -159,6 +160,39 @@ describe.skipIf(URL_BASE === undefined)('Recursos de apoyo en PostgreSQL', () =>
            VALUES ('99999999-0000-4000-8000-000000000003', 'Pais mal escrito', 'contacto', 'co', 'https://x.test', DATE '2026-10-06')`,
         ),
       ).rejects.toThrow(/recurso_apoyo_pais_iso/u);
+    });
+
+    it('la base no deja entrar un telefono que no se pueda marcar tal cual (SCRUM-257)', async () => {
+      for (const telefono of ['192, opción 4', '800 911 2000', '12', 'tel:192']) {
+        await expect(
+          prisma.$executeRawUnsafe(
+            `INSERT INTO "recurso_apoyo" ("id_recurso", "titulo", "tipo", "pais", "fuente", "verificado_el", "telefono")
+             VALUES ('99999999-0000-4000-8000-000000000004', 'Telefono mal escrito', 'contacto', 'CO', 'https://x.test', DATE '2026-10-06', $1)`,
+            telefono,
+          ),
+          telefono,
+        ).rejects.toThrow(/recurso_apoyo_telefono_formato/u);
+      }
+    });
+
+    it('la base no deja que un recurso que no es una linea lleve telefono (SCRUM-257)', async () => {
+      await expect(
+        prisma.$executeRawUnsafe(
+          `INSERT INTO "recurso_apoyo" ("id_recurso", "titulo", "tipo", "telefono")
+           VALUES ('99999999-0000-4000-8000-000000000005', 'Una lectura con numero', 'lectura', '192')`,
+        ),
+      ).rejects.toThrow(/recurso_apoyo_telefono_solo_en_contactos/u);
+    });
+
+    it('los telefonos de las lineas verificadas estan en la columna, y el directorio no lleva ninguno (SCRUM-257)', async () => {
+      const telefonos = async (pais: string | undefined) =>
+        (await repositorio.lineasDeAtencion(pais)).map((linea) => linea.telefono);
+
+      expect((await telefonos('CO')).sort()).toEqual(['106', '123', '192']);
+      expect((await telefonos('MX')).sort()).toEqual(['8009112000', '911']);
+      expect((await telefonos('ES')).sort()).toEqual(['024', '112']);
+      expect((await telefonos('US')).sort()).toEqual(['911', '988']);
+      expect(await telefonos(undefined)).toEqual([undefined]);
     });
 
     it('el catalogo en memoria dice lo mismo que la base, campo por campo', async () => {

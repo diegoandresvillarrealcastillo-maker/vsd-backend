@@ -500,6 +500,16 @@ día en que una persona lo confirmó. **Son obligatorias en los contactos**: la
 restricción `recurso_apoyo_contacto_con_fuente` no deja guardar un teléfono sin
 ellas. Es la forma de que «cada línea tiene fuente» no dependa de acordarse.
 
+`telefono` (SCRUM-257, [ADR 0037](adr/0037-llamar-ahora-solo-con-telefonos-verificados.md))
+es lo que marca el botón «Llamar ahora»: solo cifras, con un `+` delante si lleva
+prefijo de país (`192`, `8009112000`). Dos restricciones: el formato
+(`recurso_apoyo_telefono_formato`) y que solo lo tenga un contacto
+(`recurso_apoyo_telefono_solo_en_contactos`). Como un contacto no entra sin fuente
+y fecha, **un número que se marca con un botón siempre viene de una línea
+verificada**. Vacío en el directorio internacional, a propósito. Si la línea pide
+elegir una opción al contestar (el 192, opción 4), la opción va en la descripción
+y no aquí: no se marca sola.
+
 Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.

@@ -34,13 +34,42 @@
  */
 
 /**
- * Deja el texto comparable: sin tildes, en minúsculas y con los espacios colapsados.
+ * Lo que no se dibuja pero está en el texto: guiones blandos, espacios y uniones de ancho cero,
+ * marcas de dirección, selectores de variación, etiquetas (`Default_Ignorable_Code_Point`).
+ */
+const INVISIBLES = /\p{Default_Ignorable_Code_Point}/gu;
+
+/**
+ * Deja el texto comparable: sin tildes, sin invisibles, en minúsculas y con los espacios
+ * colapsados.
  *
- * La forma NFD separa cada letra de su tilde, y el rango de marcas diacríticas las borra. Sin
- * esto, «quiero morír» no coincidiría con «quiero morir» por un acento.
+ * - NFKD separa cada letra de su tilde y, además, lleva a su forma corriente las letras de ancho
+ *   completo y las matemáticas. Sin esto, «quiero morír» no coincidiría con «quiero morir» por un
+ *   acento.
+ * - Los invisibles se **quitan**: «mo» + U+200B + «rir» no se ve distinto de «morir», y que una
+ *   comparación de texto sí los distinga sería la forma más barata de que lo escrito no se
+ *   detecte (SCRUM-258). Se quitan antes que las marcas, porque NFKD puede dejar alguno suelto.
+ * - Se quitan **todas** las marcas combinadas (`\p{M}`), no solo el rango de las tildes.
  */
 export function normalizar(texto: string): string {
-  return texto.normalize('NFD').replace(/[̀-ͯ]/gu, '').toLowerCase().replace(/\s+/gu, ' ').trim();
+  return texto
+    .normalize('NFKD')
+    .replace(INVISIBLES, '')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/**
+ * El mismo texto con los invisibles convertidos en espacio, o el mismo texto si no tiene ninguno.
+ *
+ * `normalizar` los quita, y eso cierra «mo» + U+200B + «rir». Pero alguien también puede usar
+ * uno **en lugar de** el espacio: quitado, «quiero» + U+200B + «morir» quedaría «quieromorir».
+ * Quien detecta riesgo mira las dos lecturas (SCRUM-258).
+ */
+export function conInvisiblesComoEspacio(texto: string): string {
+  return texto.replace(INVISIBLES, ' ');
 }
 
 /**

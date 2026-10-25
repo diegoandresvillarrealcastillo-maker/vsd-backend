@@ -36,8 +36,16 @@ export interface ActivityResultRepositoryPort {
     userId: UserId,
   ): Promise<ActivityResult | null>;
 
-  /** Guarda un resultado nuevo. */
-  save(result: ActivityResult): Promise<void>;
+  /**
+   * Guarda un resultado nuevo y devuelve el que **quedo guardado** para esa operacion.
+   *
+   * Casi siempre es el mismo que se paso. No lo es cuando la misma operacion de esa persona ya
+   * estaba: dos peticiones del mismo reintento que llegan a la vez miran antes de que ninguna
+   * escriba, y las dos intentan guardar. La clave unica deja pasar a una, y la otra recibe lo que
+   * guardo la ganadora, no un error: la idempotencia tiene que valer tambien en la carrera
+   * (SCRUM-258). Nunca se pisa lo que ya estaba.
+   */
+  save(result: ActivityResult): Promise<ActivityResult>;
 
   /**
    * Los resultados de esa persona desde una fecha, del mas reciente al mas

@@ -9,6 +9,7 @@ import type { Mascota } from '../../domain/model/Preferencias.js';
 import {
   TipoDeConsentimiento,
   User,
+  type CampoModificable,
   type ConsentimientoAceptado,
 } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -63,6 +64,69 @@ function mascotaDesde(valor: Prisma.JsonValue): Mascota {
     nombre: texto('nombre'),
     ...opcional('color'),
     ...opcional('accesorio'),
+  };
+}
+
+/**
+ * Las columnas de **solo los campos que se piden** (SCRUM-258), para `guardarCambios`.
+ *
+ * Es la contraparte de lo que arma `save` para la cuenta entera, campo por campo. Un campo que no
+ * esta en `campos` no aparece en el resultado: el UPDATE no lo nombra y la columna no se toca.
+ */
+function columnasDe(
+  user: User,
+  campos: ReadonlySet<CampoModificable>,
+): Prisma.UsuarioUpdateManyMutationInput {
+  if (campos.has('consentimiento') && user.consentimiento === undefined) {
+    // Las columnas del consentimiento son NOT NULL, como dice `save`.
+    throw new Error(
+      'No se puede guardar una cuenta sin consentimiento registrado. ' +
+        'Ver User.exigirConsentimiento() y la Ley 1581 de 2012.',
+    );
+  }
+
+  return {
+    ...(campos.has('consentimiento') && user.consentimiento !== undefined
+      ? {
+          versionPoliticaAceptada: user.consentimiento.versionPolitica,
+          fechaAceptacionPolitica: user.consentimiento.aceptadoEn,
+        }
+      : {}),
+    ...(campos.has('terminos')
+      ? {
+          versionTerminosAceptada: user.terminos?.versionPolitica ?? null,
+          fechaAceptacionTerminos: user.terminos?.aceptadoEn ?? null,
+        }
+      : {}),
+    // Un dia y no un instante: medianoche UTC, como en `save`.
+    ...(campos.has('fechaDeNacimiento')
+      ? {
+          fechaNacimiento:
+            user.fechaDeNacimiento === undefined
+              ? null
+              : new Date(`${user.fechaDeNacimiento.valor}T00:00:00.000Z`),
+        }
+      : {}),
+    ...(campos.has('nombre') ? { nombre: user.nombre ?? null } : {}),
+    ...(campos.has('modulosActivos') ? { modulosActivos: [...user.modulosActivos] } : {}),
+    // DbNull y no undefined: undefined le diria a Prisma "no toques la columna".
+    ...(campos.has('mascota')
+      ? { mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota } }
+      : {}),
+    ...(campos.has('diarioConRecomendaciones')
+      ? { diarioConRecomendaciones: user.diarioConRecomendaciones }
+      : {}),
+    ...(campos.has('acompanamientoPorDias')
+      ? { acompanamientoPorDias: user.acompanamientoPorDias }
+      : {}),
+    ...(campos.has('zonaHoraria') ? { zonaHoraria: user.zonaHoraria } : {}),
+    // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la columna vacia.
+    ...(campos.has('fotoActualizadaEl')
+      ? { fotoActualizadaEl: user.fotoActualizadaEl ?? null }
+      : {}),
+    ...(campos.has('mascotaPropiaActualizadaEl')
+      ? { mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null }
+      : {}),
   };
 }
 
@@ -222,6 +286,55 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
       throw error;
     }
+  }
+
+  async guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const campos = despues.camposCambiadosDesde(antes);
+    const datos = columnasDe(despues, campos);
+    const id = despues.id.value;
+
+    const fila = await this.prisma.comoUsuario(id, async (cliente) => {
+      // Solo las columnas de lo que cambio: el resto no se nombra en el UPDATE, asi que lo que otra
+      // peticion haya escrito entretanto se queda como esta. `updateMany` y no `update`: una cuenta
+      // que ya no existe da cero filas y no un error, y **no se crea** (a diferencia de `save`).
+      if (Object.keys(datos).length > 0) {
+        const { count } = await cliente.usuario.updateMany({ where: { id }, data: datos });
+
+        if (count === 0) {
+          return null;
+        }
+
+        // Lo aceptado pasa al historial en la misma transaccion, como en `save`.
+        const aceptados = [
+          ...(campos.has('consentimiento') && despues.consentimiento !== undefined
+            ? [
+                {
+                  tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+                  aceptado: despues.consentimiento,
+                },
+              ]
+            : []),
+          ...(campos.has('terminos') && despues.terminos !== undefined
+            ? [{ tipo: TipoDeConsentimiento.TERMINOS, aceptado: despues.terminos }]
+            : []),
+        ];
+
+        await cliente.consentimiento.createMany({
+          data: aceptados.map(({ tipo, aceptado }) => ({
+            idUsuario: id,
+            tipo,
+            version: aceptado.versionPolitica,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Lo que quedo guardado, ya con el cambio y con lo que otras peticiones hayan escrito.
+      return cliente.usuario.findUnique({ where: { id } });
+    });
+
+    return fila === null ? null : this.aDominio(fila);
   }
 
   async consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {

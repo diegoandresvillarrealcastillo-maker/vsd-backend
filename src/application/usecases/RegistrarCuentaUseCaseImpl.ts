@@ -5,6 +5,7 @@ import {
 import { Calendario, ZONA_HORARIA_POR_DEFECTO } from '../../domain/model/Calendario.js';
 import {
   AccountInactiveError,
+  AccountNotProvisionedError,
   InvalidBirthDateError,
   InvalidTimeZoneError,
   MissingConsentError,
@@ -182,11 +183,28 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
     const enSuZona =
       command.zonaHoraria === undefined ? completa : completa.conZonaHoraria(command.zonaHoraria);
 
-    await this.cuentas.save(enSuZona);
+    const quedo = await this.guardarCambios(existente, enSuZona);
 
-    this.anotarElConsentimiento(enSuZona, registro, command.origen);
+    this.anotarElConsentimiento(quedo, registro, command.origen);
 
-    return enSuZona;
+    return quedo;
+  }
+
+  /**
+   * Guarda solo lo que cambio de una cuenta que ya existe y devuelve lo que quedo guardado
+   * (SCRUM-258). Si la cuenta desaparecio entretanto no se vuelve a crear: se dio de baja (el mismo
+   * error que antes, para que el cliente cierre la sesion) o se borro.
+   */
+  private async guardarCambios(antes: User, despues: User): Promise<User> {
+    const quedo = await this.cuentas.guardarCambios(antes, despues);
+
+    if (quedo === null) {
+      await this.rechazarSiSeDioDeBaja(antes.idProveedorAuth);
+
+      throw new AccountNotProvisionedError();
+    }
+
+    return quedo;
   }
 
   /** Solo las versiones que se aceptaron: ni la fecha de nacimiento ni nada de la persona. */
@@ -298,11 +316,7 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
 
     const enSuZona = cuenta.conZonaHoraria(zona);
 
-    if (enSuZona !== cuenta) {
-      await this.cuentas.save(enSuZona);
-    }
-
-    return enSuZona;
+    return enSuZona === cuenta ? cuenta : this.guardarCambios(cuenta, enSuZona);
   }
 }
 

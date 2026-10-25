@@ -376,11 +376,12 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     expect(recuperado?.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 
-  it('la base rechaza el duplicado, no la aplicacion', async () => {
+  it('la base rechaza el duplicado y el segundo guardado recibe el primero', async () => {
     // El caso de uso ya evita llegar hasta aqui: consulta antes de escribir.
     // Esta prueba se salta esa proteccion a proposito, porque lo que
-    // comprueba es la de abajo. Si el codigo fallara, si hubiera una carrera
-    // entre dos peticiones simultaneas, el duplicado sigue sin entrar.
+    // comprueba es la de abajo. El adaptador no consulta antes de insertar:
+    // quien rechaza el duplicado es la clave unica, y el adaptador, al verlo,
+    // devuelve lo que ya estaba (SCRUM-258).
     const datos = {
       usuario: USUARIO_A,
       actividad: ACTIVIDAD_MEMORIA,
@@ -388,13 +389,15 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       puntajeCrudo: 5,
     };
 
-    await repositorio.save(
+    const primero = await repositorio.save(
       await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000003' }),
     );
+    const repetido = await repositorio.save(
+      await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000004' }),
+    );
 
-    await expect(
-      repositorio.save(await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000004' })),
-    ).rejects.toThrow();
+    expect(primero.id.value).toBe('40000000-0000-4000-8000-000000000003');
+    expect(repetido.id.value).toBe(primero.id.value);
 
     const { rows } = await dueno.query<{ total: string }>(
       'SELECT count(*)::text AS total FROM resultado WHERE id_operacion_cliente = $1',
@@ -402,6 +405,34 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     );
 
     expect(rows[0]).toMatchObject({ total: '1' });
+  });
+
+  it('dos guardados simultaneos de la misma operacion devuelven el mismo resultado (SCRUM-258)', async () => {
+    // La carrera de verdad, contra la base: los dos insertan a la vez y la clave unica deja
+    // pasar a uno. El otro no puede acabar en un error: la persona reintento porque la red se
+    // cayo, y lo que merece es ver lo que quedo guardado.
+    const datos = {
+      usuario: USUARIO_A,
+      actividad: ACTIVIDAD_MEMORIA,
+      operacion: '50000000-0000-4000-8000-000000000006',
+      puntajeCrudo: 7,
+    };
+    const uno = await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000010' });
+    const otro = await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000011' });
+
+    const [guardadoUno, guardadoOtro] = await Promise.all([
+      repositorio.save(uno),
+      repositorio.save(otro),
+    ]);
+
+    expect(guardadoOtro.id.value).toBe(guardadoUno.id.value);
+
+    const { rows } = await dueno.query<{ id: string }>(
+      'SELECT id_resultado AS id FROM resultado WHERE id_operacion_cliente = $1',
+      [datos.operacion],
+    );
+
+    expect(rows).toEqual([{ id: guardadoUno.id.value }]);
   });
 
   it('la misma operacion en dos personas distintas si convive', async () => {
@@ -420,17 +451,19 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       }),
     );
 
-    await expect(
-      repositorio.save(
-        await unResultado({
-          id: '40000000-0000-4000-8000-000000000006',
-          usuario: USUARIO_B,
-          actividad: ACTIVIDAD_MEMORIA,
-          operacion,
-          puntajeCrudo: 3,
-        }),
-      ),
-    ).resolves.toBeUndefined();
+    const deB = await repositorio.save(
+      await unResultado({
+        id: '40000000-0000-4000-8000-000000000006',
+        usuario: USUARIO_B,
+        actividad: ACTIVIDAD_MEMORIA,
+        operacion,
+        puntajeCrudo: 3,
+      }),
+    );
+
+    // Lo suyo, no lo de la otra persona.
+    expect(deB.id.value).toBe('40000000-0000-4000-8000-000000000006');
+    expect(deB.userId.value).toBe(USUARIO_B);
   });
 
   it('pedir la operacion de otra persona conociendo su identificador no devuelve nada', async () => {

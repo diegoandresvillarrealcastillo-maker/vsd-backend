@@ -87,6 +87,23 @@ describe('InMemoryActivityResultRepository', () => {
     expect(repositorio.cantidad).toBe(2);
   });
 
+  it('guardar dos veces la misma operacion de la misma persona devuelve la primera y no la pisa', async () => {
+    const primera = unResultado();
+    const repetida = unResultado(OPERACION, USUARIO, OTRO_RESULTADO);
+
+    expect(await repositorio.save(primera)).toBe(primera);
+    expect(await repositorio.save(repetida)).toBe(primera);
+
+    expect(repositorio.cantidad).toBe(1);
+
+    const guardada = await repositorio.findByClientOperationId(
+      new ClientOperationId(OPERACION),
+      new UserId(USUARIO),
+    );
+
+    expect(guardada?.id.value).toBe(RESULTADO);
+  });
+
   it('empieza vacio', () => {
     expect(repositorio.cantidad).toBe(0);
   });

@@ -34,6 +34,56 @@ describe('palabrasDe', () => {
   });
 });
 
+/**
+ * Lo que no se ve no puede cambiar lo que se lee (SCRUM-258).
+ *
+ * Un carácter invisible en medio de una palabra no la cambia para quien la lee, pero sí para una
+ * comparación de texto. Si `normalizar` los dejara, «mo\u{200B}rir» no se parecería a «morir», y la
+ * detección de riesgo, que es lo primero que corre, no vería lo que la persona escribió.
+ */
+describe('caracteres invisibles', () => {
+  // Cada uno es un `Default_Ignorable_Code_Point`: no se dibuja, pero está en el texto.
+  const INVISIBLES = [
+    ['guion blando', '\u{AD}'],
+    ['unión de grafemas', '\u{34F}'],
+    ['espacio de ancho cero', '\u{200B}'],
+    ['no unión de ancho cero', '\u{200C}'],
+    ['unión de ancho cero', '\u{200D}'],
+    ['marca de izquierda a derecha', '\u{200E}'],
+    ['marca de derecha a izquierda', '\u{200F}'],
+    ['incrustación de derecha a izquierda', '\u{202B}'],
+    ['unión de palabras', '\u{2060}'],
+    ['selector de variación', '\u{FE0F}'],
+    ['marca de orden de bytes', '\u{FEFF}'],
+    ['relleno de hangul', '\u{3164}'],
+    ['etiqueta', '\u{E0061}'],
+  ] as const;
+
+  it.each(INVISIBLES)('%s no cambia la palabra', (_nombre, invisible) => {
+    expect(normalizar(`mo${invisible}rir`)).toBe('morir');
+    expect(normalizar(`${invisible}morir${invisible}`)).toBe('morir');
+    expect(palabrasDe(`quiero mo${invisible}rir`)).toEqual(['quiero', 'morir']);
+  });
+
+  it('varios seguidos tampoco', () => {
+    expect(normalizar('m\u{200B}\u{200C}\u{200D}o\u{AD}r\u{FEFF}ir')).toBe('morir');
+  });
+
+  it('las letras de ancho completo y las matemáticas se leen como las normales', () => {
+    expect(normalizar('ｑｕｉｅｒｏ ｍｏｒｉｒ')).toBe('quiero morir');
+    expect(normalizar('𝗺𝗼𝗿𝗶𝗿')).toBe('morir');
+  });
+
+  it('una marca combinada fuera del rango de las tildes tampoco cambia la palabra', () => {
+    expect(normalizar('mo\u{489}rir')).toBe('morir');
+    expect(normalizar('mo\u{20DD}rir')).toBe('morir');
+  });
+
+  it('las tildes, la eñe y la diéresis se siguen quitando como siempre', () => {
+    expect(normalizar('ÁÉÍÓÚ Ñandú pingüino')).toBe('aeiou nandu pinguino');
+  });
+});
+
 describe('distanciaDeEdicion', () => {
   it.each([
     ['hola', 'hola', 0],

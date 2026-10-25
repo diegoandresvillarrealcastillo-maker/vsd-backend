@@ -49,10 +49,18 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     );
   }
 
-  save(result: ActivityResult): Promise<void> {
-    this.porOperacion.set(`${result.userId.value}/${result.clientOperationId.value}`, result);
+  save(result: ActivityResult): Promise<ActivityResult> {
+    // Como la base: si la operacion de esa persona ya estaba, gana la que estaba.
+    const clave = `${result.userId.value}/${result.clientOperationId.value}`;
+    const ganadora = this.porOperacion.get(clave);
 
-    return Promise.resolve();
+    if (ganadora !== undefined) {
+      return Promise.resolve(ganadora);
+    }
+
+    this.porOperacion.set(clave, result);
+
+    return Promise.resolve(result);
   }
 
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
@@ -95,6 +103,37 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
 
   get cantidad(): number {
     return this.porOperacion.size;
+  }
+}
+
+/**
+ * Un repositorio donde dos peticiones de la misma operacion **miran antes de que ninguna escriba**:
+ * la ventana de la carrera. Cada consulta espera a que haya llegado la segunda.
+ */
+class RepositorioConCarrera extends RepositorioFalso {
+  private llegadas = 0;
+
+  private abrir: () => void = () => undefined;
+
+  private readonly compuerta = new Promise<void>((resolver) => {
+    this.abrir = resolver;
+  });
+
+  override async findByClientOperationId(
+    clientOperationId: ClientOperationId,
+    userId: UserId,
+  ): Promise<ActivityResult | null> {
+    const encontrado = await super.findByClientOperationId(clientOperationId, userId);
+
+    this.llegadas++;
+
+    if (this.llegadas === 2) {
+      this.abrir();
+    }
+
+    await this.compuerta;
+
+    return encontrado;
   }
 }
 
@@ -527,6 +566,29 @@ describe('RegisterActivityResultUseCaseImpl', () => {
 
     expect(repositorio.cantidad).toBe(1);
     expect(segundo.id.value).toBe(primero.id.value);
+  });
+
+  it('dos reintentos simultaneos reciben el mismo resultado: el segundo ni falla ni duplica (SCRUM-258)', async () => {
+    // Los dos miran, no ven nada, y los dos intentan guardar. Gana uno; el otro tiene que recibir
+    // lo que guardo el ganador, no su propio resultado ni un error.
+    const carrera = new RepositorioConCarrera();
+    let generados = 0;
+    const simultaneo = new RegisterActivityResultUseCaseImpl(
+      carrera,
+      new CatalogoFalso([actividad(), bitacora()]),
+      recursos,
+      sesiones,
+      () => new ResultId(`77777777-7777-4777-8777-${String(++generados).padStart(12, '0')}`),
+      () => AHORA,
+    );
+
+    const [uno, otro] = await Promise.all([
+      simultaneo.execute(comando()),
+      simultaneo.execute(comando()),
+    ]);
+
+    expect(otro.resultado.id.value).toBe(uno.resultado.id.value);
+    expect(carrera.cantidad).toBe(1);
   });
 
   it('devuelve el resultado ya registrado aunque cambien los demas datos', async () => {

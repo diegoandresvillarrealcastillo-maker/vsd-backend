@@ -66,6 +66,19 @@ export const CASOS_DE_LAS_REGLAS_LOCALES: readonly ConsultaSinConexion[] = [
   // Una palabra que se parece a un insulto no lo es.
   { texto: 'tanto tiempo', zona: BOGOTA },
 
+  // ---- los caracteres invisibles (SCRUM-258): no esconden lo que se dice
+  // Uno en medio de la palabra: el guion blando, el espacio de ancho cero.
+  { texto: 'quiero mo\u{200B}rirme', zona: BOGOTA },
+  { texto: 'no aguan\u{AD}to mas', zona: BOGOTA },
+  // Uno usado en lugar del espacio.
+  { texto: 'quiero\u{200B}morirme', zona: BOGOTA },
+  // Con una errata a la vez.
+  { texto: 'me kie\u{AD}ro matar', zona: BOGOTA },
+  // Letras de ancho completo.
+  { texto: 'ｑｕｉｅｒｏ ｍｏｒｉｒｍｅ', zona: BOGOTA },
+  // Y sin riesgo no se inventa: un saludo con un invisible sigue siendo un saludo.
+  { texto: 'hola\u{200B} buenas noches', zona: BOGOTA },
+
   // ---- lo que no se reconoce: el catalogo, sin lineas de atencion (SCRUM-176)
   { texto: 'a que hora abre la biblioteca', zona: BOGOTA },
   { texto: 'a que hora abre la biblioteca', zona: MADRID },

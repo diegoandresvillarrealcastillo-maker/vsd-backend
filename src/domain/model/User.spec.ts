@@ -11,7 +11,14 @@ import {
 } from './DomainError.js';
 import { FechaDeNacimiento } from './FechaDeNacimiento.js';
 import { UserId } from './Identifier.js';
-import { type DatosDeUsuario, EDAD_MINIMA, Rol, TipoDeConsentimiento, User } from './User.js';
+import {
+  CAMPOS_MODIFICABLES,
+  type DatosDeUsuario,
+  EDAD_MINIMA,
+  Rol,
+  TipoDeConsentimiento,
+  User,
+} from './User.js';
 
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
 const USUARIO_B = '22222222-2222-4222-9222-222222222222';
@@ -758,6 +765,143 @@ describe('Volver a aceptar el aviso y los terminos (SCRUM-237)', () => {
       );
 
       expect(sinFecha.registroCompleto()).toBe(false);
+    });
+  });
+});
+
+describe('Guardar solo lo que cambio (SCRUM-258)', () => {
+  const ANTES = new Date('2026-09-16T10:00:00.000Z');
+  const LUMA = { forma: 'brote', color: '#a2d9b6', accesorio: 'ninguno', nombre: 'Luma' };
+
+  /** Una cuenta con todo lo que se puede cambiar puesto. */
+  function completa(sobrescribir: Partial<DatosDeUsuario> = {}): User {
+    return User.create(
+      datos({
+        fechaDeNacimiento: FechaDeNacimiento.restaurar('1998-03-14'),
+        terminos: { versionPolitica: '2026-10-1', aceptadoEn: ANTES },
+        nombre: 'Ana',
+        modulosActivos: ['cognicion'],
+        mascota: LUMA,
+        diarioConRecomendaciones: true,
+        acompanamientoPorDias: true,
+        zonaHoraria: 'America/Bogota',
+        fotoActualizadaEl: ANTES,
+        mascotaPropiaActualizadaEl: ANTES,
+        ...sobrescribir,
+      }),
+      AHORA,
+    );
+  }
+
+  it('los campos que se pueden cambiar son todos los de la cuenta menos los que no cambian', () => {
+    // Si alguien anade un campo a la cuenta y no lo suma a `CAMPOS_MODIFICABLES`, guardar un
+    // cambio suyo no llegaria a la base y nadie lo notaria. Esta prueba lo avisa.
+    const inmutables = ['id', 'correo', 'idProveedorAuth', 'rol', 'registradoEn'];
+    const deLaCuenta = Object.keys(completa()).filter((campo) => !inmutables.includes(campo));
+
+    expect([...deLaCuenta].sort()).toEqual([...CAMPOS_MODIFICABLES].sort());
+  });
+
+  describe('camposCambiadosDesde', () => {
+    it('una cuenta igual a si misma no cambio nada', () => {
+      expect([...completa().camposCambiadosDesde(completa())]).toEqual([]);
+    });
+
+    it('dice solo los campos que son distintos', () => {
+      const despues = completa()
+        .conPreferencias({ diarioConRecomendaciones: false, nombre: 'Ana Maria' })
+        .conZonaHoraria('Europe/Madrid');
+
+      expect([...despues.camposCambiadosDesde(completa())].sort()).toEqual([
+        'diarioConRecomendaciones',
+        'nombre',
+        'zonaHoraria',
+      ]);
+    });
+
+    it.each([
+      ['la foto', completa().sinFoto(), 'fotoActualizadaEl'],
+      ['la marca de la foto', completa().conFoto(AHORA), 'fotoActualizadaEl'],
+      ['la mascota propia', completa().sinMascotaPropia(), 'mascotaPropiaActualizadaEl'],
+      [
+        'los modulos',
+        completa().conPreferencias({ modulosActivos: ['emociones'] }),
+        'modulosActivos',
+      ],
+      [
+        'la mascota elegida',
+        completa().conPreferencias({ mascota: { ...LUMA, nombre: 'Brote' } }),
+        'mascota',
+      ],
+      [
+        'el acompanamiento',
+        completa().conPreferencias({ acompanamientoPorDias: false }),
+        'acompanamientoPorDias',
+      ],
+      [
+        'el aviso aceptado',
+        completa().conTextosAceptados(
+          { aviso: { versionPolitica: '2026-10-3', aceptadoEn: AHORA } },
+          AHORA,
+        ),
+        'consentimiento',
+      ],
+      [
+        'los terminos aceptados',
+        completa().conTextosAceptados(
+          { terminos: { versionPolitica: '2026-10-3', aceptadoEn: AHORA } },
+          AHORA,
+        ),
+        'terminos',
+      ],
+    ] as const)('%s', (_que, despues, campo) => {
+      expect([...despues.camposCambiadosDesde(completa())]).toEqual([campo]);
+    });
+
+    it('una fecha de otra instancia con el mismo instante no cuenta como cambio', () => {
+      const despues = completa({ fotoActualizadaEl: new Date(ANTES.getTime()) });
+
+      expect([...despues.camposCambiadosDesde(completa())]).toEqual([]);
+    });
+
+    it('no admite que cambie lo que no cambia: el correo, el rol o de quien es la cuenta', () => {
+      const otraCuenta = completa({ id: new UserId(USUARIO_B) });
+      const otroCorreo = completa({ correo: 'otra@ejemplo.test' });
+      const otroRol = completa({ rol: Rol.ADMINISTRADOR });
+
+      expect(() => otraCuenta.camposCambiadosDesde(completa())).toThrow();
+      expect(() => otroCorreo.camposCambiadosDesde(completa())).toThrow();
+      expect(() => otroRol.camposCambiadosDesde(completa())).toThrow();
+    });
+  });
+
+  describe('conLosCamposDe', () => {
+    it('toma de la otra solo los campos que se piden y deja lo demas como esta', () => {
+      // Lo que hay guardado ahora: la persona acaba de apagar el permiso del diario.
+      const guardada = completa({ diarioConRecomendaciones: false });
+      // Lo que leyo una peticion antes de eso, y a la que solo le toca la foto.
+      const leida = completa();
+      const conLaFoto = leida.conFoto(AHORA);
+
+      const resultado = guardada.conLosCamposDe(conLaFoto, new Set(['fotoActualizadaEl']));
+
+      expect(resultado.fotoActualizadaEl).toEqual(AHORA);
+      expect(resultado.diarioConRecomendaciones).toBe(false);
+    });
+
+    it('con una foto quitada, la deja sin foto', () => {
+      const resultado = completa().conLosCamposDe(
+        completa().sinFoto(),
+        new Set(['fotoActualizadaEl']),
+      );
+
+      expect(resultado.fotoActualizadaEl).toBeUndefined();
+    });
+
+    it('sin ningun campo es la misma cuenta', () => {
+      const guardada = completa({ nombre: 'Otro' });
+
+      expect(guardada.conLosCamposDe(completa(), new Set())).toEqual(guardada);
     });
   });
 });

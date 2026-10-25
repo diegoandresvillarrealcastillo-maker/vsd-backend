@@ -13,7 +13,7 @@ import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.
 export class RepositorioDeCuentasDoble implements UserRepositoryPort {
   private readonly porId = new Map<string, User>();
 
-  /** Cuantas veces se llamo a `save`. */
+  /** Cuantas veces se guardo, con `save` o con `guardarCambios`. */
   guardados = 0;
 
   findById(id: UserId): Promise<User | null> {
@@ -29,6 +29,21 @@ export class RepositorioDeCuentasDoble implements UserRepositoryPort {
     this.porId.set(user.id.value, user);
 
     return Promise.resolve();
+  }
+
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.guardados += 1;
+    this.porId.set(quedo.id.value, quedo);
+
+    return Promise.resolve(quedo);
   }
 
   consentimientosDe(): Promise<readonly ConsentimientoAceptado[]> {

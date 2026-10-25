@@ -17,6 +17,7 @@ function armar(cuenta: User | null, dias: readonly string[], ahora: Date = NOCHE
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
     save: () => Promise.resolve(),
+    guardarCambios: () => Promise.resolve(null),
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
     inactivarConTodo: () => Promise.resolve(),

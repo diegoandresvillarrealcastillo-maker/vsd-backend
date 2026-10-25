@@ -85,11 +85,17 @@ export class AceptarTextosVigentesUseCaseImpl implements AceptarTextosVigentesUs
         : {}),
     };
 
-    const alDia = cuenta.conTextosAceptados(aceptados, ahora);
+    // Solo lo aceptado: lo demas de la cuenta (un permiso que se acaba de apagar) no se toca (SCRUM-258).
+    const quedo = await this.cuentas.guardarCambios(
+      cuenta,
+      cuenta.conTextosAceptados(aceptados, ahora),
+    );
 
-    await this.cuentas.save(alDia);
+    if (quedo === null) {
+      throw new AccountNotProvisionedError();
+    }
 
-    return alDia;
+    return quedo;
   }
 
   /** La version que se mando, si es la vigente de ese texto; si no, el error de ese texto. */

@@ -39,7 +39,7 @@ const AHORA = new Date('2026-09-25T10:00:00.000Z');
 class RepositorioDoble implements UserRepositoryPort {
   private readonly porId = new Map<string, User>();
 
-  /** Cuantas veces se llamo a `save`. */
+  /** Cuantas veces se guardo, con `save` o con `guardarCambios`. */
   guardados = 0;
 
   findById(id: UserId): Promise<User | null> {
@@ -59,6 +59,21 @@ class RepositorioDoble implements UserRepositoryPort {
     this.porId.set(user.id.value, user);
 
     return Promise.resolve();
+  }
+
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.guardados += 1;
+    this.porId.set(quedo.id.value, quedo);
+
+    return Promise.resolve(quedo);
   }
 
   consentimientosDe(): Promise<readonly ConsentimientoAceptado[]> {
@@ -823,5 +838,42 @@ describe('El registro de seguridad del alta (SCRUM-167)', () => {
     await expect(caso.execute({ ...ALTA, ...cambio })).rejects.toThrow();
 
     expect(seguridad.eventos).toEqual([]);
+  });
+});
+
+describe('Entrar desde otra zona no pisa lo que cambio entretanto (SCRUM-258)', () => {
+  it('guardar la zona nueva no enciende el permiso que otra peticion acababa de apagar', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+    const orden: RegistrarCuentaCommand = {
+      ...ALTA,
+      idProveedorAuth: 'proveedor-carrera',
+      correo: 'carrera@ejemplo.test',
+    };
+
+    const creada = await caso.execute({ ...orden, zonaHoraria: 'America/Bogota' });
+
+    await cuentas.guardarCambios(creada, creada.conPreferencias({ acompanamientoPorDias: true }));
+
+    // Justo despues de que el caso de uso lee la cuenta, otra peticion apaga el permiso.
+    const leer = cuentas.findByIdProveedorAuth.bind(cuentas);
+
+    cuentas.findByIdProveedorAuth = async (idProveedorAuth) => {
+      const leida = await leer(idProveedorAuth);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ acompanamientoPorDias: false }),
+        );
+      }
+
+      return leida;
+    };
+
+    const respuesta = await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect(respuesta.zonaHoraria).toBe('Europe/Madrid');
+    expect(respuesta.acompanamientoPorDias).toBe(false);
+    expect((await leer('proveedor-carrera'))?.acompanamientoPorDias).toBe(false);
   });
 });

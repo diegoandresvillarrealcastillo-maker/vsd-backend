@@ -23,10 +23,14 @@ export class ActualizarPreferenciasUseCaseImpl implements ActualizarPreferencias
       throw new AccountNotProvisionedError();
     }
 
-    const actualizada = cuenta.conPreferencias(cambios);
+    // Solo se escribe lo que cambio, y se devuelve lo que quedo guardado: una peticion que cambia el
+    // nombre no puede encender de nuevo un permiso que otra acababa de apagar (SCRUM-258).
+    const quedo = await this.cuentas.guardarCambios(cuenta, cuenta.conPreferencias(cambios));
 
-    await this.cuentas.save(actualizada);
+    if (quedo === null) {
+      throw new AccountNotProvisionedError();
+    }
 
-    return actualizada;
+    return quedo;
   }
 }

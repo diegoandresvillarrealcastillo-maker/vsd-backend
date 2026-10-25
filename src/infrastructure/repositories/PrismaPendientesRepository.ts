@@ -2,21 +2,8 @@ import type { Pendiente as FilaDePendiente } from '@prisma/client';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
+import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
-
-/**
- * Si el error es el de la clave unica de la operacion. Como en el diario, se
- * busca en toda la `meta`: con el adaptador de Prisma 7 no llega `target`.
- */
-function esOperacionRepetida(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-
-  const posible = error as { code?: unknown; meta?: unknown };
-
-  return posible.code === 'P2002' && /operacion_?cliente/i.test(JSON.stringify(posible.meta ?? {}));
-}
 
 /** Un dia AAAA-MM-DD como valor de una columna DATE, o `null` si no hay. */
 function aFecha(dia: string | undefined): Date | null {

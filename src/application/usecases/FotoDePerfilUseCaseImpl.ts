@@ -38,11 +38,16 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
       this.almacen.guardar(persona, { contenido: foto.contenido, tipo: foto.tipo }),
     );
 
-    const actualizada = cuenta.conFoto(this.reloj());
+    const quedo = await this.cuentas.guardarCambios(cuenta, cuenta.conFoto(this.reloj()));
 
-    await this.cuentas.save(actualizada);
+    if (quedo === null) {
+      // La cuenta se borro mientras se subia el archivo: no queda la foto de quien ya no existe.
+      await this.conAlmacen(() => this.almacen.borrar(persona));
 
-    return actualizada;
+      throw new AccountNotProvisionedError();
+    }
+
+    return quedo;
   }
 
   async leer(persona: UserId): Promise<FotoLeida> {
@@ -77,11 +82,17 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
 
     const sinFoto = cuenta.sinFoto();
 
-    if (sinFoto !== cuenta) {
-      await this.cuentas.save(sinFoto);
+    if (sinFoto === cuenta) {
+      return cuenta;
     }
 
-    return sinFoto;
+    const quedo = await this.cuentas.guardarCambios(cuenta, sinFoto);
+
+    if (quedo === null) {
+      throw new AccountNotProvisionedError();
+    }
+
+    return quedo;
   }
 
   private async cuentaDe(persona: UserId): Promise<User> {

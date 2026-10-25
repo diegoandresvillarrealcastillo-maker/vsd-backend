@@ -44,6 +44,10 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  guardarCambios(): Promise<User | null> {
+    return Promise.reject(new Error('no se usa en esta prueba'));
+  }
+
   consentimientosDe(): Promise<[]> {
     return Promise.resolve([]);
   }

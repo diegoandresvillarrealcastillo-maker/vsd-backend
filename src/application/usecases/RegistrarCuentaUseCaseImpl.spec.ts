@@ -13,8 +13,10 @@ import {
 } from '../../domain/model/DomainError.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { Rol, User, type ConsentimientoAceptado } from '../../domain/model/User.js';
+import type { EventoDeSeguridad } from '../../domain/model/EventoDeSeguridad.js';
 import type { RegistrarCuentaCommand } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import { BorrarCuentaUseCaseImpl } from './BorrarCuentaUseCaseImpl.js';
 import {
@@ -116,17 +118,28 @@ class RegistroDoble implements RegistroDeRechazos {
   }
 }
 
+/** El registro de seguridad: guarda lo que le llega para poder mirarlo. */
+class SeguridadDoble implements RegistroDeSeguridadPort {
+  readonly eventos: EventoDeSeguridad[] = [];
+
+  registrar(evento: EventoDeSeguridad): void {
+    this.eventos.push(evento);
+  }
+}
+
 interface Escenario {
   caso: RegistrarCuentaUseCaseImpl;
   cuentas: RepositorioDoble;
   identidades: IdentidadesDoble;
   registro: RegistroDoble;
+  seguridad: SeguridadDoble;
 }
 
 function crearCasoDeUso(ahora: Date = AHORA): Escenario {
   const cuentas = new RepositorioDoble();
   const identidades = new IdentidadesDoble();
   const registro = new RegistroDoble();
+  const seguridad = new SeguridadDoble();
 
   const caso = new RegistrarCuentaUseCaseImpl(
     cuentas,
@@ -135,9 +148,10 @@ function crearCasoDeUso(ahora: Date = AHORA): Escenario {
     registro,
     () => new UserId(ID_NUEVO),
     () => ahora,
+    seguridad,
   );
 
-  return { caso, cuentas, identidades, registro };
+  return { caso, cuentas, identidades, registro, seguridad };
 }
 
 /** Un alta correcta: mayor de edad y con las dos casillas marcadas. */
@@ -726,5 +740,88 @@ describe('La zona horaria en el alta y en cada entrada (SCRUM-123)', () => {
     });
 
     expect(viajera.consentimiento).toEqual(primera.consentimiento);
+  });
+});
+
+describe('El registro de seguridad del alta (SCRUM-167)', () => {
+  const ORIGEN = { idPeticion: 'peticion-1', ip: '203.0.113.7' };
+
+  it('crear una cuenta anota la cuenta creada y el consentimiento, con el origen de la peticion', async () => {
+    const { caso, seguridad } = crearCasoDeUso();
+
+    await caso.execute({ ...ALTA, origen: ORIGEN });
+
+    expect(seguridad.eventos).toEqual([
+      { tipo: 'CUENTA_CREADA', idUsuario: ID_NUEVO, ...ORIGEN },
+      {
+        tipo: 'CONSENTIMIENTO_REGISTRADO',
+        idUsuario: ID_NUEVO,
+        versionAviso: VERSION_VIGENTE_DEL_AVISO,
+        versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+        ...ORIGEN,
+      },
+    ]);
+  });
+
+  it('lo que se anota no lleva la fecha de nacimiento, el correo ni el identificador del proveedor', async () => {
+    const { caso, seguridad } = crearCasoDeUso();
+
+    await caso.execute({ ...ALTA, origen: ORIGEN });
+
+    const todo = JSON.stringify(seguridad.eventos);
+
+    expect(todo).not.toContain(ALTA.fechaNacimiento);
+    expect(todo).not.toContain(ALTA.correo);
+    expect(todo).not.toContain(ALTA.idProveedorAuth);
+  });
+
+  it('sin origen tambien anota: el contexto es un dato mas, no una condicion', async () => {
+    const { caso, seguridad } = crearCasoDeUso();
+
+    await caso.execute(ALTA);
+
+    expect(seguridad.eventos.map((e) => e.tipo)).toEqual([
+      'CUENTA_CREADA',
+      'CONSENTIMIENTO_REGISTRADO',
+    ]);
+  });
+
+  it('completar el registro de una cuenta anterior anota el consentimiento, no una cuenta creada', async () => {
+    const { caso, cuentas, seguridad } = crearCasoDeUso();
+    await cuentas.save(cuentaAnterior());
+
+    await caso.execute({ ...ALTA, origen: ORIGEN });
+
+    expect(seguridad.eventos).toEqual([
+      {
+        tipo: 'CONSENTIMIENTO_REGISTRADO',
+        idUsuario: '33333333-3333-4333-8333-333333333333',
+        versionAviso: VERSION_VIGENTE_DEL_AVISO,
+        versionTerminos: VERSION_VIGENTE_DE_LOS_TERMINOS,
+        ...ORIGEN,
+      },
+    ]);
+  });
+
+  it('volver a entrar con la cuenta ya completa no anota nada', async () => {
+    const { caso, seguridad } = crearCasoDeUso();
+    await caso.execute(ALTA);
+    seguridad.eventos.length = 0;
+
+    await caso.execute(ALTA);
+
+    expect(seguridad.eventos).toEqual([]);
+  });
+
+  it.each([
+    ['sin consentimiento', { aceptaTerminos: false }],
+    ['con un aviso que no es el vigente', { versionPolitica: '0.1' }],
+    ['de un menor', { fechaNacimiento: '2010-01-01' }],
+  ])('un alta rechazada %s no anota ni cuenta ni consentimiento', async (_caso, cambio) => {
+    const { caso, seguridad } = crearCasoDeUso();
+
+    await expect(caso.execute({ ...ALTA, ...cambio })).rejects.toThrow();
+
+    expect(seguridad.eventos).toEqual([]);
   });
 });

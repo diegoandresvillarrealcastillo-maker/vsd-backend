@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Header,
   HttpCode,
@@ -13,30 +12,15 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Calendario } from '../../domain/model/Calendario.js';
 import type { User } from '../../domain/model/User.js';
-import type { AbrirCartaUseCase } from '../../domain/ports/in/AbrirCartaUseCase.js';
-import type { BorrarAnotacionUseCase } from '../../domain/ports/in/BorrarAnotacionUseCase.js';
-import type { ConsultarCartasEnEsperaUseCase } from '../../domain/ports/in/ConsultarCartasEnEsperaUseCase.js';
 import type { ConsultarDiarioUseCase } from '../../domain/ports/in/ConsultarDiarioUseCase.js';
 import type { EditarAnotacionUseCase } from '../../domain/ports/in/EditarAnotacionUseCase.js';
 import type { EscribirEnElDiarioUseCase } from '../../domain/ports/in/EscribirEnElDiarioUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
-import {
-  ABRIR_CARTA,
-  BORRAR_ANOTACION,
-  CONSULTAR_CARTAS_EN_ESPERA,
-  CONSULTAR_DIARIO,
-  EDITAR_ANOTACION,
-  ESCRIBIR_EN_EL_DIARIO,
-} from '../config/tokens.js';
+import { CONSULTAR_DIARIO, EDITAR_ANOTACION, ESCRIBIR_EN_EL_DIARIO } from '../config/tokens.js';
 import { ConsultarDiarioDto } from './dto/ConsultarDiarioDto.js';
 import { EditarAnotacionDto } from './dto/EditarAnotacionDto.js';
-import {
-  AnotacionGuardadaDto,
-  CartaEnEsperaDto,
-  EntradaDelDiarioDto,
-} from './dto/EntradaDelDiarioDto.js';
+import { AnotacionGuardadaDto, EntradaDelDiarioDto } from './dto/EntradaDelDiarioDto.js';
 import { EscribirEnElDiarioDto } from './dto/EscribirEnElDiarioDto.js';
 
 /**
@@ -56,10 +40,6 @@ export class DiarioController {
     @Inject(CONSULTAR_DIARIO) private readonly consultarDiario: ConsultarDiarioUseCase,
     @Inject(ESCRIBIR_EN_EL_DIARIO) private readonly escribirEnElDiario: EscribirEnElDiarioUseCase,
     @Inject(EDITAR_ANOTACION) private readonly editarAnotacion: EditarAnotacionUseCase,
-    @Inject(BORRAR_ANOTACION) private readonly borrarAnotacion: BorrarAnotacionUseCase,
-    @Inject(ABRIR_CARTA) private readonly abrirCarta: AbrirCartaUseCase,
-    @Inject(CONSULTAR_CARTAS_EN_ESPERA)
-    private readonly consultarCartasEnEspera: ConsultarCartasEnEsperaUseCase,
   ) {}
 
   @Get()
@@ -85,29 +65,7 @@ export class DiarioController {
       hasta: consulta.hasta,
     });
 
-    // Una carta que espera sale sin su texto (SCRUM-230).
-    const hoy = hoyDe(cuenta);
-
-    return entradas.map((entrada) => EntradaDelDiarioDto.desde(entrada, hoy));
-  }
-
-  @Get('cartas-en-espera')
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({
-    summary: 'Las cartas que la persona se dejó y todavía no abrió ni borró (SCRUM-230)',
-    description:
-      'Las «cartas a mí de mañana» de un día que ya pasó, sin abrir y dentro de su semana de espera, la más reciente primero. Sin su texto: la tarjeta «Ayer te dejaste esto» las ofrece, y la persona decide abrirlas (POST /api/diario/{id}/abrir) o borrarlas sin leerlas (DELETE /api/diario/{id}). El día es el de la persona, no el del servidor. Ninguna notificación lleva su contenido.',
-  })
-  @ApiResponse({ status: 200, type: [CartaEnEsperaDto] })
-  @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })
-  @ApiResponse({ status: 403, description: 'Hay sesión pero todavía no hay cuenta.' })
-  async cartasEnEsperaDe(@CuentaActual() cuenta: User): Promise<CartaEnEsperaDto[]> {
-    const cartas = await this.consultarCartasEnEspera.execute({
-      userId: cuenta.id.value,
-      zonaHoraria: cuenta.zonaHoraria,
-    });
-
-    return cartas.map((carta) => CartaEnEsperaDto.desde(carta));
+    return entradas.map((entrada) => EntradaDelDiarioDto.desde(entrada));
   }
 
   @Post()
@@ -140,11 +98,10 @@ export class DiarioController {
       titulo: dto.titulo,
       contenido: dto.contenido,
       adjuntos: dto.adjuntos,
-      cartaAManana: dto.cartaAManana,
       escritaEn: dto.escritaEn,
     });
 
-    return AnotacionGuardadaDto.deLaGuardada(guardada, hoyDe(cuenta));
+    return AnotacionGuardadaDto.deLaGuardada(guardada);
   }
 
   @Patch(':id')
@@ -171,7 +128,6 @@ export class DiarioController {
   ): Promise<AnotacionGuardadaDto> {
     const guardada = await this.editarAnotacion.execute({
       userId: cuenta.id.value,
-      zonaHoraria: cuenta.zonaHoraria,
       conRecomendaciones: cuenta.diarioConRecomendaciones,
       entradaId: id,
       version: dto.version,
@@ -181,55 +137,6 @@ export class DiarioController {
       editadaEn: dto.editadaEn,
     });
 
-    return AnotacionGuardadaDto.deLaGuardada(guardada, hoyDe(cuenta));
+    return AnotacionGuardadaDto.deLaGuardada(guardada);
   }
-
-  @Post(':id/abrir')
-  @HttpCode(HttpStatus.OK)
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({
-    summary: 'Abrir una carta a mí de mañana para leerla (SCRUM-230)',
-    description:
-      'Es lo único que entrega el texto de una carta que espera. Solo desde el día siguiente al que se escribió, en el calendario de la persona. Abrirla otra vez devuelve lo mismo. Desde entonces la carta sale completa en el diario como cualquier anotación.',
-  })
-  @ApiResponse({ status: 200, type: EntradaDelDiarioDto })
-  @ApiResponse({
-    status: 404,
-    description: 'No existe, es de otra persona o no es una carta; las tres se responden igual.',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'CARTA_PARA_MANANA: todavía es de hoy. Se puede borrar sin leerla, pero no abrir.',
-  })
-  async abrir(@Param('id') id: string, @CuentaActual() cuenta: User): Promise<EntradaDelDiarioDto> {
-    const carta = await this.abrirCarta.execute({
-      userId: cuenta.id.value,
-      zonaHoraria: cuenta.zonaHoraria,
-      entradaId: id,
-    });
-
-    // Abierta: sale completa.
-    return EntradaDelDiarioDto.desde(carta);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({
-    summary: 'Borrar una anotación propia, la haya leído o no (SCRUM-230)',
-    description:
-      'A cualquier hora y sin leerla antes: una carta escrita en un mal día siempre se puede borrar sin abrirla. Idempotente por el identificador: borrar lo que ya no está, o lo que es de otra persona, responde igual y no cambia nada, para poder reintentar y encolar sin conexión. Quita la fila entera: no queda el texto en la base ni en la exportación, y la petición no lleva cuerpo que registrar.',
-  })
-  @ApiResponse({ status: 204, description: 'Ya no está.' })
-  @ApiResponse({ status: 400, description: 'El identificador no es válido.' })
-  @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })
-  @ApiResponse({ status: 403, description: 'Hay sesión pero todavía no hay cuenta.' })
-  async borrar(@Param('id') id: string, @CuentaActual() cuenta: User): Promise<void> {
-    await this.borrarAnotacion.execute({ userId: cuenta.id.value, entradaId: id });
-  }
-}
-
-/** El día de hoy en el calendario de la persona, con su zona. */
-function hoyDe(cuenta: User): string {
-  return Calendario.de(cuenta.zonaHoraria).diaDe(new Date());
 }

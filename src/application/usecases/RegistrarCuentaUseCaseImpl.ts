@@ -12,6 +12,7 @@ import {
   OutdatedTermsError,
   UnderageError,
 } from '../../domain/model/DomainError.js';
+import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import { FechaDeNacimiento } from '../../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { EDAD_MINIMA, Rol, User, type RegistroDeLaPersona } from '../../domain/model/User.js';
@@ -21,6 +22,7 @@ import type {
   RegistrarCuentaUseCase,
 } from '../../domain/ports/in/RegistrarCuentaUseCase.js';
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
 /**
@@ -31,6 +33,9 @@ import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPo
 export interface RegistroDeRechazos {
   menorDeEdad(identidadBorrada: boolean): void;
 }
+
+/** Sin registro de seguridad: lo que usan las pruebas que no lo miran. */
+const SIN_REGISTRO_DE_SEGURIDAD: RegistroDeSeguridadPort = { registrar: () => undefined };
 
 /**
  * Da de alta una cuenta de VSD Health a partir de una identidad ya verificada.
@@ -54,6 +59,9 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
    *   suyo, ni siquiera el correo.
    * @param borrado Para las cuentas anteriores que, al completar su registro,
    *   declaran ser menores: ya tienen datos, y se borra todo lo suyo.
+   * @param seguridad Donde se anota que se creo una cuenta y que se registro un
+   *   consentimiento (SCRUM-167). El rechazo de un menor no se anota aqui sino en
+   *   el filtro de errores, que es quien conoce la IP de la peticion.
    */
   constructor(
     private readonly cuentas: UserRepositoryPort,
@@ -62,6 +70,7 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
     private readonly registro: RegistroDeRechazos,
     private readonly generarId: () => UserId = () => new UserId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
+    private readonly seguridad: RegistroDeSeguridadPort = SIN_REGISTRO_DE_SEGURIDAD,
   ) {}
 
   async buscarPorProveedor(idProveedorAuth: string): Promise<User | null> {
@@ -150,6 +159,13 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
 
     await this.cuentas.save(cuenta);
 
+    this.seguridad.registrar({
+      tipo: 'CUENTA_CREADA',
+      idUsuario: cuenta.id.value,
+      ...command.origen,
+    });
+    this.anotarElConsentimiento(cuenta, registro, command.origen);
+
     return cuenta;
   }
 
@@ -168,7 +184,24 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
 
     await this.cuentas.save(enSuZona);
 
+    this.anotarElConsentimiento(enSuZona, registro, command.origen);
+
     return enSuZona;
+  }
+
+  /** Solo las versiones que se aceptaron: ni la fecha de nacimiento ni nada de la persona. */
+  private anotarElConsentimiento(
+    cuenta: User,
+    registro: RegistroDeLaPersona,
+    origen: ContextoDeLaPeticion | undefined,
+  ): void {
+    this.seguridad.registrar({
+      tipo: 'CONSENTIMIENTO_REGISTRADO',
+      idUsuario: cuenta.id.value,
+      versionAviso: registro.consentimiento.versionPolitica,
+      versionTerminos: registro.terminos.versionPolitica,
+      ...origen,
+    });
   }
 
   /**

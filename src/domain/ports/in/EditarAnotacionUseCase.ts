@@ -2,8 +2,6 @@ import type { AnotacionGuardada } from './EscribirEnElDiarioUseCase.js';
 
 export interface EditarAnotacionCommand {
   readonly userId: string;
-  /** La zona horaria de la persona, de su cuenta: decide cual es "hoy". */
-  readonly zonaHoraria: string;
   readonly entradaId: string;
   /** La version que tenia quien edita cuando abrio la anotacion. */
   readonly version: number;

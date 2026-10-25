@@ -50,7 +50,16 @@ const MASCOTAS: Readonly<Record<string, object | null>> = {
   [SIN_MASCOTA]: null,
 };
 
-describe.skipIf(URL_DUENO === undefined)('La migracion que retira a Trama', () => {
+/**
+ * La migracion hace `ALTER TABLE usuario ...`, que pide un candado exclusivo y espera a que
+ * terminen las transacciones de las demas suites de integracion, que corren en paralelo y todas
+ * tocan `usuario`. Con los 5 s por omision de Vitest vencia en CI aunque nada estuviera roto
+ * (SCRUM-268); localmente hay menos competencia y no se notaba.
+ */
+const POR_EL_CANDADO = 30_000;
+const SUITE = 'La migracion que retira a Trama';
+
+describe.skipIf(URL_DUENO === undefined)(SUITE, { timeout: POR_EL_CANDADO }, () => {
   let dueno: Client;
 
   /** El dueno esta sujeto a las politicas: cada lectura dice de quien es. */
@@ -121,7 +130,7 @@ describe.skipIf(URL_DUENO === undefined)('La migracion que retira a Trama', () =
   beforeEach(async () => {
     await limpiar();
     await sembrar();
-  });
+  }, POR_EL_CANDADO);
 
   afterAll(async () => {
     await limpiar();

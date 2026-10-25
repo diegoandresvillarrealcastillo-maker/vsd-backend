@@ -25,6 +25,7 @@ const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
 
 interface Acompanamiento {
   nivel: string;
+  abandono: string;
   lineasDeAtencion: { id: string; titulo: string; tipo: string }[];
 }
 
@@ -107,20 +108,32 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
   });
 
   it('sin resultados, ninguno y sin lineas', async () => {
-    await expect(acompanamientoDe(A)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(A)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 
   it('2 dias seguidos con atencion todavia no son nada', async () => {
     await conAtencionHace(A, 0);
     await conAtencionHace(A, 1);
 
-    await expect(acompanamientoDe(A)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(A)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 
   it('a los 3 dias seguidos, moderado y sin lineas', async () => {
     await conAtencionHace(A, 2);
 
-    await expect(acompanamientoDe(A)).resolves.toEqual({ nivel: 'moderado', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(A)).resolves.toEqual({
+      nivel: 'moderado',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 
   it('a los 7 dias seguidos, critico, con las lineas de atencion de su pais', async () => {
@@ -135,17 +148,25 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
     expect(acompanamiento.lineasDeAtencion.every((linea) => linea.tipo === 'contacto')).toBe(true);
   });
 
-  it('no sale ningun puntaje ni cuantos dias van: solo el nivel y las lineas', async () => {
+  it('no sale ningun puntaje ni cuantos dias van: solo los niveles y las lineas', async () => {
     const respuesta = await request(servidor())
       .get('/api/acompanamiento')
       .set(...comoUsuario(A))
       .expect(200);
 
-    expect(Object.keys(respuesta.body as object).sort()).toEqual(['lineasDeAtencion', 'nivel']);
+    expect(Object.keys(respuesta.body as object).sort()).toEqual([
+      'abandono',
+      'lineasDeAtencion',
+      'nivel',
+    ]);
   });
 
   it('lo de una persona no cuenta para otra', async () => {
-    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(B)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 
   it('un juego de cognicion que le va mal no cuenta, ni siquiera con permiso', async () => {
@@ -156,7 +177,11 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
       await conAtencionHace(B, diasAtras, SECUENCIAS);
     }
 
-    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(B)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
 
     await darPermiso(B, false);
   });
@@ -166,14 +191,22 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
       await conAtencionHace(B, diasAtras);
     }
 
-    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(B)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
 
     // En cuanto la persona da su permiso, lo que ya hizo cuenta; al quitarlo, deja de contar.
     await darPermiso(B, true);
     expect((await acompanamientoDe(B)).nivel).toBe('critico');
 
     await darPermiso(B, false);
-    await expect(acompanamientoDe(B)).resolves.toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+    await expect(acompanamientoDe(B)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 
   it('no se guarda en cache: es sobre la persona y cambia cada vez que hace algo', async () => {
@@ -187,5 +220,101 @@ describe('GET /api/acompanamiento (SCRUM-177)', () => {
 
   it('sin token responde 401', async () => {
     await request(servidor()).get('/api/acompanamiento').expect(401);
+  });
+});
+
+describe('GET /api/acompanamiento: el abandono (SCRUM-256)', () => {
+  let app: NestExpressApplication;
+  let contador = 0;
+
+  const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
+
+  async function acompanamientoDe(token: string): Promise<Acompanamiento> {
+    const respuesta = await request(servidor())
+      .get('/api/acompanamiento')
+      .set(...comoUsuario(token))
+      .expect(200);
+
+    return respuesta.body as Acompanamiento;
+  }
+
+  async function darPermiso(token: string, permiso: boolean): Promise<void> {
+    await request(servidor())
+      .patch('/api/cuenta/preferencias')
+      .set(...comoUsuario(token))
+      .send({ acompanamientoPorDias: permiso })
+      .expect(200);
+  }
+
+  /** Un resultado de la carga de hace `diasAtras` dias: 20 de 20 pide atencion, 0 no. */
+  async function cargaHace(token: string, diasAtras: number, puntaje: number): Promise<void> {
+    contador += 1;
+
+    await request(servidor())
+      .post('/api/resultados')
+      .set(...comoUsuario(token))
+      .send({
+        activityId: CARGA,
+        clientOperationId: `55555555-5555-4555-b555-${String(contador).padStart(12, '0')}`,
+        score: puntaje,
+        completedAt: new Date(Date.now() - diasAtras * UN_DIA_EN_MS - 1000).toISOString(),
+      })
+      .expect(201);
+  }
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+    await darDeAlta(servidor());
+    await darPermiso(A, true);
+    await darPermiso(B, true);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('3 dias con atencion y 3 sin registrar nada: abandono moderado, sin lineas', async () => {
+    for (const diasAtras of [5, 4, 3]) {
+      await cargaHace(A, diasAtras, 20);
+    }
+
+    await expect(acompanamientoDe(A)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'moderado',
+      lineasDeAtencion: [],
+    });
+  });
+
+  it('en cuanto registra cualquier cosa, el aviso se va', async () => {
+    await cargaHace(A, 0, 0);
+
+    await expect(acompanamientoDe(A)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
+  });
+
+  it('7 dias con atencion antes de irse: abandono critico, con las lineas de atencion', async () => {
+    for (const diasAtras of [9, 8, 7, 6, 5, 4, 3]) {
+      await cargaHace(B, diasAtras, 20);
+    }
+
+    const acompanamiento = await acompanamientoDe(B);
+
+    expect(acompanamiento.nivel).toBe('ninguno');
+    expect(acompanamiento.abandono).toBe('critico');
+    expect(acompanamiento.lineasDeAtencion.length).toBeGreaterThan(0);
+    expect(acompanamiento.lineasDeAtencion.every((linea) => linea.tipo === 'contacto')).toBe(true);
+  });
+
+  it('sin el permiso de la persona no hay abandono, aunque se cumpla todo', async () => {
+    await darPermiso(B, false);
+
+    await expect(acompanamientoDe(B)).resolves.toEqual({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
   });
 });

@@ -5,13 +5,19 @@ import type { NivelDeAcompanamiento } from '../../model/AcompanamientoPorRiesgo.
 /**
  * Lo que la persona ve del acompanamiento por dias seguidos con atencion (SCRUM-177).
  *
- * **Solo el nivel**: ni el puntaje, ni cuantos dias van, ni cuales fueron.
+ * **Solo los niveles**: ni el puntaje, ni cuantos dias van, ni cuales fueron.
  */
 export interface Acompanamiento {
   readonly nivel: NivelDeAcompanamiento;
   /**
-   * Las lineas de atencion del pais de la persona, **solo con el nivel critico**. Vacio en los
-   * demas: el aviso moderado ofrece hablarlo, no llena la pantalla de numeros.
+   * El acompanamiento por abandono (SCRUM-256, ADR 0035): la persona venia de varios dias con
+   * atencion y lleva dias sin registrar nada. Es una regla aparte de `nivel`: los dos nunca son
+   * distintos de `ninguno` a la vez (con la cadena en pie no pueden pasar 3 dias sin registrar).
+   */
+  readonly abandono: NivelDeAcompanamiento;
+  /**
+   * Las lineas de atencion del pais de la persona, **solo con `nivel` o `abandono` criticos**.
+   * Vacio en los demas: el aviso moderado ofrece hablarlo, no llena la pantalla de numeros.
    */
   readonly lineasDeAtencion: readonly RecursoApoyo[];
 }

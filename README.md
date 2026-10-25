@@ -236,13 +236,32 @@ un proceso normal. Es PostgreSQL de verdad, no una simulacion.
 ### Las pruebas que necesitan la base
 
 Los archivos `*.integracion.spec.ts` hablan con PostgreSQL de verdad. **Si no
-hay `DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar a
-levantar una base para cambiar una linea de dominio termina con alguien
+hay `TEST_DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar
+a levantar una base para cambiar una linea de dominio termina con alguien
 comentando las pruebas.
 
-Con la base levantada corren solas, y el CI las ejecuta siempre contra un
-contenedor propio. Ahi no pueden saltarse: si faltara la base, fallan diciendolo
-en vez de pasar sin comprobar nada.
+Insertan, borran y hasta cambian la contrasena del rol `vsd_app`, asi que
+(SCRUM-261):
+
+- Leen **solo `TEST_DATABASE_URL`**, nunca `DATABASE_URL` (la de la aplicacion,
+  que en un `.env` puede apuntar a PRE) y tampoco cargan el `.env` por su cuenta.
+- La URL tiene que ser de **esta maquina** (`localhost`, `127.0.0.1` o `::1`).
+  Si no lo es, las pruebas se niegan a arrancar antes de abrir ninguna conexion,
+  y el mensaje no repite la URL. No hay variable que levante esta regla.
+
+La exportas en la terminal antes de correrlas. Con la base de pruebas de Docker:
+
+```bash
+TEST_DATABASE_URL=postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas npm run test:integracion
+```
+
+En PowerShell: `$env:TEST_DATABASE_URL='postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas'`
+y despues `npm run test:integracion`. Con `npm run db:local` es el puerto 5432 y
+la base `vsd_health`.
+
+Con la base levantada y la variable puesta corren solas, y el CI las ejecuta
+siempre contra un contenedor propio. Ahi no pueden saltarse: si faltara la base,
+fallan diciendolo en vez de pasar sin comprobar nada.
 
 Estas pruebas se conectan con el rol `vsd_app`, no con el dueno de las tablas,
 porque el dueno esta exento de las politicas de aislamiento. La primera vez le

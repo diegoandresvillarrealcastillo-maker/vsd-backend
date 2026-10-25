@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
@@ -8,6 +6,7 @@ import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identif
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaDiarioRepository } from './PrismaDiarioRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El diario contra PostgreSQL de verdad (SCRUM-95).
@@ -27,7 +26,7 @@ import { PrismaDiarioRepository } from './PrismaDiarioRepository.js';
  * Identificadores propios de esta suite: las de integracion comparten base y
  * corren en paralelo.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const MINUTO = 60_000;
 const HORA = 60 * MINUTO;

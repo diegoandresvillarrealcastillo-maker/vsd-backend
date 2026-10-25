@@ -1,10 +1,8 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MOTORES } from '../../domain/model/Motor.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El modelo «mecanica x sesion» comprobado contra PostgreSQL de verdad (SCRUM-204, ADR 0030).
@@ -16,11 +14,11 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * Todo lo de esta suite lleva el prefijo `20400000` para que las demas suites, que comparten la
  * base y corren en paralelo, no se crucen con estas filas.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

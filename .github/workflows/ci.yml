@@ -228,8 +228,11 @@ jobs:
         # Si este trabajo se quedara sin base, las pruebas se saltarian solas y
         # nadie se enteraria. PRUEBAS_DE_INTEGRACION se lo prohibe: aqui, y solo
         # aqui, saltarselas es un error en vez de un salto silencioso.
+        #
+        # Se les pasa solo TEST_DATABASE_URL y tiene que ser de esta maquina: no leen
+        # DATABASE_URL ni el .env (SCRUM-261).
         env:
-          DATABASE_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
+          TEST_DATABASE_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
           PRUEBAS_DE_INTEGRACION: obligatorias
         run: npm run test:integracion
 

@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
@@ -7,6 +5,7 @@ import { Pendiente } from '../../domain/model/Pendiente.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaPendientesRepository } from './PrismaPendientesRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El semaforo contra PostgreSQL de verdad (SCRUM-97).
@@ -15,7 +14,7 @@ import { PrismaPendientesRepository } from './PrismaPendientesRepository.js';
  * persona, **aunque lo intente directo contra la base** con el rol de la
  * aplicacion. Identificadores propios de esta suite.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const PERSONA = '97979797-0000-4000-8000-0000000000a1';
 const OTRA = '97979797-0000-4000-8000-0000000000b2';

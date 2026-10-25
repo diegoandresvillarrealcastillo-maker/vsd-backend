@@ -1,6 +1,3 @@
-// Igual que las demas pruebas de integracion: vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -15,6 +12,7 @@ import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El recorrido del catalogo entero, de la peticion HTTP a la fila de PostgreSQL (SCRUM-238).
@@ -32,7 +30,7 @@ import { CONFIGURACION } from '../config/tokens.js';
  *
  * Identidad y correo propios de esta suite: las suites de integracion comparten base y corren en paralelo.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const IDENTIDAD: Identidad = {
   id: 'c4c4c4c4-0001-4000-8000-000000000001',

@@ -1,7 +1,3 @@
-// Vitest no lee `.env` por su cuenta y estas pruebas necesitan saber si hay
-// una base local a la que conectarse.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
@@ -17,6 +13,7 @@ import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
 import { PrismaActivityResultRepository } from './PrismaActivityResultRepository.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El adaptador de Prisma contra PostgreSQL de verdad.
@@ -38,7 +35,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * viven en `persistence/aislamiento.spec.ts`. Aqui se comprueba que el
  * adaptador funciona **dentro** de esas politicas.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -49,7 +46,7 @@ const URL_DUENO = process.env['DATABASE_URL'];
 // justo lo correcto.
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

@@ -1,4 +1,5 @@
 import type { Client } from 'pg';
+import { BaseDePruebasNoPermitidaError, esHostLocal } from './baseDePruebas.js';
 
 /**
  * Contrasena de `vsd_app` en la base local de pruebas.
@@ -20,8 +21,17 @@ const INTENTOS = 8;
  * con "tuple concurrently updated", y eso hacia fallar de forma intermitente a
  * la suite que perdia la carrera. El cambio es identico en todas, asi que
  * reintentar es seguro.
+ *
+ * Cambiar la contrasena de un rol es lo mas grave que hacen estas pruebas, y con la de aqui, que es
+ * publica. Por eso se niega, antes de cualquier consulta, si el cliente no esta conectado a esta
+ * maquina (SCRUM-261): aunque alguien construyera el cliente por otro camino, no llegaria a
+ * preproduccion con una contrasena publicada.
  */
 export async function prepararRolDeLaAplicacion(dueno: Client): Promise<void> {
+  if (!esHostLocal(dueno.host)) {
+    throw new BaseDePruebasNoPermitidaError('el cliente no esta conectado a esta maquina');
+  }
+
   for (let intento = 1; ; intento++) {
     try {
       await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);

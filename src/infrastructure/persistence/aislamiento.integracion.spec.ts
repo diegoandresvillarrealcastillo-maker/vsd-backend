@@ -1,12 +1,7 @@
-// Vitest no lee `.env` por su cuenta, y estas pruebas necesitan saber si hay
-// una base local a la que conectarse. Se carga aqui y no en una configuracion
-// global a proposito: el resto de la suite debe seguir corriendo con el
-// entorno que cada archivo se prepara, sin heredar la maquina de quien ejecuta.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Aislamiento entre personas, comprobado contra PostgreSQL de verdad.
@@ -26,7 +21,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  *
  * ## Cuando se ejecutan
  *
- * Solo si hay `DATABASE_URL`. En una maquina sin base local la suite pasa sin
+ * Solo si hay `TEST_DATABASE_URL`. En una maquina sin base local la suite pasa sin
  * estas pruebas, y eso es deliberado: obligar a levantar PostgreSQL para
  * cambiar una linea de dominio acabaria con alguien comentando la suite.
  *
@@ -34,7 +29,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * cualquier otro ambiente, `vsd_app` recibe la suya a mano y nunca pasa por
  * Git: la migracion crea el rol sin contrasena justamente para eso.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -45,7 +40,7 @@ const URL_DUENO = process.env['DATABASE_URL'];
 // justo lo correcto.
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

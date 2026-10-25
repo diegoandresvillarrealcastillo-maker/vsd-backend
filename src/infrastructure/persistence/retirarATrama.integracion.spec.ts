@@ -1,9 +1,8 @@
-import 'dotenv/config';
-
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * La migracion que retira a Trama (SCRUM-121), contra PostgreSQL de verdad.
@@ -15,7 +14,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
  *
  * Identificadores propios de esta suite.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const RUTA = fileURLToPath(
   new URL(

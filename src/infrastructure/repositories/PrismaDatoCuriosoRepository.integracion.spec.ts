@@ -1,13 +1,10 @@
-// Vitest no lee `.env` por su cuenta y estas pruebas necesitan saber si hay
-// una base local a la que conectarse.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { UserId } from '../../domain/model/Identifier.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaDatoCuriosoRepository } from './PrismaDatoCuriosoRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Los datos curiosos contra PostgreSQL de verdad (SCRUM-185, ADR 0025).
@@ -18,11 +15,11 @@ import { PrismaDatoCuriosoRepository } from './PrismaDatoCuriosoRepository.js';
  * dueno. Valen sea cual sea el catalogo que haya en la base (la migracion trae un catalogo
  * inicial y otras suites comparten la base).
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

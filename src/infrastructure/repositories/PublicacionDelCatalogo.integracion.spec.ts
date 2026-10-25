@@ -1,11 +1,9 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { Client, type QueryResult } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { enElCatalogoComoSembrado } from '../../pruebas/catalogo/estadoDeRevision.ts';
 import { mecanicasPorRevisar } from '../../pruebas/catalogo/revision/porRevisar.ts';
 import { generarLaPublicacion } from '../../pruebas/catalogo/revision/publicacion.ts';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * La migracion que publica lo revisado (SCRUM-228), aplicada a PostgreSQL de verdad.
@@ -17,11 +15,11 @@ import { generarLaPublicacion } from '../../pruebas/catalogo/revision/publicacio
  * `CHECK` (lo que pide revision no se publica sin ella), que deja a cada sesion con su revisor y su fecha, que
  * aplicarla dos veces no cambia nada, y que lo que la hoja deja fuera o no aprueba se queda pendiente.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

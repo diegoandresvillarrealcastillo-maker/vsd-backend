@@ -421,9 +421,11 @@ no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
   - Lo puede apagar cuando quiera.
   - Las cuentas que ya existían quedaron apagadas.
 
-El rol de administrador gestiona el catalogo de contenidos —categorias,
-actividades y recursos de apoyo— y **no tiene acceso** a los resultados,
-al historial ni a la informacion personal de ningun usuario.
+VSD Health no tiene rol de administrador (SCRUM-76, descartado). El catalogo de
+contenidos —categorias, actividades y recursos de apoyo— lo cambian quienes
+operan el proyecto con migraciones, y ninguna cuenta de la aplicacion tiene
+acceso a los resultados, al historial ni a la informacion personal de otro
+usuario.
 
 ---
 

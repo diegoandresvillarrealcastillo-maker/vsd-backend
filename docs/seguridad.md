@@ -468,14 +468,19 @@ escribio, solo que hizo algo.
 Un catalogo **cerrado** (`src/domain/model/EventoDeSeguridad.ts`). No hay
 mensajes libres: cada tipo declara los unicos campos que lleva.
 
-| Evento                        | Cuando                                          | Campos propios          |
-| ----------------------------- | ----------------------------------------------- | ----------------------- |
-| `CUENTA_BORRADA`              | Termina el borrado de una cuenta (204)          | `idUsuario`             |
-| `DATOS_EXPORTADOS`            | Se entrega la exportacion de los datos          | `idUsuario`             |
-| `PERMISO_DEL_DIARIO_CAMBIADO` | El permiso de recomendaciones del diario cambia | `idUsuario`, `activado` |
-| `TOKEN_RECHAZADO`             | Un token no pasa la verificacion                | `motivo`                |
-| `CUENTA_NO_REGISTRADA`        | Sesion valida de alguien sin cuenta (403)       | `idProveedor`           |
-| `ARCHIVO_PELIGROSO_RECHAZADO` | Una foto o un SVG que no es lo que dice ser     | `idUsuario`, `motivo`   |
+| Evento                                | Cuando                                                                                  | Campos propios                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `CUENTA_BORRADA`                      | Termina el borrado de una cuenta (204)                                                  | `idUsuario`                                    |
+| `DATOS_EXPORTADOS`                    | Se entrega la exportacion de los datos                                                  | `idUsuario`                                    |
+| `PERMISO_DEL_DIARIO_CAMBIADO`         | El permiso de recomendaciones del diario cambia                                         | `idUsuario`, `activado`                        |
+| `TOKEN_RECHAZADO`                     | Un token no pasa la verificacion                                                        | `motivo`                                       |
+| `CUENTA_NO_REGISTRADA`                | Sesion valida de alguien sin cuenta (403)                                               | `idProveedor`                                  |
+| `ARCHIVO_PELIGROSO_RECHAZADO`         | Una foto o un SVG que no es lo que dice ser                                             | `idUsuario`, `motivo`                          |
+| `PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO` | El permiso del acompanamiento por dias seguidos cambia (ADR 0034)                       | `idUsuario`, `activado`                        |
+| `CUENTA_CREADA`                       | Se da de alta una cuenta nueva (SCRUM-167)                                              | `idUsuario`                                    |
+| `CONSENTIMIENTO_REGISTRADO`           | Se guarda un consentimiento: alta, registro completado o nueva aceptacion de los textos | `idUsuario`, `versionAviso`, `versionTerminos` |
+| `MENOR_RECHAZADO`                     | Un alta se rechaza por ser menor de 18 (403)                                            | ninguno                                        |
+| `LIMITE_SUPERADO`                     | Una cuenta llega al tope por cuenta de una ruta                                         | `ruta`, `idUsuario` (si ya hay cuenta)         |
 
 Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente`,
 `tipo`, y cuando se conocen `idPeticion` (el `x-request-id` de la respuesta) y
@@ -493,6 +498,31 @@ Todos llevan ademas `canal: "seguridad"`, `version`, `en` (fecha ISO), `ambiente
   "huellaDeIp": "3fa91c0b7d2e4a56"
 }
 ```
+
+Los cinco ultimos (SCRUM-167) siguen las mismas reglas, con matices. El del
+acompanamiento es igual que el del diario: cambiar el permiso se anota, repetir el
+mismo valor no, y nunca lleva lo que el acompanamiento haya inferido.
+
+- **`CONSENTIMIENTO_REGISTRADO`** lleva solo las versiones de los textos que se
+  aceptaron (por ejemplo `2026-10-3`), nunca su contenido ni la fecha de
+  nacimiento. Se anota al crear la cuenta, al completar el registro de una cuenta
+  anterior y al volver a aceptar los textos que cambiaron (SCRUM-237); volver a
+  entrar con la cuenta ya completa, o repetir una aceptacion sin nada pendiente,
+  no anota nada. Una cuenta nueva deja dos lineas, `CUENTA_CREADA` y
+  `CONSENTIMIENTO_REGISTRADO`, que se ligan por `idUsuario` e `idPeticion`.
+- **`MENOR_RECHAZADO` no lleva ningun campo propio**: ni fecha, ni correo, ni
+  identificador, ni la edad. De un menor solo queda que ocurrio, cuando y la
+  huella de la IP, porque no hay autorizacion para guardar nada mas y su
+  identidad se borra. Lo anota el filtro de errores al ver `MENOR_DE_EDAD`, que
+  es quien conoce la IP; el caso de uso conserva su propio aviso operativo
+  (`Registro`) para el caso de que la identidad **no** se pueda borrar y haya que
+  limpiarla a mano.
+- **`LIMITE_SUPERADO`** lleva la `ruta` como plantilla (`CuentaController.exportar`:
+  clase y metodo), nunca la direccion concreta, y el `idUsuario` si la peticion ya
+  tenia cuenta. Se anota **una vez por ventana** y por cuenta y ruta, en la
+  peticion que pasa el tope; las siguientes que se rechacen en esa ventana no lo
+  repiten. Cubre solo el tope **por cuenta** (SCRUM-151); el limite general por IP
+  responde 429 sin anotar.
 
 `TOKEN_RECHAZADO` distingue solo dos motivos: `TOKEN_INVALIDO` y
 `VERIFICACION_NO_DISPONIBLE` (el servicio de claves no respondio; no es culpa de
@@ -552,8 +582,7 @@ direccion, la clave y el contenido de los eventos no aparecen en ningun aviso.
   _Logs > Auth_, con retencion segun el plan: en el gratuito es muy corta (un
   dia segun la documentacion de Supabase al escribir esto; confirmarlo en el
   panel). Si hace falta mas, hay que exportarlos desde alli.
-- **Eventos que dependen de PR aun abiertos** y que se agregaran al catalogo
-  cuando se fusionen: cuenta creada, menor rechazado y consentimiento registrado
-  (edad y consentimiento, backend #92) y limite de peticiones superado (#93).
+- **El limite general por IP**: solo el tope por cuenta deja linea; quien se
+  pasa del general aparece en el registro de peticiones (429), no aqui.
 - **Quien lo lee**: la lectura del registro es de una persona del equipo con
   acceso al servicio elegido; no hay pantalla ni endpoint para consultarlo.

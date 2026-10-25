@@ -73,7 +73,16 @@ function catalogo(): readonly Categoria[] {
   ];
 }
 
-function armar(cuenta: User | null, dias: readonly string[], ahora: Date = NOCHE_DEL_VIERNES) {
+/**
+ * `dias` son los dias con atencion; `actividad`, los dias con cualquier resultado (por omision, los
+ * mismos: toda la actividad fue con atencion).
+ */
+function armar(
+  cuenta: User | null,
+  dias: readonly string[],
+  ahora: Date = NOCHE_DEL_VIERNES,
+  actividad: readonly string[] = dias,
+) {
   const cuentas: UserRepositoryPort = {
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
@@ -84,7 +93,11 @@ function armar(cuenta: User | null, dias: readonly string[], ahora: Date = NOCHE
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const diasConAtencion = vi.fn(() => Promise.resolve(dias));
-  const resultados = { diasConAtencion } as unknown as ActivityResultRepositoryPort;
+  const diasConActividad = vi.fn(() => Promise.resolve(actividad));
+  const resultados = {
+    diasConAtencion,
+    diasConActividad,
+  } as unknown as ActivityResultRepositoryPort;
   const lineasDeAtencion = vi.fn(() => Promise.resolve([LINEA_DE_BOGOTA, LINEA_NACIONAL]));
   const recursos = { lineasDeAtencion } as unknown as RecursoApoyoRepositoryPort;
   const actividades = {
@@ -100,6 +113,7 @@ function armar(cuenta: User | null, dias: readonly string[], ahora: Date = NOCHE
       () => ahora,
     ),
     diasConAtencion,
+    diasConActividad,
     lineasDeAtencion,
   };
 }
@@ -113,7 +127,7 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
 
   it('sin el permiso de la persona no mira nada: ninguno, sin leer resultados ni lineas', async () => {
     // Siete dias seguidos con atencion, que con permiso serian criticos.
-    const { caso, diasConAtencion, lineasDeAtencion } = armar(unaCuenta(), [
+    const { caso, diasConAtencion, diasConActividad, lineasDeAtencion } = armar(unaCuenta(), [
       '2026-09-26',
       '2026-09-27',
       '2026-09-28',
@@ -125,9 +139,11 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
 
     expect(await caso.execute(new UserId(PERSONA))).toEqual({
       nivel: 'ninguno',
+      abandono: 'ninguno',
       lineasDeAtencion: [],
     });
     expect(diasConAtencion).not.toHaveBeenCalled();
+    expect(diasConActividad).not.toHaveBeenCalled();
     expect(lineasDeAtencion).not.toHaveBeenCalled();
   });
 
@@ -148,6 +164,7 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
 
     expect(await caso.execute(new UserId(PERSONA))).toEqual({
       nivel: 'ninguno',
+      abandono: 'ninguno',
       lineasDeAtencion: [],
     });
     expect(lineasDeAtencion).not.toHaveBeenCalled();
@@ -162,6 +179,7 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
 
     expect(await caso.execute(new UserId(PERSONA))).toEqual({
       nivel: 'moderado',
+      abandono: 'ninguno',
       lineasDeAtencion: [],
     });
     expect(lineasDeAtencion).not.toHaveBeenCalled();
@@ -232,5 +250,82 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
     );
 
     expect((await caso.execute(new UserId(PERSONA))).nivel).toBe('ninguno');
+  });
+
+  describe('el abandono (SCRUM-256)', () => {
+    // Atencion el 27, 28 y 29 de septiembre; hoy es viernes 2 de octubre: 3 dias sin registrar.
+    const TRES_DIAS_MAL = ['2026-09-27', '2026-09-28', '2026-09-29'];
+
+    it('tras 3 dias con atencion y 3 sin registrar nada: abandono moderado, sin lineas', async () => {
+      const { caso, lineasDeAtencion } = armar(conPermiso(), TRES_DIAS_MAL);
+
+      expect(await caso.execute(new UserId(PERSONA))).toEqual({
+        nivel: 'ninguno',
+        abandono: 'moderado',
+        lineasDeAtencion: [],
+      });
+      expect(lineasDeAtencion).not.toHaveBeenCalled();
+    });
+
+    it('tras 7 dias con atencion: abandono critico, con las lineas de su pais', async () => {
+      const { caso, lineasDeAtencion } = armar(conPermiso(), [
+        '2026-09-23',
+        '2026-09-24',
+        '2026-09-25',
+        '2026-09-26',
+        '2026-09-27',
+        '2026-09-28',
+        '2026-09-29',
+      ]);
+
+      const acompanamiento = await caso.execute(new UserId(PERSONA));
+
+      expect(acompanamiento.nivel).toBe('ninguno');
+      expect(acompanamiento.abandono).toBe('critico');
+      expect(acompanamiento.lineasDeAtencion.map((linea) => linea.id)).toEqual([
+        LINEA_NACIONAL.id,
+        LINEA_DE_BOGOTA.id,
+      ]);
+      expect(lineasDeAtencion).toHaveBeenCalledWith('CO');
+    });
+
+    it('sin el permiso no hay abandono ni se lee un solo resultado', async () => {
+      const { caso, diasConAtencion, diasConActividad } = armar(unaCuenta(), TRES_DIAS_MAL);
+
+      expect((await caso.execute(new UserId(PERSONA))).abandono).toBe('ninguno');
+      expect(diasConAtencion).not.toHaveBeenCalled();
+      expect(diasConActividad).not.toHaveBeenCalled();
+    });
+
+    it('con la cadena en pie no hay abandono ni se pregunta por la actividad', async () => {
+      const { caso, diasConActividad } = armar(conPermiso(), [
+        '2026-09-30',
+        '2026-10-01',
+        '2026-10-02',
+      ]);
+
+      const acompanamiento = await caso.execute(new UserId(PERSONA));
+
+      expect(acompanamiento.nivel).toBe('moderado');
+      expect(acompanamiento.abandono).toBe('ninguno');
+      expect(diasConActividad).not.toHaveBeenCalled();
+    });
+
+    it('si despues de la mala racha hizo algo que no requirio atencion, no hay abandono', async () => {
+      const { caso } = armar(conPermiso(), TRES_DIAS_MAL, NOCHE_DEL_VIERNES, [
+        ...TRES_DIAS_MAL,
+        '2026-09-30',
+      ]);
+
+      expect((await caso.execute(new UserId(PERSONA))).abandono).toBe('ninguno');
+    });
+
+    it('«hoy» es el dia de la persona: el abandono se cuenta en su calendario, no en UTC', async () => {
+      // Viernes 2, 9 p. m. en Bogota (sabado 3 en UTC). Con el 30 como ultimo dia son 2 en
+      // Bogota (todavia nada) y 3 en UTC (avisaria de mas).
+      const { caso } = armar(conPermiso(), ['2026-09-28', '2026-09-29', '2026-09-30']);
+
+      expect((await caso.execute(new UserId(PERSONA))).abandono).toBe('ninguno');
+    });
   });
 });

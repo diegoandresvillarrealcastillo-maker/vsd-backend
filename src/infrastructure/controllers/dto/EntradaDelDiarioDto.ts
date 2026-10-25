@@ -1,9 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { Dia } from '../../../domain/model/Calendario.js';
 import type { Adjunto, NodoDelDocumento } from '../../../domain/model/DocumentoDelDiario.js';
 import type { EntradaDeDiario } from '../../../domain/model/EntradaDeDiario.js';
 import type { AnotacionGuardada } from '../../../domain/ports/in/EscribirEnElDiarioUseCase.js';
-import type { CartaEnEspera } from '../../../domain/ports/out/DiarioRepositoryPort.js';
 
 const EJEMPLO_DE_DOCUMENTO = {
   type: 'doc',
@@ -68,50 +66,24 @@ export class EntradaDelDiarioDto {
     type: String,
     format: 'date-time',
     description:
-      'Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación. Una carta que espera no se edita: trae la hora en que se escribió, que ya pasó.',
+      'Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación.',
   })
   editableHasta!: string;
 
-  @ApiProperty({
-    description:
-      'Si es una «carta a mí de mañana» (SCRUM-230): se escribe hoy y se lee, si la persona quiere, desde mañana.',
-  })
-  carta!: boolean;
-
-  @ApiProperty({
-    description:
-      'Si es una carta que todavía espera: sin abrir y dentro de su semana. Mientras espera, titulo, contenido y adjuntos vienen vacíos: el texto solo sale al abrirla (POST /api/diario/{id}/abrir). Pasada la semana sin abrir vuelve al diario como cualquier anotación.',
-  })
-  sellada!: boolean;
-
-  /**
-   * Una anotacion tal como sale por la API.
-   *
-   * Con `hoy` (el dia de la persona), una carta que espera sale **sin su texto**. Sin `hoy` sale
-   * completa: es lo que usa la exportacion, que entrega todo lo de la persona, y abrir la carta.
-   */
-  static desde(entrada: EntradaDeDiario, hoy?: Dia): EntradaDelDiarioDto {
-    return EntradaDelDiarioDto.llenar(new EntradaDelDiarioDto(), entrada, hoy);
+  static desde(entrada: EntradaDeDiario): EntradaDelDiarioDto {
+    return EntradaDelDiarioDto.llenar(new EntradaDelDiarioDto(), entrada);
   }
 
-  protected static llenar<T extends EntradaDelDiarioDto>(
-    dto: T,
-    entrada: EntradaDeDiario,
-    hoy?: Dia,
-  ): T {
-    const sellada = hoy !== undefined && entrada.estaSellada(hoy);
-
+  protected static llenar<T extends EntradaDelDiarioDto>(dto: T, entrada: EntradaDeDiario): T {
     dto.id = entrada.id.value;
     dto.dia = entrada.dia;
-    dto.titulo = sellada ? null : (entrada.titulo ?? null);
-    dto.contenido = sellada ? { type: 'doc' } : entrada.documento.raiz;
-    dto.adjuntos = sellada ? [] : [...entrada.adjuntos];
+    dto.titulo = entrada.titulo ?? null;
+    dto.contenido = entrada.documento.raiz;
+    dto.adjuntos = [...entrada.adjuntos];
     dto.version = entrada.version;
     dto.creadaEn = entrada.creadaEn.toISOString();
     dto.editadaEn = entrada.editadaEn.toISOString();
-    dto.editableHasta = (sellada ? entrada.creadaEn : entrada.editableHasta()).toISOString();
-    dto.carta = entrada.cartaAManana;
-    dto.sellada = sellada;
+    dto.editableHasta = entrada.editableHasta().toISOString();
 
     return dto;
   }
@@ -132,35 +104,10 @@ export class AnotacionGuardadaDto extends EntradaDelDiarioDto {
   })
   sugiereAcompanamiento!: boolean;
 
-  static deLaGuardada(guardada: AnotacionGuardada, hoy?: Dia): AnotacionGuardadaDto {
-    const dto = EntradaDelDiarioDto.llenar(new AnotacionGuardadaDto(), guardada.entrada, hoy);
+  static deLaGuardada(guardada: AnotacionGuardada): AnotacionGuardadaDto {
+    const dto = EntradaDelDiarioDto.llenar(new AnotacionGuardadaDto(), guardada.entrada);
 
     dto.sugiereAcompanamiento = guardada.sugiereAcompanamiento;
-
-    return dto;
-  }
-}
-
-/**
- * Una carta que espera (SCRUM-230): lo justo para ofrecerla en la tarjeta «Ayer te dejaste esto».
- * **No lleva su texto**: la persona decide si leerla (abrirla) o borrarla sin leerla.
- */
-export class CartaEnEsperaDto {
-  @ApiProperty({ format: 'uuid' })
-  id!: string;
-
-  @ApiProperty({
-    description: 'El día en que se escribió, en el calendario de la persona.',
-    example: '2026-10-03',
-    format: 'date',
-  })
-  dia!: string;
-
-  static desde(carta: CartaEnEspera): CartaEnEsperaDto {
-    const dto = new CartaEnEsperaDto();
-
-    dto.id = carta.id.value;
-    dto.dia = carta.dia;
 
     return dto;
   }

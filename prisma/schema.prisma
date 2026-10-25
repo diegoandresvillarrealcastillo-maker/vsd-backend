@@ -69,6 +69,17 @@ enum FormatoEntrada {
   @@map("formato_entrada")
 }
 
+/// Cuantas veces al dia avisa el semaforo y cuando, respecto de la hora que la persona
+/// elige (SCRUM-146, ADR 0036). `manana` es lo que ya hacia, y lo que queda para las
+/// cuentas que existian.
+enum FrecuenciaDelSemaforo {
+  manana
+  noche
+  dos_veces
+
+  @@map("frecuencia_del_semaforo")
+}
+
 /// El color de un pendiente del semaforo (SCRUM-97).
 enum NivelPendiente {
   urgente
@@ -273,8 +284,11 @@ model SuscripcionPush {
 /// A que hora quiere cada aviso, en minutos desde la medianoche de Colombia (SCRUM-102).
 model PreferenciaAviso {
   idUsuario           String    @id @map("id_usuario") @db.Uuid
-  /// Null es apagado.
+  /// La hora base del semaforo. Null es apagado, con cualquier frecuencia. Los minutos en que
+  /// sale cada aviso salen de ella y de `frecuenciaSemaforo` (SCRUM-146), no se guardan.
   minutoSemaforo      Int?      @map("minuto_semaforo") @db.SmallInt
+  /// Cuantas veces al dia y cuando, respecto de la hora base (SCRUM-146).
+  frecuenciaSemaforo  FrecuenciaDelSemaforo @default(manana) @map("frecuencia_semaforo")
   minutoRacha         Int?      @map("minuto_racha") @db.SmallInt
   /// Los recordatorios de las 8:00 y las 20:00 (SCRUM-126). La hora no se
   /// mueve: la aplicacion solo escribe 480 y 1200, o null para apagarlos.
@@ -282,6 +296,8 @@ model PreferenciaAviso {
   minutoNoche         Int?      @map("minuto_noche") @db.SmallInt
   /// El ultimo dia, en la zona de la persona, en que se reviso cada aviso.
   ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
+  /// El del segundo aviso del semaforo (SCRUM-146): cada uno sale una vez al dia.
+  ultimoAvisoSemaforoNoche DateTime? @map("ultimo_aviso_semaforo_noche") @db.Date
   ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
   ultimoAvisoManana   DateTime? @map("ultimo_aviso_manana") @db.Date
   ultimoAvisoNoche    DateTime? @map("ultimo_aviso_noche") @db.Date
@@ -485,6 +501,13 @@ model RecursoApoyo {
   /// contactos, junto a la fuente.
   verificadoEl DateTime? @map("verificado_el") @db.Date
 
+  /// El numero que marca el boton «Llamar ahora» (SCRUM-257, ADR 0037): solo
+  /// cifras, con un `+` delante si lleva prefijo de pais. Solo en contactos, que
+  /// ya tienen fuente y fecha de verificacion; vacio en el directorio
+  /// internacional. Una opcion que se elige al contestar (el 192, opcion 4) va
+  /// en la descripcion: no se marca sola.
+  telefono String? @db.VarChar(16)
+
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])
@@ -528,15 +551,6 @@ model EntradaDiario {
   /// la misma entrada. La sincronizacion nunca sobrescribe: ante un conflicto
   /// la copia local se guarda aparte. Ver ADR 0009.
   version Int @default(1)
-
-  /// «Carta a mi de manana» (EMO-05, SCRUM-230): una anotacion que se escribe hoy y
-  /// cuyo texto no sale por la API hasta que la persona la abre, desde el dia
-  /// siguiente. Se puede borrar sin abrirla. Ver ADR 0033.
-  cartaAManana Boolean @default(false) @map("carta_a_manana")
-
-  /// Cuando se abrio. Solo una carta se abre, y se puede marcar pasada la hora para
-  /// editar: es el unico cambio que el disparador deja pasar sin tocar el texto.
-  cartaAbiertaEn DateTime? @map("carta_abierta_en") @db.Timestamptz(3)
 
   /// La hora en que, segun el dispositivo, se escribio la anotacion: de ella se
   /// cuenta la hora para editar. La base la acota (nunca en el futuro, nunca de

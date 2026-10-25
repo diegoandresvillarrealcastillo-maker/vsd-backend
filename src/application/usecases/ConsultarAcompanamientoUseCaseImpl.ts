@@ -1,3 +1,4 @@
+import { abandonoTrasAtencion } from '../../domain/model/AbandonoTrasAtencion.js';
 import {
   actividadesQueCuentanParaAcompanar,
   NivelDeAcompanamiento,
@@ -30,6 +31,11 @@ import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPo
  * actividades de «mayor requiere atencion» (carga y emociones): un puntaje bajo en un juego de
  * cognicion no es una senal emocional (ADR 0034, preguntas 1 y 3).
  *
+ * Tambien decide el **abandono** (SCRUM-256, ADR 0035): una regla aparte, que mira si la persona
+ * venia de varios dias con atencion y lleva dias sin registrar nada. Va en la misma respuesta (un
+ * viaje, un permiso), pero no comparte la regla de continuidad. Solo se calcula si el nivel por dias
+ * es `ninguno`: con la cadena en pie no puede haber abandono.
+ *
  * El reloj se recibe por constructor, como en la racha, para fijarlo en las pruebas.
  */
 export class ConsultarAcompanamientoUseCaseImpl implements ConsultarAcompanamientoUseCase {
@@ -49,19 +55,29 @@ export class ConsultarAcompanamientoUseCaseImpl implements ConsultarAcompanamien
     }
 
     if (!cuenta.acompanamientoPorDias) {
-      return { nivel: NivelDeAcompanamiento.NINGUNO, lineasDeAtencion: [] };
+      return {
+        nivel: NivelDeAcompanamiento.NINGUNO,
+        abandono: NivelDeAcompanamiento.NINGUNO,
+        lineasDeAtencion: [],
+      };
     }
 
     const hoy = Calendario.de(cuenta.zonaHoraria).diaDe(this.reloj());
     const cuentan = actividadesQueCuentanParaAcompanar(await this.actividades.listarCatalogo());
-    const nivel = nivelDeAcompanamiento(await this.resultados.diasConAtencion(id, cuentan), hoy);
+    const diasConAtencion = await this.resultados.diasConAtencion(id, cuentan);
+    const nivel = nivelDeAcompanamiento(diasConAtencion, hoy);
+    const abandono =
+      nivel === NivelDeAcompanamiento.NINGUNO
+        ? abandonoTrasAtencion(diasConAtencion, await this.resultados.diasConActividad(id), hoy)
+        : NivelDeAcompanamiento.NINGUNO;
 
-    if (nivel !== NivelDeAcompanamiento.CRITICO) {
-      return { nivel, lineasDeAtencion: [] };
+    if (nivel !== NivelDeAcompanamiento.CRITICO && abandono !== NivelDeAcompanamiento.CRITICO) {
+      return { nivel, abandono, lineasDeAtencion: [] };
     }
 
     return {
       nivel,
+      abandono,
       lineasDeAtencion: RecursoApoyo.ordenarPorAlcance(
         await this.recursos.lineasDeAtencion(paisDeLaZona(cuenta.zonaHoraria)),
       ),

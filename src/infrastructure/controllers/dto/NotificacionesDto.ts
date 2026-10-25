@@ -3,12 +3,14 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDefined,
+  IsEnum,
   IsOptional,
   IsString,
   MaxLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { FrecuenciaDelSemaforo } from '../../../domain/model/FrecuenciaDelSemaforo.js';
 import type { EstadoDeLosAvisos } from '../../../domain/ports/in/AvisosUseCase.js';
 
 /** Lo que responde `GET /api/notificaciones` y `PATCH /api/notificaciones/horas` (SCRUM-102). */
@@ -29,9 +31,26 @@ export class EstadoDeLosAvisosDto {
     type: String,
     nullable: true,
     example: '08:00',
-    description: 'Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado.',
+    description:
+      'La hora que la persona eligió para el semáforo (la hora base), en su zona horaria. Null: apagado. Las horas a las que de verdad avisa están en horasDelSemaforo.',
   })
   horaSemaforo!: string | null;
+
+  @ApiProperty({
+    enum: Object.values(FrecuenciaDelSemaforo),
+    example: 'manana',
+    description:
+      'Cuántas veces al día avisa el semáforo. manana: una vez, a la hora base (lo que hacía hasta ahora). noche: una vez, doce horas después de una hora base de la mañana, o a la propia hora base si es de las 12:00 en adelante. dos_veces: las dos. Nunca cruza la medianoche.',
+  })
+  frecuenciaSemaforo!: FrecuenciaDelSemaforo;
+
+  @ApiProperty({
+    type: [String],
+    example: ['08:00', '20:00'],
+    description:
+      'Las horas HH:MM a las que avisa el semáforo, de la más temprana a la más tarde, con la frecuencia ya aplicada: una, o dos a doce horas de distancia. Vacía si está apagado.',
+  })
+  horasDelSemaforo!: string[];
 
   @ApiProperty({
     type: String,
@@ -60,6 +79,8 @@ export class EstadoDeLosAvisosDto {
     dto.disponible = estado.disponible;
     dto.clavePublica = estado.clavePublica;
     dto.horaSemaforo = estado.horaSemaforo;
+    dto.frecuenciaSemaforo = estado.frecuenciaSemaforo;
+    dto.horasDelSemaforo = [...estado.horasDelSemaforo];
     dto.horaRacha = estado.horaRacha;
     dto.recordatorioManana = estado.recordatorioManana;
     dto.recordatorioNoche = estado.recordatorioNoche;
@@ -80,6 +101,16 @@ export class CambiarHorasDto {
   @IsString()
   @MaxLength(5)
   horaSemaforo?: string | null;
+
+  @ApiPropertyOptional({
+    enum: Object.values(FrecuenciaDelSemaforo),
+    description:
+      'Cuántas veces al día avisa el semáforo: manana, noche o dos_veces. Lo que no viene se queda. No tiene null: apagar el aviso es horaSemaforo: null.',
+  })
+  // `IsOptional` dejaria pasar null, y null no es una frecuencia: solo se omite lo que no viene.
+  @ValidateIf((dto: CambiarHorasDto) => dto.frecuenciaSemaforo !== undefined)
+  @IsEnum(FrecuenciaDelSemaforo)
+  frecuenciaSemaforo?: FrecuenciaDelSemaforo;
 
   @ApiPropertyOptional({ type: String, nullable: true, example: '19:30' })
   @IsOptional()

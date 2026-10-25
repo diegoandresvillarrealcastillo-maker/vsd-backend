@@ -2,7 +2,15 @@ import 'dotenv/config';
 
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
+import {
+  MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+  TipoDeAviso,
+  type PreferenciasDeAviso,
+} from '../../domain/model/Aviso.js';
+import {
+  FrecuenciaDelSemaforo,
+  minutosDelSemaforo,
+} from '../../domain/model/FrecuenciaDelSemaforo.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
@@ -122,6 +130,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       userId: new UserId(ANA),
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
+      frecuenciaSemaforo: 'manana',
       minutoRacha: null,
       minutoManana: null,
       minutoNoche: null,
@@ -131,6 +140,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       userId: new UserId(ANA),
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
+      frecuenciaSemaforo: 'manana',
       minutoRacha: null,
       minutoManana: null,
       minutoNoche: null,
@@ -138,6 +148,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     // Sin nada guardado, apagados.
     await expect(avisos.preferenciasDe(new UserId(BETO))).resolves.toMatchObject({
       minutoSemaforo: null,
+      frecuenciaSemaforo: 'manana',
       minutoRacha: null,
       minutoManana: null,
       minutoNoche: null,
@@ -196,6 +207,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       userId: new UserId(ANA),
       zonaHoraria: ZONA,
       minutoSemaforo: 480,
+      frecuenciaSemaforo: 'manana',
       minutoRacha: 600,
       minutoManana: null,
       minutoNoche: null,
@@ -216,6 +228,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -224,6 +237,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(BETO),
         zonaHoraria: ZONA,
         minutoSemaforo: 470,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: 480,
         minutoManana: null,
         minutoNoche: null,
@@ -257,6 +271,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -289,11 +304,15 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
     const MANANA_FIJA = 480;
     const NOCHE_FIJA = 1200;
 
-    function preferencias(persona: string, cambios: Record<string, number | null> = {}) {
+    function preferencias(
+      persona: string,
+      cambios: Partial<Omit<PreferenciasDeAviso, 'userId'>> = {},
+    ): PreferenciasDeAviso {
       return {
         userId: new UserId(persona),
         zonaHoraria: ZONA,
         minutoSemaforo: null,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -460,6 +479,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
 
       await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: 1140,
         minutoManana: null,
         minutoNoche: null,
@@ -485,6 +505,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: 'Asia/Tokyo',
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -500,6 +521,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: 600,
         minutoManana: null,
         minutoNoche: null,
@@ -510,6 +532,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
         zonaHoraria: 'Europe/Madrid',
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: 600,
         minutoManana: null,
         minutoNoche: null,
@@ -522,6 +545,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           userId: new UserId(persona),
           zonaHoraria: ZONA,
           minutoSemaforo: 480,
+          frecuenciaSemaforo: 'manana',
           minutoRacha: null,
           minutoManana: null,
           minutoNoche: null,
@@ -543,6 +567,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
           userId: new UserId(persona),
           zonaHoraria: ZONA,
           minutoSemaforo: 480,
+          frecuenciaSemaforo: 'manana',
           minutoRacha: null,
           minutoManana: null,
           minutoNoche: null,
@@ -575,6 +600,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: ZONA,
         minutoSemaforo: null,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -585,11 +611,12 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
   });
 
   describe('reclamar el aviso del dia (SCRUM-160)', () => {
-    function encendidos(persona: string) {
+    function encendidos(persona: string): PreferenciasDeAviso {
       return {
         userId: new UserId(persona),
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
         minutoRacha: 1140,
         minutoManana: 480,
         minutoNoche: 1200,
@@ -799,6 +826,7 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
         userId: new UserId(ANA),
         zonaHoraria: ZONA,
         minutoSemaforo: 480,
+        frecuenciaSemaforo: 'manana',
         minutoRacha: 480,
         minutoManana: null,
         minutoNoche: null,
@@ -813,6 +841,178 @@ describe.skipIf(URL_DUENO === undefined)('Los avisos en PostgreSQL', () => {
       );
 
       expect(Number((quedan.rows[0] as { filas: string }).filas)).toBe(0);
+    });
+  });
+  describe('los dos avisos del semaforo (SCRUM-146)', () => {
+    function preferencias(
+      persona: string,
+      base: number | null,
+      frecuenciaSemaforo: FrecuenciaDelSemaforo,
+    ): PreferenciasDeAviso {
+      return {
+        userId: new UserId(persona),
+        zonaHoraria: ZONA,
+        minutoSemaforo: base,
+        frecuenciaSemaforo,
+        minutoRacha: null,
+        minutoManana: null,
+        minutoNoche: null,
+      };
+    }
+
+    async function aQuien(tipo: TipoDeAviso, desde: number, hasta: number, dia = HOY) {
+      return (await avisos.aQuienLeToca(tipo, ZONA, desde, hasta, dia)).map((uno) => uno.value);
+    }
+
+    it('guarda y devuelve la frecuencia', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.DOS_VECES));
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: 'dos_veces',
+      });
+    });
+
+    it('una fila que ya existia, sin frecuencia, queda en «manana»: nada se mueve (la migracion)', async () => {
+      // Como la dejo la version anterior: solo la hora, sin tocar la columna nueva.
+      await dueno.query('BEGIN');
+      await dueno.query("SELECT set_config('vsd.usuario_actual', $1, true)", [ANA]);
+      await dueno.query(
+        'INSERT INTO preferencia_aviso (id_usuario, minuto_semaforo) VALUES ($1, 1080)',
+        [ANA],
+      );
+      await dueno.query('COMMIT');
+
+      await expect(avisos.preferenciasDe(new UserId(ANA))).resolves.toMatchObject({
+        minutoSemaforo: 1080,
+        frecuenciaSemaforo: 'manana',
+      });
+      // Una hora de la tarde sigue avisando a esa hora, y el segundo aviso no existe.
+      expect(await aQuien(TipoDeAviso.SEMAFORO, 1080, 1080)).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 0, 1439)).toEqual([]);
+    });
+
+    it('la base no acepta una frecuencia que no existe', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.MANANA));
+
+      await expect(
+        dueno.query(
+          "UPDATE preferencia_aviso SET frecuencia_semaforo = 'tres_veces' WHERE id_usuario = $1",
+          [ANA],
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('a quien le toca sale de la hora base y la frecuencia, con las mismas reglas que el dominio', async () => {
+      const bases = [0, 1, 359, 360, 479, 480, 481, 719, 720, 721, 1079, 1080, 1199, 1200, 1439];
+      const discrepancias: string[] = [];
+
+      for (const base of bases) {
+        for (const frecuencia of Object.values(FrecuenciaDelSemaforo)) {
+          await avisos.guardarPreferencias(preferencias(ANA, base, frecuencia));
+
+          const { primero, segundo } = minutosDelSemaforo(base, frecuencia);
+
+          for (const [tipo, minuto] of [
+            [TipoDeAviso.SEMAFORO, primero],
+            [TipoDeAviso.SEMAFORO_NOCHE, segundo],
+          ] as const) {
+            if (minuto === null) {
+              // Ese aviso no existe para esta frecuencia: ni en todo el dia.
+              if ((await aQuien(tipo, 0, 1439)).length !== 0) {
+                discrepancias.push(`${tipo} base ${base} ${frecuencia}: no deberia tocar nunca`);
+              }
+
+              continue;
+            }
+
+            // Exacto, con la gracia de la revision antes, y ni un minuto despues ni antes.
+            const casos: [number, number, boolean][] = [
+              [minuto, minuto, true],
+              [Math.max(0, minuto - 30), minuto, true],
+              [
+                Math.min(1439, minuto + 1),
+                Math.min(1439, minuto + 30),
+                minuto + 1 <= 1439 ? false : true,
+              ],
+              [Math.max(0, minuto - 30), Math.max(0, minuto - 1), minuto - 1 >= 0 ? false : true],
+            ];
+
+            for (const [desde, hasta, toca] of casos) {
+              const encontrado = (await aQuien(tipo, desde, hasta)).includes(ANA);
+
+              if (encontrado !== toca) {
+                discrepancias.push(
+                  `${tipo} base ${base} ${frecuencia} ventana ${desde}-${hasta}: ${String(encontrado)}`,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      expect(discrepancias).toEqual([]);
+    });
+
+    it('el segundo aviso no le toca a nadie en una ventana de antes de las 12:00, ni a quien no lo tiene', async () => {
+      // Ana tiene los dos avisos, Beto solo el de la manana: en la manana nadie recibe el segundo.
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.DOS_VECES));
+      await avisos.guardarPreferencias(preferencias(BETO, 480, FrecuenciaDelSemaforo.MANANA));
+
+      for (const [desde, hasta] of [
+        [0, 1439 - 12 * 60],
+        [450, 480],
+        [0, 719],
+        [690, 719],
+      ] as const) {
+        expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, desde, hasta), `${desde}-${hasta}`).toEqual(
+          [],
+        );
+      }
+
+      // A las 20:00 le toca a Ana y no a Beto.
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA]);
+    });
+
+    it('cada aviso se reclama por separado y vuelve a tocar al dia siguiente', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.DOS_VECES));
+
+      await expect(avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO, HOY)).resolves.toBe(
+        true,
+      );
+      expect(await aQuien(TipoDeAviso.SEMAFORO, 480, 480)).toEqual([]);
+      // Reclamar el primero no cierra el segundo.
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA]);
+      await expect(
+        avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO_NOCHE, HOY),
+      ).resolves.toBe(true);
+      await expect(
+        avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO_NOCHE, HOY),
+      ).resolves.toBe(false);
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([]);
+
+      expect(await aQuien(TipoDeAviso.SEMAFORO, 480, 480, '2026-10-06')).toEqual([ANA]);
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200, '2026-10-06')).toEqual([ANA]);
+    });
+
+    it('con 30 reclamos a la vez del segundo aviso, exactamente uno lo gana', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.DOS_VECES));
+
+      const resultados = await Promise.all(
+        Array.from({ length: 30 }, () =>
+          avisos.marcarRevisado(new UserId(ANA), TipoDeAviso.SEMAFORO_NOCHE, HOY),
+        ),
+      );
+
+      expect(resultados.filter(Boolean)).toHaveLength(1);
+    });
+
+    it('la frecuencia de una persona no es la de otra', async () => {
+      await avisos.guardarPreferencias(preferencias(ANA, 480, FrecuenciaDelSemaforo.DOS_VECES));
+      await avisos.guardarPreferencias(preferencias(BETO, 480, FrecuenciaDelSemaforo.MANANA));
+
+      expect(await aQuien(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA]);
+      expect((await aQuien(TipoDeAviso.SEMAFORO, 480, 480)).sort()).toEqual([ANA, BETO].sort());
     });
   });
 });

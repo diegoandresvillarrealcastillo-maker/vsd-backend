@@ -1,4 +1,5 @@
 import type { SuscripcionPush } from '../../model/Aviso.js';
+import type { FrecuenciaDelSemaforo } from '../../model/FrecuenciaDelSemaforo.js';
 
 /**
  * Puertos de entrada de los avisos por Web Push (SCRUM-102).
@@ -12,8 +13,18 @@ export interface EstadoDeLosAvisos {
   readonly disponible: boolean;
   /** La clave publica VAPID, para que el navegador se suscriba. */
   readonly clavePublica: string | null;
-  /** "HH:MM" en la zona horaria de la persona, o null si esta apagado. */
+  /**
+   * "HH:MM" en la zona horaria de la persona, o null si esta apagado. Es la hora que ella eligio
+   * (la **hora base**); las horas a las que de verdad avisa el semaforo son `horasDelSemaforo`.
+   */
   readonly horaSemaforo: string | null;
+  /** Cuantas veces al dia avisa el semaforo y cuando, respecto de la hora base (SCRUM-146). */
+  readonly frecuenciaSemaforo: FrecuenciaDelSemaforo;
+  /**
+   * Las horas "HH:MM" a las que avisa el semaforo, de la mas temprana a la mas tarde, ya con la
+   * frecuencia aplicada: una, o dos a doce horas de distancia. Vacia si esta apagado (SCRUM-146).
+   */
+  readonly horasDelSemaforo: readonly string[];
   readonly horaRacha: string | null;
   /** El recordatorio de las 8:00 de la persona (SCRUM-126): encendido o no. */
   readonly recordatorioManana: boolean;
@@ -27,6 +38,8 @@ export interface CambiarHorasCommand {
   readonly zonaHoraria: string;
   /** Lo que no viene se queda; null lo apaga. */
   readonly horaSemaforo?: string | null | undefined;
+  /** Lo que no viene se queda (SCRUM-146). */
+  readonly frecuenciaSemaforo?: FrecuenciaDelSemaforo | undefined;
   readonly horaRacha?: string | null | undefined;
 }
 

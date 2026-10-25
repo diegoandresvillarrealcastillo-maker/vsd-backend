@@ -11,6 +11,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { VERSIONES_VIGENTES } from '../../domain/model/AvisoDePrivacidad.js';
 import type { ContextoDeLaPeticion } from '../../domain/model/EventoDeSeguridad.js';
 import type { User } from '../../domain/model/User.js';
 import type { AceptarTextosVigentesUseCase } from '../../domain/ports/in/AceptarTextosVigentesUseCase.js';
@@ -107,6 +108,7 @@ export class CuentaController {
   async registrar(
     @Body() dto: RegistrarCuentaDto,
     @UsuarioActual() identidad: Identidad,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<CuentaRespuestaDto> {
     const cuenta = await this.cuentas.execute({
       // Los dos salen del token verificado, no del cuerpo.
@@ -119,6 +121,8 @@ export class CuentaController {
       ...(dto.aceptaTerminos === undefined ? {} : { aceptaTerminos: dto.aceptaTerminos }),
       ...(dto.nombre === undefined ? {} : { nombre: dto.nombre }),
       ...(dto.zonaHoraria === undefined ? {} : { zonaHoraria: dto.zonaHoraria }),
+      // Solo para el registro de seguridad: de donde vino el alta (SCRUM-167).
+      origen,
     });
 
     return CuentaRespuestaDto.desde(cuenta);
@@ -177,6 +181,7 @@ export class CuentaController {
   async aceptarTextos(
     @Body() dto: AceptarTextosDto,
     @CuentaActual() cuenta: User,
+    @ContextoDeSeguridad() origen: ContextoDeLaPeticion,
   ): Promise<CuentaRespuestaDto> {
     const aceptada = await this.aceptacion.execute(cuenta.id, {
       ...(dto.aceptaAviso === undefined ? {} : { aceptaAviso: dto.aceptaAviso }),
@@ -184,6 +189,18 @@ export class CuentaController {
       ...(dto.aceptaTerminos === undefined ? {} : { aceptaTerminos: dto.aceptaTerminos }),
       ...(dto.versionTerminos === undefined ? {} : { versionTerminos: dto.versionTerminos }),
     });
+
+    // Aceptar de nuevo es registrar un consentimiento, igual que en el alta (SCRUM-167). Sin nada
+    // pendiente la cuenta vuelve igual y no hay nada que anotar.
+    if (cuenta.textosPendientes(VERSIONES_VIGENTES).length > 0) {
+      this.seguridad.registrar({
+        tipo: 'CONSENTIMIENTO_REGISTRADO',
+        idUsuario: cuenta.id.value,
+        versionAviso: aceptada.consentimiento?.versionPolitica ?? '',
+        versionTerminos: aceptada.terminos?.versionPolitica ?? '',
+        ...origen,
+      });
+    }
 
     return CuentaRespuestaDto.desde(aceptada);
   }
@@ -227,6 +244,17 @@ export class CuentaController {
         tipo: 'PERMISO_DEL_DIARIO_CAMBIADO',
         idUsuario: cuenta.id.value,
         activado: actualizada.diarioConRecomendaciones,
+        ...origen,
+      });
+    }
+
+    // Lo mismo con el acompanamiento por dias seguidos: es una inferencia sobre la salud de la
+    // persona, y solo se hace con su permiso (ADR 0034, SCRUM-167).
+    if (actualizada.acompanamientoPorDias !== cuenta.acompanamientoPorDias) {
+      this.seguridad.registrar({
+        tipo: 'PERMISO_DEL_ACOMPANAMIENTO_CAMBIADO',
+        idUsuario: cuenta.id.value,
+        activado: actualizada.acompanamientoPorDias,
         ...origen,
       });
     }

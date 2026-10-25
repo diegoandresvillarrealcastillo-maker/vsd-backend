@@ -735,43 +735,6 @@
         ]
       }
     },
-    "/api/diario/cartas-en-espera": {
-      "get": {
-        "description": "Las «cartas a mí de mañana» de un día que ya pasó, sin abrir y dentro de su semana de espera, la más reciente primero. Sin su texto: la tarjeta «Ayer te dejaste esto» las ofrece, y la persona decide abrirlas (POST /api/diario/{id}/abrir) o borrarlas sin leerlas (DELETE /api/diario/{id}). El día es el de la persona, no el del servidor. Ninguna notificación lleva su contenido.",
-        "operationId": "DiarioController_cartasEnEsperaDe",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CartaEnEsperaDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Falta la sesión o el token no es válido."
-          },
-          "403": {
-            "description": "Hay sesión pero todavía no hay cuenta."
-          }
-        },
-        "security": [
-          {
-            "sesion": []
-          }
-        ],
-        "summary": "Las cartas que la persona se dejó y todavía no abrió ni borró (SCRUM-230)",
-        "tags": [
-          "Diario"
-        ]
-      }
-    },
     "/api/diario/{id}": {
       "patch": {
         "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). El plazo se mide contra la hora de la corrección que manda el dispositivo en editadaEn (acotada: nunca en el futuro ni de hace más de 30 días) y, sin ella, contra la de la petición. Los límites los impone también la base de datos, no solo la API.",
@@ -823,86 +786,6 @@
           }
         ],
         "summary": "Corregir una anotación durante su primera hora",
-        "tags": [
-          "Diario"
-        ]
-      },
-      "delete": {
-        "description": "A cualquier hora y sin leerla antes: una carta escrita en un mal día siempre se puede borrar sin abrirla. Idempotente por el identificador: borrar lo que ya no está, o lo que es de otra persona, responde igual y no cambia nada, para poder reintentar y encolar sin conexión. Quita la fila entera: no queda el texto en la base ni en la exportación, y la petición no lleva cuerpo que registrar.",
-        "operationId": "DiarioController_borrar",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Ya no está."
-          },
-          "400": {
-            "description": "El identificador no es válido."
-          },
-          "401": {
-            "description": "Falta la sesión o el token no es válido."
-          },
-          "403": {
-            "description": "Hay sesión pero todavía no hay cuenta."
-          }
-        },
-        "security": [
-          {
-            "sesion": []
-          }
-        ],
-        "summary": "Borrar una anotación propia, la haya leído o no (SCRUM-230)",
-        "tags": [
-          "Diario"
-        ]
-      }
-    },
-    "/api/diario/{id}/abrir": {
-      "post": {
-        "description": "Es lo único que entrega el texto de una carta que espera. Solo desde el día siguiente al que se escribió, en el calendario de la persona. Abrirla otra vez devuelve lo mismo. Desde entonces la carta sale completa en el diario como cualquier anotación.",
-        "operationId": "DiarioController_abrir",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EntradaDelDiarioDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No existe, es de otra persona o no es una carta; las tres se responden igual."
-          },
-          "409": {
-            "description": "CARTA_PARA_MANANA: todavía es de hoy. Se puede borrar sin leerla, pero no abrir."
-          }
-        },
-        "security": [
-          {
-            "sesion": []
-          }
-        ],
-        "summary": "Abrir una carta a mí de mañana para leerla (SCRUM-230)",
         "tags": [
           "Diario"
         ]
@@ -1101,7 +984,7 @@
     },
     "/api/notificaciones/horas": {
       "patch": {
-        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
+        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro. frecuenciaSemaforo (manana, noche o dos_veces) dice cuántas veces al día avisa el semáforo respecto de su hora; el servidor devuelve en horasDelSemaforo las horas que le tocan, y ninguna cruza la medianoche.",
         "operationId": "NotificacionesController_cambiarHoras",
         "parameters": [],
         "requestBody": {
@@ -1424,7 +1307,7 @@
     },
     "/api/acompanamiento": {
       "get": {
-        "description": "Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.",
+        "description": "Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Aparte, `abandono` (SCRUM-256) dice si la persona venia de 3 o mas dias seguidos con atencion, su ultimo registro fue de atencion y lleva de 3 a 30 dias sin registrar nada: moderado si venia de 3 a 6 dias, critico (con lineas) si venia de 7 o mas; nunca es distinto de ninguno a la vez que `nivel`. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.",
         "operationId": "AcompanamientoController_consultar",
         "parameters": [],
         "responses": {
@@ -1647,6 +1530,12 @@
           "enlace": {
             "type": "string",
             "format": "uri"
+          },
+          "telefono": {
+            "type": "string",
+            "description": "El numero que marca el boton «Llamar ahora» (SCRUM-257): solo cifras, con un + delante si lleva prefijo de pais. Solo lo traen las lineas de atencion verificadas; el directorio internacional no. Si la linea pide elegir una opcion al contestar, la opcion esta en la descripcion y no se marca sola.",
+            "example": "192",
+            "pattern": "^\\+?\\d{3,15}$"
           }
         },
         "required": [
@@ -2251,15 +2140,7 @@
           "editableHasta": {
             "type": "string",
             "format": "date-time",
-            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación. Una carta que espera no se edita: trae la hora en que se escribió, que ya pasó."
-          },
-          "carta": {
-            "type": "boolean",
-            "description": "Si es una «carta a mí de mañana» (SCRUM-230): se escribe hoy y se lee, si la persona quiere, desde mañana."
-          },
-          "sellada": {
-            "type": "boolean",
-            "description": "Si es una carta que todavía espera: sin abrir y dentro de su semana. Mientras espera, titulo, contenido y adjuntos vienen vacíos: el texto solo sale al abrirla (POST /api/diario/{id}/abrir). Pasada la semana sin abrir vuelve al diario como cualquier anotación."
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
           }
         },
         "required": [
@@ -2271,9 +2152,7 @@
           "version",
           "creadaEn",
           "editadaEn",
-          "editableHasta",
-          "carta",
-          "sellada"
+          "editableHasta"
         ]
       },
       "PendienteDto": {
@@ -2345,6 +2224,15 @@
             "nullable": true,
             "example": "08:00"
           },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo (SCRUM-146)."
+          },
           "horaRacha": {
             "type": "string",
             "nullable": true,
@@ -2365,6 +2253,7 @@
         },
         "required": [
           "horaSemaforo",
+          "frecuenciaSemaforo",
           "horaRacha",
           "recordatorioManana",
           "recordatorioNoche",
@@ -2558,25 +2447,6 @@
           "versionTerminos"
         ]
       },
-      "CartaEnEsperaDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dia": {
-            "type": "string",
-            "description": "El día en que se escribió, en el calendario de la persona.",
-            "example": "2026-10-03",
-            "format": "date"
-          }
-        },
-        "required": [
-          "id",
-          "dia"
-        ]
-      },
       "EscribirEnElDiarioDto": {
         "type": "object",
         "properties": {
@@ -2607,10 +2477,6 @@
               "additionalProperties": true
             },
             "description": "Los diagramas: { id, tipo: \"diagrama\", datos }. Como mucho diez."
-          },
-          "cartaAManana": {
-            "type": "boolean",
-            "description": "Si la anotación es una «carta a mí de mañana» (EMO-05, SCRUM-230): se guarda hoy, su texto no sale en ninguna respuesta hasta que la persona la abre desde el día siguiente, y se puede borrar sin abrirla. Sin esto, es una anotación corriente."
           },
           "escritaEn": {
             "type": "string",
@@ -2699,15 +2565,7 @@
           "editableHasta": {
             "type": "string",
             "format": "date-time",
-            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación. Una carta que espera no se edita: trae la hora en que se escribió, que ya pasó."
-          },
-          "carta": {
-            "type": "boolean",
-            "description": "Si es una «carta a mí de mañana» (SCRUM-230): se escribe hoy y se lee, si la persona quiere, desde mañana."
-          },
-          "sellada": {
-            "type": "boolean",
-            "description": "Si es una carta que todavía espera: sin abrir y dentro de su semana. Mientras espera, titulo, contenido y adjuntos vienen vacíos: el texto solo sale al abrirla (POST /api/diario/{id}/abrir). Pasada la semana sin abrir vuelve al diario como cualquier anotación."
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
@@ -2724,8 +2582,6 @@
           "creadaEn",
           "editadaEn",
           "editableHasta",
-          "carta",
-          "sellada",
           "sugiereAcompanamiento"
         ]
       },
@@ -2932,7 +2788,28 @@
             "type": "string",
             "nullable": true,
             "example": "08:00",
-            "description": "Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado."
+            "description": "La hora que la persona eligió para el semáforo (la hora base), en su zona horaria. Null: apagado. Las horas a las que de verdad avisa están en horasDelSemaforo."
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "example": "manana",
+            "description": "Cuántas veces al día avisa el semáforo. manana: una vez, a la hora base (lo que hacía hasta ahora). noche: una vez, doce horas después de una hora base de la mañana, o a la propia hora base si es de las 12:00 en adelante. dos_veces: las dos. Nunca cruza la medianoche."
+          },
+          "horasDelSemaforo": {
+            "example": [
+              "08:00",
+              "20:00"
+            ],
+            "description": "Las horas HH:MM a las que avisa el semáforo, de la más temprana a la más tarde, con la frecuencia ya aplicada: una, o dos a doce horas de distancia. Vacía si está apagado.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "horaRacha": {
             "type": "string",
@@ -2953,6 +2830,8 @@
           "disponible",
           "clavePublica",
           "horaSemaforo",
+          "frecuenciaSemaforo",
+          "horasDelSemaforo",
           "horaRacha",
           "recordatorioManana",
           "recordatorioNoche"
@@ -2965,6 +2844,15 @@
             "type": "string",
             "nullable": true,
             "example": "08:00"
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo: manana, noche o dos_veces. Lo que no viene se queda. No tiene null: apagar el aviso es horaSemaforo: null."
           },
           "horaRacha": {
             "type": "string",
@@ -3478,8 +3366,18 @@
             ],
             "example": "ninguno"
           },
+          "abandono": {
+            "type": "string",
+            "description": "El acompanamiento por abandono (SCRUM-256): la persona venia de 3 o mas dias seguidos con atencion, su ultimo registro fue de atencion y lleva de 3 a 30 dias sin registrar nada. moderado: venia de 3 a 6 dias, se ofrece hablarlo en un aviso que se puede cerrar. critico: venia de 7 o mas, el aviso lleva las lineas de atencion y tambien se puede cerrar. Nunca es distinto de ninguno a la vez que nivel. No sale ningun puntaje ni cuantos dias fueron.",
+            "enum": [
+              "ninguno",
+              "moderado",
+              "critico"
+            ],
+            "example": "ninguno"
+          },
           "lineasDeAtencion": {
-            "description": "Las lineas de atencion del pais de la persona, ordenadas por alcance. Solo con el nivel critico; vacio en los demas.",
+            "description": "Las lineas de atencion del pais de la persona, ordenadas por alcance. Solo con nivel o abandono criticos; vacio en los demas.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RecursoDto"
@@ -3488,6 +3386,7 @@
         },
         "required": [
           "nivel",
+          "abandono",
           "lineasDeAtencion"
         ]
       },

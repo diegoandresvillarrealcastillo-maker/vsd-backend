@@ -885,14 +885,26 @@ o `null`) es un `400`, no un conflicto: `null` no significa «sin version».
 (SCRUM-102). Se exponen en `/api/notificaciones`. La ruta no es `/api/avisos`
 para no confundirla con `/api/aviso`, el aviso de privacidad.
 
-- **Cuatro clases**, que se encienden y apagan por separado:
+- **Cinco clases**, que se encienden y apagan por separado:
   - `semaforo`: los pendientes sin hacer, con su titulo, a la hora elegida;
+  - `semaforo_noche` (SCRUM-146): el **segundo** aviso del semaforo, para quien
+    eligio «solo en la noche» o «dos veces al dia». Dice lo mismo que el primero
+    y tiene su propia marca de «ya se reviso hoy». Ver abajo;
   - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad, a la
     hora elegida;
   - `manana` (SCRUM-126): a las **8:00** de la persona, una invitacion a empezar
     el dia. Sale siempre;
   - `noche` (SCRUM-126): a las **20:00** de la persona, solo si ese dia no se
     hizo ninguna actividad.
+- **La frecuencia del semaforo** (SCRUM-146, ADR 0036). La persona elige una
+  hora (la **hora base**) y cuantas veces al dia avisa el semaforo:
+  `manana` (una vez, a esa hora: lo que ya hacia y lo que queda a las cuentas
+  que existian), `noche` (una vez, doce horas despues de una hora de la manana, o
+  a la propia hora si es de las 12:00 en adelante) o `dos_veces` (las dos). Nunca
+  cruza la medianoche: el primer aviso de «dos veces» cae siempre antes de las
+  12:00 y el segundo de las 12:00 en adelante. `PATCH /api/notificaciones/horas`
+  recibe `frecuenciaSemaforo` y la respuesta trae `horasDelSemaforo`, las horas
+  que de verdad le tocan.
 - **La manana y la noche tienen la hora fija.** Se encienden o se apagan
   (`PATCH /api/notificaciones/recordatorios`, con `manana` y `noche` en `true` o
   `false`); no se mueven. `MINUTO_DE_LA_MANANA` (480) y `MINUTO_DE_LA_NOCHE`
@@ -1036,6 +1048,13 @@ las de otro pais**.
 `RecursoApoyo.create` rechaza un contacto sin `fuente` o sin `verificadoEl`
 (`AAAA-MM-DD`), y la base impone lo mismo con una restriccion. Quien quiera
 agregar una linea sin decir de donde sale, no puede.
+
+**El telefono de «Llamar ahora»** (SCRUM-257, ADR 0037). `RecursoApoyo.telefono`
+es opcional: solo cifras, con un `+` opcional, y solo en un contacto (que ya
+tiene fuente y fecha). `RecursoDto.telefono` lo lleva a todo lo que ensena
+lineas: el asistente, los resultados y el acompanamiento. Sin telefono no hay
+boton, y el directorio internacional no lo lleva. Una prueba comprueba que el
+numero de la columna es siempre el que dice el texto de la linea.
 
 ## Errores
 

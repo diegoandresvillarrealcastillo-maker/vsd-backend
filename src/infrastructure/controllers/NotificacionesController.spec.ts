@@ -86,6 +86,8 @@ describe('/api/notificaciones', () => {
       disponible: false,
       clavePublica: null,
       horaSemaforo: null,
+      frecuenciaSemaforo: 'manana',
+      horasDelSemaforo: [],
       horaRacha: null,
       recordatorioManana: false,
       recordatorioNoche: false,
@@ -119,6 +121,72 @@ describe('/api/notificaciones', () => {
     if (codigo !== undefined) {
       expect(respuesta.body).toMatchObject({ codigo });
     }
+  });
+
+  describe('la frecuencia del semaforo (SCRUM-146)', () => {
+    it('por omision es «manana» y la hora elegida es la unica a la que avisa', async () => {
+      const respuesta = await horas(A, { horaSemaforo: '08:00' }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        horaSemaforo: '08:00',
+        frecuenciaSemaforo: 'manana',
+        horasDelSemaforo: ['08:00'],
+      });
+    });
+
+    it.each([
+      ['manana', ['08:00']],
+      ['noche', ['20:00']],
+      ['dos_veces', ['08:00', '20:00']],
+    ])('«%s» devuelve las horas a las que avisa', async (frecuenciaSemaforo, esperadas) => {
+      const respuesta = await horas(A, { horaSemaforo: '08:00', frecuenciaSemaforo }).expect(200);
+
+      expect(respuesta.body).toMatchObject({ frecuenciaSemaforo, horasDelSemaforo: esperadas });
+      expect((await consultar(A)).body).toMatchObject({
+        frecuenciaSemaforo,
+        horasDelSemaforo: esperadas,
+      });
+    });
+
+    it('con una hora de la tarde ninguna de las dos cruza la medianoche', async () => {
+      const respuesta = await horas(A, {
+        horaSemaforo: '22:30',
+        frecuenciaSemaforo: 'dos_veces',
+      }).expect(200);
+
+      expect(respuesta.body).toMatchObject({ horasDelSemaforo: ['10:30', '22:30'] });
+    });
+
+    it('cambiar solo la frecuencia no toca la hora, y apagar el semaforo la deja guardada', async () => {
+      await horas(A, { horaSemaforo: '07:00', frecuenciaSemaforo: 'manana' }).expect(200);
+
+      expect((await horas(A, { frecuenciaSemaforo: 'noche' }).expect(200)).body).toMatchObject({
+        horaSemaforo: '07:00',
+        horasDelSemaforo: ['19:00'],
+      });
+      expect((await horas(A, { horaSemaforo: null }).expect(200)).body).toMatchObject({
+        horaSemaforo: null,
+        frecuenciaSemaforo: 'noche',
+        horasDelSemaforo: [],
+      });
+    });
+
+    it('la frecuencia de una persona no es la de otra', async () => {
+      await horas(A, { horaSemaforo: '08:00', frecuenciaSemaforo: 'dos_veces' }).expect(200);
+
+      expect((await consultar(B)).body).toMatchObject({
+        frecuenciaSemaforo: 'manana',
+        horasDelSemaforo: [],
+      });
+    });
+
+    it.each([
+      ['una frecuencia que no existe', { frecuenciaSemaforo: 'tres_veces' }],
+      ['una frecuencia nula (apagar es la hora en null)', { frecuenciaSemaforo: null }],
+      ['un numero', { frecuenciaSemaforo: 2 }],
+    ])('rechaza %s', async (_caso, cuerpo) => {
+      await horas(A, cuerpo).expect(400);
+    });
   });
 
   describe('los recordatorios de las 8:00 y las 20:00 (SCRUM-126)', () => {

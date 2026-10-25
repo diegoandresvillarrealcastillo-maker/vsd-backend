@@ -59,7 +59,8 @@ type Cuentas = { -readonly [clave in keyof ResumenDeLaRevision]: number };
  * con un aviso encendido, y repetir lo de abajo para cada una con su propio
  * dia y su propio minuto. Son pocas.
  *
- * Para cada zona y cada clase de aviso:
+ * Para cada zona y cada clase de aviso (el semaforo tiene dos: el de la manana y, para quien
+ * eligio «solo en la noche» o «dos veces al dia», el de la tarde o la noche; SCRUM-146):
  *
  * 1. Pregunta a quien le toca: su hora cae en la ultima media hora y hoy
  *    todavia no se reviso. Es lo unico que se mira de todos a la vez.
@@ -174,7 +175,9 @@ export class RevisarAvisosUseCaseImpl implements RevisarAvisosUseCase {
     dia: string,
     calendario: Calendario,
   ): Promise<MensajeDeAviso | null> {
-    if (tipo === TipoDeAviso.SEMAFORO) {
+    if (tipo === TipoDeAviso.SEMAFORO || tipo === TipoDeAviso.SEMAFORO_NOCHE) {
+      // El segundo aviso del semaforo (SCRUM-146) dice lo mismo que el primero, con lo que haya
+      // pendiente en ese momento: quien ya los hizo todos no recibe nada.
       // Los hechos no cuentan: `ahora` como corte deja fuera los de antes.
       const vigentes = await this.pendientes.vigentesDe(userId, ahora);
 

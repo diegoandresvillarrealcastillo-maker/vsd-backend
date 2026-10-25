@@ -3,10 +3,7 @@ import type { Dia } from '../../domain/model/Calendario.js';
 import { adjuntosGuardados, DocumentoDelDiario } from '../../domain/model/DocumentoDelDiario.js';
 import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
-import type {
-  CartaEnEspera,
-  DiarioRepositoryPort,
-} from '../../domain/ports/out/DiarioRepositoryPort.js';
+import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /**
@@ -124,7 +121,6 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
             fechaCreacion: entrada.creadaEn,
             fechaEdicion: entrada.editadaEn,
             dia: aFecha(entrada.dia),
-            cartaAManana: entrada.cartaAManana,
             titulo: entrada.titulo ?? null,
             contenido: entrada.documento.serializado(),
             formato: 'enriquecido',
@@ -192,57 +188,6 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
     });
   }
 
-  async borrar(userId: UserId, id: EntradaId): Promise<void> {
-    // `deleteMany` y no `delete`: el que ya no esta, o es de otra persona, no es un error. La politica
-    // de la base lo confirma: sin ella, el filtro por persona seguiria siendo la primera defensa.
-    await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.entradaDiario.deleteMany({ where: { id: id.value, idUsuario: userId.value } }),
-    );
-  }
-
-  async cartasEnEspera(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly CartaEnEspera[]> {
-    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.entradaDiario.findMany({
-        where: {
-          idUsuario: userId.value,
-          cartaAManana: true,
-          cartaAbiertaEn: null,
-          dia: { gte: aFecha(desde), lte: aFecha(hasta) },
-        },
-        // Sin `contenido`: la tarjeta ofrece la carta, no la entrega.
-        select: { id: true, dia: true },
-        orderBy: [{ dia: 'desc' }, { fechaCreacion: 'desc' }],
-      }),
-    );
-
-    return filas.map((fila) => ({
-      id: new EntradaId(fila.id),
-      dia: fila.dia.toISOString().slice(0, 10),
-    }));
-  }
-
-  async abrirCarta(userId: UserId, id: EntradaId, cuando: Date): Promise<EntradaDeDiario | null> {
-    return this.prisma.comoUsuario(userId.value, async (cliente) => {
-      // SQL y no `updateMany`: Prisma pone `fecha_edicion` en cada update (`@updatedAt`), y el
-      // disparador solo deja pasar, pasada la hora para editar, un cambio que no toca nada mas que
-      // `carta_abierta_en`. `IS NULL` hace que abrirla otra vez no cambie la hora de la primera.
-      await cliente.$queryRaw`
-        UPDATE "entrada_diario"
-           SET "carta_abierta_en" = ${cuando}
-         WHERE "id_entrada" = ${id.value}::uuid
-           AND "id_usuario" = ${userId.value}::uuid
-           AND "carta_a_manana"
-           AND "carta_abierta_en" IS NULL
-     RETURNING "id_entrada"`;
-
-      const fila = await cliente.entradaDiario.findFirst({
-        where: { id: id.value, idUsuario: userId.value, cartaAManana: true },
-      });
-
-      return fila === null ? null : this.aDominio(fila);
-    });
-  }
-
   private aDominio(fila: EntradaDiario): EntradaDeDiario {
     return EntradaDeDiario.guardada({
       id: new EntradaId(fila.id),
@@ -252,8 +197,6 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
       titulo: fila.titulo ?? undefined,
       documento: documentoDe(fila),
       adjuntos: adjuntosGuardados(fila.adjuntos),
-      cartaAManana: fila.cartaAManana,
-      cartaAbiertaEn: fila.cartaAbiertaEn ?? undefined,
       version: fila.version,
       creadaEn: fila.fechaCreacion,
       editadaEn: fila.fechaEdicion,

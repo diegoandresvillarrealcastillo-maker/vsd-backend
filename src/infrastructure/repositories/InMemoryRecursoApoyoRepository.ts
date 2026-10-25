@@ -33,6 +33,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'CO',
     fuente: 'https://www.minsalud.gov.co',
     verificadoEl: '2026-09-16',
+    telefono: '192',
   }),
   RecursoApoyo.create({
     id: '0123c0de-0000-4000-8000-000000000123',
@@ -45,6 +46,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     fuente:
       'https://www1.funcionpublica.gov.co/preguntas-frecuentes/-/asset_publisher/sqxafjubsrEu/content/linea-unica-de-emergencias-nacional-123/28585938',
     verificadoEl: '2026-10-06',
+    telefono: '123',
   }),
   RecursoApoyo.create({
     id: '0106c0de-0000-4000-8000-000000000106',
@@ -58,6 +60,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     fuente:
       'https://literalmente.saludcapital.gov.co/salud-mental/que-tipo-de-ayuda-necesitas/lineas-de-atencion/',
     verificadoEl: '2026-10-06',
+    telefono: '106',
   }),
   // Mexico, Espana, Estados Unidos y el directorio internacional (SCRUM-124).
   // Los mismos datos que `20261009120000_lineas_de_ayuda_por_pais`.
@@ -73,6 +76,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     fuente:
       'https://www.gob.mx/salud/prensa/239-linea-de-la-vida-celebra-25-anos-de-servicio-humano-para-poblacion-con-problemas-de-salud-mental',
     verificadoEl: '2026-10-06',
+    telefono: '8009112000',
   }),
   RecursoApoyo.create({
     id: '0911c0de-0000-4000-8000-000000000911',
@@ -84,6 +88,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'MX',
     fuente: 'https://www.gob.mx/911/articulos/que-es-9-1-1-conoce-mas-de-911emergencias',
     verificadoEl: '2026-10-06',
+    telefono: '911',
   }),
   RecursoApoyo.create({
     id: '0024c0de-0000-4000-8000-000000000024',
@@ -96,6 +101,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'ES',
     fuente: 'https://www.sanidad.gob.es/linea024/home.htm',
     verificadoEl: '2026-10-06',
+    telefono: '024',
   }),
   RecursoApoyo.create({
     id: '0112c0de-0000-4000-8000-000000000112',
@@ -107,6 +113,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'ES',
     fuente: 'https://www.sanidad.gob.es/linea024/home.htm',
     verificadoEl: '2026-10-06',
+    telefono: '112',
   }),
   RecursoApoyo.create({
     id: '0988c0de-0000-4000-8000-000000000988',
@@ -119,6 +126,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'US',
     fuente: 'https://988lifeline.org/get-help/',
     verificadoEl: '2026-10-06',
+    telefono: '988',
   }),
   RecursoApoyo.create({
     id: '1911c0de-0000-4000-8000-000000000911',
@@ -130,6 +138,7 @@ const RECURSOS: readonly RecursoApoyo[] = [
     pais: 'US',
     fuente: 'https://www.usa.gov/features/the-988-lifeline-and-other-mental-health-services',
     verificadoEl: '2026-10-06',
+    telefono: '911',
   }),
   RecursoApoyo.create({
     id: '0ffec0de-0000-4000-8000-00000000f1de',

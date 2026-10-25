@@ -39,8 +39,10 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0030](0030-una-actividad-es-una-mecanica-y-lo-que-cambia-cada-dia-es-su-sesion.md)        | Una actividad es una mecánica, y lo que cambia cada día es su sesión       | Aceptada (SCRUM-203; se implementa en SCRUM-204 y SCRUM-205)                         |
 | [0031](0031-los-elementos-de-un-banco-viajan-dentro-de-la-sesion.md)                       | Los elementos de un banco viajan dentro de la sesión                       | Propuesta (SCRUM-220)                                                                |
 | [0032](0032-cuando-cambian-el-aviso-o-los-terminos-la-cuenta-vuelve-a-aceptarlos.md)       | Cuando cambian el aviso o los términos, la cuenta vuelve a aceptarlos      | Aceptada (SCRUM-237)                                                                 |
-| [0033](0033-la-carta-a-mi-de-manana-es-una-anotacion-del-diario-con-el-texto-sellado.md)   | La «carta a mí de mañana» es una anotación del diario con el texto sellado | Propuesta (SCRUM-230)                                                                |
 | [0034](0034-acompanamiento-por-dias-seguidos-con-atencion.md)                              | Acompañamiento por días seguidos con atención                              | Aceptada con ajustes (SCRUM-177)                                                     |
+| [0035](0035-acompanamiento-por-abandono-tras-dias-con-atencion.md)                         | Acompañamiento por abandono tras días con atención                         | Propuesta (SCRUM-256)                                                                |
+| [0036](0036-la-frecuencia-del-semaforo-no-cruza-la-medianoche.md)                          | La frecuencia del semáforo: las dos horas nunca cruzan la medianoche       | Aceptada (SCRUM-146)                                                                 |
+| [0037](0037-llamar-ahora-solo-con-telefonos-verificados.md)                                | «Llamar ahora» solo con teléfonos verificados                              | Aceptada (SCRUM-257)                                                                 |
 
 ## Reglas
 

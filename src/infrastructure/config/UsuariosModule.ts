@@ -118,27 +118,41 @@ import {
         cuentas: UserRepositoryPort,
         identidades: ProveedorDeIdentidadPort,
         borrado: BorrarCuentaUseCase,
+        seguridad: RegistroDeSeguridadPort,
       ) => {
         const registro = new Logger('Registro');
 
-        return new RegistrarCuentaUseCaseImpl(cuentas, identidades, borrado, {
-          // Sin fecha, sin correo y sin identificador: lo que importa es saber
-          // que paso y si hay que limpiar algo a mano. Es el rastro minimo de
-          // un rechazo por edad mientras no hay registro de eventos de seguridad
-          // (A-01 de la auditoria 360).
-          menorDeEdad: (identidadBorrada) => {
-            if (identidadBorrada) {
-              registro.warn('MENOR_DE_EDAD: registro rechazado y su identidad borrada.');
-            } else {
-              registro.error(
-                'MENOR_DE_EDAD: registro rechazado, pero NO se pudo borrar su identidad en el proveedor. Hay que limpiarla a mano.',
-              );
-            }
+        return new RegistrarCuentaUseCaseImpl(
+          cuentas,
+          identidades,
+          borrado,
+          {
+            // Sin fecha, sin correo y sin identificador: lo que importa es saber
+            // que paso y si hay que limpiar algo a mano. El hecho de seguridad del
+            // rechazo (MENOR_RECHAZADO) lo anota el filtro de errores, que conoce
+            // la IP; esto es el aviso operativo de una identidad que quedo sin borrar.
+            menorDeEdad: (identidadBorrada) => {
+              if (identidadBorrada) {
+                registro.warn('MENOR_DE_EDAD: registro rechazado y su identidad borrada.');
+              } else {
+                registro.error(
+                  'MENOR_DE_EDAD: registro rechazado, pero NO se pudo borrar su identidad en el proveedor. Hay que limpiarla a mano.',
+                );
+              }
+            },
           },
-        });
+          undefined,
+          undefined,
+          seguridad,
+        );
       },
       // A un menor se le borra todo sin dejar constancia: no hay autorizacion que demostrar.
-      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, BORRAR_SIN_CONSTANCIA],
+      inject: [
+        USER_REPOSITORY,
+        PROVEEDOR_DE_IDENTIDAD,
+        BORRAR_SIN_CONSTANCIA,
+        REGISTRO_DE_SEGURIDAD,
+      ],
     },
     {
       provide: ACTUALIZAR_PREFERENCIAS,

@@ -1,16 +1,22 @@
 import type { PreferenciasDeAviso, SuscripcionPush } from '../../domain/model/Aviso.js';
 import { MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA, TipoDeAviso } from '../../domain/model/Aviso.js';
 import { ZONA_HORARIA_POR_DEFECTO, type Dia } from '../../domain/model/Calendario.js';
+import {
+  FrecuenciaDelSemaforo,
+  minutosDelSemaforo,
+} from '../../domain/model/FrecuenciaDelSemaforo.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { AvisosRepositoryPort } from '../../domain/ports/out/AvisosRepositoryPort.js';
 
 interface Fila {
   zonaHoraria: string;
   minutoSemaforo: number | null;
+  frecuenciaSemaforo: FrecuenciaDelSemaforo;
   minutoRacha: number | null;
   minutoManana: number | null;
   minutoNoche: number | null;
   ultimoAvisoSemaforo: Dia | null;
+  ultimoAvisoSemaforoNoche: Dia | null;
   ultimoAvisoRacha: Dia | null;
   ultimoAvisoManana: Dia | null;
   ultimoAvisoNoche: Dia | null;
@@ -18,8 +24,12 @@ interface Fila {
 
 /** El minuto en que esa persona quiere ese aviso. */
 function minutoDe(fila: Fila, tipo: TipoDeAviso): number | null {
+  // Los dos avisos del semaforo salen de la hora base y de la frecuencia (SCRUM-146).
+  const semaforo = minutosDelSemaforo(fila.minutoSemaforo, fila.frecuenciaSemaforo);
+
   return {
-    [TipoDeAviso.SEMAFORO]: fila.minutoSemaforo,
+    [TipoDeAviso.SEMAFORO]: semaforo.primero,
+    [TipoDeAviso.SEMAFORO_NOCHE]: semaforo.segundo,
     [TipoDeAviso.RACHA]: fila.minutoRacha,
     [TipoDeAviso.MANANA]: fila.minutoManana,
     [TipoDeAviso.NOCHE]: fila.minutoNoche,
@@ -30,6 +40,7 @@ function minutoDe(fila: Fila, tipo: TipoDeAviso): number | null {
 function ultimoDe(fila: Fila, tipo: TipoDeAviso): Dia | null {
   return {
     [TipoDeAviso.SEMAFORO]: fila.ultimoAvisoSemaforo,
+    [TipoDeAviso.SEMAFORO_NOCHE]: fila.ultimoAvisoSemaforoNoche,
     [TipoDeAviso.RACHA]: fila.ultimoAvisoRacha,
     [TipoDeAviso.MANANA]: fila.ultimoAvisoManana,
     [TipoDeAviso.NOCHE]: fila.ultimoAvisoNoche,
@@ -86,6 +97,7 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     return Promise.resolve({
       userId,
       minutoSemaforo: fila?.minutoSemaforo ?? null,
+      frecuenciaSemaforo: fila?.frecuenciaSemaforo ?? FrecuenciaDelSemaforo.MANANA,
       minutoRacha: fila?.minutoRacha ?? null,
       minutoManana: fila?.minutoManana ?? null,
       minutoNoche: fila?.minutoNoche ?? null,
@@ -98,11 +110,13 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
 
     this.preferencias.set(preferencias.userId.value, {
       ultimoAvisoSemaforo: actual?.ultimoAvisoSemaforo ?? null,
+      ultimoAvisoSemaforoNoche: actual?.ultimoAvisoSemaforoNoche ?? null,
       ultimoAvisoRacha: actual?.ultimoAvisoRacha ?? null,
       ultimoAvisoManana: actual?.ultimoAvisoManana ?? null,
       ultimoAvisoNoche: actual?.ultimoAvisoNoche ?? null,
       zonaHoraria: preferencias.zonaHoraria,
       minutoSemaforo: preferencias.minutoSemaforo,
+      frecuenciaSemaforo: preferencias.frecuenciaSemaforo,
       minutoRacha: preferencias.minutoRacha,
       minutoManana: preferencias.minutoManana,
       minutoNoche: preferencias.minutoNoche,
@@ -207,6 +221,9 @@ export class InMemoryAvisosRepository implements AvisosRepositoryPort {
     switch (tipo) {
       case TipoDeAviso.SEMAFORO:
         fila.ultimoAvisoSemaforo = dia;
+        break;
+      case TipoDeAviso.SEMAFORO_NOCHE:
+        fila.ultimoAvisoSemaforoNoche = dia;
         break;
       case TipoDeAviso.RACHA:
         fila.ultimoAvisoRacha = dia;

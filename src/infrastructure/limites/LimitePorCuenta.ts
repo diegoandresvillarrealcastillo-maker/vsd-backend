@@ -3,15 +3,20 @@ import {
   type ExecutionContext,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   type NestInterceptor,
   Optional,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { Observable } from 'rxjs';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { PeticionConCuenta } from '../auth/CuentaActual.js';
+import { REGISTRO_DE_SEGURIDAD } from '../config/tokens.js';
+import { contextoDeLaPeticion } from '../seguridad/contextoDeLaPeticion.js';
+import { RegistroDeSeguridadNulo } from '../seguridad/RegistroDeSeguridadEnSalida.js';
 
 export const LIMITE_POR_CUENTA = 'vsd:limite-por-cuenta';
 
@@ -42,6 +47,8 @@ export interface ResultadoDelConteo {
   readonly permitido: boolean;
   /** Cuanto falta para que se reinicie la ventana, en milisegundos. */
   readonly reinicioEnMs: number;
+  /** Es la peticion que pasa el tope por primera vez en esta ventana. Las siguientes ya no. */
+  readonly primerRechazo: boolean;
 }
 
 interface Ventana {
@@ -78,12 +85,20 @@ export class ContadorPorVentana {
       this.hacerSitio(ahora);
       this.ventanas.set(clave, { cuenta: 1, reinicioEn: ahora + regla.ventanaMs });
 
-      return { permitido: regla.maximo >= 1, reinicioEnMs: regla.ventanaMs };
+      return {
+        permitido: regla.maximo >= 1,
+        reinicioEnMs: regla.ventanaMs,
+        primerRechazo: regla.maximo < 1,
+      };
     }
 
     vigente.cuenta += 1;
 
-    return { permitido: vigente.cuenta <= regla.maximo, reinicioEnMs: vigente.reinicioEn - ahora };
+    return {
+      permitido: vigente.cuenta <= regla.maximo,
+      reinicioEnMs: vigente.reinicioEn - ahora,
+      primerRechazo: vigente.cuenta === regla.maximo + 1,
+    };
   }
 
   /** Cuantas ventanas hay guardadas. Solo para pruebas. */
@@ -124,6 +139,10 @@ export class ContadorPorVentana {
  *
  * Responde 429 con el mismo cuerpo que el limite general y con `Retry-After`, para
  * que el cliente sepa cuanto esperar.
+ *
+ * Anota `LIMITE_SUPERADO` en el registro de seguridad (SCRUM-167), **una vez por
+ * ventana**: el hecho es que esa cuenta llego al tope, y repetirlo en cada
+ * peticion rechazada solo llenaria el registro de lo mismo.
  */
 @Injectable()
 export class InterceptorDeLimitePorCuenta implements NestInterceptor {
@@ -133,6 +152,9 @@ export class InterceptorDeLimitePorCuenta implements NestInterceptor {
   constructor(
     private readonly reflector: Reflector,
     @Optional() private readonly contador: ContadorPorVentana = new ContadorPorVentana(),
+    @Optional()
+    @Inject(REGISTRO_DE_SEGURIDAD)
+    private readonly seguridad: RegistroDeSeguridadPort = new RegistroDeSeguridadNulo(),
   ) {}
 
   intercept(contexto: ExecutionContext, siguiente: CallHandler): Observable<unknown> {
@@ -156,10 +178,15 @@ export class InterceptorDeLimitePorCuenta implements NestInterceptor {
 
     // La ruta forma parte de la clave: gastar el cupo de exportar no gasta el de
     // preguntar al asistente.
-    const clave = `${contexto.getClass().name}.${contexto.getHandler().name}:${identidad.id}`;
+    const ruta = `${contexto.getClass().name}.${contexto.getHandler().name}`;
+    const clave = `${ruta}:${identidad.id}`;
     const conteo = this.contador.contar(clave, regla);
 
     if (!conteo.permitido) {
+      if (conteo.primerRechazo) {
+        this.anotarElLimite(contexto, ruta);
+      }
+
       http
         .getResponse<Response>()
         .setHeader('Retry-After', String(Math.max(1, Math.ceil(conteo.reinicioEnMs / 1000))));
@@ -174,5 +201,19 @@ export class InterceptorDeLimitePorCuenta implements NestInterceptor {
     }
 
     return siguiente.handle();
+  }
+
+  /** La ruta como plantilla —clase y metodo, sin ningun valor concreto— y quien la repitio. */
+  private anotarElLimite(contexto: ExecutionContext, ruta: string): void {
+    const http = contexto.switchToHttp();
+    const peticion = http.getRequest<PeticionConCuenta & Request>();
+    const idUsuario = peticion.cuenta?.id.value;
+
+    this.seguridad.registrar({
+      tipo: 'LIMITE_SUPERADO',
+      ruta,
+      ...(idUsuario === undefined ? {} : { idUsuario }),
+      ...contextoDeLaPeticion(peticion, http.getResponse<Response>()),
+    });
   }
 }

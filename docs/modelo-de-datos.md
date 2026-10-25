@@ -369,25 +369,6 @@ Lo que la persona escribe por su cuenta. Corresponde al RF14.
 | `version`              | INTEGER      | no   | Aumenta con cada edición.                                                           |
 | `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió, según el dispositivo y acotada por la base. No se puede editar. |
 | `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición, según el dispositivo y acotada por la base.                         |
-| `carta_a_manana`       | BOOLEAN      | no   | `false` por omisión. «Carta a mí de mañana» (SCRUM-230). Se decide al escribir.     |
-| `carta_abierta_en`     | TIMESTAMPTZ  | sí   | Cuándo se abrió la carta. Solo una carta la tiene (`CHECK`).                        |
-
-### La carta a mí de mañana (SCRUM-230, ADR 0033)
-
-Una anotación con `carta_a_manana = true` se escribe hoy y espera: **su texto, su título y sus diagramas no salen por
-ninguna respuesta de la API** hasta que la persona la abre (`POST /api/diario/{id}/abrir`), y solo desde el día
-siguiente al suyo. Espera una semana (`DIAS_DE_ESPERA_DE_LA_CARTA`); si nadie la abre, vuelve al diario como cualquier
-anotación. Se puede borrar sin abrirla, a cualquier hora (`DELETE /api/diario/{id}`, que borra la fila entera).
-
-- `carta_a_manana` no se puede cambiar después de escribir: `vsd_app` no tiene permiso de UPDATE sobre esa columna.
-- `carta_abierta_en` solo la admite una carta (`entrada_diario_solo_una_carta_se_abre`), y solo pasa de vacío a un
-  valor.
-- **Una salida estrecha en el disparador de la hora para editar.** Abrir una carta ocurre un día después, cuando
-  `entrada_diario_hora_de_edicion` ya devuelve `NULL`. El disparador deja pasar un UPDATE que **no cambia nada más**
-  que `carta_abierta_en` (de vacío a un valor, acotado: nunca en el futuro ni de hace más de un día). Un UPDATE que
-  cambie el texto y de paso marque la carta no la abre.
-- **El sellado es de la API, no de la base**: quien lea las tablas con el rol dueño ve el texto, como con cualquier
-  anotación del diario.
 
 ### Un registro por día, con una hora para editar (SCRUM-95)
 
@@ -500,6 +481,16 @@ día en que una persona lo confirmó. **Son obligatorias en los contactos**: la
 restricción `recurso_apoyo_contacto_con_fuente` no deja guardar un teléfono sin
 ellas. Es la forma de que «cada línea tiene fuente» no dependa de acordarse.
 
+`telefono` (SCRUM-257, [ADR 0037](adr/0037-llamar-ahora-solo-con-telefonos-verificados.md))
+es lo que marca el botón «Llamar ahora»: solo cifras, con un `+` delante si lleva
+prefijo de país (`192`, `8009112000`). Dos restricciones: el formato
+(`recurso_apoyo_telefono_formato`) y que solo lo tenga un contacto
+(`recurso_apoyo_telefono_solo_en_contactos`). Como un contacto no entra sin fuente
+y fecha, **un número que se marca con un botón siempre viene de una línea
+verificada**. Vacío en el directorio internacional, a propósito. Si la línea pide
+elegir una opción al contestar (el 192, opción 4), la opción va en la descripción
+y no aquí: no se marca sola.
+
 Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.
@@ -605,21 +596,30 @@ solo de servicios de push conocidos: Google, Mozilla, Apple y Windows. Ver
 
 `PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
 
-| Campo                   | Tipo        | Nulo | Descripción                                                                  |
-| ----------------------- | ----------- | ---- | ---------------------------------------------------------------------------- |
-| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                      |
-| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.         |
-| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                |
-| `minuto_manana`         | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).       |
-| `minuto_noche`          | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).     |
-| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día. |
-| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                  |
-| `ultimo_aviso_manana`   | DATE        | sí   | Igual, para el de las 8:00.                                                  |
-| `ultimo_aviso_noche`    | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.  |
-| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                               |
+| Campo                         | Tipo        | Nulo | Descripción                                                                                                          |
+| ----------------------------- | ----------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| `id_usuario`                  | UUID        | no   | Clave primaria. Se borra con la cuenta.                                                                              |
+| `minuto_semaforo`             | SMALLINT    | sí   | La **hora base** del semáforo, en minutos desde la medianoche (480 = 8:00). NULL: apagado, con cualquier frecuencia. |
+| `frecuencia_semaforo`         | ENUM        | no   | `manana` (por omisión), `noche` o `dos_veces` (SCRUM-146, ADR 0036). Las cuentas que ya existían quedan en `manana`. |
+| `minuto_racha`                | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                                                        |
+| `minuto_manana`               | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).                                               |
+| `minuto_noche`                | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).                                             |
+| `ultimo_aviso_semaforo`       | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día.                                         |
+| `ultimo_aviso_semaforo_noche` | DATE        | sí   | Igual, para el **segundo** aviso del semáforo (SCRUM-146): cada uno sale una vez al día.                             |
+| `ultimo_aviso_racha`          | DATE        | sí   | Igual, para el de la racha.                                                                                          |
+| `ultimo_aviso_manana`         | DATE        | sí   | Igual, para el de las 8:00.                                                                                          |
+| `ultimo_aviso_noche`          | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.                                          |
+| `fecha_edicion`               | TIMESTAMPTZ | no   | Último cambio.                                                                                                       |
 
 Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
 `TIME` en una fecha completa, y con ella vuelven los problemas de zona.
+
+**Los dos avisos del semáforo no se guardan: salen de la hora base y la
+frecuencia** (`FrecuenciaDelSemaforo.ts`, ADR 0036). Así no hay dos valores que
+puedan quedar distintos. Para encontrar a quién le toca sin traer a todos, la
+base pregunta por las **horas base** cuyo aviso cae en la ventana de la revisión
+(columna con índice); una prueba comprueba que coincide con la regla del dominio
+para todas las horas y ventanas del día.
 
 **Política de acceso:** cada persona lee y escribe solo lo suyo, con RLS
 forzado. Hay dos excepciones, y las dos son estrechas:

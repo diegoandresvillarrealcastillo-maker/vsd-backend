@@ -1,3 +1,4 @@
+import type { ContextoDeLaPeticion } from '../../model/EventoDeSeguridad.js';
 import type { User } from '../../model/User.js';
 
 /**
@@ -62,6 +63,12 @@ export interface RegistrarCuentaCommand {
    * conoce se rechaza con `ZONA_HORARIA_INVALIDA`.
    */
   readonly zonaHoraria?: string | undefined;
+
+  /**
+   * De donde viene la peticion (identificador y IP), solo para el registro de
+   * seguridad (SCRUM-167). No cambia nada de lo que se decide.
+   */
+  readonly origen?: ContextoDeLaPeticion | undefined;
 }
 
 /**

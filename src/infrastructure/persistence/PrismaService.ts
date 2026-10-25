@@ -25,6 +25,7 @@ export type ClienteConSesion = Pick<
   | 'datoCuriosoCursor'
   | 'cuentaInactiva'
   | 'consentimientoDeCuentaInactiva'
+  | 'bajaPendiente'
   | '$queryRaw'
 >;
 
@@ -33,6 +34,12 @@ export type ClienteConSesion = Pick<
  * horas, y solo para leerlas. Ver `comoTareaDeAvisos`.
  */
 export type ClienteDeLaTareaDeAvisos = Pick<PrismaClient, 'preferenciaAviso'>;
+
+/**
+ * Lo unico que alcanza la tarea que termina las bajas de cuenta (SCRUM-267): las marcas, y solo
+ * para leerlas. Ver `comoTareaDeBajas`.
+ */
+export type ClienteDeLaTareaDeBajas = Pick<PrismaClient, 'bajaPendiente'>;
 
 /** Rol con el que se declara una sesion. Coincide con el enum `rol` de la base. */
 export const RolDeSesion = {
@@ -43,13 +50,11 @@ export const RolDeSesion = {
 export type RolDeSesion = (typeof RolDeSesion)[keyof typeof RolDeSesion];
 
 /**
- * Los tiempos de la transaccion de una baja o un borrado de cuenta (SCRUM-260).
+ * Los tiempos de la transaccion que borra la fila de `usuario` (SCRUM-260, ADR 0040).
  *
- * Prisma da 5 s a una transaccion interactiva si nadie dice otra cosa. Lo externo de la baja
- * (los archivos de la persona y su identidad en el proveedor) corre **dentro** de ella, y es lo
- * unico que se espera a la red: con dos almacenes de 5 s de tope y la identidad de 4 s caben 14 s.
- * Con el tiempo por omision la transaccion vencia con lo irreversible ya hecho: las filas volvian
- * y los archivos y la identidad ya no estaban.
+ * Prisma da 5 s a una transaccion interactiva si nadie dice otra cosa. Borrar la cuenta se lleva
+ * por cascada todo lo suyo, y con mucho historial puede pasar de esos 5 s. Desde ADR 0040 ya no
+ * espera a la red: lo de fuera (archivos e identidad) se borra antes y fuera de toda transaccion.
  *
  * `maxWait` es lo que se espera por una conexion libre del pool, y `timeout` lo que dura la
  * transaccion. Solo valen para borrar: el resto de lo que se hace con la base sigue con el
@@ -157,10 +162,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Como `comoUsuario`, con los tiempos de una baja o un borrado (`TRANSACCION_DE_BORRADO`).
+   * Como `comoUsuario`, con los tiempos de un borrado (`TRANSACCION_DE_BORRADO`).
    *
    * Es la unica via con tiempos largos: asi se ve en cada sitio que la llama que lo que hay
-   * dentro espera a algo de fuera, y el resto de las transacciones no hereda esa espera.
+   * dentro es un borrado en cascada que puede tardar, y el resto de las transacciones no hereda
+   * esa espera.
    */
   async comoUsuarioParaBorrar<T>(
     userId: string,
@@ -205,6 +211,21 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   async comoTareaDeAvisos<T>(tarea: (cliente: ClienteDeLaTareaDeAvisos) => Promise<T>): Promise<T> {
     return this.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT set_config('vsd.tarea_actual', 'avisos', true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
+   * La tarea que termina las bajas de cuenta que se cortaron a mitad (SCRUM-267, ADR 0040).
+   *
+   * Como `comoTareaDeAvisos`, es deliberadamente pobre: el cliente que recibe solo tiene la tabla
+   * de marcas y la politica `baja_pendiente_leer_para_terminar` solo deja leerla. Para actuar sobre
+   * una baja se pasa a ser esa persona con `comoUsuario`.
+   */
+  async comoTareaDeBajas<T>(tarea: (cliente: ClienteDeLaTareaDeBajas) => Promise<T>): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.tarea_actual', 'bajas', true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
     });

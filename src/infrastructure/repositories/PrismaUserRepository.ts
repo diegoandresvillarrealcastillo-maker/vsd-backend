@@ -1,4 +1,5 @@
 import { Prisma, type Usuario } from '@prisma/client';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import {
   AccountInactiveError,
   EmailAlreadyRegisteredError,
@@ -355,27 +356,70 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   /**
-   * Da de baja la cuenta (SCRUM-190, ADR 0026): anota la constancia minima y borra todo lo vivo,
-   * en una sola transaccion.
+   * Deja la marca de la baja (SCRUM-267, ADR 0040): una fila en `baja_pendiente`, en una
+   * transaccion corta y **antes** de borrar nada de lo de fuera de la base.
+   *
+   * `createMany` con `skipDuplicates` (`ON CONFLICT DO NOTHING`): marcar otra vez no cambia la
+   * primera marca ni falla. La clave foranea impide marcar una cuenta que no existe, pero se mira
+   * antes para devolver `false` en lugar de un error.
+   */
+  async marcarBaja(id: UserId, conConstancia: boolean, pedidaEl: Date): Promise<boolean> {
+    return this.prisma.comoUsuario(id.value, async (cliente) => {
+      const fila = await cliente.usuario.findUnique({
+        where: { id: id.value },
+        select: { id: true },
+      });
+
+      if (fila === null) {
+        return false;
+      }
+
+      await cliente.bajaPendiente.createMany({
+        data: [{ idUsuario: id.value, conConstancia, pedidaEl }],
+        skipDuplicates: true,
+      });
+
+      return true;
+    });
+  }
+
+  /**
+   * Las marcas de baja con mas de un rato, las mas antiguas primero. Las lee la tarea que termina
+   * las bajas, con `comoTareaDeBajas`: ve las marcas de todos y nada mas.
+   */
+  async bajasPendientes(pedidasAntes: Date, limite: number): Promise<readonly BajaPendiente[]> {
+    const filas = await this.prisma.comoTareaDeBajas((cliente) =>
+      cliente.bajaPendiente.findMany({
+        where: { pedidaEl: { lt: pedidasAntes } },
+        orderBy: [{ pedidaEl: 'asc' }, { idUsuario: 'asc' }],
+        take: limite,
+      }),
+    );
+
+    return filas.map((fila) => ({
+      id: new UserId(fila.idUsuario),
+      conConstancia: fila.conConstancia,
+      pedidaEl: fila.pedidaEl,
+    }));
+  }
+
+  /**
+   * Termina la baja con constancia (SCRUM-190, ADR 0026): anota la constancia minima y borra todo
+   * lo vivo, en una sola transaccion **corta**: lo de fuera ya se borro antes (ADR 0040).
    *
    * La constancia se arma **con lo que hay en la base**, no con un objeto que alguien traiga: el
    * identificador del proveedor, cuando se creo la cuenta y lo aceptado salen de las filas. Y no
    * lleva nada mas: ni nombre, ni correo, ni fecha de nacimiento.
    *
    * Despues se borra la fila de `usuario` y las claves foraneas con `ON DELETE CASCADE` se llevan
-   * el resto, como siempre. Toda tabla nueva que guarde algo de una persona se limpia sola: no hay
-   * una lista de campos que alguien tenga que acordarse de anonimizar.
+   * el resto, la marca de la baja incluida. Toda tabla nueva que guarde algo de una persona se
+   * limpia sola: no hay una lista de campos que alguien tenga que acordarse de anonimizar.
    *
-   * `antesDeConfirmar` corre dentro de la transaccion, con todo ya hecho y sin confirmar: si
-   * lanza, PostgreSQL deshace la baja y la constancia. Dar de baja una cuenta que no existe no
-   * hace nada ni llama a `antesDeConfirmar`. Como espera a la red, la transaccion tiene los
-   * tiempos de `TRANSACCION_DE_BORRADO` y no los cortos de siempre (SCRUM-260).
+   * Si algo falla, PostgreSQL deshace la constancia y el borrado. Dar de baja una cuenta que no
+   * existe no hace nada. La transaccion tiene los tiempos de `TRANSACCION_DE_BORRADO`: el borrado
+   * en cascada de una cuenta con mucho historial puede pasar de los 5 s de Prisma (SCRUM-260).
    */
-  async inactivarConTodo(
-    id: UserId,
-    inactivadaEl: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
+  async inactivarConTodo(id: UserId, inactivadaEl: Date): Promise<void> {
     await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       const fila = await cliente.usuario.findUnique({ where: { id: id.value } });
 
@@ -415,7 +459,6 @@ export class PrismaUserRepository implements UserRepositoryPort {
       }
 
       await cliente.usuario.deleteMany({ where: { id: id.value } });
-      await antesDeConfirmar();
     });
   }
 
@@ -433,20 +476,18 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   /**
-   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves
-   * foraneas con `ON DELETE CASCADE` se lleven el resto: resultados y entradas
-   * de diario. Toda tabla nueva que guarde algo de una persona tiene que
-   * declarar su clave igual; la prueba de integracion lo comprueba recorriendo
-   * cada tabla con columna `id_usuario`, no una lista escrita a mano.
+   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves foraneas con
+   * `ON DELETE CASCADE` se lleven el resto: resultados, entradas de diario y la marca de la baja.
+   * Toda tabla nueva que guarde algo de una persona tiene que declarar su clave igual; la prueba de
+   * integracion lo comprueba recorriendo cada tabla con columna `id_usuario`, no una lista escrita
+   * a mano.
    *
-   * `antesDeConfirmar` corre dentro de la transaccion: si lanza, PostgreSQL
-   * deshace el borrado. Espera a la red, asi que la transaccion tiene los
-   * tiempos de `TRANSACCION_DE_BORRADO` y no los cortos de siempre (SCRUM-260).
+   * Es corta y no espera a la red (ADR 0040), pero lleva los tiempos de `TRANSACCION_DE_BORRADO`
+   * y no los cortos de siempre: la cascada de una cuenta con mucho historial puede pasar de 5 s.
    */
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
+  async borrarConTodo(id: UserId): Promise<void> {
     await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       await cliente.usuario.deleteMany({ where: { id: id.value } });
-      await antesDeConfirmar();
     });
   }
 

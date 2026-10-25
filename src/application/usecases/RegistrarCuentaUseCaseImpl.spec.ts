@@ -11,6 +11,7 @@ import {
   OutdatedTermsError,
   UnderageError,
 } from '../../domain/model/DomainError.js';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { Rol, User, type ConsentimientoAceptado } from '../../domain/model/User.js';
 import type { EventoDeSeguridad } from '../../domain/model/EventoDeSeguridad.js';
@@ -18,6 +19,7 @@ import type { RegistrarCuentaCommand } from '../../domain/ports/in/RegistrarCuen
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { BajaDeCuenta } from '../services/BajaDeCuenta.js';
 import { BorrarCuentaUseCaseImpl } from './BorrarCuentaUseCaseImpl.js';
 import {
   RegistrarCuentaUseCaseImpl,
@@ -80,21 +82,27 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve([]);
   }
 
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await antesDeConfirmar();
+  borrarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
   }
 
   /** Los identificadores del proveedor de las cuentas dadas de baja (SCRUM-190). */
   readonly dadasDeBaja = new Set<string>();
 
-  async inactivarConTodo(
-    id: UserId,
-    _cuando: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
-    await antesDeConfirmar();
+  inactivarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
+  }
+
+  marcarBaja(id: UserId): Promise<boolean> {
+    return Promise.resolve(this.porId.has(id.value));
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
@@ -159,7 +167,7 @@ function crearCasoDeUso(ahora: Date = AHORA): Escenario {
   const caso = new RegistrarCuentaUseCaseImpl(
     cuentas,
     identidades,
-    new BorrarCuentaUseCaseImpl(cuentas, identidades),
+    new BorrarCuentaUseCaseImpl(new BajaDeCuenta(cuentas, identidades)),
     registro,
     () => new UserId(ID_NUEVO),
     () => ahora,

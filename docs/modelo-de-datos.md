@@ -573,6 +573,26 @@ llama `id_cuenta` y no `id_usuario` a propósito: la prueba de borrado recorre t
 Solo admiten altas: `vsd_app` no tiene `UPDATE` ni `DELETE`, del historial no lee nada y de
 `CUENTA_INACTIVA` solo lee la fila de su propio token. No hay plazo de retención definido todavía.
 
+## BAJA_PENDIENTE
+
+La marca de una baja de cuenta que se pidió y todavía no terminó (SCRUM-267, [ADR 0040](adr/0040-baja-pendiente-y-lo-externo-fuera-de-la-transaccion.md)).
+Se deja **antes** de borrar lo de fuera de la base (archivos e identidad) y se va sola cuando se
+borra la fila de `USUARIO`: si queda una, la baja se cortó a mitad y la tarea del API la termina.
+
+**Columnas:** `id_usuario` (clave primaria y clave foránea con `ON DELETE CASCADE` a `USUARIO`),
+`con_constancia` (si al terminar se deja la constancia de arriba: sí en la baja que pide la persona,
+no en el rechazo de un menor) y `pedida_el` (con índice: la tarea pide las más antiguas primero y
+solo las que llevan más de 2 minutos). La primera marca manda: pedir la baja otra vez no la cambia.
+
+**No guarda nada personal**, solo de quién es, si lleva constancia y cuándo se pidió. Como lleva
+`id_usuario`, la prueba de borrado la recorre sola.
+
+**Política de acceso:** cada persona **añade y ve su** marca, y nada más (sin `UPDATE` ni `DELETE`:
+se va con la cuenta, y una cascada no pasa por las políticas). La tarea que termina las bajas declara
+`vsd.tarea_actual = 'bajas'` y puede **leer** las marcas de todas las personas, y nada más: ni
+escribirlas ni ninguna otra tabla. Para actuar sobre una baja pasa a ser, una por una, la persona de
+esa marca. Ver la migración `20261025200000_baja_pendiente` y `borradoDeCuenta.integracion.spec.ts`.
+
 ## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
 
 Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
@@ -654,6 +674,7 @@ Ver la migración `20261005120000_avisos_push` y
 | `DATO_CURIOSO_CURSOR`               | lee y escribe el suyo                               | nada         | **nada**      |
 | `CUENTA_INACTIVA`                   | **solo añade**; lee la de su propio token           | nada         | **nada**      |
 | `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | **solo añade**; no lee                              | nada         | **nada**      |
+| `BAJA_PENDIENTE`                    | **solo añade** y lee la suya                        | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

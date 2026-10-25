@@ -322,7 +322,7 @@ export function pruebasDelPuertoDeUsuarios(
 
       it('borrar la cuenta borra tambien su historial', async () => {
         await banco.repositorio.save(unaCuenta());
-        await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+        await banco.repositorio.borrarConTodo(new UserId(PERSONA));
 
         await expect(banco.repositorio.consentimientosDe(new UserId(PERSONA))).resolves.toEqual([]);
       });
@@ -551,30 +551,14 @@ export function pruebasDelPuertoDeUsuarios(
         }),
       );
 
-      await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+      await banco.repositorio.borrarConTodo(new UserId(PERSONA));
 
       await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
       await expect(banco.repositorio.findById(new UserId(OTRA_PERSONA))).resolves.not.toBeNull();
     });
 
-    it('si lo de fuera falla, el borrado se deshace', async () => {
-      // Es la garantia de todo o nada. Si el proveedor no borra la identidad,
-      // la cuenta tiene que seguir aqui entera para poder reintentar.
-      await banco.repositorio.save(unaCuenta());
-
-      await expect(
-        banco.repositorio.borrarConTodo(new UserId(PERSONA), () =>
-          Promise.reject(new Error('el proveedor no respondio')),
-        ),
-      ).rejects.toThrow('el proveedor no respondio');
-
-      await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.not.toBeNull();
-    });
-
     it('borrar una cuenta que no existe no es un error', async () => {
-      await expect(
-        banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve()),
-      ).resolves.toBeUndefined();
+      await expect(banco.repositorio.borrarConTodo(new UserId(PERSONA))).resolves.toBeUndefined();
     });
 
     it('una cuenta no puede leer los datos de otra', async () => {
@@ -605,9 +589,7 @@ export function pruebasDelPuertoDeUsuarios(
       it('la cuenta ya no se encuentra, ni por nuestro identificador ni por el del proveedor', async () => {
         await conDosCuentas();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.toBeNull();
         await expect(
@@ -618,9 +600,7 @@ export function pruebasDelPuertoDeUsuarios(
       it('queda marcada como dada de baja para el identificador que traia su token', async () => {
         await conDosCuentas();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         await expect(
           banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
@@ -630,9 +610,7 @@ export function pruebasDelPuertoDeUsuarios(
       it('una cuenta que sigue activa, o que nunca existio, no esta dada de baja', async () => {
         await conDosCuentas();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         await expect(
           banco.repositorio.estaInactivadaPorProveedor('supabase|bbbb-2222'),
@@ -645,9 +623,7 @@ export function pruebasDelPuertoDeUsuarios(
       it('lo de la otra persona sigue entero', async () => {
         await conDosCuentas();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         const otra = await banco.repositorio.findById(new UserId(OTRA_PERSONA));
 
@@ -659,9 +635,7 @@ export function pruebasDelPuertoDeUsuarios(
 
       it('el correo queda libre: la misma persona puede volver a registrarse con el mismo', async () => {
         await conDosCuentas();
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         // Una identidad nueva en el proveedor y un identificador nuestro nuevo,
         // con el mismo correo de siempre.
@@ -683,35 +657,11 @@ export function pruebasDelPuertoDeUsuarios(
         ).resolves.toBe(true);
       });
 
-      it('si lo de fuera falla, no se da de baja nada y la cuenta sigue entera', async () => {
-        // Todo o nada: si el proveedor no borra la identidad, la cuenta tiene
-        // que seguir aqui para poder reintentar, y sin constancia a medias.
-        await conDosCuentas();
-
-        await expect(
-          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-            Promise.reject(new Error('el proveedor no respondio')),
-          ),
-        ).rejects.toThrow('el proveedor no respondio');
-
-        await expect(banco.repositorio.findById(new UserId(PERSONA))).resolves.not.toBeNull();
-        await expect(
-          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
-        ).resolves.toBe(false);
-      });
-
       it('dar de baja una cuenta que no existe no es un error y no deja constancia', async () => {
-        let seLlamo = false;
-
         await expect(
-          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () => {
-            seLlamo = true;
-
-            return Promise.resolve();
-          }),
+          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO),
         ).resolves.toBeUndefined();
 
-        expect(seLlamo).toBe(false);
         await expect(
           banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
         ).resolves.toBe(false);
@@ -723,9 +673,7 @@ export function pruebasDelPuertoDeUsuarios(
         const cargada = unaCuenta({ nombre: 'Ana' });
 
         await banco.repositorio.save(cargada);
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         await expect(
           banco.repositorio.save(cargada.conZonaHoraria('Europe/Madrid')),
@@ -737,16 +685,146 @@ export function pruebasDelPuertoDeUsuarios(
       it('dar de baja dos veces la misma no es un error', async () => {
         await conDosCuentas();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
         await expect(
-          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () => Promise.resolve()),
+          banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO),
         ).resolves.toBeUndefined();
 
         await expect(
           banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
         ).resolves.toBe(true);
+      });
+    });
+
+    describe('la baja pendiente (SCRUM-267, ADR 0040)', () => {
+      // Fechas de hace mucho a proposito: las suites de integracion comparten base y corren en
+      // paralelo, y `bajasPendientes` mira las marcas de todas. Con un corte antiguo, solo ve las
+      // de este contrato y el orden y el limite se pueden comprobar sin que otra suite los mueva.
+      const PEDIDA = new Date('2000-01-01T10:00:00.000Z');
+      const MAS_TARDE = new Date('2000-01-01T10:05:00.000Z');
+      const AUN_MAS_TARDE = new Date('2000-01-01T10:10:00.000Z');
+      const EL_DIA_SIGUIENTE = new Date('2000-01-02T10:00:00.000Z');
+      const TERCERA = '33333333-3333-4333-8333-333333333333';
+
+      async function conTresCuentas() {
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.save(
+          unaCuenta({
+            id: OTRA_PERSONA,
+            correo: 'otra@ejemplo.test',
+            idProveedorAuth: 'supabase|bbbb',
+          }),
+        );
+        await banco.repositorio.save(
+          unaCuenta({
+            id: TERCERA,
+            correo: 'tercera@ejemplo.test',
+            idProveedorAuth: 'supabase|cccc',
+          }),
+        );
+      }
+
+      it('marcar una cuenta que existe devuelve true y la deja pendiente con lo que se pidio', async () => {
+        await banco.repositorio.save(unaCuenta());
+
+        await expect(banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA)).resolves.toBe(
+          true,
+        );
+
+        await expect(banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10)).resolves.toEqual([
+          { id: new UserId(PERSONA), conConstancia: true, pedidaEl: PEDIDA },
+        ]);
+      });
+
+      it('marcar no cambia nada visible: la cuenta sigue entera hasta que la baja termina', async () => {
+        await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA);
+
+        const cuenta = await banco.repositorio.findById(new UserId(PERSONA));
+
+        expect(cuenta?.nombre).toBe('Ana');
+        await expect(
+          banco.repositorio.estaInactivadaPorProveedor('supabase|aaaa-1111'),
+        ).resolves.toBe(false);
+      });
+
+      it('marcar una cuenta que no existe devuelve false y no deja nada', async () => {
+        await expect(banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA)).resolves.toBe(
+          false,
+        );
+
+        await expect(banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10)).resolves.toEqual([]);
+      });
+
+      it('marcar dos veces no es un error y la primera marca manda', async () => {
+        await banco.repositorio.save(unaCuenta());
+
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), false, PEDIDA);
+        await expect(
+          banco.repositorio.marcarBaja(new UserId(PERSONA), true, MAS_TARDE),
+        ).resolves.toBe(true);
+
+        await expect(banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10)).resolves.toEqual([
+          { id: new UserId(PERSONA), conConstancia: false, pedidaEl: PEDIDA },
+        ]);
+      });
+
+      it('solo devuelve las pedidas antes del corte, no las de despues ni las del mismo instante', async () => {
+        await conTresCuentas();
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA);
+        await banco.repositorio.marcarBaja(new UserId(OTRA_PERSONA), true, MAS_TARDE);
+        await banco.repositorio.marcarBaja(new UserId(TERCERA), true, EL_DIA_SIGUIENTE);
+
+        const ids = async (corte: Date) =>
+          (await banco.repositorio.bajasPendientes(corte, 10)).map((baja) => baja.id.value);
+
+        await expect(ids(PEDIDA)).resolves.toEqual([]);
+        await expect(ids(MAS_TARDE)).resolves.toEqual([PERSONA]);
+        await expect(ids(EL_DIA_SIGUIENTE)).resolves.toEqual([PERSONA, OTRA_PERSONA]);
+      });
+
+      it('las devuelve de la mas antigua a la mas reciente y no pasa del limite', async () => {
+        await conTresCuentas();
+        await banco.repositorio.marcarBaja(new UserId(TERCERA), true, PEDIDA);
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), true, MAS_TARDE);
+        await banco.repositorio.marcarBaja(new UserId(OTRA_PERSONA), true, AUN_MAS_TARDE);
+
+        const todas = await banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10);
+        const dos = await banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 2);
+
+        expect(todas.map((baja) => baja.id.value)).toEqual([TERCERA, PERSONA, OTRA_PERSONA]);
+        expect(dos.map((baja) => baja.id.value)).toEqual([TERCERA, PERSONA]);
+      });
+
+      it('dar de baja con constancia se lleva la marca', async () => {
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA);
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), MAS_TARDE);
+
+        await expect(banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10)).resolves.toEqual([]);
+      });
+
+      it('borrar sin constancia se lleva la marca', async () => {
+        await banco.repositorio.save(unaCuenta());
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), false, PEDIDA);
+
+        await banco.repositorio.borrarConTodo(new UserId(PERSONA));
+
+        await expect(banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10)).resolves.toEqual([]);
+      });
+
+      it('la marca de una persona no toca a las demas al terminar', async () => {
+        await conTresCuentas();
+        await banco.repositorio.marcarBaja(new UserId(PERSONA), true, PEDIDA);
+        await banco.repositorio.marcarBaja(new UserId(OTRA_PERSONA), true, PEDIDA);
+
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), MAS_TARDE);
+
+        const quedan = await banco.repositorio.bajasPendientes(EL_DIA_SIGUIENTE, 10);
+
+        expect(quedan.map((baja) => baja.id.value)).toEqual([OTRA_PERSONA]);
+        await expect(banco.repositorio.findById(new UserId(OTRA_PERSONA))).resolves.not.toBeNull();
       });
     });
 
@@ -977,7 +1055,7 @@ export function pruebasDelPuertoDeUsuarios(
         await banco.repositorio.save(unaCuenta());
         const cargada = await leida();
 
-        await banco.repositorio.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+        await banco.repositorio.borrarConTodo(new UserId(PERSONA));
 
         await expect(
           banco.repositorio.guardarCambios(cargada, cargada.conFoto(CUANDO)),
@@ -990,9 +1068,7 @@ export function pruebasDelPuertoDeUsuarios(
         await banco.repositorio.save(unaCuenta({ nombre: 'Ana' }));
         const cargada = await leida();
 
-        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO, () =>
-          Promise.resolve(),
-        );
+        await banco.repositorio.inactivarConTodo(new UserId(PERSONA), CUANDO);
 
         await expect(
           banco.repositorio.guardarCambios(cargada, cargada.conZonaHoraria('Europe/Madrid')),

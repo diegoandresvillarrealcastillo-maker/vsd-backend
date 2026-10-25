@@ -365,9 +365,11 @@ no-store`**: la cuenta, el diario, los pendientes, el progreso, los avisos, la
     archivos en Storage y su identidad en Supabase Auth, y **deja una
     constancia minima** de lo que acepto —que existio, cuando, y las versiones
     del aviso y de los terminos— sin nombre, correo ni fecha de nacimiento.
-    Es todo o nada: si Supabase no responde, la transaccion se deshace y no
-    queda nada hecho, ni la constancia. Los archivos se borran antes que la
-    identidad: lo irreversible va al final.
+    Se hace en tres pasos (SCRUM-267, ADR 0040): una marca, los archivos y
+    la identidad (sin transaccion, y se pueden repetir) y las filas con la
+    constancia. Si algo falla despues de la marca, la baja se termina sola
+    en unos minutos. Los archivos se borran antes que la identidad: lo
+    irreversible va al final.
   - **Despues de la baja, el token que no ha caducado no resucita la
     cuenta**: la API responde `401 CUENTA_INACTIVA` en todo, incluido el alta,
     y el cliente cierra la sesion. Es la revocacion de las demas sesiones.

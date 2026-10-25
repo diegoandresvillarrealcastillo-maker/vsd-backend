@@ -91,6 +91,8 @@ function armar(
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
     inactivarConTodo: () => Promise.resolve(),
+    marcarBaja: () => Promise.resolve(false),
+    bajasPendientes: () => Promise.resolve([]),
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const diasConAtencion = vi.fn(() => Promise.resolve(dias));

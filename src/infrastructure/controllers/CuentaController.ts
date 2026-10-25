@@ -325,7 +325,7 @@ export class CuentaController {
   @ApiOperation({
     summary: 'Dar de baja la cuenta propia: se borra todo lo suyo y queda una constancia minima',
     description:
-      'Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario, sus archivos y su identidad en Supabase Auth, y deja una constancia minima de lo que acepto (que la cuenta existio, cuando, y las versiones del aviso y de los terminos), sin nombre, correo ni fecha de nacimiento (ADR 0026). Es todo o nada: si una parte falla, no queda nada hecho. No tiene vuelta atras, y por eso exige la frase de confirmacion. Despues, el token de esa cuenta que todavia no haya caducado se rechaza con 401 CUENTA_INACTIVA.',
+      'Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario, sus archivos y su identidad en Supabase Auth, y deja una constancia minima de lo que acepto (que la cuenta existio, cuando, y las versiones del aviso y de los terminos), sin nombre, correo ni fecha de nacimiento (ADR 0026). Se hace en tres pasos (ADR 0040): una marca, lo de fuera de la base (archivos e identidad) y las filas; si algo falla despues de la marca, la baja se termina sola en unos minutos. No tiene vuelta atras, y por eso exige la frase de confirmacion. Despues, el token de esa cuenta que todavia no haya caducado se rechaza con 401 CUENTA_INACTIVA.',
   })
   @ApiBody({ type: BorrarCuentaDto })
   @ApiResponse({ status: 204, description: 'La cuenta ya no existe.' })
@@ -339,7 +339,7 @@ export class CuentaController {
   @ApiResponse({
     status: 503,
     description:
-      'BORRADO_NO_COMPLETADO: el proveedor de autenticacion no respondio y no se borro nada. Reintentar.',
+      'BORRADO_NO_COMPLETADO: la baja no se pudo completar en esta peticion. Si el mensaje dice que quedo pedida, se termina sola en unos minutos; si dice que no se borro nada, se puede reintentar.',
   })
   async borrar(
     @Body() _confirmacion: BorrarCuentaDto,

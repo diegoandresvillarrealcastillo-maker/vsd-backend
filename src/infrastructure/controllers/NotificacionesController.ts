@@ -57,7 +57,7 @@ export class NotificacionesController {
   @ApiOperation({
     summary: 'Elegir la hora de cada aviso',
     description:
-      'HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.',
+      'HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro. frecuenciaSemaforo (manana, noche o dos_veces) dice cuántas veces al día avisa el semáforo respecto de su hora; el servidor devuelve en horasDelSemaforo las horas que le tocan, y ninguna cruza la medianoche.',
   })
   @ApiResponse({ status: 200, type: EstadoDeLosAvisosDto })
   @ApiResponse({ status: 400, description: 'Una hora no tiene el formato HH:MM.' })
@@ -70,6 +70,7 @@ export class NotificacionesController {
         userId: cuenta.id.value,
         zonaHoraria: cuenta.zonaHoraria,
         horaSemaforo: dto.horaSemaforo,
+        frecuenciaSemaforo: dto.frecuenciaSemaforo,
         horaRacha: dto.horaRacha,
       }),
     );

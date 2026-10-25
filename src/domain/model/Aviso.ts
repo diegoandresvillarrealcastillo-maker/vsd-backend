@@ -1,5 +1,6 @@
 import type { Dia } from './Calendario.js';
 import { InvalidNotificationSettingError } from './DomainError.js';
+import type { FrecuenciaDelSemaforo } from './FrecuenciaDelSemaforo.js';
 import type { UserId } from './Identifier.js';
 import { FORMA_DE_LA_MASCOTA_PROPIA } from './Preferencias.js';
 import { esUnHito, type Racha } from './Racha.js';
@@ -12,9 +13,13 @@ import {
 /**
  * Los avisos que la aplicacion manda aunque no este abierta (SCRUM-102).
  *
- * Cuatro clases, y cada una se enciende y se apaga por separado:
+ * Cinco clases, y cada una se enciende y se apaga por separado:
  *
  * - **semaforo**: los pendientes sin hacer, a la hora que la persona elija;
+ * - **semaforo_noche** (SCRUM-146): el **segundo** aviso del semaforo, para quien eligio «solo en la
+ *   noche» o «dos veces al dia»: lo mismo que el primero, a la hora que da
+ *   `FrecuenciaDelSemaforo` (de las 12:00 en adelante). Tiene su propia marca de «ya se reviso hoy»,
+ *   para que los dos salgan una vez al dia cada uno;
  * - **racha**: una vez al dia, si ese dia todavia no hizo ninguna actividad,
  *   a la hora que la persona elija;
  * - **manana** (SCRUM-126): a las 8:00 de su zona, una invitacion a empezar el
@@ -41,6 +46,7 @@ import {
 
 export const TipoDeAviso = {
   SEMAFORO: 'semaforo',
+  SEMAFORO_NOCHE: 'semaforo_noche',
   RACHA: 'racha',
   MANANA: 'manana',
   NOCHE: 'noche',
@@ -82,8 +88,14 @@ export function horaDeMinuto(minuto: number): string {
 /** A que hora quiere cada aviso. `null` es apagado. */
 export interface PreferenciasDeAviso {
   readonly userId: UserId;
-  /** Minutos desde la medianoche, en la zona horaria de la persona. */
+  /**
+   * La **hora base** del semaforo, en minutos desde la medianoche en la zona horaria de la persona
+   * (la que ella elige). Los minutos en que salen los avisos salen de ella y de la frecuencia
+   * (SCRUM-146, `minutosDelSemaforo`). Null es apagado, con cualquier frecuencia.
+   */
   readonly minutoSemaforo: number | null;
+  /** Cuantas veces al dia y cuando, respecto de la hora base (SCRUM-146). */
+  readonly frecuenciaSemaforo: FrecuenciaDelSemaforo;
   readonly minutoRacha: number | null;
   /** Encendido es `MINUTO_DE_LA_MANANA`; la hora no se mueve (SCRUM-126). */
   readonly minutoManana: number | null;

@@ -5,6 +5,7 @@ import {
   MINUTO_DE_LA_NOCHE,
   TipoDeAviso,
 } from '../../domain/model/Aviso.js';
+import { FrecuenciaDelSemaforo } from '../../domain/model/FrecuenciaDelSemaforo.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { InMemoryAvisosRepository } from './InMemoryAvisosRepository.js';
 
@@ -19,6 +20,7 @@ function preferencias(userId: UserId, cambios: Record<string, number | null | st
     userId,
     zonaHoraria: ZONA,
     minutoSemaforo: null,
+    frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
     minutoRacha: null,
     minutoManana: null,
     minutoNoche: null,
@@ -303,5 +305,107 @@ describe('InMemoryAvisosRepository: el tope de navegadores por cuenta (SCRUM-153
 
     expect(await repositorio.suscripcionesDe(BETO)).toHaveLength(3);
     expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+  });
+});
+
+describe('InMemoryAvisosRepository: los dos avisos del semaforo (SCRUM-146)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  /** A quien le toca ese aviso en una ventana de minutos del dia. */
+  async function aQuienEntre(tipo: TipoDeAviso, desde: number, hasta: number, dia = HOY) {
+    return (await repositorio.aQuienLeToca(tipo, ZONA, desde, hasta, dia)).map((id) => id.value);
+  }
+
+  beforeEach(() => {
+    repositorio = new InMemoryAvisosRepository();
+  });
+
+  it('sin nada guardado la frecuencia es «manana»', async () => {
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
+    });
+  });
+
+  it('guarda y devuelve la frecuencia', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      minutoSemaforo: 480,
+      frecuenciaSemaforo: 'dos_veces',
+    });
+  });
+
+  it('«manana» le toca solo el primer aviso, a la hora elegida', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoSemaforo: 480 }));
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 480, 480)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 0, 1439)).toEqual([]);
+  });
+
+  it('«noche» le toca solo el segundo, doce horas despues', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoSemaforo: 480, frecuenciaSemaforo: FrecuenciaDelSemaforo.NOCHE }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 0, 1439)).toEqual([]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 480, 480)).toEqual([]);
+  });
+
+  it('«dos veces» le tocan los dos, cada uno a su hora', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 480, 480)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA.value]);
+  });
+
+  it('con una hora de la tarde, «dos veces» le toca doce horas antes y a esa hora', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 18 * 60,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 6 * 60, 6 * 60)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 18 * 60, 18 * 60)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 18 * 60, 18 * 60)).toEqual([]);
+  });
+
+  it('cada uno se reclama por separado: reclamar el primero no cierra el segundo', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, HOY)).toBe(false);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, MANANA)).toBe(true);
+  });
+
+  it('una zona esta en uso si la persona solo tiene el semaforo de la noche', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.NOCHE,
+        zonaHoraria: 'Asia/Tokyo',
+      }),
+    );
+
+    expect(await repositorio.zonasEnUso()).toEqual(['Asia/Tokyo']);
   });
 });

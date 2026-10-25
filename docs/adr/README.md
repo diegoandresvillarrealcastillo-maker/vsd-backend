@@ -41,6 +41,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0032](0032-cuando-cambian-el-aviso-o-los-terminos-la-cuenta-vuelve-a-aceptarlos.md)       | Cuando cambian el aviso o los términos, la cuenta vuelve a aceptarlos      | Aceptada (SCRUM-237)                                                                 |
 | [0033](0033-la-carta-a-mi-de-manana-es-una-anotacion-del-diario-con-el-texto-sellado.md)   | La «carta a mí de mañana» es una anotación del diario con el texto sellado | Propuesta (SCRUM-230)                                                                |
 | [0034](0034-acompanamiento-por-dias-seguidos-con-atencion.md)                              | Acompañamiento por días seguidos con atención                              | Aceptada con ajustes (SCRUM-177)                                                     |
+| [0036](0036-la-frecuencia-del-semaforo-no-cruza-la-medianoche.md)                          | La frecuencia del semáforo: las dos horas nunca cruzan la medianoche       | Aceptada (SCRUM-146)                                                                 |
 
 ## Reglas
 

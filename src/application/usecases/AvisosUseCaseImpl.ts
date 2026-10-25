@@ -7,6 +7,7 @@ import {
   type PreferenciasDeAviso,
   type SuscripcionPush,
 } from '../../domain/model/Aviso.js';
+import { minutosDelSemaforo } from '../../domain/model/FrecuenciaDelSemaforo.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type {
   AvisosUseCase,
@@ -41,7 +42,8 @@ function recordatorio(
 
 /**
  * Lo que la persona hace con sus avisos desde el perfil (SCRUM-102): ver si
- * estan disponibles, elegir la hora de cada uno o apagarlo, encender o apagar
+ * estan disponibles, elegir la hora de cada uno (y cuantas veces al dia avisa el
+ * semaforo, SCRUM-146) o apagarlo, encender o apagar
  * los recordatorios de las 8:00 y las 20:00 (SCRUM-126), y suscribir o soltar
  * un navegador.
  */
@@ -63,6 +65,7 @@ export class AvisosUseCaseImpl implements AvisosUseCase {
       userId,
       zonaHoraria: command.zonaHoraria,
       minutoSemaforo: nuevoMinuto(command.horaSemaforo, actuales.minutoSemaforo),
+      frecuenciaSemaforo: command.frecuenciaSemaforo ?? actuales.frecuenciaSemaforo,
       minutoRacha: nuevoMinuto(command.horaRacha, actuales.minutoRacha),
       minutoManana: actuales.minutoManana,
       minutoNoche: actuales.minutoNoche,
@@ -95,12 +98,21 @@ export class AvisosUseCaseImpl implements AvisosUseCase {
 
   private estado(preferencias: PreferenciasDeAviso): EstadoDeLosAvisos {
     const { clavePublica } = this.enviador;
+    const { primero, segundo } = minutosDelSemaforo(
+      preferencias.minutoSemaforo,
+      preferencias.frecuenciaSemaforo,
+    );
 
     return {
       disponible: clavePublica !== null,
       clavePublica,
       horaSemaforo:
         preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
+      frecuenciaSemaforo: preferencias.frecuenciaSemaforo,
+      // Del primero al segundo: el primero es siempre el mas temprano.
+      horasDelSemaforo: [primero, segundo]
+        .filter((minuto): minuto is number => minuto !== null)
+        .map(horaDeMinuto),
       horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
       recordatorioManana: preferencias.minutoManana !== null,
       recordatorioNoche: preferencias.minutoNoche !== null,

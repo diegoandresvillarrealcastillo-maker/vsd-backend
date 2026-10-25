@@ -152,8 +152,19 @@ function armar(
     listarCatalogo: () => Promise.resolve(opciones.catalogo ?? CATALOGO),
   } as unknown as ActivityRepositoryPort;
   const repositorio = {
-    paginasDeResultados: async function* () {
-      yield await Promise.resolve(resultados);
+    // Como el real (SCRUM-264): la pareja actividad y dia, sin repetir.
+    hechosDe: () =>
+      Promise.resolve([
+        ...new Map(
+          resultados.map((r) => [
+            `${r.dia}|${r.activityId.value}`,
+            { actividad: r.activityId.value, dia: r.dia },
+          ]),
+        ).values(),
+      ]),
+    // El progreso ya no reconstruye cada resultado: si alguien vuelve a pedirlos, todas las pruebas fallan.
+    paginasDeResultados: () => {
+      throw new Error('el progreso no debe leer resultados enteros');
     },
   } as unknown as ActivityResultRepositoryPort;
 

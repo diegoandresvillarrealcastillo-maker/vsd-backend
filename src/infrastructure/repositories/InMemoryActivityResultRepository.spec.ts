@@ -213,6 +213,8 @@ describe('InMemoryActivityResultRepository', () => {
     const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
     /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
     const CUENTAN = [new ActivityId(ACTIVIDAD)];
+    /** Una ventana que no recorta nada: para las pruebas que no hablan de ella. */
+    const DESDE_SIEMPRE = '1970-01-01';
 
     /** Un resultado de ese dia con ese puntaje crudo (de 0 a 10: 1 requiere atencion, 8 es favorable). */
     function conPuntaje(dia: string, crudo: number, n: number, usuario = USUARIO) {
@@ -238,19 +240,18 @@ describe('InMemoryActivityResultRepository', () => {
       // Un dia solo favorable no cuenta.
       await repositorio.save(conPuntaje('2026-09-15', 8, 4));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([
-        '2026-09-14',
-        '2026-09-16',
-      ]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14', '2026-09-16']);
     });
 
     it('un dia con uno bueno y uno que requiere atencion cuenta como dia con atencion', async () => {
       await repositorio.save(conPuntaje('2026-09-14', 8, 5));
       await repositorio.save(conPuntaje('2026-09-14', 1, 6));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([
-        '2026-09-14',
-      ]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14']);
     });
 
     it('lo que no puntua no cuenta: no suma a favor ni en contra', async () => {
@@ -265,7 +266,9 @@ describe('InMemoryActivityResultRepository', () => {
         }),
       );
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual([]);
     });
 
     it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
@@ -273,16 +276,77 @@ describe('InMemoryActivityResultRepository', () => {
 
       const OTRA_ACTIVIDAD = new ActivityId('33333333-3333-4333-a333-333333333399');
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [OTRA_ACTIVIDAD])).toEqual([]);
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [])).toEqual([]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), [OTRA_ACTIVIDAD], DESDE_SIEMPRE),
+      ).toEqual([]);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [], DESDE_SIEMPRE)).toEqual([]);
     });
 
     it('lo de otra persona no cuenta', async () => {
       await repositorio.save(conPuntaje('2026-09-14', 1, 8, OTRO_USUARIO));
 
-      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN)).toEqual([]);
-      expect(await repositorio.diasConAtencion(new UserId(OTRO_USUARIO), CUENTAN)).toEqual([
-        '2026-09-14',
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual([]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(OTRO_USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14']);
+    });
+
+    it('solo mira desde la fecha que se pide, y ese dia cuenta (SCRUM-264)', async () => {
+      await repositorio.save(conPuntaje('2026-09-13', 1, 10));
+      await repositorio.save(conPuntaje('2026-09-14', 1, 11));
+      await repositorio.save(conPuntaje('2026-09-16', 1, 12));
+
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-14')).toEqual(
+        ['2026-09-14', '2026-09-16'],
+      );
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-15')).toEqual(
+        ['2026-09-16'],
+      );
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-17')).toEqual(
+        [],
+      );
+    });
+  });
+
+  describe('hechosDe (SCRUM-264)', () => {
+    const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+    const OTRA_ACTIVIDAD = '33333333-3333-4333-a333-333333333399';
+
+    function hecho(dia: string, n: number, actividadId = ACTIVIDAD, usuario = USUARIO) {
+      return ActivityResult.create({
+        id: new ResultId(RES(n)),
+        userId: new UserId(usuario),
+        activityId: new ActivityId(actividadId),
+        clientOperationId: new ClientOperationId(OP(n)),
+        completedAt: new Date(`${dia}T15:00:00.000Z`),
+        dia,
+      });
+    }
+
+    it('una fila por pareja actividad y dia, sin repetir, del dia mas antiguo al mas reciente', async () => {
+      await repositorio.save(hecho('2026-09-16', 1));
+      await repositorio.save(hecho('2026-09-14', 2));
+      // La misma actividad el mismo dia: una sola pareja.
+      await repositorio.save(hecho('2026-09-16', 3));
+      // Otra actividad el mismo dia: otra pareja.
+      await repositorio.save(hecho('2026-09-16', 4, OTRA_ACTIVIDAD));
+
+      expect(await repositorio.hechosDe(new UserId(USUARIO))).toEqual([
+        { actividad: ACTIVIDAD, dia: '2026-09-14' },
+        { actividad: ACTIVIDAD, dia: '2026-09-16' },
+        { actividad: OTRA_ACTIVIDAD, dia: '2026-09-16' },
+      ]);
+    });
+
+    it('solo trae lo de esa persona, y sin nada que hacer devuelve una lista vacia', async () => {
+      await repositorio.save(hecho('2026-09-14', 5, ACTIVIDAD, OTRO_USUARIO));
+
+      expect(await repositorio.hechosDe(new UserId(USUARIO))).toEqual([]);
+      expect(await repositorio.hechosDe(new UserId(OTRO_USUARIO))).toEqual([
+        { actividad: ACTIVIDAD, dia: '2026-09-14' },
       ]);
     });
   });

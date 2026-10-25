@@ -17,9 +17,6 @@ import type { ActivityResultRepositoryPort } from '../../domain/ports/out/Activi
 import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
-/** Desde cuando cuentan las sesiones: desde siempre. */
-const DESDE_EL_PRINCIPIO = new Date(0);
-
 /**
  * Calcula el sendero de cada modulo activo a partir de los resultados.
  *
@@ -81,24 +78,19 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const hechosPorModulo = new Map<Modulo, Hecho[]>();
 
-    // Todo el historial, de a paginas (SCRUM-262): de cada resultado solo se guarda la actividad y el
-    // dia, que es lo unico que el sendero necesita, y se suelta el resto.
-    for await (const pagina of this.resultados.paginasDeResultados(id, DESDE_EL_PRINCIPIO)) {
-      for (const resultado of pagina) {
-        const modulo = moduloDeActividad.get(resultado.activityId.value);
+    // Todo el historial, pero ya reducido en la base a actividad y dia sin repetir (SCRUM-264): es lo
+    // unico que el sendero necesita, y no hace falta traer ni reconstruir cada resultado.
+    for (const hecho of await this.resultados.hechosDe(id)) {
+      const modulo = moduloDeActividad.get(hecho.actividad);
 
-        if (modulo === undefined) {
-          continue;
-        }
-
-        const hechos = hechosPorModulo.get(modulo) ?? [];
-
-        hechos.push({
-          actividad: resultado.activityId.value,
-          dia: resultado.dia,
-        });
-        hechosPorModulo.set(modulo, hechos);
+      if (modulo === undefined) {
+        continue;
       }
+
+      const hechos = hechosPorModulo.get(modulo) ?? [];
+
+      hechos.push(hecho);
+      hechosPorModulo.set(modulo, hechos);
     }
 
     const hoy = calendario.diaDe(this.reloj());

@@ -3,6 +3,7 @@ import type { Dia } from '../../domain/model/Calendario.js';
 import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
 import type { ActivityId, ClientOperationId, UserId } from '../../domain/model/Identifier.js';
 import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
+import type { Hecho } from '../../domain/model/Sendero.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { FILAS_POR_PAGINA } from '../../domain/ports/out/LecturaPorPaginas.js';
 
@@ -100,13 +101,41 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve([...dias].sort());
   }
 
-  diasConAtencion(userId: UserId, actividades: readonly ActivityId[]): Promise<readonly Dia[]> {
+  hechosDe(userId: UserId): Promise<readonly Hecho[]> {
+    const distintos = new Map<string, Hecho>();
+
+    for (const resultado of this.porOperacion.values()) {
+      if (resultado.perteneceA(userId)) {
+        // Un separador que no esta en un UUID ni en un dia: la pareja no se confunde con otra.
+        distintos.set(`${resultado.dia}|${resultado.activityId.value}`, {
+          actividad: resultado.activityId.value,
+          dia: resultado.dia,
+        });
+      }
+    }
+
+    // Del dia mas antiguo al mas reciente y, a igual dia, por actividad: el orden de la base.
+    return Promise.resolve(
+      [...distintos.values()].sort(
+        (uno, otro) =>
+          uno.dia.localeCompare(otro.dia) || uno.actividad.localeCompare(otro.actividad),
+      ),
+    );
+  }
+
+  diasConAtencion(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    desde: Dia,
+  ): Promise<readonly Dia[]> {
     const cuentan = new Set(actividades.map((actividad) => actividad.value));
     const dias = new Set(
       [...this.porOperacion.values()]
         .filter(
           (resultado) =>
             resultado.perteneceA(userId) &&
+            // AAAA-MM-DD: el orden de texto es el del calendario.
+            resultado.dia >= desde &&
             cuentan.has(resultado.activityId.value) &&
             resultado.score?.level === NivelOrientativo.REQUIERE_ATENCION,
         )

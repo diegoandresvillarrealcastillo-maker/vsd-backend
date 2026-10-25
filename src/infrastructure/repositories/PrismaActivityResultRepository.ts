@@ -11,6 +11,7 @@ import {
   UserId,
 } from '../../domain/model/Identifier.js';
 import { NivelOrientativo, OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import type { Hecho } from '../../domain/model/Sendero.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
@@ -186,13 +187,12 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   }
 
   async diasConActividad(userId: UserId): Promise<readonly Dia[]> {
-    // Solo la columna `dia`, sin repetir y ordenada en la base: no hace falta reconstruir
-    // resultados ni consultar el catalogo para saber en que dias hizo algo.
+    // Una fila por dia y ordenada **en la base** (`GROUP BY`). Ojo: `distinct` de Prisma no es un
+    // `SELECT DISTINCT`: trae todas las filas y las repite menos en memoria (SCRUM-264).
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
+      cliente.resultado.groupBy({
+        by: ['dia'],
         where: { idUsuario: userId.value },
-        select: { dia: true },
-        distinct: ['dia'],
         orderBy: { dia: 'asc' },
       }),
     );
@@ -201,27 +201,47 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
   }
 
+  async hechosDe(userId: UserId): Promise<readonly Hecho[]> {
+    // Una fila por actividad y dia, agrupadas en la base: dos columnas, sin repetir y sin traer
+    // cada resultado. El orden solo hace que la salida sea estable.
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.groupBy({
+        by: ['dia', 'idActividad'],
+        where: { idUsuario: userId.value },
+        orderBy: [{ dia: 'asc' }, { idActividad: 'asc' }],
+      }),
+    );
+
+    return filas.map((fila) => ({
+      actividad: fila.idActividad,
+      // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+      dia: fila.dia.toISOString().slice(0, 10),
+    }));
+  }
+
   async diasConAtencion(
     userId: UserId,
     actividades: readonly ActivityId[],
+    desde: Dia,
   ): Promise<readonly Dia[]> {
     if (actividades.length === 0) {
       return [];
     }
 
-    // Solo tres columnas y sin repetir combinaciones: el dia, la actividad y el puntaje. El nivel
-    // **no** se filtra por la columna `nivel_orientativo`: se deriva con la actividad de hoy, igual
-    // que al reconstruir un resultado (SCRUM-259). Si se filtrara la columna, un cambio de umbrales
-    // dejaria al acompanamiento y al patron de la semana leyendo cosas distintas del mismo dia.
+    // Tres columnas agrupadas en la base y solo desde `desde` (SCRUM-264): el dia, la actividad y el
+    // puntaje. El nivel **no** se filtra por la columna `nivel_orientativo`: se deriva con la
+    // actividad de hoy, igual que al reconstruir un resultado (SCRUM-259). Si se filtrara la columna,
+    // un cambio de umbrales dejaria al acompanamiento y al patron de la semana leyendo cosas
+    // distintas del mismo dia.
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
+      cliente.resultado.groupBy({
+        by: ['dia', 'idActividad', 'puntaje'],
         where: {
           idUsuario: userId.value,
           idActividad: { in: actividades.map((actividad) => actividad.value) },
           puntaje: { not: null },
+          dia: { gte: new Date(`${desde}T00:00:00.000Z`) },
         },
-        select: { dia: true, idActividad: true, puntaje: true },
-        distinct: ['dia', 'idActividad', 'puntaje'],
         orderBy: { dia: 'asc' },
       }),
     );

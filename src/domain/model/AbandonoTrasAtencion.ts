@@ -45,6 +45,20 @@ export const DIAS_SIN_REGISTRAR_PARA_AVISAR = 3;
 export const DIAS_QUE_VALE_EL_AVISO_DE_ABANDONO = 30;
 
 /**
+ * Cuantos dias hacia atras, desde hoy, hay que leer de los dias con atencion para decidir el
+ * acompanamiento (SCRUM-264). Mas atras no puede cambiar ningun resultado:
+ *
+ * - el nivel por dias cuenta hacia atras desde hoy (o ayer) y se detiene en 7 (`DIAS_PARA_LAS_LINEAS`);
+ * - el abandono parte de su ultimo dia con actividad, que a lo mas esta 30 dias atras
+ *   (`DIAS_QUE_VALE_EL_AVISO_DE_ABANDONO`), y necesita la cadena de 7 que termina ahi.
+ *
+ * 30 + 7 = 37: el minimo exacto es 36 (la cadena de 7 que termina 30 dias atras empieza 36 atras) y
+ * sobra uno. Si cambia alguna de las dos reglas, esto cambia con ellas.
+ */
+export const DIAS_QUE_MIRA_EL_ACOMPANAMIENTO =
+  DIAS_QUE_VALE_EL_AVISO_DE_ABANDONO + DIAS_PARA_LAS_LINEAS;
+
+/**
  * El nivel de abandono de la persona hoy: `ninguno` si no hay, `moderado` si se fue tras 3 a 6 dias
  * con atencion, `critico` si fueron 7 o mas.
  *

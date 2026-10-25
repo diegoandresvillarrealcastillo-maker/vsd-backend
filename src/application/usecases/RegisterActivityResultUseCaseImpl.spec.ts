@@ -105,6 +105,11 @@ class RepositorioFalso implements ActivityResultRepositoryPort {
     return Promise.resolve([]);
   }
 
+  hechosDe(): Promise<readonly { actividad: string; dia: string }[]> {
+    // El progreso (SCRUM-264) tampoco.
+    return Promise.resolve([]);
+  }
+
   get cantidad(): number {
     return this.porOperacion.size;
   }

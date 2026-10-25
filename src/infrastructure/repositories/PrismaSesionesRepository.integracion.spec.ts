@@ -1,6 +1,3 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +14,7 @@ import { type BancoDeSesiones, contratoDeSesiones } from '../../pruebas/contrato
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Las sesiones contra PostgreSQL de verdad (SCRUM-205, ADR 0030).
@@ -33,11 +31,11 @@ import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
  * Se conecta como `vsd_app`, igual que la aplicacion: lo que depende de las politicas de seguridad
  * (leer lo propio de `resultado`, solo `SELECT` sobre las sesiones) se prueba de verdad.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

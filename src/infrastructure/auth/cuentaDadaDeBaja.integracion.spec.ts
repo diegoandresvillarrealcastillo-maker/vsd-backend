@@ -1,7 +1,3 @@
-// Igual que las demas pruebas de integracion: vitest no lee `.env` por su cuenta y aqui hace falta
-// saber si hay una base local a la que conectarse.
-import 'dotenv/config';
-
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
@@ -15,6 +11,7 @@ import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
 import { TokenInvalidoError, VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
 import type { Identidad } from './VerificadorDeIdentidad.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Dar de baja la cuenta, de la cabecera HTTP a la fila de PostgreSQL (SCRUM-190, ADR 0026).
@@ -37,7 +34,7 @@ import type { Identidad } from './VerificadorDeIdentidad.js';
  * base y corren en paralelo, y reutilizar los de otra hace que se borren filas entre ellas.
  */
 
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const IDENTIDADES: Record<string, Identidad> = {
   'token-baja-A': {

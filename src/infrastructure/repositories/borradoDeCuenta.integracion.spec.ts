@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { UserId } from '../../domain/model/Identifier.js';
@@ -7,6 +5,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaDiarioRepository } from './PrismaDiarioRepository.js';
 import { PrismaUserRepository } from './PrismaUserRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * La prueba que define SCRUM-75: borrar una cuenta y comprobar **contra la
@@ -22,7 +21,7 @@ import { PrismaUserRepository } from './PrismaUserRepository.js';
  * borren filas entre ellas.
  */
 
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const PERSONA = '75757575-7575-4575-8575-757575757575';
 const OTRA = '75757575-7575-4575-8575-757575757576';

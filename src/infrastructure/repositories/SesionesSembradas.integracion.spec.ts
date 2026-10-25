@@ -1,6 +1,3 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,6 +11,7 @@ import { problemasDeContenido } from '../../pruebas/contenidoDeSesiones.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El contenido que se siembra con migraciones, comprobado contra la base de verdad (SCRUM-207, ADR 0030).
@@ -26,11 +24,11 @@ import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
  * otras suites de integracion siembran mecanicas de prueba a la vez, y una sesion rota a proposito en
  * una de ellas no puede hacer fallar esta.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

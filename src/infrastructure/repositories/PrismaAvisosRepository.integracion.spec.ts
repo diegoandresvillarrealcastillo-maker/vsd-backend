@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -15,6 +13,7 @@ import { UserId } from '../../domain/model/Identifier.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaAvisosRepository } from './PrismaAvisosRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Los avisos contra PostgreSQL de verdad (SCRUM-102).
@@ -27,7 +26,7 @@ import { PrismaAvisosRepository } from './PrismaAvisosRepository.js';
  *
  * Identificadores propios de esta suite.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const ANA = '10210210-0000-4000-8000-0000000000a1';
 const BETO = '10210210-0000-4000-8000-0000000000b2';

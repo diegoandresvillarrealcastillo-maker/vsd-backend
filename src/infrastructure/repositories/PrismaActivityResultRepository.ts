@@ -126,14 +126,7 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
       }),
     );
 
-    // El catalogo se consulta una vez por actividad distinta y no una vez por
-    // fila: un historial de treinta resultados de la misma actividad no puede
-    // costar treinta consultas.
-    const catalogo = new Map<string, Activity | null>();
-
-    for (const idActividad of new Set(filas.map((fila) => fila.idActividad))) {
-      catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
-    }
+    const catalogo = await this.catalogoDe(filas.map((fila) => fila.idActividad));
 
     return filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
   }
@@ -175,22 +168,37 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
       return [];
     }
 
-    // Solo la columna `dia` de lo que requiere atencion, sin repetir y ordenada en la base: ni el
-    // puntaje ni la actividad salen de ella.
+    // Solo tres columnas y sin repetir combinaciones: el dia, la actividad y el puntaje. El nivel
+    // **no** se filtra por la columna `nivel_orientativo`: se deriva con la actividad de hoy, igual
+    // que al reconstruir un resultado (SCRUM-259). Si se filtrara la columna, un cambio de umbrales
+    // dejaria al acompanamiento y al patron de la semana leyendo cosas distintas del mismo dia.
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
       cliente.resultado.findMany({
         where: {
           idUsuario: userId.value,
           idActividad: { in: actividades.map((actividad) => actividad.value) },
-          nivelOrientativo: NivelOrientativo.REQUIERE_ATENCION,
+          puntaje: { not: null },
         },
-        select: { dia: true },
-        distinct: ['dia'],
+        select: { dia: true, idActividad: true, puntaje: true },
+        distinct: ['dia', 'idActividad', 'puntaje'],
         orderBy: { dia: 'asc' },
       }),
     );
 
-    return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
+    const catalogo = await this.catalogoDe(filas.map((fila) => fila.idActividad));
+    const dias = new Set<Dia>();
+
+    for (const fila of filas) {
+      const puntaje = this.puntajeDe(fila.puntaje, catalogo.get(fila.idActividad) ?? null);
+
+      if (puntaje?.level === NivelOrientativo.REQUIERE_ATENCION) {
+        // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+        dias.add(fila.dia.toISOString().slice(0, 10));
+      }
+    }
+
+    // AAAA-MM-DD: el orden de texto es el del calendario.
+    return [...dias].sort();
   }
 
   async historialDe(
@@ -237,6 +245,40 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   }
 
   /**
+   * El catalogo se consulta una vez por actividad distinta y no una vez por fila: un historial de
+   * treinta resultados de la misma actividad no puede costar treinta consultas.
+   */
+  private async catalogoDe(ids: Iterable<string>): Promise<Map<string, Activity | null>> {
+    const catalogo = new Map<string, Activity | null>();
+
+    for (const idActividad of new Set(ids)) {
+      catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+    }
+
+    return catalogo;
+  }
+
+  /**
+   * El puntaje de una fila con la interpretacion vigente de su actividad. Es el **unico** sitio
+   * donde se deriva el nivel al leer: todo lo que lo necesite pasa por aqui (SCRUM-259).
+   */
+  private puntajeDe(
+    puntaje: Resultado['puntaje'],
+    actividad: Activity | null,
+  ): OrientativeScore | undefined {
+    if (puntaje === null || actividad === null || !actividad.puntua()) {
+      return undefined;
+    }
+
+    // Lo guardado esta normalizado a 0-100; `create` espera el valor en la escala de la
+    // actividad, asi que se deshace la conversion.
+    return OrientativeScore.create(
+      (Number(puntaje) / 100) * (actividad.puntajeMaximo ?? 0),
+      actividad,
+    );
+  }
+
+  /**
    * Reconstruye la entidad a partir de la fila.
    *
    * El puntaje se vuelve a derivar desde la actividad en lugar de leer el
@@ -247,17 +289,7 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
    * actividad, pero tampoco se inventa un nivel sin con que calcularlo.
    */
   private aDominio(fila: Resultado, actividad: Activity | null): ActivityResult {
-    const puntajeCrudo = fila.puntaje === null ? null : Number(fila.puntaje);
-
-    const score =
-      puntajeCrudo !== null && actividad !== null && actividad.puntua()
-        ? OrientativeScore.create(
-            // Lo guardado esta normalizado a 0-100; `create` espera el valor
-            // en la escala de la actividad, asi que se deshace la conversion.
-            (puntajeCrudo / 100) * (actividad.puntajeMaximo ?? 0),
-            actividad,
-          )
-        : undefined;
+    const score = this.puntajeDe(fila.puntaje, actividad);
 
     return ActivityResult.create(
       {

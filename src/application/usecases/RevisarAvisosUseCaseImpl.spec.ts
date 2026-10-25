@@ -7,6 +7,10 @@ import type {
 } from '../../domain/model/Aviso.js';
 import { TipoDeAviso } from '../../domain/model/Aviso.js';
 import type { Dia } from '../../domain/model/Calendario.js';
+import {
+  FrecuenciaDelSemaforo,
+  minutosDelSemaforo,
+} from '../../domain/model/FrecuenciaDelSemaforo.js';
 import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Identifier.js';
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -27,6 +31,7 @@ const VEINTE = new Date('2026-10-06T01:00:00.000Z');
 
 interface Horas {
   semaforo: number | null;
+  frecuencia: FrecuenciaDelSemaforo;
   racha: number | null;
   manana: number | null;
   noche: number | null;
@@ -45,6 +50,16 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     this.poner(persona, { semaforo, racha, zona });
   }
 
+  /** El semaforo con su frecuencia (SCRUM-146): la hora base y cuantas veces al dia avisa. */
+  semaforo(
+    persona: string,
+    base: number | null,
+    frecuencia: FrecuenciaDelSemaforo,
+    zona = 'America/Bogota',
+  ) {
+    this.poner(persona, { semaforo: base, frecuencia, zona });
+  }
+
   /** Los recordatorios de las 8:00 y las 20:00 (SCRUM-126); lo demas queda apagado. */
   recordatorios(
     persona: string,
@@ -58,6 +73,7 @@ class AvisosDePrueba implements AvisosRepositoryPort {
   private poner(persona: string, cambios: Partial<Horas>) {
     this.horas.set(persona, {
       semaforo: null,
+      frecuencia: FrecuenciaDelSemaforo.MANANA,
       racha: null,
       manana: null,
       noche: null,
@@ -75,6 +91,7 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve({
       userId,
       minutoSemaforo: horas?.semaforo ?? null,
+      frecuenciaSemaforo: horas?.frecuencia ?? FrecuenciaDelSemaforo.MANANA,
       minutoRacha: horas?.racha ?? null,
       minutoManana: horas?.manana ?? null,
       minutoNoche: horas?.noche ?? null,
@@ -115,8 +132,11 @@ class AvisosDePrueba implements AvisosRepositoryPort {
     return Promise.resolve(
       [...this.horas.entries()]
         .filter(([persona, horas]) => {
+          // Los dos avisos del semaforo salen de la hora base y la frecuencia (SCRUM-146).
+          const semaforo = minutosDelSemaforo(horas.semaforo, horas.frecuencia);
           const minuto = {
-            [TipoDeAviso.SEMAFORO]: horas.semaforo,
+            [TipoDeAviso.SEMAFORO]: semaforo.primero,
+            [TipoDeAviso.SEMAFORO_NOCHE]: semaforo.segundo,
             [TipoDeAviso.RACHA]: horas.racha,
             [TipoDeAviso.MANANA]: horas.manana,
             [TipoDeAviso.NOCHE]: horas.noche,
@@ -386,6 +406,160 @@ describe('la revision de cada minuto', () => {
     await revision.revisar(OCHO);
 
     expect(enviador.entregados).toEqual([]);
+  });
+
+  describe('la frecuencia del semaforo (SCRUM-146)', () => {
+    /** Una revision en el minuto `minutoDelDia` de Bogota del 5 de octubre. */
+    const aLas = (minutoDelDia: number) => minutos(minutoDelDia - 8 * 60);
+    const OCHO_MIN = 8 * 60;
+    const VEINTE_MIN = 20 * 60;
+
+    it('«solo en la manana» avisa a la hora elegida y a las 20:00 no manda nada', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.MANANA);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      await revision.revisar(aLas(VEINTE_MIN));
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('«solo en la noche» no avisa a las 8:00 y si a las 20:00', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.NOCHE);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      expect(enviador.para(ANA)).toEqual([]);
+
+      await revision.revisar(aLas(VEINTE_MIN));
+      expect(enviador.para(ANA)).toEqual([
+        expect.objectContaining({
+          tipo: 'semaforo',
+          titulo: 'Tienes 2 pendientes en tu semáforo',
+        }),
+      ]);
+    });
+
+    it('«dos veces al dia» avisa a las 8:00 y a las 20:00, cada una una sola vez', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.DOS_VECES);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      await revision.revisar(aLas(OCHO_MIN + 1));
+      await revision.revisar(aLas(OCHO_MIN + 15));
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+
+      await revision.revisar(aLas(VEINTE_MIN));
+      await revision.revisar(aLas(VEINTE_MIN + 1));
+      await revision.revisar(aLas(VEINTE_MIN + 15));
+
+      expect(enviador.para(ANA)).toHaveLength(2);
+    });
+
+    it('con una hora base de la tarde, «dos veces» avisa doce horas antes y a esa hora, y nunca de madrugada', async () => {
+      const { avisos, enviador, revision } = armar();
+      const SEIS_Y_MEDIA = 18 * 60 + 30;
+
+      avisos.semaforo(ANA, SEIS_Y_MEDIA, FrecuenciaDelSemaforo.DOS_VECES);
+
+      // Cada minuto del dia: sale exactamente a las 6:30 y a las 18:30, ni de madrugada ni un
+      // minuto mas.
+      const avisadosEn: number[] = [];
+
+      for (let minuto = 0; minuto < 24 * 60; minuto += 1) {
+        const antes = enviador.para(ANA).length;
+
+        await revision.revisar(aLas(minuto));
+
+        if (enviador.para(ANA).length > antes) {
+          avisadosEn.push(minuto);
+        }
+      }
+
+      expect(avisadosEn).toEqual([SEIS_Y_MEDIA - 12 * 60, SEIS_Y_MEDIA]);
+    });
+
+    it('con una hora base de la tarde, «solo en la noche» avisa a esa misma hora', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.semaforo(ANA, 18 * 60, FrecuenciaDelSemaforo.NOCHE);
+
+      await revision.revisar(aLas(6 * 60));
+      expect(enviador.para(ANA)).toEqual([]);
+
+      await revision.revisar(aLas(18 * 60));
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('quien ya tenia una hora de la tarde sigue avisando a esa hora, sin mover nada (cuentas que ya existian)', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      // Es lo que dejo la version anterior: solo hora, sin frecuencia (queda en «manana»).
+      avisos.elegir(ANA, 18 * 60, null);
+
+      await revision.revisar(aLas(6 * 60));
+      expect(enviador.para(ANA)).toEqual([]);
+
+      await revision.revisar(aLas(18 * 60));
+      expect(enviador.para(ANA)).toHaveLength(1);
+    });
+
+    it('el segundo aviso dice lo que haya pendiente en ese momento: sin pendientes, no manda nada pero queda revisado', async () => {
+      const { avisos, enviador, revision } = armar({ conPendientes: {} });
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.DOS_VECES);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      await revision.revisar(aLas(VEINTE_MIN));
+
+      expect(enviador.entregados).toEqual([]);
+      expect(avisos.revisados.get(`${ANA}:${TipoDeAviso.SEMAFORO}`)).toBe('2026-10-05');
+      expect(avisos.revisados.get(`${ANA}:${TipoDeAviso.SEMAFORO_NOCHE}`)).toBe('2026-10-05');
+    });
+
+    it('al dia siguiente vuelven a salir los dos', async () => {
+      const { avisos, enviador, revision } = armar();
+      const UN_DIA = 24 * 60;
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.DOS_VECES);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      await revision.revisar(aLas(VEINTE_MIN));
+      await revision.revisar(aLas(OCHO_MIN + UN_DIA));
+      await revision.revisar(aLas(VEINTE_MIN + UN_DIA));
+
+      expect(enviador.para(ANA)).toHaveLength(4);
+    });
+
+    it('cada persona recibe los suyos a la hora de su zona', async () => {
+      const { avisos, enviador, revision } = armar({
+        conPendientes: { [ANA]: ['Pagar la matrícula'], [BETO]: ['Pedir cita'] },
+      });
+
+      avisos.semaforo(ANA, OCHO_MIN, FrecuenciaDelSemaforo.DOS_VECES);
+      avisos.semaforo(BETO, OCHO_MIN, FrecuenciaDelSemaforo.DOS_VECES, 'Asia/Tokyo');
+
+      // Las 20:00 de Bogota son las 10:00 del dia siguiente en Tokio: a Beto todavia no le toca.
+      await revision.revisar(VEINTE);
+
+      expect(enviador.para(ANA)).toHaveLength(1);
+      expect(enviador.para(BETO)).toEqual([]);
+    });
+
+    it('apagar el semaforo apaga los dos, sea cual sea la frecuencia', async () => {
+      const { avisos, enviador, revision } = armar();
+
+      avisos.semaforo(ANA, null, FrecuenciaDelSemaforo.DOS_VECES);
+
+      await revision.revisar(aLas(OCHO_MIN));
+      await revision.revisar(aLas(VEINTE_MIN));
+
+      expect(enviador.entregados).toEqual([]);
+    });
   });
 
   describe('la racha', () => {

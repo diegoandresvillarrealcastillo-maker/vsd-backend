@@ -29,6 +29,7 @@ function datosConAvisos(
       preferencias: {
         userId: new UserId(PERSONA),
         minutoSemaforo: null,
+        frecuenciaSemaforo: 'manana' as const,
         minutoRacha: null,
         minutoManana: null,
         minutoNoche: null,
@@ -48,6 +49,7 @@ describe('ExportacionDto: los avisos', () => {
   it('sin nada encendido, todo sale apagado', () => {
     expect(ExportacionDto.desde(datosConAvisos({})).avisos).toEqual({
       horaSemaforo: null,
+      frecuenciaSemaforo: 'manana',
       horaRacha: null,
       recordatorioManana: false,
       recordatorioNoche: false,
@@ -67,6 +69,7 @@ describe('ExportacionDto: los avisos', () => {
 
     expect(avisos).toEqual({
       horaSemaforo: '08:00',
+      frecuenciaSemaforo: 'manana',
       horaRacha: '19:30',
       recordatorioManana: true,
       recordatorioNoche: true,
@@ -216,5 +219,16 @@ describe('ExportacionDto: la sesion de cada resultado (ADR 0030, Ley 1581)', () 
 
     expect(dto.resultados[0]).not.toHaveProperty('sesion');
     expect(JSON.stringify(dto)).not.toContain(SESION);
+  });
+});
+
+describe('ExportacionDto: la frecuencia del semaforo (SCRUM-146)', () => {
+  it('sale lo que la persona eligio, sin convertirlo en horas', () => {
+    const { avisos } = ExportacionDto.desde(
+      datosConAvisos({ minutoSemaforo: 480, frecuenciaSemaforo: 'dos_veces' }),
+    );
+
+    expect(avisos.horaSemaforo).toBe('08:00');
+    expect(avisos.frecuenciaSemaforo).toBe('dos_veces');
   });
 });

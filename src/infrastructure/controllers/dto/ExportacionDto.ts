@@ -37,6 +37,12 @@ export class AvisosExportadosDto {
   @ApiProperty({ type: String, nullable: true, example: '08:00' })
   horaSemaforo!: string | null;
 
+  @ApiProperty({
+    enum: ['manana', 'noche', 'dos_veces'],
+    description: 'Cuántas veces al día avisa el semáforo (SCRUM-146).',
+  })
+  frecuenciaSemaforo!: string;
+
   @ApiProperty({ type: String, nullable: true, example: '19:30' })
   horaRacha!: string | null;
 
@@ -191,6 +197,7 @@ export class ExportacionDto {
     dto.avisos = {
       horaSemaforo:
         preferencias.minutoSemaforo === null ? null : horaDeMinuto(preferencias.minutoSemaforo),
+      frecuenciaSemaforo: preferencias.frecuenciaSemaforo,
       horaRacha: preferencias.minutoRacha === null ? null : horaDeMinuto(preferencias.minutoRacha),
       recordatorioManana: preferencias.minutoManana !== null,
       recordatorioNoche: preferencias.minutoNoche !== null,

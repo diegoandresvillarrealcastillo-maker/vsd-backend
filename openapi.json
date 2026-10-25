@@ -984,7 +984,7 @@
     },
     "/api/notificaciones/horas": {
       "patch": {
-        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro.",
+        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro. frecuenciaSemaforo (manana, noche o dos_veces) dice cuántas veces al día avisa el semáforo respecto de su hora; el servidor devuelve en horasDelSemaforo las horas que le tocan, y ninguna cruza la medianoche.",
         "operationId": "NotificacionesController_cambiarHoras",
         "parameters": [],
         "requestBody": {
@@ -2224,6 +2224,15 @@
             "nullable": true,
             "example": "08:00"
           },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo (SCRUM-146)."
+          },
           "horaRacha": {
             "type": "string",
             "nullable": true,
@@ -2244,6 +2253,7 @@
         },
         "required": [
           "horaSemaforo",
+          "frecuenciaSemaforo",
           "horaRacha",
           "recordatorioManana",
           "recordatorioNoche",
@@ -2778,7 +2788,28 @@
             "type": "string",
             "nullable": true,
             "example": "08:00",
-            "description": "Hora del aviso del semáforo, en la zona horaria de la persona. Null: apagado."
+            "description": "La hora que la persona eligió para el semáforo (la hora base), en su zona horaria. Null: apagado. Las horas a las que de verdad avisa están en horasDelSemaforo."
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "example": "manana",
+            "description": "Cuántas veces al día avisa el semáforo. manana: una vez, a la hora base (lo que hacía hasta ahora). noche: una vez, doce horas después de una hora base de la mañana, o a la propia hora base si es de las 12:00 en adelante. dos_veces: las dos. Nunca cruza la medianoche."
+          },
+          "horasDelSemaforo": {
+            "example": [
+              "08:00",
+              "20:00"
+            ],
+            "description": "Las horas HH:MM a las que avisa el semáforo, de la más temprana a la más tarde, con la frecuencia ya aplicada: una, o dos a doce horas de distancia. Vacía si está apagado.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "horaRacha": {
             "type": "string",
@@ -2799,6 +2830,8 @@
           "disponible",
           "clavePublica",
           "horaSemaforo",
+          "frecuenciaSemaforo",
+          "horasDelSemaforo",
           "horaRacha",
           "recordatorioManana",
           "recordatorioNoche"
@@ -2811,6 +2844,15 @@
             "type": "string",
             "nullable": true,
             "example": "08:00"
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo: manana, noche o dos_veces. Lo que no viene se queda. No tiene null: apagar el aviso es horaSemaforo: null."
           },
           "horaRacha": {
             "type": "string",

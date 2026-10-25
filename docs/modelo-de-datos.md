@@ -596,21 +596,30 @@ solo de servicios de push conocidos: Google, Mozilla, Apple y Windows. Ver
 
 `PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
 
-| Campo                   | Tipo        | Nulo | Descripción                                                                  |
-| ----------------------- | ----------- | ---- | ---------------------------------------------------------------------------- |
-| `id_usuario`            | UUID        | no   | Clave primaria. Se borra con la cuenta.                                      |
-| `minuto_semaforo`       | SMALLINT    | sí   | Minutos desde la medianoche de Colombia (480 = 8:00). NULL: apagado.         |
-| `minuto_racha`          | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                |
-| `minuto_manana`         | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).       |
-| `minuto_noche`          | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).     |
-| `ultimo_aviso_semaforo` | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día. |
-| `ultimo_aviso_racha`    | DATE        | sí   | Igual, para el de la racha.                                                  |
-| `ultimo_aviso_manana`   | DATE        | sí   | Igual, para el de las 8:00.                                                  |
-| `ultimo_aviso_noche`    | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.  |
-| `fecha_edicion`         | TIMESTAMPTZ | no   | Último cambio.                                                               |
+| Campo                         | Tipo        | Nulo | Descripción                                                                                                          |
+| ----------------------------- | ----------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| `id_usuario`                  | UUID        | no   | Clave primaria. Se borra con la cuenta.                                                                              |
+| `minuto_semaforo`             | SMALLINT    | sí   | La **hora base** del semáforo, en minutos desde la medianoche (480 = 8:00). NULL: apagado, con cualquier frecuencia. |
+| `frecuencia_semaforo`         | ENUM        | no   | `manana` (por omisión), `noche` o `dos_veces` (SCRUM-146, ADR 0036). Las cuentas que ya existían quedan en `manana`. |
+| `minuto_racha`                | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                                                        |
+| `minuto_manana`               | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).                                               |
+| `minuto_noche`                | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).                                             |
+| `ultimo_aviso_semaforo`       | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día.                                         |
+| `ultimo_aviso_semaforo_noche` | DATE        | sí   | Igual, para el **segundo** aviso del semáforo (SCRUM-146): cada uno sale una vez al día.                             |
+| `ultimo_aviso_racha`          | DATE        | sí   | Igual, para el de la racha.                                                                                          |
+| `ultimo_aviso_manana`         | DATE        | sí   | Igual, para el de las 8:00.                                                                                          |
+| `ultimo_aviso_noche`          | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.                                          |
+| `fecha_edicion`               | TIMESTAMPTZ | no   | Último cambio.                                                                                                       |
 
 Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
 `TIME` en una fecha completa, y con ella vuelven los problemas de zona.
+
+**Los dos avisos del semáforo no se guardan: salen de la hora base y la
+frecuencia** (`FrecuenciaDelSemaforo.ts`, ADR 0036). Así no hay dos valores que
+puedan quedar distintos. Para encontrar a quién le toca sin traer a todos, la
+base pregunta por las **horas base** cuyo aviso cae en la ventana de la revisión
+(columna con índice); una prueba comprueba que coincide con la regla del dominio
+para todas las horas y ventanas del día.
 
 **Política de acceso:** cada persona lee y escribe solo lo suyo, con RLS
 forzado. Hay dos excepciones, y las dos son estrechas:

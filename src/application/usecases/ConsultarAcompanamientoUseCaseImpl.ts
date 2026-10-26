@@ -1,4 +1,7 @@
-import { abandonoTrasAtencion } from '../../domain/model/AbandonoTrasAtencion.js';
+import {
+  abandonoTrasAtencion,
+  DIAS_QUE_MIRA_EL_ACOMPANAMIENTO,
+} from '../../domain/model/AbandonoTrasAtencion.js';
 import {
   actividadesQueCuentanParaAcompanar,
   NivelDeAcompanamiento,
@@ -64,7 +67,12 @@ export class ConsultarAcompanamientoUseCaseImpl implements ConsultarAcompanamien
 
     const hoy = Calendario.de(cuenta.zonaHoraria).diaDe(this.reloj());
     const cuentan = actividadesQueCuentanParaAcompanar(await this.actividades.listarCatalogo());
-    const diasConAtencion = await this.resultados.diasConAtencion(id, cuentan);
+    // Solo la ventana que puede cambiar la respuesta (SCRUM-264), no todo el historial.
+    const diasConAtencion = await this.resultados.diasConAtencion(
+      id,
+      cuentan,
+      Calendario.diasAntes(hoy, DIAS_QUE_MIRA_EL_ACOMPANAMIENTO),
+    );
     const nivel = nivelDeAcompanamiento(diasConAtencion, hoy);
     const abandono =
       nivel === NivelDeAcompanamiento.NINGUNO

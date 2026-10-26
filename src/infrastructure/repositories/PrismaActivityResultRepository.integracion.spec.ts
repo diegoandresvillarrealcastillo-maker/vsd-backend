@@ -657,6 +657,8 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   describe('diasConAtencion (SCRUM-177)', () => {
     /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
     const CUENTAN = [new ActivityId(ACTIVIDAD_MEMORIA)];
+    /** Una ventana que no recorta nada: para las pruebas que no hablan de ella. */
+    const DESDE_SIEMPRE = '1970-01-01';
 
     /** Un resultado de ese dia: con puntaje crudo 1 requiere atencion, con 8 es favorable, sin puntaje no puntua. */
     async function guardarEnElDia(
@@ -686,27 +688,26 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       // Un dia solo favorable no cuenta.
       await guardarEnElDia(USUARIO_A, 4, '2026-09-15', 8);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
-        '2026-09-14',
-        '2026-09-16',
-      ]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14', '2026-09-16']);
     });
 
     it('un dia con uno favorable y uno que requiere atencion cuenta como dia con atencion', async () => {
       await guardarEnElDia(USUARIO_A, 5, '2026-09-14', 8);
       await guardarEnElDia(USUARIO_A, 6, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
-        '2026-09-14',
-      ]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
     });
 
     it('lo que no puntua no cuenta', async () => {
       await guardarEnElDia(USUARIO_A, 7, '2026-09-14', undefined);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
-        [],
-      );
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
     });
 
     it('el nivel se deriva con la interpretacion vigente, no se toma de la columna (SCRUM-259)', async () => {
@@ -726,9 +727,9 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
         ['40000000-0000-4000-8000-0000000000e2'],
       );
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
-        '2026-09-14',
-      ]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
     });
 
     it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
@@ -736,19 +737,130 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
 
       const otra = new ActivityId('33333333-3333-4333-a333-333333333399');
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [otra])).resolves.toEqual([]);
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [])).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), [otra], DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), [], DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
     });
 
     it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
       await guardarEnElDia(USUARIO_B, 8, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
-        [],
-      );
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_B), CUENTAN)).resolves.toEqual([
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_B), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
+    });
+
+    it('solo mira desde la fecha que se pide, y ese dia cuenta (SCRUM-264)', async () => {
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-13', 1);
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-14', 1);
+      await guardarEnElDia(USUARIO_A, 3, '2026-09-16', 1);
+
+      const A = new UserId(USUARIO_A);
+
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-14')).resolves.toEqual([
         '2026-09-14',
+        '2026-09-16',
       ]);
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-15')).resolves.toEqual([
+        '2026-09-16',
+      ]);
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-17')).resolves.toEqual([]);
+    });
+  });
+
+  describe('hechosDe (SCRUM-264)', () => {
+    /** Un resultado de esa actividad ese dia (sin puntaje: aqui solo importan la actividad y el dia). */
+    async function guardarHecho(
+      usuario: string,
+      numero: number,
+      actividad: string,
+      dia: string,
+    ): Promise<void> {
+      await repositorio.save(
+        await unResultado({
+          id: `40000000-0000-4000-8000-0000000000d${numero}`,
+          usuario,
+          actividad,
+          operacion: `50000000-0000-4000-8000-0000000000d${numero}`,
+          completedAt: new Date(`${dia}T15:00:00.000Z`),
+          dia,
+        }),
+      );
+    }
+
+    it('una fila por actividad y dia, sin repetir, del dia mas antiguo al mas reciente', async () => {
+      await guardarHecho(USUARIO_A, 1, ACTIVIDAD_MEMORIA, '2026-09-16');
+      await guardarHecho(USUARIO_A, 2, ACTIVIDAD_MEMORIA, '2026-09-14');
+      // La misma actividad el mismo dia, dos veces: una sola pareja.
+      await guardarHecho(USUARIO_A, 3, ACTIVIDAD_MEMORIA, '2026-09-16');
+      // Otra actividad el mismo dia: otra pareja.
+      await guardarHecho(USUARIO_A, 4, ACTIVIDAD_CARGA, '2026-09-16');
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-16' },
+        { actividad: ACTIVIDAD_CARGA, dia: '2026-09-16' },
+      ]);
+    });
+
+    it('usa el dia guardado y no el instante: lo de las 8 p. m. es de ese dia', async () => {
+      // 01:00 UTC del 15 es la noche del 14 en Colombia.
+      await repositorio.save(
+        await unResultado({
+          id: '40000000-0000-4000-8000-0000000000d5',
+          usuario: USUARIO_A,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: '50000000-0000-4000-8000-0000000000d5',
+          completedAt: new Date('2026-09-15T01:00:00.000Z'),
+          dia: '2026-09-14',
+        }),
+      );
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+      ]);
+    });
+
+    it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
+      await guardarHecho(USUARIO_B, 6, ACTIVIDAD_MEMORIA, '2026-09-14');
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([]);
+      await expect(repositorio.hechosDe(new UserId(USUARIO_B))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+      ]);
+    });
+
+    it('con muchos resultados repetidos devuelve solo las parejas distintas', async () => {
+      // 450 resultados repartidos en 3 dias y 2 actividades: son 6 parejas, no 450 filas.
+      for (let n = 0; n < 450; n++) {
+        const sufijo = String(n).padStart(12, '0');
+
+        await repositorio.save(
+          await unResultado({
+            id: `42000000-0000-4000-8000-${sufijo}`,
+            usuario: USUARIO_A,
+            actividad: n % 2 === 0 ? ACTIVIDAD_MEMORIA : ACTIVIDAD_CARGA,
+            operacion: `52000000-0000-4000-8000-${sufijo}`,
+            completedAt: new Date(`2026-09-1${4 + (n % 3)}T15:00:00.000Z`),
+            dia: `2026-09-1${4 + (n % 3)}`,
+          }),
+        );
+      }
+
+      const hechos = await repositorio.hechosDe(new UserId(USUARIO_A));
+
+      expect(hechos).toHaveLength(6);
+      expect(new Set(hechos.map((hecho) => `${hecho.dia}|${hecho.actividad}`)).size).toBe(6);
+    });
+
+    it('sin resultados, una lista vacia', async () => {
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([]);
     });
   });
 

@@ -248,8 +248,11 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
   }
 
   async zonasEnUso(): Promise<readonly string[]> {
+    // `GROUP BY` y no `distinct`: el `distinct` de Prisma trae todas las filas y las repite menos en
+    // memoria, y esto corre cada minuto (SCRUM-264).
     const filas = await this.prisma.comoTareaDeAvisos((cliente) =>
-      cliente.preferenciaAviso.findMany({
+      cliente.preferenciaAviso.groupBy({
+        by: ['zonaHoraria'],
         where: {
           OR: [
             { minutoSemaforo: { not: null } },
@@ -258,8 +261,6 @@ export class PrismaAvisosRepository implements AvisosRepositoryPort {
             { minutoNoche: { not: null } },
           ],
         },
-        distinct: ['zonaHoraria'],
-        select: { zonaHoraria: true },
       }),
     );
 

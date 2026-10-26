@@ -1,6 +1,3 @@
-// Vitest no lee `.env` por su cuenta y esta prueba necesita saber a que base apuntar.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RevisarAvisosUseCaseImpl } from '../../application/usecases/RevisarAvisosUseCaseImpl.js';
@@ -11,6 +8,7 @@ import type { PendientesRepositoryPort } from '../../domain/ports/out/Pendientes
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaAvisosRepository } from '../repositories/PrismaAvisosRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Prueba de carga de la revision de avisos (SCRUM-160). **Opcional**: no corre sola.
@@ -37,7 +35,7 @@ import { PrismaAvisosRepository } from '../repositories/PrismaAvisosRepository.j
  * El servicio de push es de mentira (solo espera y cuenta): lo que se mide es
  * nuestro trabajo, la base y la coordinacion, no la red de Google ni de Mozilla.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 const PERSONAS = Number(process.env['CARGA_DE_AVISOS_PERSONAS'] ?? '0');
 const LATENCIA_MS = Number(process.env['CARGA_DE_AVISOS_LATENCIA_MS'] ?? '20');
 const A_LA_VEZ = (process.env['CARGA_DE_AVISOS_A_LA_VEZ'] ?? '1,4,8')

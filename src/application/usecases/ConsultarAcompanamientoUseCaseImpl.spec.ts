@@ -87,9 +87,12 @@ function armar(
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
     save: () => Promise.resolve(),
+    guardarCambios: () => Promise.resolve(null),
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
     inactivarConTodo: () => Promise.resolve(),
+    marcarBaja: () => Promise.resolve(false),
+    bajasPendientes: () => Promise.resolve([]),
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const diasConAtencion = vi.fn(() => Promise.resolve(dias));
@@ -157,6 +160,18 @@ describe('ConsultarAcompanamientoUseCaseImpl (SCRUM-177)', () => {
 
     expect(id.value).toBe(PERSONA);
     expect(actividades.map((actividad) => actividad.value)).toEqual([CARGA]);
+  });
+
+  it('no lee todo el historial: pide los dias con atencion desde hace 37 dias, contados en su calendario (SCRUM-264)', async () => {
+    const { caso, diasConAtencion } = armar(conPermiso(), []);
+
+    await caso.execute(new UserId(PERSONA));
+
+    const [, , desde] = diasConAtencion.mock.calls[0] as unknown as [UserId, ActivityId[], string];
+
+    // A las 9 p. m. del viernes 2 de octubre en Bogota todavia es viernes (no el sabado 3 de UTC):
+    // 37 dias antes del 2 de octubre es el 26 de agosto.
+    expect(desde).toBe('2026-08-26');
   });
 
   it('sin dias con atencion, ninguno y ninguna linea', async () => {

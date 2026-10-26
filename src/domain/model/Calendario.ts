@@ -118,6 +118,13 @@ export class Calendario {
     );
   }
 
+  /** El dia que queda `cuantos` dias antes de `dia`: con `cuantos` negativo, despues. */
+  static diasAntes(dia: Dia, cuantos: number): Dia {
+    return new Date(Date.parse(`${dia}T00:00:00Z`) - cuantos * UN_DIA_EN_MS)
+      .toISOString()
+      .slice(0, 10);
+  }
+
   /** El dia local al que pertenece un instante. */
   diaDe(instante: Date): Dia {
     const { anio, mes, dia } = this.partesLocales(instante);

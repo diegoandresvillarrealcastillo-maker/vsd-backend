@@ -2,12 +2,14 @@ import { Logger, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { AceptarTextosVigentesUseCaseImpl } from '../../application/usecases/AceptarTextosVigentesUseCaseImpl.js';
 import { ActualizarPreferenciasUseCaseImpl } from '../../application/usecases/ActualizarPreferenciasUseCaseImpl.js';
+import { BajaDeCuenta } from '../../application/services/BajaDeCuenta.js';
 import { BorrarCuentaUseCaseImpl } from '../../application/usecases/BorrarCuentaUseCaseImpl.js';
 import { InactivarCuentaUseCaseImpl } from '../../application/usecases/InactivarCuentaUseCaseImpl.js';
 import { ExportarDatosUseCaseImpl } from '../../application/usecases/ExportarDatosUseCaseImpl.js';
 import { FotoDePerfilUseCaseImpl } from '../../application/usecases/FotoDePerfilUseCaseImpl.js';
 import { MascotaPropiaUseCaseImpl } from '../../application/usecases/MascotaPropiaUseCaseImpl.js';
 import { RegistrarCuentaUseCaseImpl } from '../../application/usecases/RegistrarCuentaUseCaseImpl.js';
+import { TerminarBajasPendientesUseCaseImpl } from '../../application/usecases/TerminarBajasPendientesUseCaseImpl.js';
 import { PESO_MAXIMO_DE_LA_FOTO, TIPOS_DE_FOTO } from '../../domain/model/FotoDePerfil.js';
 import { PESO_MAXIMO_DEL_SVG, TIPO_DEL_SVG } from '../../domain/model/svg/SvgDeMascota.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
@@ -24,6 +26,7 @@ import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPo
 import { AlmacenPersonalEnMemoria } from '../almacenamiento/AlmacenPersonalEnMemoria.js';
 import { AlmacenPersonalEnSupabase } from '../almacenamiento/AlmacenPersonalEnSupabase.js';
 import { GuardiaDeCuenta } from '../auth/GuardiaDeCuenta.js';
+import { RelojDeBajas } from '../bajas/RelojDeBajas.js';
 import {
   IdentidadesDeSupabase,
   IdentidadesSinAdministracion,
@@ -48,6 +51,7 @@ import {
   ALMACEN_DE_FOTOS,
   ALMACEN_DE_MASCOTAS,
   AVISOS_REPOSITORY,
+  BAJA_DE_CUENTA,
   BORRAR_CUENTA,
   BORRAR_SIN_CONSTANCIA,
   CONFIGURACION,
@@ -62,6 +66,7 @@ import {
   REGISTRAR_CUENTA,
   REGISTRO_DE_SEGURIDAD,
   SESIONES_REPOSITORY,
+  TERMINAR_BAJAS,
   USER_REPOSITORY,
 } from './tokens.js';
 
@@ -245,24 +250,42 @@ import {
       // Lo que pide la persona al borrar su cuenta (SCRUM-190, ADR 0026): se borra todo y queda
       // una constancia minima de lo que acepto, sin nombre ni correo.
       provide: BORRAR_CUENTA,
-      useFactory: (
-        cuentas: UserRepositoryPort,
-        identidades: ProveedorDeIdentidadPort,
-        fotos: AlmacenPersonalPort,
-        mascotas: AlmacenPersonalPort,
-      ) => new InactivarCuentaUseCaseImpl(cuentas, identidades, [fotos, mascotas]),
-      inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, ALMACEN_DE_FOTOS, ALMACEN_DE_MASCOTAS],
+      useFactory: (baja: BajaDeCuenta) => new InactivarCuentaUseCaseImpl(baja),
+      inject: [BAJA_DE_CUENTA],
     },
     {
       provide: BORRAR_SIN_CONSTANCIA,
+      useFactory: (baja: BajaDeCuenta) => new BorrarCuentaUseCaseImpl(baja),
+      inject: [BAJA_DE_CUENTA],
+    },
+    {
+      // Los pasos de la baja (SCRUM-267, ADR 0040): una marca, lo de fuera sin transaccion y las
+      // filas al final. Los comparten quien la pide y la tarea que termina las cortadas.
+      provide: BAJA_DE_CUENTA,
       useFactory: (
         cuentas: UserRepositoryPort,
         identidades: ProveedorDeIdentidadPort,
         fotos: AlmacenPersonalPort,
         mascotas: AlmacenPersonalPort,
-      ) => new BorrarCuentaUseCaseImpl(cuentas, identidades, [fotos, mascotas]),
+      ) => new BajaDeCuenta(cuentas, identidades, [fotos, mascotas]),
       inject: [USER_REPOSITORY, PROVEEDOR_DE_IDENTIDAD, ALMACEN_DE_FOTOS, ALMACEN_DE_MASCOTAS],
     },
+    {
+      provide: TERMINAR_BAJAS,
+      useFactory: (cuentas: UserRepositoryPort, baja: BajaDeCuenta) => {
+        const registro = new Logger('Bajas');
+
+        return new TerminarBajasPendientesUseCaseImpl(cuentas, baja, {
+          // Que fallo; nunca de quien.
+          fallo: (error) =>
+            registro.warn(
+              `Una baja pendiente no termino: ${error instanceof Error ? error.message : 'error desconocido'}`,
+            ),
+        });
+      },
+      inject: [USER_REPOSITORY, BAJA_DE_CUENTA],
+    },
+    RelojDeBajas,
     {
       provide: EXPORTAR_DATOS,
       useFactory: (

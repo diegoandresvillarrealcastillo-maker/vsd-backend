@@ -11,8 +11,12 @@ export interface PendientesRepositoryPort {
   /** Los sin hacer, y los hechos desde `hechosDesde`. */
   vigentesDe(userId: UserId, hechosDesde: Date): Promise<readonly Pendiente[]>;
 
-  /** Todos, para la exportacion de datos. */
-  todosDe(userId: UserId): Promise<readonly Pendiente[]>;
+  /**
+   * Todos, del mas antiguo al mas reciente, **por paginas** de `FILAS_POR_PAGINA` (SCRUM-262).
+   * Para la exportacion: quien la consume escribe cada pagina y sigue, sin tenerlos todos a la vez.
+   * No repite ni se salta ninguno aunque dos compartan la hora.
+   */
+  paginasDePendientes(userId: UserId): AsyncIterable<readonly Pendiente[]>;
 
   porId(userId: UserId, id: PendienteId): Promise<Pendiente | null>;
 

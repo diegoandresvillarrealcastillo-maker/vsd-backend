@@ -1,3 +1,4 @@
+import type { BajaPendiente } from '../../model/BajaPendiente.js';
 import type { UserId } from '../../model/Identifier.js';
 import type { ConsentimientoAceptado, User } from '../../model/User.js';
 
@@ -41,8 +42,32 @@ export interface UserRepositoryPort {
    *
    * Guardar dos veces la misma cuenta la deja como esta la segunda vez, no
    * crea otra. Es lo que permite reintentar sin mirar antes si existia.
+   *
+   * Escribe **la cuenta entera**, y por eso sirve para crearla (el alta) y no para cambiar una
+   * que ya existe: quien la leyo, la cambio y la guarda entera pisa, con lo que leyo, lo que otra
+   * peticion hubiera cambiado entretanto. Para eso, `guardarCambios` (SCRUM-258).
    */
   save(user: User): Promise<void>;
+
+  /**
+   * Guarda **solo lo que cambio** entre `antes`, la cuenta como se leyo, y `despues`, y devuelve la
+   * cuenta tal como quedo guardada (SCRUM-258).
+   *
+   * Es la forma de cambiar una cuenta que ya existe. Una peticion que solo cambia la foto no puede
+   * tocar nada mas: si la persona acababa de apagar un permiso, sigue apagado. Los campos que
+   * cambian a la vez en dos peticiones los gana la ultima, campo por campo.
+   *
+   * Lo que devuelve es lo que hay guardado despues de escribir, con lo que otras peticiones
+   * hubieran cambiado, y no lo que se habia leido: es lo que la respuesta tiene que contar.
+   *
+   * Devuelve `null` si la cuenta ya no existe (se borro o se dio de baja entretanto) y **no la crea
+   * de nuevo**: una orden que cargo la cuenta antes de la baja no puede devolverle la vida con sus
+   * datos personales (SCRUM-190, ADR 0026).
+   *
+   * Falla si `antes` y `despues` no son la misma cuenta, o si cambia el correo, el rol o el
+   * proveedor: por aqui no se cambian y se perderian sin avisar.
+   */
+  guardarCambios(antes: User, despues: User): Promise<User | null>;
 
   /**
    * Todo lo que la persona ha aceptado, version por version, de la mas antigua
@@ -55,26 +80,39 @@ export interface UserRepositoryPort {
   consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]>;
 
   /**
-   * Da de baja la cuenta (SCRUM-190, ADR 0026): borra todo lo que cuelga de
-   * ella —igual que `borrarConTodo`— y deja **una constancia minima**: que la
-   * cuenta existio, cuando, y lo que la persona acepto, version por version.
-   * Sin nombre, sin correo, sin fecha de nacimiento: la constancia demuestra
-   * una autorizacion, no identifica a nadie.
+   * Deja la marca de que se pidio la baja de la cuenta (SCRUM-267, ADR 0040), **antes** de borrar
+   * nada de lo de fuera de la base (los archivos y la identidad en el proveedor).
    *
-   * La constancia tambien recuerda el identificador que el proveedor le dio a
-   * la identidad, para que `estaInactivadaPorProveedor` pueda rechazar un token
-   * que todavia no caduco.
+   * Mientras la marca exista, la baja se termina sola: `bajasPendientes` la devuelve y la tarea del
+   * API repite los pasos. La marca se va con la fila de `usuario`, asi que no hay que quitarla.
    *
-   * Es todo o nada, como `borrarConTodo`: `antesDeConfirmar` corre con todo ya
-   * hecho pero sin confirmar, y si lanza no queda ni la baja ni la constancia.
-   * Dar de baja una cuenta que no existe no es un error, no deja constancia y
-   * no llama a `antesDeConfirmar`.
+   * Devuelve `false`, sin dejar nada, si la cuenta ya no existe. Marcar dos veces no es un error y
+   * la primera marca manda: ni `conConstancia` ni `pedidaEl` cambian.
    */
-  inactivarConTodo(
-    id: UserId,
-    inactivadaEl: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void>;
+  marcarBaja(id: UserId, conConstancia: boolean, pedidaEl: Date): Promise<boolean>;
+
+  /**
+   * Las bajas que se pidieron antes de `pedidasAntes` y no terminaron, las mas antiguas primero y
+   * como mucho `limite`.
+   *
+   * El corte existe para no pisar una baja que sigue en curso: la persona que la pidio espera a lo
+   * de fuera unos segundos, y solo pasado un rato se da por cortada.
+   */
+  bajasPendientes(pedidasAntes: Date, limite: number): Promise<readonly BajaPendiente[]>;
+
+  /**
+   * Termina la baja con constancia (SCRUM-190, ADR 0026): anota la constancia minima y borra todo lo
+   * vivo, en una transaccion corta. Se llama cuando lo de fuera ya se borro (ADR 0040).
+   *
+   * La constancia dice que la cuenta existio, cuando, y lo que la persona acepto, version por
+   * version. Sin nombre, sin correo, sin fecha de nacimiento: demuestra una autorizacion, no
+   * identifica a nadie. Recuerda tambien el identificador que el proveedor le dio a la identidad,
+   * para que `estaInactivadaPorProveedor` pueda rechazar un token que todavia no caduco.
+   *
+   * Es todo o nada: si algo falla no queda ni la baja ni la constancia. Dar de baja una cuenta que
+   * no existe no es un error y no deja constancia, asi que repetirla es seguro.
+   */
+  inactivarConTodo(id: UserId, inactivadaEl: Date): Promise<void>;
 
   /**
    * Si ese identificador del proveedor perteneció a una cuenta que se dio de
@@ -88,15 +126,12 @@ export interface UserRepositoryPort {
   estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean>;
 
   /**
-   * Borra la cuenta y todo lo que cuelga de ella: resultados, entradas de
-   * diario y cualquier tabla que guarde algo de esa persona.
+   * Borra la cuenta y todo lo que cuelga de ella: resultados, entradas de diario y cualquier tabla
+   * que guarde algo de esa persona. Sin constancia: es lo que se hace con el rechazo de un menor.
    *
-   * Es todo o nada. `antesDeConfirmar` se ejecuta con el borrado ya hecho pero
-   * sin confirmar; si lanza, el borrado se deshace y la cuenta queda como
-   * estaba. Asi se ata a este borrado lo que vive fuera de la base —la
-   * identidad en el proveedor— sin dejar nunca una mitad hecha.
-   *
-   * Borrar una cuenta que no existe no es un error.
+   * Es una transaccion corta y todo o nada. Lo que vive fuera de la base (los archivos, la
+   * identidad) se borra antes, fuera de la transaccion (ADR 0040). Borrar una cuenta que no existe
+   * no es un error.
    */
-  borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void>;
+  borrarConTodo(id: UserId): Promise<void>;
 }

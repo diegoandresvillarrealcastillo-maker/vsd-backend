@@ -1,7 +1,3 @@
-// Vitest no lee `.env` por su cuenta y estas pruebas necesitan saber si hay
-// una base local a la que conectarse.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
@@ -17,6 +13,7 @@ import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaActivityRepository } from './PrismaActivityRepository.js';
 import { PrismaActivityResultRepository } from './PrismaActivityResultRepository.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El adaptador de Prisma contra PostgreSQL de verdad.
@@ -38,7 +35,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * viven en `persistence/aislamiento.spec.ts`. Aqui se comprueba que el
  * adaptador funciona **dentro** de esas politicas.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -49,7 +46,7 @@ const URL_DUENO = process.env['DATABASE_URL'];
 // justo lo correcto.
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }
@@ -376,11 +373,12 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     expect(recuperado?.sugiereAcompanamientoPorSiSolo()).toBe(false);
   });
 
-  it('la base rechaza el duplicado, no la aplicacion', async () => {
+  it('la base rechaza el duplicado y el segundo guardado recibe el primero', async () => {
     // El caso de uso ya evita llegar hasta aqui: consulta antes de escribir.
     // Esta prueba se salta esa proteccion a proposito, porque lo que
-    // comprueba es la de abajo. Si el codigo fallara, si hubiera una carrera
-    // entre dos peticiones simultaneas, el duplicado sigue sin entrar.
+    // comprueba es la de abajo. El adaptador no consulta antes de insertar:
+    // quien rechaza el duplicado es la clave unica, y el adaptador, al verlo,
+    // devuelve lo que ya estaba (SCRUM-258).
     const datos = {
       usuario: USUARIO_A,
       actividad: ACTIVIDAD_MEMORIA,
@@ -388,13 +386,15 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       puntajeCrudo: 5,
     };
 
-    await repositorio.save(
+    const primero = await repositorio.save(
       await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000003' }),
     );
+    const repetido = await repositorio.save(
+      await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000004' }),
+    );
 
-    await expect(
-      repositorio.save(await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000004' })),
-    ).rejects.toThrow();
+    expect(primero.id.value).toBe('40000000-0000-4000-8000-000000000003');
+    expect(repetido.id.value).toBe(primero.id.value);
 
     const { rows } = await dueno.query<{ total: string }>(
       'SELECT count(*)::text AS total FROM resultado WHERE id_operacion_cliente = $1',
@@ -402,6 +402,34 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
     );
 
     expect(rows[0]).toMatchObject({ total: '1' });
+  });
+
+  it('dos guardados simultaneos de la misma operacion devuelven el mismo resultado (SCRUM-258)', async () => {
+    // La carrera de verdad, contra la base: los dos insertan a la vez y la clave unica deja
+    // pasar a uno. El otro no puede acabar en un error: la persona reintento porque la red se
+    // cayo, y lo que merece es ver lo que quedo guardado.
+    const datos = {
+      usuario: USUARIO_A,
+      actividad: ACTIVIDAD_MEMORIA,
+      operacion: '50000000-0000-4000-8000-000000000006',
+      puntajeCrudo: 7,
+    };
+    const uno = await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000010' });
+    const otro = await unResultado({ ...datos, id: '40000000-0000-4000-8000-000000000011' });
+
+    const [guardadoUno, guardadoOtro] = await Promise.all([
+      repositorio.save(uno),
+      repositorio.save(otro),
+    ]);
+
+    expect(guardadoOtro.id.value).toBe(guardadoUno.id.value);
+
+    const { rows } = await dueno.query<{ id: string }>(
+      'SELECT id_resultado AS id FROM resultado WHERE id_operacion_cliente = $1',
+      [datos.operacion],
+    );
+
+    expect(rows).toEqual([{ id: guardadoUno.id.value }]);
   });
 
   it('la misma operacion en dos personas distintas si convive', async () => {
@@ -420,17 +448,19 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       }),
     );
 
-    await expect(
-      repositorio.save(
-        await unResultado({
-          id: '40000000-0000-4000-8000-000000000006',
-          usuario: USUARIO_B,
-          actividad: ACTIVIDAD_MEMORIA,
-          operacion,
-          puntajeCrudo: 3,
-        }),
-      ),
-    ).resolves.toBeUndefined();
+    const deB = await repositorio.save(
+      await unResultado({
+        id: '40000000-0000-4000-8000-000000000006',
+        usuario: USUARIO_B,
+        actividad: ACTIVIDAD_MEMORIA,
+        operacion,
+        puntajeCrudo: 3,
+      }),
+    );
+
+    // Lo suyo, no lo de la otra persona.
+    expect(deB.id.value).toBe('40000000-0000-4000-8000-000000000006');
+    expect(deB.userId.value).toBe(USUARIO_B);
   });
 
   it('pedir la operacion de otra persona conociendo su identificador no devuelve nada', async () => {
@@ -627,6 +657,8 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
   describe('diasConAtencion (SCRUM-177)', () => {
     /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
     const CUENTAN = [new ActivityId(ACTIVIDAD_MEMORIA)];
+    /** Una ventana que no recorta nada: para las pruebas que no hablan de ella. */
+    const DESDE_SIEMPRE = '1970-01-01';
 
     /** Un resultado de ese dia: con puntaje crudo 1 requiere atencion, con 8 es favorable, sin puntaje no puntua. */
     async function guardarEnElDia(
@@ -656,27 +688,48 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       // Un dia solo favorable no cuenta.
       await guardarEnElDia(USUARIO_A, 4, '2026-09-15', 8);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
-        '2026-09-14',
-        '2026-09-16',
-      ]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14', '2026-09-16']);
     });
 
     it('un dia con uno favorable y uno que requiere atencion cuenta como dia con atencion', async () => {
       await guardarEnElDia(USUARIO_A, 5, '2026-09-14', 8);
       await guardarEnElDia(USUARIO_A, 6, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual([
-        '2026-09-14',
-      ]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
     });
 
     it('lo que no puntua no cuenta', async () => {
       await guardarEnElDia(USUARIO_A, 7, '2026-09-14', undefined);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
-        [],
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
+    });
+
+    it('el nivel se deriva con la interpretacion vigente, no se toma de la columna (SCRUM-259)', async () => {
+      // El acompanamiento y el historial tienen que leer lo mismo de un resultado: si uno filtrara
+      // por la columna guardada al registrar y el otro volviera a derivar el nivel, un cambio de
+      // umbrales los haria discrepar sobre el mismo dia.
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-14', 1);
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-15', 8);
+
+      // La columna dice lo contrario de lo que toca en los dos.
+      await dueno.query(
+        `UPDATE resultado SET nivel_orientativo = 'favorable' WHERE id_resultado = $1`,
+        ['40000000-0000-4000-8000-0000000000e1'],
       );
+      await dueno.query(
+        `UPDATE resultado SET nivel_orientativo = 'requiere_atencion' WHERE id_resultado = $1`,
+        ['40000000-0000-4000-8000-0000000000e2'],
+      );
+
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
     });
 
     it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
@@ -684,19 +737,130 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
 
       const otra = new ActivityId('33333333-3333-4333-a333-333333333399');
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [otra])).resolves.toEqual([]);
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), [])).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), [otra], DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), [], DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
     });
 
     it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
       await guardarEnElDia(USUARIO_B, 8, '2026-09-14', 1);
 
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN)).resolves.toEqual(
-        [],
-      );
-      await expect(repositorio.diasConAtencion(new UserId(USUARIO_B), CUENTAN)).resolves.toEqual([
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_A), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual([]);
+      await expect(
+        repositorio.diasConAtencion(new UserId(USUARIO_B), CUENTAN, DESDE_SIEMPRE),
+      ).resolves.toEqual(['2026-09-14']);
+    });
+
+    it('solo mira desde la fecha que se pide, y ese dia cuenta (SCRUM-264)', async () => {
+      await guardarEnElDia(USUARIO_A, 1, '2026-09-13', 1);
+      await guardarEnElDia(USUARIO_A, 2, '2026-09-14', 1);
+      await guardarEnElDia(USUARIO_A, 3, '2026-09-16', 1);
+
+      const A = new UserId(USUARIO_A);
+
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-14')).resolves.toEqual([
         '2026-09-14',
+        '2026-09-16',
       ]);
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-15')).resolves.toEqual([
+        '2026-09-16',
+      ]);
+      await expect(repositorio.diasConAtencion(A, CUENTAN, '2026-09-17')).resolves.toEqual([]);
+    });
+  });
+
+  describe('hechosDe (SCRUM-264)', () => {
+    /** Un resultado de esa actividad ese dia (sin puntaje: aqui solo importan la actividad y el dia). */
+    async function guardarHecho(
+      usuario: string,
+      numero: number,
+      actividad: string,
+      dia: string,
+    ): Promise<void> {
+      await repositorio.save(
+        await unResultado({
+          id: `40000000-0000-4000-8000-0000000000d${numero}`,
+          usuario,
+          actividad,
+          operacion: `50000000-0000-4000-8000-0000000000d${numero}`,
+          completedAt: new Date(`${dia}T15:00:00.000Z`),
+          dia,
+        }),
+      );
+    }
+
+    it('una fila por actividad y dia, sin repetir, del dia mas antiguo al mas reciente', async () => {
+      await guardarHecho(USUARIO_A, 1, ACTIVIDAD_MEMORIA, '2026-09-16');
+      await guardarHecho(USUARIO_A, 2, ACTIVIDAD_MEMORIA, '2026-09-14');
+      // La misma actividad el mismo dia, dos veces: una sola pareja.
+      await guardarHecho(USUARIO_A, 3, ACTIVIDAD_MEMORIA, '2026-09-16');
+      // Otra actividad el mismo dia: otra pareja.
+      await guardarHecho(USUARIO_A, 4, ACTIVIDAD_CARGA, '2026-09-16');
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-16' },
+        { actividad: ACTIVIDAD_CARGA, dia: '2026-09-16' },
+      ]);
+    });
+
+    it('usa el dia guardado y no el instante: lo de las 8 p. m. es de ese dia', async () => {
+      // 01:00 UTC del 15 es la noche del 14 en Colombia.
+      await repositorio.save(
+        await unResultado({
+          id: '40000000-0000-4000-8000-0000000000d5',
+          usuario: USUARIO_A,
+          actividad: ACTIVIDAD_MEMORIA,
+          operacion: '50000000-0000-4000-8000-0000000000d5',
+          completedAt: new Date('2026-09-15T01:00:00.000Z'),
+          dia: '2026-09-14',
+        }),
+      );
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+      ]);
+    });
+
+    it('lo de otra persona no cuenta: el aislamiento lo pone la base', async () => {
+      await guardarHecho(USUARIO_B, 6, ACTIVIDAD_MEMORIA, '2026-09-14');
+
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([]);
+      await expect(repositorio.hechosDe(new UserId(USUARIO_B))).resolves.toEqual([
+        { actividad: ACTIVIDAD_MEMORIA, dia: '2026-09-14' },
+      ]);
+    });
+
+    it('con muchos resultados repetidos devuelve solo las parejas distintas', async () => {
+      // 450 resultados repartidos en 3 dias y 2 actividades: son 6 parejas, no 450 filas.
+      for (let n = 0; n < 450; n++) {
+        const sufijo = String(n).padStart(12, '0');
+
+        await repositorio.save(
+          await unResultado({
+            id: `42000000-0000-4000-8000-${sufijo}`,
+            usuario: USUARIO_A,
+            actividad: n % 2 === 0 ? ACTIVIDAD_MEMORIA : ACTIVIDAD_CARGA,
+            operacion: `52000000-0000-4000-8000-${sufijo}`,
+            completedAt: new Date(`2026-09-1${4 + (n % 3)}T15:00:00.000Z`),
+            dia: `2026-09-1${4 + (n % 3)}`,
+          }),
+        );
+      }
+
+      const hechos = await repositorio.hechosDe(new UserId(USUARIO_A));
+
+      expect(hechos).toHaveLength(6);
+      expect(new Set(hechos.map((hecho) => `${hecho.dia}|${hecho.actividad}`)).size).toBe(6);
+    });
+
+    it('sin resultados, una lista vacia', async () => {
+      await expect(repositorio.hechosDe(new UserId(USUARIO_A))).resolves.toEqual([]);
     });
   });
 
@@ -810,6 +974,119 @@ describe.skipIf(URL_DUENO === undefined)('PrismaActivityResultRepository contra 
       await expect(
         repositorio.historialDe(new UserId(USUARIO_A), [], { limite: 10 }),
       ).resolves.toEqual([]);
+    });
+  });
+
+  describe('paginasDeResultados (SCRUM-262)', () => {
+    const TOTAL = 450;
+
+    /**
+     * 450 resultados de A y 3 de B. Cada hora la comparten tres resultados de A: con 200 por
+     * pagina, el limite de la primera parte justo un empate, que es donde un cursor mal hecho
+     * repite o se salta filas.
+     */
+    async function sembrarMuchos(): Promise<void> {
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('42000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('52000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + ((i / 3) * interval '1 minute'),
+                date '2026-09-01'
+           FROM generate_series(1, $3::int) AS i`,
+        [USUARIO_A, ACTIVIDAD_BITACORA, TOTAL],
+      );
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('43000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('53000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00', date '2026-09-01'
+           FROM generate_series(1, 3) AS i`,
+        [USUARIO_B, ACTIVIDAD_BITACORA],
+      );
+    }
+
+    async function paginas(usuario: string, desde = new Date(0)): Promise<ActivityResult[][]> {
+      const todas: ActivityResult[][] = [];
+
+      for await (const pagina of repositorio.paginasDeResultados(new UserId(usuario), desde)) {
+        todas.push([...pagina]);
+      }
+
+      return todas;
+    }
+
+    /** Los identificadores de A en el orden que promete el puerto, segun la base. */
+    async function ordenDeLaBase(): Promise<string[]> {
+      const { rows } = await dueno.query<{ id: string }>(
+        `SELECT id_resultado AS id FROM resultado WHERE id_usuario = $1
+          ORDER BY fecha DESC, id_resultado DESC`,
+        [USUARIO_A],
+      );
+
+      return rows.map((fila) => fila.id);
+    }
+
+    it('entrega todo en paginas de 200, del mas reciente al mas antiguo, sin repetir ni saltarse ninguno', async () => {
+      await sembrarMuchos();
+
+      const recibidas = await paginas(USUARIO_A);
+
+      expect(recibidas.map((pagina) => pagina.length)).toEqual([200, 200, 50]);
+
+      const ids = recibidas.flat().map((resultado) => resultado.id.value);
+
+      expect(new Set(ids).size).toBe(TOTAL);
+      expect(ids).toEqual(await ordenDeLaBase());
+    });
+
+    it('lo de otra persona no aparece: el aislamiento lo pone la base', async () => {
+      await sembrarMuchos();
+
+      const ids = (await paginas(USUARIO_B)).flat().map((resultado) => resultado.id.value);
+
+      expect(ids).toHaveLength(3);
+      expect(ids.every((id) => id.startsWith('43000000'))).toBe(true);
+    });
+
+    it('respeta la fecha desde la que se pide', async () => {
+      await sembrarMuchos();
+
+      // Las ultimas 60 horas distintas: grupos 90 a 150 -> desde el minuto 90.
+      const desde = new Date('2026-09-01T01:30:00.000Z');
+      const esperados = await dueno.query<{ n: string }>(
+        'SELECT count(*) AS n FROM resultado WHERE id_usuario = $1 AND fecha >= $2',
+        [USUARIO_A, desde],
+      );
+
+      const recibidos = (await paginas(USUARIO_A, desde)).flat();
+
+      expect(recibidos).toHaveLength(Number(esperados.rows[0]?.n));
+      expect(recibidos.every((resultado) => resultado.completedAt >= desde)).toBe(true);
+    });
+
+    it('una persona sin resultados no produce ninguna pagina', async () => {
+      await expect(paginas(USUARIO_A)).resolves.toEqual([]);
+    });
+
+    it('una cantidad exacta de paginas llenas no inventa una pagina vacia al final', async () => {
+      await dueno.query(
+        `INSERT INTO resultado (id_resultado, id_usuario, id_actividad, id_operacion_cliente, fecha, dia)
+         SELECT ('44000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2,
+                ('54000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+                timestamptz '2026-09-01 00:00:00+00' + (i * interval '1 minute'), date '2026-09-01'
+           FROM generate_series(1, 400) AS i`,
+        [USUARIO_A, ACTIVIDAD_BITACORA],
+      );
+
+      expect((await paginas(USUARIO_A)).map((pagina) => pagina.length)).toEqual([200, 200]);
+    });
+
+    it('ultimosDe sigue entregando todo, ahora leido por paginas', async () => {
+      await sembrarMuchos();
+
+      const todos = await repositorio.ultimosDe(new UserId(USUARIO_A), new Date(0));
+
+      expect(todos.map((resultado) => resultado.id.value)).toEqual(await ordenDeLaBase());
     });
   });
 });

@@ -122,6 +122,17 @@ describe('Calendario, los dias como texto (SCRUM-95)', () => {
     expect(Calendario.diasEntre('2026-10-03', '2026-09-27')).toBe(-6);
     expect(Calendario.diasEntre('2025-10-03', '2026-10-03')).toBe(365);
   });
+
+  it('da el dia que queda tantos dias antes, cruzando mes y anio', () => {
+    expect(Calendario.diasAntes('2026-10-03', 0)).toBe('2026-10-03');
+    expect(Calendario.diasAntes('2026-10-03', 6)).toBe('2026-09-27');
+    expect(Calendario.diasAntes('2026-01-02', 3)).toBe('2025-12-30');
+    // Un anio bisiesto: el 29 de febrero existe.
+    expect(Calendario.diasAntes('2028-03-01', 1)).toBe('2028-02-29');
+    // Con un numero negativo, queda despues; y es lo inverso de `diasEntre`.
+    expect(Calendario.diasAntes('2026-10-03', -2)).toBe('2026-10-05');
+    expect(Calendario.diasEntre(Calendario.diasAntes('2026-10-03', 37), '2026-10-03')).toBe(37);
+  });
 });
 
 describe('minutoDelDia (SCRUM-102)', () => {

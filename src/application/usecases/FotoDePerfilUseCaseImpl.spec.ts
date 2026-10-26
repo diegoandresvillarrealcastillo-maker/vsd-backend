@@ -154,17 +154,17 @@ describe('FotoDePerfilUseCaseImpl (SCRUM-120)', () => {
       // foto que no esta.
       const orden: string[] = [];
       const guardarEnElAlmacen = almacen.guardar.bind(almacen);
-      const guardarLaCuenta = cuentas.save.bind(cuentas);
+      const guardarLaCuenta = cuentas.guardarCambios.bind(cuentas);
 
       almacen.guardar = (persona, archivo) => {
         orden.push('archivo');
 
         return guardarEnElAlmacen(persona, archivo);
       };
-      cuentas.save = (cuenta) => {
+      cuentas.guardarCambios = (antes, despues) => {
         orden.push('marca');
 
-        return guardarLaCuenta(cuenta);
+        return guardarLaCuenta(antes, despues);
       };
 
       await casoDeUso.guardar(new UserId(ANA), PNG_REAL_DE_8_X_6, 'image/png');
@@ -273,5 +273,94 @@ describe('FotoDePerfilUseCaseImpl (SCRUM-120)', () => {
       expect((await casoDeUso.leer(new UserId(ANA))).contenido).toEqual(PNG_REAL_DE_8_X_6);
       await expect(casoDeUso.leer(new UserId(BETO))).rejects.toThrow(PhotoNotFoundError);
     });
+  });
+});
+
+describe('FotoDePerfilUseCaseImpl: lo que pasa mientras se sube el archivo (SCRUM-258)', () => {
+  const persona = new UserId(ANA);
+  let cuentas: RepositorioDeCuentasDoble;
+  let almacen: AlmacenDoble;
+  let casoDeUso: FotoDePerfilUseCaseImpl;
+
+  /** Lo que ocurre en otra peticion justo mientras este caso de uso sube el archivo, que es lo lento. */
+  function mientrasSeSube(otraPeticion: () => Promise<void>): void {
+    const guardar = almacen.guardar.bind(almacen);
+
+    almacen.guardar = async (quien, archivo) => {
+      await otraPeticion();
+
+      return guardar(quien, archivo);
+    };
+  }
+
+  beforeEach(async () => {
+    cuentas = new RepositorioDeCuentasDoble();
+    almacen = new AlmacenDoble();
+    casoDeUso = new FotoDePerfilUseCaseImpl(cuentas, almacen, () => AHORA);
+
+    await cuentas.save(
+      unaCuenta({ id: ANA, correo: 'ana@ejemplo.test', idProveedorAuth: 'p-ana' }).conPreferencias({
+        diarioConRecomendaciones: true,
+        acompanamientoPorDias: true,
+      }),
+    );
+  });
+
+  it('subir la foto no enciende los permisos que la persona apago mientras tanto', async () => {
+    mientrasSeSube(async () => {
+      const leida = await cuentas.findById(persona);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ diarioConRecomendaciones: false, acompanamientoPorDias: false }),
+        );
+      }
+    });
+
+    const respuesta = await casoDeUso.guardar(persona, PNG_REAL_DE_8_X_6, 'image/png');
+    const guardada = await cuentas.findById(persona);
+
+    // La respuesta cuenta lo que quedo, no lo que se habia leido.
+    expect(respuesta.fotoActualizadaEl).toEqual(AHORA);
+    expect(respuesta.diarioConRecomendaciones).toBe(false);
+    expect(respuesta.acompanamientoPorDias).toBe(false);
+    expect(guardada?.fotoActualizadaEl).toEqual(AHORA);
+    expect(guardada?.diarioConRecomendaciones).toBe(false);
+    expect(guardada?.acompanamientoPorDias).toBe(false);
+  });
+
+  it('quitar la foto tampoco enciende lo que se apago mientras tanto', async () => {
+    await casoDeUso.guardar(persona, PNG_REAL_DE_8_X_6, 'image/png');
+    const borrar = almacen.borrar.bind(almacen);
+
+    almacen.borrar = async (quien) => {
+      const leida = await cuentas.findById(persona);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ acompanamientoPorDias: false }),
+        );
+      }
+
+      return borrar(quien);
+    };
+
+    const respuesta = await casoDeUso.quitar(persona);
+
+    expect(respuesta.fotoActualizadaEl).toBeUndefined();
+    expect((await cuentas.findById(persona))?.acompanamientoPorDias).toBe(false);
+  });
+
+  it('si la cuenta se borra mientras se sube, no queda la foto de una cuenta que ya no existe', async () => {
+    mientrasSeSube(() => cuentas.borrarConTodo(persona));
+
+    await expect(casoDeUso.guardar(persona, PNG_REAL_DE_8_X_6, 'image/png')).rejects.toThrow(
+      AccountNotProvisionedError,
+    );
+
+    expect(await cuentas.findById(persona)).toBeNull();
+    expect(almacen.mirar(persona)).toBeUndefined();
   });
 });

@@ -6,7 +6,7 @@ import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorD
  * transaccion abierta, y una transaccion no puede quedarse esperando a la red
  * indefinidamente.
  */
-const ESPERA_MAXIMA_MS = 4000;
+export const ESPERA_MAXIMA_MS = 4000;
 
 /**
  * Borra identidades con la API de administracion de Supabase Auth.

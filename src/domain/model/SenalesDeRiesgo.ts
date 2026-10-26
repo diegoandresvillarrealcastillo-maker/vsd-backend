@@ -28,7 +28,13 @@
  * esta capa no lo vio.
  */
 
-import { corregirPalabras, normalizar, palabrasDe, vocabularioDe } from './LecturaDelTexto.js';
+import {
+  conInvisiblesComoEspacio,
+  corregirPalabras,
+  normalizar,
+  palabrasDe,
+  vocabularioDe,
+} from './LecturaDelTexto.js';
 
 // `normalizar` vive en `LecturaDelTexto` (SCRUM-193) y se sigue ofreciendo desde aqui: es de donde
 // lo importa casi todo el sistema.
@@ -102,6 +108,18 @@ const VOCABULARIO_DE_RIESGO = vocabularioDe([EXPRESIONES_DE_RIESGO]);
  * habla, que no corrija lo ambiguo) estan en `LecturaDelTexto.ts`.
  */
 export function hayRiesgo(texto: string): boolean {
+  if (hayRiesgoEn(texto)) {
+    return true;
+  }
+
+  // Un invisible puede esconder una letra (mo + U+200B + rir) o hacer de espacio (quiero + U+200B +
+  // morir). La primera lectura los quita; esta los lee como espacio. Solo suma (SCRUM-258).
+  const comoSeparador = conInvisiblesComoEspacio(texto);
+
+  return comoSeparador !== texto && hayRiesgoEn(comoSeparador);
+}
+
+function hayRiesgoEn(texto: string): boolean {
   const limpio = normalizar(texto);
 
   if (EXPRESIONES_DE_RIESGO.some((expresion) => limpio.includes(expresion))) {

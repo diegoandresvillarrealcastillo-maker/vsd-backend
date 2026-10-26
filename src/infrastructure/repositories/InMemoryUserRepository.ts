@@ -1,3 +1,4 @@
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import type { ConstanciaDeBaja } from '../../domain/model/ConstanciaDeBaja.js';
 import { AccountInactiveError } from '../../domain/model/DomainError.js';
 import type { UserId } from '../../domain/model/Identifier.js';
@@ -34,6 +35,9 @@ export class InMemoryUserRepository implements UserRepositoryPort {
   /** Las cuentas dadas de baja (SCRUM-190), por el identificador del proveedor. */
   private readonly dadasDeBaja = new Map<string, ConstanciaDeBaja>();
 
+  /** Las bajas pedidas que no terminaron (SCRUM-267), por cuenta. */
+  private readonly bajas = new Map<string, BajaPendiente>();
+
   findById(id: UserId): Promise<User | null> {
     // El puerto es asincrono porque el adaptador real habla con PostgreSQL.
     // Aqui no hay nada que esperar, asi que se devuelve una promesa resuelta
@@ -59,6 +63,23 @@ export class InMemoryUserRepository implements UserRepositoryPort {
     this.anotarLoAceptado(user);
 
     return Promise.resolve();
+  }
+
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const campos = despues.camposCambiadosDesde(antes);
+    const actual = this.porId.get(despues.id.value);
+
+    // Una cuenta borrada o dada de baja ya no esta aqui: no se vuelve a crear.
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, campos);
+
+    this.porId.set(quedo.id.value, quedo);
+    this.anotarLoAceptado(quedo);
+
+    return Promise.resolve(quedo);
   }
 
   consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
@@ -93,38 +114,49 @@ export class InMemoryUserRepository implements UserRepositoryPort {
     this.historial.set(user.id.value, anotadas);
   }
 
-  /**
-   * Aqui no hay transaccion que deshacer, asi que el orden se invierte: primero
-   * lo de fuera y, solo si sale bien, se borra. El efecto visible es el mismo
-   * que en la base: o se borra todo o no se borra nada.
-   *
-   * No borra los resultados del adaptador en memoria de resultados: un Map no
-   * tiene claves foraneas. Que el borrado alcance a todas las tablas lo
-   * garantiza la base, y lo prueba la suite de integracion.
-   */
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await antesDeConfirmar();
-    this.porId.delete(id.value);
-    this.historial.delete(id.value);
+  marcarBaja(id: UserId, conConstancia: boolean, pedidaEl: Date): Promise<boolean> {
+    if (!this.porId.has(id.value)) {
+      return Promise.resolve(false);
+    }
+
+    // La primera marca manda, como el `ON CONFLICT DO NOTHING` de la base.
+    if (!this.bajas.has(id.value)) {
+      this.bajas.set(id.value, { id, conConstancia, pedidaEl });
+    }
+
+    return Promise.resolve(true);
+  }
+
+  bajasPendientes(pedidasAntes: Date, limite: number): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve(
+      [...this.bajas.values()]
+        .filter((baja) => baja.pedidaEl.getTime() < pedidasAntes.getTime())
+        .sort(
+          (a, b) =>
+            a.pedidaEl.getTime() - b.pedidaEl.getTime() || a.id.value.localeCompare(b.id.value),
+        )
+        .slice(0, limite),
+    );
   }
 
   /**
-   * Da de baja la cuenta con constancia. Igual que `borrarConTodo`, aqui no hay
-   * transaccion que deshacer: primero lo de fuera y, si sale bien, la baja. El
-   * efecto visible es el mismo que en la base.
+   * No borra los resultados del adaptador en memoria de resultados: un Map no tiene claves
+   * foraneas. Que el borrado alcance a todas las tablas lo garantiza la base, y lo prueba la suite
+   * de integracion. La marca de la baja si se va, como por la cascada de la base.
    */
-  async inactivarConTodo(
-    id: UserId,
-    inactivadaEl: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
+  borrarConTodo(id: UserId): Promise<void> {
+    this.quitar(id);
+
+    return Promise.resolve();
+  }
+
+  /** Da de baja la cuenta con constancia: la misma cuenta que se borra y su marca se van juntas. */
+  inactivarConTodo(id: UserId, inactivadaEl: Date): Promise<void> {
     const cuenta = this.porId.get(id.value);
 
     if (cuenta === undefined) {
-      return;
+      return Promise.resolve();
     }
-
-    await antesDeConfirmar();
 
     this.dadasDeBaja.set(cuenta.idProveedorAuth, {
       idCuenta: id.value,
@@ -133,8 +165,15 @@ export class InMemoryUserRepository implements UserRepositoryPort {
       inactivadaEl,
       consentimientos: [...(this.historial.get(id.value) ?? [])],
     });
+    this.quitar(id);
+
+    return Promise.resolve();
+  }
+
+  private quitar(id: UserId): void {
     this.porId.delete(id.value);
     this.historial.delete(id.value);
+    this.bajas.delete(id.value);
   }
 
   estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {

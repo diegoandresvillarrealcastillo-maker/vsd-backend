@@ -17,9 +17,6 @@ import type { ActivityResultRepositoryPort } from '../../domain/ports/out/Activi
 import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 
-/** Desde cuando cuentan las sesiones: desde siempre. */
-const DESDE_EL_PRINCIPIO = new Date(0);
-
 /**
  * Calcula el sendero de cada modulo activo a partir de los resultados.
  *
@@ -65,10 +62,7 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const calendario = Calendario.de(cuenta.zonaHoraria);
 
-    const [categorias, resultados] = await Promise.all([
-      this.catalogo.listarCatalogo(),
-      this.resultados.ultimosDe(id, DESDE_EL_PRINCIPIO),
-    ]);
+    const categorias = await this.catalogo.listarCatalogo();
 
     const moduloDeActividad = new Map<string, Modulo>();
 
@@ -84,8 +78,10 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
     const hechosPorModulo = new Map<Modulo, Hecho[]>();
 
-    for (const resultado of resultados) {
-      const modulo = moduloDeActividad.get(resultado.activityId.value);
+    // Todo el historial, pero ya reducido en la base a actividad y dia sin repetir (SCRUM-264): es lo
+    // unico que el sendero necesita, y no hace falta traer ni reconstruir cada resultado.
+    for (const hecho of await this.resultados.hechosDe(id)) {
+      const modulo = moduloDeActividad.get(hecho.actividad);
 
       if (modulo === undefined) {
         continue;
@@ -93,10 +89,7 @@ export class ConsultarProgresoUseCaseImpl implements ConsultarProgresoUseCase {
 
       const hechos = hechosPorModulo.get(modulo) ?? [];
 
-      hechos.push({
-        actividad: resultado.activityId.value,
-        dia: resultado.dia,
-      });
+      hechos.push(hecho);
       hechosPorModulo.set(modulo, hechos);
     }
 

@@ -425,16 +425,21 @@ guarda de ella y a pedir que se suprima (SCRUM-75).
   resto de la API: con su nivel orientativo y sin el puntaje normalizado. Si la persona hizo una sesion (ADR 0030),
   el resultado lleva el **titulo** de esa sesion (`sesion`), nunca su identificador ni sus parametros: son
   contenido de todos y no le dicen nada a quien se lleva sus datos.
-- **Borrar** (`BorrarCuentaUseCaseImpl`) es todo o nada. El repositorio borra
-  las filas dentro de una transaccion, borra los archivos de la persona en
-  Storage, borra la identidad en el proveedor y solo entonces confirma. Si el proveedor falla, la transaccion se deshace y la
-  respuesta es `BORRADO_NO_COMPLETADO` (503): no se borro nada y se puede
-  reintentar.
+- **Borrar** (`BorrarCuentaUseCaseImpl` y `InactivarCuentaUseCaseImpl`, que comparten
+  `BajaDeCuenta`) se hace en tres pasos y **ninguna transaccion espera a la red**
+  (SCRUM-267, ADR 0040): primero se deja una marca en `baja_pendiente`; despues se
+  borran, sin transaccion, los archivos de la persona y su identidad en el
+  proveedor (los dos pasos se pueden repetir); y al final se borran las filas, con la
+  constancia si la baja la pidio la persona. La marca se va con la cuenta.
+- **Si algo falla despues de la marca, la baja se termina sola.** Una tarea del API
+  (`RelojDeBajas`, cada minuto y al arrancar) toma las bajas con mas de 2 minutos
+  pedidas y repite los pasos. Quien la pidio recibe `BORRADO_NO_COMPLETADO` (503),
+  con un mensaje que dice si la baja quedo pedida (se termina sola) o si fallo antes
+  de empezar (no se borro nada y se puede reintentar). Un error ya no significa
+  siempre «no paso nada».
 
-Queda un hueco que no se puede cerrar del todo: que la base falle al confirmar
-justo despues de que el proveedor ya borro. Es mucho menos probable que un
-fallo de red, que es lo que este orden cubre, y si ocurre queda en el registro
-del servidor.
+Antes quedaba un hueco: que la base fallara al confirmar justo despues de que el
+proveedor ya borro, con las filas sin dueno. La marca lo cierra.
 
 ### Como llega el consentimiento al flujo HTTP
 

@@ -1,4 +1,5 @@
 import { Prisma, type Usuario } from '@prisma/client';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import {
   AccountInactiveError,
   EmailAlreadyRegisteredError,
@@ -9,6 +10,7 @@ import type { Mascota } from '../../domain/model/Preferencias.js';
 import {
   TipoDeConsentimiento,
   User,
+  type CampoModificable,
   type ConsentimientoAceptado,
 } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -63,6 +65,69 @@ function mascotaDesde(valor: Prisma.JsonValue): Mascota {
     nombre: texto('nombre'),
     ...opcional('color'),
     ...opcional('accesorio'),
+  };
+}
+
+/**
+ * Las columnas de **solo los campos que se piden** (SCRUM-258), para `guardarCambios`.
+ *
+ * Es la contraparte de lo que arma `save` para la cuenta entera, campo por campo. Un campo que no
+ * esta en `campos` no aparece en el resultado: el UPDATE no lo nombra y la columna no se toca.
+ */
+function columnasDe(
+  user: User,
+  campos: ReadonlySet<CampoModificable>,
+): Prisma.UsuarioUpdateManyMutationInput {
+  if (campos.has('consentimiento') && user.consentimiento === undefined) {
+    // Las columnas del consentimiento son NOT NULL, como dice `save`.
+    throw new Error(
+      'No se puede guardar una cuenta sin consentimiento registrado. ' +
+        'Ver User.exigirConsentimiento() y la Ley 1581 de 2012.',
+    );
+  }
+
+  return {
+    ...(campos.has('consentimiento') && user.consentimiento !== undefined
+      ? {
+          versionPoliticaAceptada: user.consentimiento.versionPolitica,
+          fechaAceptacionPolitica: user.consentimiento.aceptadoEn,
+        }
+      : {}),
+    ...(campos.has('terminos')
+      ? {
+          versionTerminosAceptada: user.terminos?.versionPolitica ?? null,
+          fechaAceptacionTerminos: user.terminos?.aceptadoEn ?? null,
+        }
+      : {}),
+    // Un dia y no un instante: medianoche UTC, como en `save`.
+    ...(campos.has('fechaDeNacimiento')
+      ? {
+          fechaNacimiento:
+            user.fechaDeNacimiento === undefined
+              ? null
+              : new Date(`${user.fechaDeNacimiento.valor}T00:00:00.000Z`),
+        }
+      : {}),
+    ...(campos.has('nombre') ? { nombre: user.nombre ?? null } : {}),
+    ...(campos.has('modulosActivos') ? { modulosActivos: [...user.modulosActivos] } : {}),
+    // DbNull y no undefined: undefined le diria a Prisma "no toques la columna".
+    ...(campos.has('mascota')
+      ? { mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota } }
+      : {}),
+    ...(campos.has('diarioConRecomendaciones')
+      ? { diarioConRecomendaciones: user.diarioConRecomendaciones }
+      : {}),
+    ...(campos.has('acompanamientoPorDias')
+      ? { acompanamientoPorDias: user.acompanamientoPorDias }
+      : {}),
+    ...(campos.has('zonaHoraria') ? { zonaHoraria: user.zonaHoraria } : {}),
+    // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la columna vacia.
+    ...(campos.has('fotoActualizadaEl')
+      ? { fotoActualizadaEl: user.fotoActualizadaEl ?? null }
+      : {}),
+    ...(campos.has('mascotaPropiaActualizadaEl')
+      ? { mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null }
+      : {}),
   };
 }
 
@@ -224,6 +289,55 @@ export class PrismaUserRepository implements UserRepositoryPort {
     }
   }
 
+  async guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const campos = despues.camposCambiadosDesde(antes);
+    const datos = columnasDe(despues, campos);
+    const id = despues.id.value;
+
+    const fila = await this.prisma.comoUsuario(id, async (cliente) => {
+      // Solo las columnas de lo que cambio: el resto no se nombra en el UPDATE, asi que lo que otra
+      // peticion haya escrito entretanto se queda como esta. `updateMany` y no `update`: una cuenta
+      // que ya no existe da cero filas y no un error, y **no se crea** (a diferencia de `save`).
+      if (Object.keys(datos).length > 0) {
+        const { count } = await cliente.usuario.updateMany({ where: { id }, data: datos });
+
+        if (count === 0) {
+          return null;
+        }
+
+        // Lo aceptado pasa al historial en la misma transaccion, como en `save`.
+        const aceptados = [
+          ...(campos.has('consentimiento') && despues.consentimiento !== undefined
+            ? [
+                {
+                  tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+                  aceptado: despues.consentimiento,
+                },
+              ]
+            : []),
+          ...(campos.has('terminos') && despues.terminos !== undefined
+            ? [{ tipo: TipoDeConsentimiento.TERMINOS, aceptado: despues.terminos }]
+            : []),
+        ];
+
+        await cliente.consentimiento.createMany({
+          data: aceptados.map(({ tipo, aceptado }) => ({
+            idUsuario: id,
+            tipo,
+            version: aceptado.versionPolitica,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Lo que quedo guardado, ya con el cambio y con lo que otras peticiones hayan escrito.
+      return cliente.usuario.findUnique({ where: { id } });
+    });
+
+    return fila === null ? null : this.aDominio(fila);
+  }
+
   async consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
     const filas = await this.prisma.comoUsuario(id.value, (cliente) =>
       cliente.consentimiento.findMany({
@@ -242,27 +356,71 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   /**
-   * Da de baja la cuenta (SCRUM-190, ADR 0026): anota la constancia minima y borra todo lo vivo,
-   * en una sola transaccion.
+   * Deja la marca de la baja (SCRUM-267, ADR 0040): una fila en `baja_pendiente`, en una
+   * transaccion corta y **antes** de borrar nada de lo de fuera de la base.
+   *
+   * `createMany` con `skipDuplicates` (`ON CONFLICT DO NOTHING`): marcar otra vez no cambia la
+   * primera marca ni falla. La clave foranea impide marcar una cuenta que no existe, pero se mira
+   * antes para devolver `false` en lugar de un error.
+   */
+  async marcarBaja(id: UserId, conConstancia: boolean, pedidaEl: Date): Promise<boolean> {
+    return this.prisma.comoUsuario(id.value, async (cliente) => {
+      const fila = await cliente.usuario.findUnique({
+        where: { id: id.value },
+        select: { id: true },
+      });
+
+      if (fila === null) {
+        return false;
+      }
+
+      await cliente.bajaPendiente.createMany({
+        data: [{ idUsuario: id.value, conConstancia, pedidaEl }],
+        skipDuplicates: true,
+      });
+
+      return true;
+    });
+  }
+
+  /**
+   * Las marcas de baja con mas de un rato, las mas antiguas primero. Las lee la tarea que termina
+   * las bajas, con `comoTareaDeBajas`: ve las marcas de todos y nada mas.
+   */
+  async bajasPendientes(pedidasAntes: Date, limite: number): Promise<readonly BajaPendiente[]> {
+    const filas = await this.prisma.comoTareaDeBajas((cliente) =>
+      cliente.bajaPendiente.findMany({
+        where: { pedidaEl: { lt: pedidasAntes } },
+        orderBy: [{ pedidaEl: 'asc' }, { idUsuario: 'asc' }],
+        take: limite,
+      }),
+    );
+
+    return filas.map((fila) => ({
+      id: new UserId(fila.idUsuario),
+      conConstancia: fila.conConstancia,
+      pedidaEl: fila.pedidaEl,
+    }));
+  }
+
+  /**
+   * Termina la baja con constancia (SCRUM-190, ADR 0026): anota la constancia minima y borra todo
+   * lo vivo, en una sola transaccion **corta**: lo de fuera ya se borro antes (ADR 0040).
    *
    * La constancia se arma **con lo que hay en la base**, no con un objeto que alguien traiga: el
    * identificador del proveedor, cuando se creo la cuenta y lo aceptado salen de las filas. Y no
    * lleva nada mas: ni nombre, ni correo, ni fecha de nacimiento.
    *
    * Despues se borra la fila de `usuario` y las claves foraneas con `ON DELETE CASCADE` se llevan
-   * el resto, como siempre. Toda tabla nueva que guarde algo de una persona se limpia sola: no hay
-   * una lista de campos que alguien tenga que acordarse de anonimizar.
+   * el resto, la marca de la baja incluida. Toda tabla nueva que guarde algo de una persona se
+   * limpia sola: no hay una lista de campos que alguien tenga que acordarse de anonimizar.
    *
-   * `antesDeConfirmar` corre dentro de la transaccion, con todo ya hecho y sin confirmar: si
-   * lanza, PostgreSQL deshace la baja y la constancia. Dar de baja una cuenta que no existe no
-   * hace nada ni llama a `antesDeConfirmar`.
+   * Si algo falla, PostgreSQL deshace la constancia y el borrado. Dar de baja una cuenta que no
+   * existe no hace nada. La transaccion tiene los tiempos de `TRANSACCION_DE_BORRADO`: el borrado
+   * en cascada de una cuenta con mucho historial puede pasar de los 5 s de Prisma (SCRUM-260).
    */
-  async inactivarConTodo(
-    id: UserId,
-    inactivadaEl: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
-    await this.prisma.comoUsuario(id.value, async (cliente) => {
+  async inactivarConTodo(id: UserId, inactivadaEl: Date): Promise<void> {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       const fila = await cliente.usuario.findUnique({ where: { id: id.value } });
 
       if (fila === null) {
@@ -301,7 +459,6 @@ export class PrismaUserRepository implements UserRepositoryPort {
       }
 
       await cliente.usuario.deleteMany({ where: { id: id.value } });
-      await antesDeConfirmar();
     });
   }
 
@@ -319,19 +476,18 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   /**
-   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves
-   * foraneas con `ON DELETE CASCADE` se lleven el resto: resultados y entradas
-   * de diario. Toda tabla nueva que guarde algo de una persona tiene que
-   * declarar su clave igual; la prueba de integracion lo comprueba recorriendo
-   * cada tabla con columna `id_usuario`, no una lista escrita a mano.
+   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves foraneas con
+   * `ON DELETE CASCADE` se lleven el resto: resultados, entradas de diario y la marca de la baja.
+   * Toda tabla nueva que guarde algo de una persona tiene que declarar su clave igual; la prueba de
+   * integracion lo comprueba recorriendo cada tabla con columna `id_usuario`, no una lista escrita
+   * a mano.
    *
-   * `antesDeConfirmar` corre dentro de la transaccion: si lanza, PostgreSQL
-   * deshace el borrado.
+   * Es corta y no espera a la red (ADR 0040), pero lleva los tiempos de `TRANSACCION_DE_BORRADO`
+   * y no los cortos de siempre: la cascada de una cuenta con mucho historial puede pasar de 5 s.
    */
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await this.prisma.comoUsuario(id.value, async (cliente) => {
+  async borrarConTodo(id: UserId): Promise<void> {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
       await cliente.usuario.deleteMany({ where: { id: id.value } });
-      await antesDeConfirmar();
     });
   }
 

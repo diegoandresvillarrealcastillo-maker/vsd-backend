@@ -1,6 +1,3 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,6 +11,7 @@ import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El contenido del catalogo (SCRUM-222 a SCRUM-224), comprobado contra PostgreSQL de verdad: lo que cada
@@ -25,11 +23,11 @@ import { PrismaSesionesRepository } from './PrismaSesionesRepository.js';
  * por eso lo que pide revision puede estar todavia pendiente o ya revisado a nombre de alguien, y lo que se
  * exige es el estado que la base permite (`problemaDeLaRevision`), no el de la siembra.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

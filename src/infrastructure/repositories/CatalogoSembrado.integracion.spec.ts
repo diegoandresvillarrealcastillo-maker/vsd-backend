@@ -1,6 +1,3 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
@@ -8,6 +5,7 @@ import { ActivityId } from '../../domain/model/Identifier.js';
 import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
 import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { PrismaService } from '../persistence/PrismaService.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El catalogo, comprobado contra la base de verdad.
@@ -19,11 +17,11 @@ import { PrismaService } from '../persistence/PrismaService.js';
  *
  * Por eso esta comprobacion corre en el CI contra una base creada desde cero.
  */
-const URL_BASE = process.env['DATABASE_URL'];
+const URL_BASE = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_BASE === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }

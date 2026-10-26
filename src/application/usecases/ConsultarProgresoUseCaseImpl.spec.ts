@@ -142,16 +142,32 @@ function armar(
     findById: () => Promise.resolve(cuenta),
     findByIdProveedorAuth: () => Promise.resolve(null),
     save: () => Promise.resolve(),
+    guardarCambios: () => Promise.resolve(null),
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
     inactivarConTodo: () => Promise.resolve(),
+    marcarBaja: () => Promise.resolve(false),
+    bajasPendientes: () => Promise.resolve([]),
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const catalogo = {
     listarCatalogo: () => Promise.resolve(opciones.catalogo ?? CATALOGO),
   } as unknown as ActivityRepositoryPort;
   const repositorio = {
-    ultimosDe: () => Promise.resolve(resultados),
+    // Como el real (SCRUM-264): la pareja actividad y dia, sin repetir.
+    hechosDe: () =>
+      Promise.resolve([
+        ...new Map(
+          resultados.map((r) => [
+            `${r.dia}|${r.activityId.value}`,
+            { actividad: r.activityId.value, dia: r.dia },
+          ]),
+        ).values(),
+      ]),
+    // El progreso ya no reconstruye cada resultado: si alguien vuelve a pedirlos, todas las pruebas fallan.
+    paginasDeResultados: () => {
+      throw new Error('el progreso no debe leer resultados enteros');
+    },
   } as unknown as ActivityResultRepositoryPort;
 
   return new ConsultarProgresoUseCaseImpl(

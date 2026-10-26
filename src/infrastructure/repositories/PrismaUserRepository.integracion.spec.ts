@@ -1,7 +1,3 @@
-// Vitest no lee `.env` por su cuenta, y esta prueba necesita saber si hay una
-// base local a la que conectarse.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
@@ -10,6 +6,7 @@ import { pruebasDelPuertoDeUsuarios, unaCuenta } from '../../pruebas/contratoDeU
 import { PrismaService } from '../persistence/PrismaService.js';
 import { PrismaUserRepository } from './PrismaUserRepository.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El adaptador de PostgreSQL, contra **el mismo contrato** que el de memoria.
@@ -23,7 +20,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * pasaria aunque el aislamiento no funcionara.
  */
 
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const PERSONA = '11111111-1111-4111-8111-111111111111';
 const OTRA_PERSONA = '22222222-2222-4222-9222-222222222222';
@@ -85,7 +82,7 @@ async function limpiarCon(dueno: Client): Promise<void> {
 }
 
 if (URL_DUENO === undefined) {
-  describe.skip('PrismaUserRepository (sin DATABASE_URL)', () => {
+  describe.skip('PrismaUserRepository (sin TEST_DATABASE_URL)', () => {
     it('se salta', () => {
       expect(true).toBe(true);
     });

@@ -218,7 +218,8 @@ puerto; usa la que te funcione.
 | `npm run db:local`                  | Levanta PostgreSQL **sin Docker ni admin**                                        |
 | `npm run db:aplicar`                | Aplica las migraciones                                                            |
 | `npm run db:estado`                 | Dice si falta alguna migracion                                                    |
-| `npm run db:ver`                    | Abre Prisma Studio para mirar los datos                                           |
+| `npm run db:migrar`                 | `prisma migrate dev`, **solo contra una base de esta maquina**                    |
+| `npm run db:ver`                    | Abre Prisma Studio, **solo contra una base de esta maquina**                      |
 | `npm run db:revisar`                | Dice que hay **de verdad** en una base                                            |
 | `npm run db:rol`                    | Le da contrasena a `vsd_app` en un ambiente                                       |
 | `npm run db:preparar`               | Deja un ambiente listo: migra, rol y comprueba                                    |
@@ -233,16 +234,49 @@ pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
 administrador: descarga los binarios oficiales de PostgreSQL y los ejecuta como
 un proceso normal. Es PostgreSQL de verdad, no una simulacion.
 
+`npm run db:migrar` y `npm run db:ver` (SCRUM-265) **no leen el `.env`**: su
+`DIRECT_URL` en un equipo de trabajo apunta a PRE, y `migrate dev` puede proponer
+borrarlo todo. Toman la base local de siempre (`localhost:5432/vsd_health`) o la
+`DIRECT_URL` de un archivo aparte, `.env.desarrollo` (ignorado por Git, por ejemplo
+para usar la de pruebas de Docker en el 5433), y se niegan si no es de esta
+maquina. `db:aplicar` y `db:estado` si leen el `.env`: son las que una persona usa
+contra PRE y PROD.
+
+**El limite:** la regla compara el **nombre** del servidor, igual que la de las
+pruebas de integracion. Un tunel (`ssh -L 5432:...`) o un reenvio de puertos hacia
+una base remota se ve como `localhost` y pasa; desde aqui no se puede saber. Lo que
+lo cierra de verdad es que la cuenta de base de datos de quien desarrolla no tenga
+permisos en PRE.
+
 ### Las pruebas que necesitan la base
 
 Los archivos `*.integracion.spec.ts` hablan con PostgreSQL de verdad. **Si no
-hay `DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar a
-levantar una base para cambiar una linea de dominio termina con alguien
+hay `TEST_DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar
+a levantar una base para cambiar una linea de dominio termina con alguien
 comentando las pruebas.
 
-Con la base levantada corren solas, y el CI las ejecuta siempre contra un
-contenedor propio. Ahi no pueden saltarse: si faltara la base, fallan diciendolo
-en vez de pasar sin comprobar nada.
+Insertan, borran y hasta cambian la contrasena del rol `vsd_app`, asi que
+(SCRUM-261):
+
+- Leen **solo `TEST_DATABASE_URL`**, nunca `DATABASE_URL` (la de la aplicacion,
+  que en un `.env` puede apuntar a PRE) y tampoco cargan el `.env` por su cuenta.
+- La URL tiene que ser de **esta maquina** (`localhost`, `127.0.0.1` o `::1`).
+  Si no lo es, las pruebas se niegan a arrancar antes de abrir ninguna conexion,
+  y el mensaje no repite la URL. No hay variable que levante esta regla.
+
+La exportas en la terminal antes de correrlas. Con la base de pruebas de Docker:
+
+```bash
+TEST_DATABASE_URL=postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas npm run test:integracion
+```
+
+En PowerShell: `$env:TEST_DATABASE_URL='postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas'`
+y despues `npm run test:integracion`. Con `npm run db:local` es el puerto 5432 y
+la base `vsd_health`.
+
+Con la base levantada y la variable puesta corren solas, y el CI las ejecuta
+siempre contra un contenedor propio. Ahi no pueden saltarse: si faltara la base,
+fallan diciendolo en vez de pasar sin comprobar nada.
 
 Estas pruebas se conectan con el rol `vsd_app`, no con el dueno de las tablas,
 porque el dueno esta exento de las politicas de aislamiento. La primera vez le

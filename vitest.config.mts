@@ -6,6 +6,10 @@ export default defineConfig({
     environment: 'node',
     // Los guiones de `scripts/` que deciden algo (SCRUM-155) tienen su prueba al lado.
     include: ['src/**/*.spec.ts', 'scripts/**/*.spec.mjs'],
+    // Los `beforeAll` de las pruebas de integracion levantan la aplicacion y preparan la base, y con
+    // la suite completa corriendo en paralelo pasaban los 10 s por omision sin que nada estuviera
+    // roto (SCRUM-265). Una base caida sigue fallando, solo que a los 30 s en lugar de a los 10.
+    hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

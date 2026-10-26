@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   VERSION_VIGENTE_DE_LOS_TERMINOS,
   VERSION_VIGENTE_DEL_AVISO,
+  VERSIONES_VIGENTES,
 } from '../../domain/model/AvisoDePrivacidad.js';
 import {
   AccountNotProvisionedError,
@@ -9,6 +10,7 @@ import {
   OutdatedPrivacyNoticeError,
   OutdatedTermsError,
 } from '../../domain/model/DomainError.js';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import {
   type ConsentimientoAceptado,
@@ -54,7 +56,27 @@ class RepositorioConHistorial implements UserRepositoryPort {
 
   save(user: User): Promise<void> {
     this.porId.set(user.id.value, user);
+    this.anotar(user);
 
+    return Promise.resolve();
+  }
+
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.porId.set(quedo.id.value, quedo);
+    this.anotar(quedo);
+
+    return Promise.resolve(quedo);
+  }
+
+  private anotar(user: User): void {
     const anotadas = this.historial.get(user.id.value) ?? [];
     const aceptados: ConsentimientoAceptado[] = [
       ...(user.consentimiento === undefined
@@ -91,8 +113,6 @@ class RepositorioConHistorial implements UserRepositoryPort {
     }
 
     this.historial.set(user.id.value, anotadas);
-
-    return Promise.resolve();
   }
 
   consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
@@ -105,6 +125,14 @@ class RepositorioConHistorial implements UserRepositoryPort {
 
   inactivarConTodo(): Promise<void> {
     return Promise.reject(new Error('no se usa en esta prueba'));
+  }
+
+  marcarBaja(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(): Promise<boolean> {
@@ -278,5 +306,45 @@ describe('AceptarTextosVigentesUseCaseImpl (SCRUM-237)', () => {
         AccountNotProvisionedError,
       );
     });
+  });
+});
+
+describe('AceptarTextosVigentesUseCaseImpl: lo que otra peticion cambio entretanto (SCRUM-258)', () => {
+  it('aceptar los textos no enciende el permiso que otra peticion acababa de apagar', async () => {
+    const cuentas = new RepositorioConHistorial();
+    const caso = new AceptarTextosVigentesUseCaseImpl(cuentas, () => AHORA);
+    const persona = new UserId(PERSONA);
+
+    await cuentas.save(
+      unaCuenta({
+        id: PERSONA,
+        aceptadoEn: ANTES,
+        versionPolitica: '2026-09-1',
+        versionTerminos: '2026-10-1',
+      }).conPreferencias({ acompanamientoPorDias: true }),
+    );
+
+    const leer = cuentas.findById.bind(cuentas);
+
+    cuentas.findById = async (id) => {
+      const leida = await leer(id);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ acompanamientoPorDias: false }),
+        );
+      }
+
+      return leida;
+    };
+
+    const respuesta = await caso.execute(persona, ACEPTA_TODO);
+    const guardada = await leer(persona);
+
+    expect(respuesta.textosPendientes(VERSIONES_VIGENTES)).toEqual([]);
+    expect(respuesta.acompanamientoPorDias).toBe(false);
+    expect(guardada?.textosPendientes(VERSIONES_VIGENTES)).toEqual([]);
+    expect(guardada?.acompanamientoPorDias).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import type { ActivityResult } from '../../model/ActivityResult.js';
 import type { Dia } from '../../model/Calendario.js';
 import type { FilaDelHistorial, PuntoDeLaPagina } from '../../model/HistorialDelModulo.js';
 import type { ActivityId, ClientOperationId, UserId } from '../../model/Identifier.js';
+import type { Hecho } from '../../model/Sendero.js';
 
 /**
  * Puerto de salida: lo que el dominio necesita del mundo para poder cumplir
@@ -36,8 +37,16 @@ export interface ActivityResultRepositoryPort {
     userId: UserId,
   ): Promise<ActivityResult | null>;
 
-  /** Guarda un resultado nuevo. */
-  save(result: ActivityResult): Promise<void>;
+  /**
+   * Guarda un resultado nuevo y devuelve el que **quedo guardado** para esa operacion.
+   *
+   * Casi siempre es el mismo que se paso. No lo es cuando la misma operacion de esa persona ya
+   * estaba: dos peticiones del mismo reintento que llegan a la vez miran antes de que ninguna
+   * escriba, y las dos intentan guardar. La clave unica deja pasar a una, y la otra recibe lo que
+   * guardo la ganadora, no un error: la idempotencia tiene que valer tambien en la carrera
+   * (SCRUM-258). Nunca se pisa lo que ya estaba.
+   */
+  save(result: ActivityResult): Promise<ActivityResult>;
 
   /**
    * Los resultados de esa persona desde una fecha, del mas reciente al mas
@@ -49,6 +58,16 @@ export interface ActivityResultRepositoryPort {
    * vez que no cuadre con lo que la persona recuerda, deja de creerse el resto.
    */
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]>;
+
+  /**
+   * Lo mismo que `ultimosDe`, **por paginas** de `FILAS_POR_PAGINA` (SCRUM-262): del mas reciente al
+   * mas antiguo, sin repetir ni saltarse ninguno aunque dos compartan la hora.
+   *
+   * Es lo que se usa cuando se necesita todo lo de la persona y no una ventana: su exportacion y su
+   * progreso. Quien lo consume decide que conserva de cada pagina; no hace falta tenerlas todas a la
+   * vez. Una persona sin resultados no produce ninguna pagina.
+   */
+  paginasDeResultados(userId: UserId, desde: Date): AsyncIterable<readonly ActivityResult[]>;
 
   /**
    * Si esa persona hizo alguna actividad desde una fecha.
@@ -69,12 +88,29 @@ export interface ActivityResultRepositoryPort {
    * registrar el resultado, en la zona que la persona tenia entonces (SCRUM-123). Con
    * `ultimosDe` se traian y reconstruian todas las filas, y se consultaba el catalogo
    * por cada actividad, para despues quedarse solo con un dia por fila.
+   *
+   * Sin repetir **en la base** (`GROUP BY`): sale una fila por dia, no una por resultado.
    */
   diasConActividad(userId: UserId): Promise<readonly Dia[]>;
 
   /**
+   * Lo que esa persona hizo, reducido a **actividad y dia** y sin repetir: una fila por cada
+   * pareja distinta, del dia mas antiguo al mas reciente (SCRUM-264).
+   *
+   * Es lo unico que necesita el progreso de los modulos: cuantos dias distintos hubo algo, y
+   * cuales actividades se hicieron hoy y antes. Repetir una actividad el mismo dia no cambia
+   * nada de eso, asi que no hace falta traer cada resultado. La reduccion se hace **en la base**
+   * (`GROUP BY`): ni el puntaje ni lo escrito salen de ella.
+   *
+   * shortcut: no es por paginas. El tamano es como mucho (actividades del catalogo) x (dias de
+   * uso), dos columnas por fila; si alguna vez pesa, se pagina por `(dia, actividad)`.
+   */
+  hechosDe(userId: UserId): Promise<readonly Hecho[]>;
+
+  /**
    * Los dias del calendario local en que esa persona tuvo al menos un resultado que requiere
-   * atencion, sin repetir y del mas antiguo al mas reciente (SCRUM-177).
+   * atencion, desde `desde` (incluido), sin repetir y del mas antiguo al mas reciente
+   * (SCRUM-177).
    *
    * Es lo unico que necesita el acompanamiento por dias seguidos: **que dias**, no el puntaje ni
    * que actividad fue. Solo cuenta lo que puntua: una actividad de registro no produce nivel.
@@ -82,8 +118,15 @@ export interface ActivityResultRepositoryPort {
    *
    * Solo se miran los resultados de `actividades`: quien llama decide cuales cuentan (las de
    * «mayor requiere atencion», ADR 0034). Sin ninguna, no hay dias.
+   *
+   * `desde` es obligatorio a proposito (SCRUM-264): sin el, cada consulta leia todo el historial.
+   * Quien llama sabe cuanto necesita (`DIAS_QUE_MIRA_EL_ACOMPANAMIENTO`); aqui no se adivina.
    */
-  diasConAtencion(userId: UserId, actividades: readonly ActivityId[]): Promise<readonly Dia[]>;
+  diasConAtencion(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    desde: Dia,
+  ): Promise<readonly Dia[]>;
 
   /**
    * Una pagina de lo que esa persona hizo en un conjunto de actividades, del mas reciente al

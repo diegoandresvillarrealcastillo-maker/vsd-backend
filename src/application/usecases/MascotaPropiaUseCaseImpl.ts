@@ -38,11 +38,16 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
       this.almacen.guardar(persona, { contenido: svg.contenido, tipo: svg.tipo }),
     );
 
-    const actualizada = cuenta.conMascotaPropia(this.reloj());
+    const quedo = await this.cuentas.guardarCambios(cuenta, cuenta.conMascotaPropia(this.reloj()));
 
-    await this.cuentas.save(actualizada);
+    if (quedo === null) {
+      // La cuenta se borro mientras se subia el archivo: no queda el dibujo de quien ya no existe.
+      await this.conAlmacen(() => this.almacen.borrar(persona));
 
-    return actualizada;
+      throw new AccountNotProvisionedError();
+    }
+
+    return quedo;
   }
 
   async leer(persona: UserId): Promise<MascotaPropiaLeida> {
@@ -77,11 +82,17 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
 
     const sin = cuenta.sinMascotaPropia();
 
-    if (sin !== cuenta) {
-      await this.cuentas.save(sin);
+    if (sin === cuenta) {
+      return cuenta;
     }
 
-    return sin;
+    const quedo = await this.cuentas.guardarCambios(cuenta, sin);
+
+    if (quedo === null) {
+      throw new AccountNotProvisionedError();
+    }
+
+    return quedo;
   }
 
   private async cuentaDe(persona: UserId): Promise<User> {

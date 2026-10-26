@@ -1,4 +1,8 @@
-import { corregirPalabras, vocabularioDe } from '../domain/model/LecturaDelTexto.js';
+import {
+  conInvisiblesComoEspacio,
+  corregirPalabras,
+  vocabularioDe,
+} from '../domain/model/LecturaDelTexto.js';
 import { normalizar } from '../domain/model/SenalesDeRiesgo.js';
 import type { ReglasLocalesDelAsistente } from '../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
 import {
@@ -85,24 +89,44 @@ function lineasDeLaZona(reglas: ReglasLocalesDelAsistente, zona: string): readon
   return lineas.map((linea) => linea.id);
 }
 
+/**
+ * El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
+ * busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
+ */
+function hayRiesgoEn(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
+  const limpio = normalizar(texto);
+  const vocabularioDelRiesgo = vocabularioDe([reglas.riesgo.expresiones]);
+  const corregidoDelRiesgo = corregirPalabras(
+    palabrasDe(texto),
+    vocabularioDelRiesgo,
+    reglas.erratas,
+  ).join(' ');
+
+  return reglas.riesgo.expresiones.some(
+    (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
+  );
+}
+
+/**
+ * Lo mismo que `hayRiesgo` del servidor: un invisible puede esconder una letra o hacer de espacio, y
+ * se mira de las dos formas (SCRUM-258).
+ */
+function hayRiesgoLocal(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
+  const comoSeparador = conInvisiblesComoEspacio(texto);
+
+  return (
+    hayRiesgoEn(reglas, texto) || (comoSeparador !== texto && hayRiesgoEn(reglas, comoSeparador))
+  );
+}
+
 export function responderSinConexion(
   reglas: ReglasLocalesDelAsistente,
   consulta: ConsultaSinConexion,
 ): ResultadoSinConexion {
-  const limpio = normalizar(consulta.texto);
   const dichas = palabrasDe(consulta.texto);
   const erratas = reglas.erratas;
 
-  // El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
-  // busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
-  const vocabularioDelRiesgo = vocabularioDe([reglas.riesgo.expresiones]);
-  const corregidoDelRiesgo = corregirPalabras(dichas, vocabularioDelRiesgo, erratas).join(' ');
-
-  if (
-    reglas.riesgo.expresiones.some(
-      (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
-    )
-  ) {
+  if (hayRiesgoLocal(reglas, consulta.texto)) {
     return {
       tipo: 'riesgo',
       mensaje: reglas.riesgo.mensaje,

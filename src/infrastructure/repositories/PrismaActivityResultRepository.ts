@@ -11,8 +11,11 @@ import {
   UserId,
 } from '../../domain/model/Identifier.js';
 import { NivelOrientativo, OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import type { Hecho } from '../../domain/model/Sendero.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
+import { porPaginas } from '../persistence/porPaginas.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /**
@@ -64,57 +67,110 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return this.aDominio(fila, actividad);
   }
 
-  async save(result: ActivityResult): Promise<void> {
+  async save(result: ActivityResult): Promise<ActivityResult> {
     const tieneMetadata = Object.keys(result.metadata).length > 0;
 
-    // La sesion es lo que permite que la base aplique sus politicas: dentro
-    // de ella solo existen las filas de esta persona. El WHERE de arriba y el
-    // id_usuario de aqui dejan de ser la unica defensa y pasan a ser la
-    // primera de dos.
-    await this.prisma.comoUsuario(result.userId.value, (cliente) =>
-      cliente.resultado.create({
-        data: {
-          id: result.id.value,
-          idUsuario: result.userId.value,
-          idActividad: result.activityId.value,
-          idOperacionCliente: result.clientOperationId.value,
-          // La sesion (contenido) que se hizo, si la mecanica las tiene (ADR 0030). La clave se omite
-          // cuando no hay, como la metadata: el modo estricto no acepta `undefined` y asi queda NULL.
-          ...(result.sessionId === undefined ? {} : { idSesion: result.sessionId.value }),
-          // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
-          // hace falta, vive en `metadata`.
-          puntaje: result.score?.value ?? null,
-          nivelOrientativo: result.score?.level ?? null,
-          // La clave se omite cuando no hay nada, en lugar de mandarla en
-          // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
-          // omitirla deja la columna en NULL, que es lo que queremos.
-          ...(tieneMetadata ? { metadata: result.metadata } : {}),
-          fecha: result.completedAt,
-          // Una columna DATE: Prisma la recibe como la medianoche UTC del dia.
-          dia: new Date(`${result.dia}T00:00:00.000Z`),
-        },
-      }),
-    );
+    try {
+      // La sesion es lo que permite que la base aplique sus politicas: dentro
+      // de ella solo existen las filas de esta persona. El WHERE de arriba y el
+      // id_usuario de aqui dejan de ser la unica defensa y pasan a ser la
+      // primera de dos.
+      await this.prisma.comoUsuario(result.userId.value, (cliente) =>
+        cliente.resultado.create({
+          data: {
+            id: result.id.value,
+            idUsuario: result.userId.value,
+            idActividad: result.activityId.value,
+            idOperacionCliente: result.clientOperationId.value,
+            // La sesion (contenido) que se hizo, si la mecanica las tiene (ADR 0030). La clave se omite
+            // cuando no hay, como la metadata: el modo estricto no acepta `undefined` y asi queda NULL.
+            ...(result.sessionId === undefined ? {} : { idSesion: result.sessionId.value }),
+            // El puntaje se guarda ya normalizado de 0 a 100. El valor crudo, si
+            // hace falta, vive en `metadata`.
+            puntaje: result.score?.value ?? null,
+            nivelOrientativo: result.score?.level ?? null,
+            // La clave se omite cuando no hay nada, en lugar de mandarla en
+            // `undefined`: el modo estricto del proyecto no acepta lo segundo, y
+            // omitirla deja la columna en NULL, que es lo que queremos.
+            ...(tieneMetadata ? { metadata: result.metadata } : {}),
+            fecha: result.completedAt,
+            // Una columna DATE: Prisma la recibe como la medianoche UTC del dia.
+            dia: new Date(`${result.dia}T00:00:00.000Z`),
+          },
+        }),
+      );
+
+      return result;
+    } catch (error) {
+      // La misma operacion llego dos veces a la vez y la otra gano (SCRUM-258). Es un reintento, no
+      // un error: se devuelve lo que ella guardo. Fuera de la transaccion que fallo: la clave unica
+      // solo protesta cuando la otra ya confirmo, asi que la fila ya se ve.
+      if (esOperacionRepetida(error)) {
+        const ganadora = await this.findByClientOperationId(
+          result.clientOperationId,
+          result.userId,
+        );
+
+        if (ganadora !== null) {
+          return ganadora;
+        }
+      }
+
+      throw error;
+    }
   }
 
   async ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
-    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
-        where: { idUsuario: userId.value, fecha: { gte: desde } },
-        orderBy: { fecha: 'desc' },
-      }),
-    );
+    // Por paginas: ninguna consulta trae mas de `FILAS_POR_PAGINA` filas. Lo que se devuelve sigue
+    // siendo todo lo de la ventana, para quien la necesita entera.
+    const resultados: ActivityResult[] = [];
 
-    // El catalogo se consulta una vez por actividad distinta y no una vez por
-    // fila: un historial de treinta resultados de la misma actividad no puede
-    // costar treinta consultas.
-    const catalogo = new Map<string, Activity | null>();
-
-    for (const idActividad of new Set(filas.map((fila) => fila.idActividad))) {
-      catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+    for await (const pagina of this.paginasDeResultados(userId, desde)) {
+      resultados.push(...pagina);
     }
 
-    return filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
+    return resultados;
+  }
+
+  async *paginasDeResultados(
+    userId: UserId,
+    desde: Date,
+  ): AsyncGenerator<readonly ActivityResult[], void, undefined> {
+    // El catalogo se recuerda entre paginas: una actividad se consulta una sola vez en todo el recorrido.
+    const catalogo = new Map<string, Activity | null>();
+
+    // El cursor es (fecha, id), el orden total de la lectura: lo que sigue es lo estrictamente
+    // anterior y, a igual fecha, el de menor identificador. Dos resultados con la misma hora no
+    // quedan uno en cada lado de una pagina ni se repiten.
+    const paginas = porPaginas<Resultado>((ultima, limite) =>
+      this.prisma.comoUsuario(userId.value, (cliente) =>
+        cliente.resultado.findMany({
+          where: {
+            idUsuario: userId.value,
+            fecha: { gte: desde },
+            ...(ultima === undefined
+              ? {}
+              : {
+                  OR: [
+                    { fecha: { lt: ultima.fecha } },
+                    { fecha: ultima.fecha, id: { lt: ultima.id } },
+                  ],
+                }),
+          },
+          orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
+          take: limite,
+        }),
+      ),
+    );
+
+    for await (const filas of paginas) {
+      await this.catalogoDe(
+        filas.map((fila) => fila.idActividad),
+        catalogo,
+      );
+
+      yield filas.map((fila) => this.aDominio(fila, catalogo.get(fila.idActividad) ?? null));
+    }
   }
 
   async hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
@@ -131,13 +187,12 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   }
 
   async diasConActividad(userId: UserId): Promise<readonly Dia[]> {
-    // Solo la columna `dia`, sin repetir y ordenada en la base: no hace falta reconstruir
-    // resultados ni consultar el catalogo para saber en que dias hizo algo.
+    // Una fila por dia y ordenada **en la base** (`GROUP BY`). Ojo: `distinct` de Prisma no es un
+    // `SELECT DISTINCT`: trae todas las filas y las repite menos en memoria (SCRUM-264).
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
+      cliente.resultado.groupBy({
+        by: ['dia'],
         where: { idUsuario: userId.value },
-        select: { dia: true },
-        distinct: ['dia'],
         orderBy: { dia: 'asc' },
       }),
     );
@@ -146,30 +201,65 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
     return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
   }
 
+  async hechosDe(userId: UserId): Promise<readonly Hecho[]> {
+    // Una fila por actividad y dia, agrupadas en la base: dos columnas, sin repetir y sin traer
+    // cada resultado. El orden solo hace que la salida sea estable.
+    const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
+      cliente.resultado.groupBy({
+        by: ['dia', 'idActividad'],
+        where: { idUsuario: userId.value },
+        orderBy: [{ dia: 'asc' }, { idActividad: 'asc' }],
+      }),
+    );
+
+    return filas.map((fila) => ({
+      actividad: fila.idActividad,
+      // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+      dia: fila.dia.toISOString().slice(0, 10),
+    }));
+  }
+
   async diasConAtencion(
     userId: UserId,
     actividades: readonly ActivityId[],
+    desde: Dia,
   ): Promise<readonly Dia[]> {
     if (actividades.length === 0) {
       return [];
     }
 
-    // Solo la columna `dia` de lo que requiere atencion, sin repetir y ordenada en la base: ni el
-    // puntaje ni la actividad salen de ella.
+    // Tres columnas agrupadas en la base y solo desde `desde` (SCRUM-264): el dia, la actividad y el
+    // puntaje. El nivel **no** se filtra por la columna `nivel_orientativo`: se deriva con la
+    // actividad de hoy, igual que al reconstruir un resultado (SCRUM-259). Si se filtrara la columna,
+    // un cambio de umbrales dejaria al acompanamiento y al patron de la semana leyendo cosas
+    // distintas del mismo dia.
     const filas = await this.prisma.comoUsuario(userId.value, (cliente) =>
-      cliente.resultado.findMany({
+      cliente.resultado.groupBy({
+        by: ['dia', 'idActividad', 'puntaje'],
         where: {
           idUsuario: userId.value,
           idActividad: { in: actividades.map((actividad) => actividad.value) },
-          nivelOrientativo: NivelOrientativo.REQUIERE_ATENCION,
+          puntaje: { not: null },
+          dia: { gte: new Date(`${desde}T00:00:00.000Z`) },
         },
-        select: { dia: true },
-        distinct: ['dia'],
         orderBy: { dia: 'asc' },
       }),
     );
 
-    return filas.map((fila) => fila.dia.toISOString().slice(0, 10));
+    const catalogo = await this.catalogoDe(filas.map((fila) => fila.idActividad));
+    const dias = new Set<Dia>();
+
+    for (const fila of filas) {
+      const puntaje = this.puntajeDe(fila.puntaje, catalogo.get(fila.idActividad) ?? null);
+
+      if (puntaje?.level === NivelOrientativo.REQUIERE_ATENCION) {
+        // Una columna DATE: Prisma la entrega como la medianoche UTC del dia.
+        dias.add(fila.dia.toISOString().slice(0, 10));
+      }
+    }
+
+    // AAAA-MM-DD: el orden de texto es el del calendario.
+    return [...dias].sort();
   }
 
   async historialDe(
@@ -216,6 +306,43 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
   }
 
   /**
+   * El catalogo se consulta una vez por actividad distinta y no una vez por fila: un historial de
+   * treinta resultados de la misma actividad no puede costar treinta consultas.
+   */
+  private async catalogoDe(
+    ids: Iterable<string>,
+    catalogo = new Map<string, Activity | null>(),
+  ): Promise<Map<string, Activity | null>> {
+    for (const idActividad of new Set(ids)) {
+      if (!catalogo.has(idActividad)) {
+        catalogo.set(idActividad, await this.actividades.findById(new ActivityId(idActividad)));
+      }
+    }
+
+    return catalogo;
+  }
+
+  /**
+   * El puntaje de una fila con la interpretacion vigente de su actividad. Es el **unico** sitio
+   * donde se deriva el nivel al leer: todo lo que lo necesite pasa por aqui (SCRUM-259).
+   */
+  private puntajeDe(
+    puntaje: Resultado['puntaje'],
+    actividad: Activity | null,
+  ): OrientativeScore | undefined {
+    if (puntaje === null || actividad === null || !actividad.puntua()) {
+      return undefined;
+    }
+
+    // Lo guardado esta normalizado a 0-100; `create` espera el valor en la escala de la
+    // actividad, asi que se deshace la conversion.
+    return OrientativeScore.create(
+      (Number(puntaje) / 100) * (actividad.puntajeMaximo ?? 0),
+      actividad,
+    );
+  }
+
+  /**
    * Reconstruye la entidad a partir de la fila.
    *
    * El puntaje se vuelve a derivar desde la actividad en lugar de leer el
@@ -226,17 +353,7 @@ export class PrismaActivityResultRepository implements ActivityResultRepositoryP
    * actividad, pero tampoco se inventa un nivel sin con que calcularlo.
    */
   private aDominio(fila: Resultado, actividad: Activity | null): ActivityResult {
-    const puntajeCrudo = fila.puntaje === null ? null : Number(fila.puntaje);
-
-    const score =
-      puntajeCrudo !== null && actividad !== null && actividad.puntua()
-        ? OrientativeScore.create(
-            // Lo guardado esta normalizado a 0-100; `create` espera el valor
-            // en la escala de la actividad, asi que se deshace la conversion.
-            (puntajeCrudo / 100) * (actividad.puntajeMaximo ?? 0),
-            actividad,
-          )
-        : undefined;
+    const score = this.puntajeDe(fila.puntaje, actividad);
 
     return ActivityResult.create(
       {

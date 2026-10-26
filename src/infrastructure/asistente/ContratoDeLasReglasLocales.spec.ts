@@ -6,6 +6,20 @@ import { ReglasLocalesDelAsistenteDto } from '../controllers/dto/ReglasLocalesDe
 import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
 
 /**
+ * El archivo se lee en la revision, y un invisible escrito tal cual no se ve: va como `\uXXXX`.
+ * Para quien lo lee es lo mismo (`JSON.parse` devuelve el caracter), y la diferencia se puede leer.
+ */
+function conInvisiblesEscritos(texto: string): string {
+  return texto.replace(/\p{Default_Ignorable_Code_Point}/gu, (invisible) =>
+    Array.from(
+      { length: invisible.length },
+      (_, i) =>
+        `${String.fromCharCode(92)}u${invisible.charCodeAt(i).toString(16).padStart(4, '0')}`,
+    ).join(''),
+  );
+}
+
+/**
  * El contrato de las reglas locales (SCRUM-141), como archivo.
  *
  * `docs/contratos/reglas-locales.json` es **lo que publica el servidor** (el cuerpo
@@ -41,8 +55,8 @@ describe('el contrato de las reglas locales', () => {
       })),
     };
 
-    await expect(`${JSON.stringify(contrato, null, 2)}\n`).toMatchFileSnapshot(
-      '../../../docs/contratos/reglas-locales.json',
-    );
+    await expect(
+      `${conInvisiblesEscritos(JSON.stringify(contrato, null, 2))}\n`,
+    ).toMatchFileSnapshot('../../../docs/contratos/reglas-locales.json');
   });
 });

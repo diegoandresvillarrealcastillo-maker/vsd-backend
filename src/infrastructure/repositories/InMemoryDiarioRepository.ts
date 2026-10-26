@@ -2,6 +2,7 @@ import type { Dia } from '../../domain/model/Calendario.js';
 import type { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import type { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
+import { FILAS_POR_PAGINA } from '../../domain/ports/out/LecturaPorPaginas.js';
 
 /**
  * Diario en memoria, para el arranque sin base de datos y para las pruebas.
@@ -14,10 +15,19 @@ import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioReposito
 export class InMemoryDiarioRepository implements DiarioRepositoryPort {
   private readonly porPersona = new Map<string, EntradaDeDiario[]>();
 
-  todasDe(userId: UserId): Promise<readonly EntradaDeDiario[]> {
-    return Promise.resolve(
-      [...this.de(userId)].sort((una, otra) => una.creadaEn.getTime() - otra.creadaEn.getTime()),
+  async *paginasDeEntradas(
+    userId: UserId,
+  ): AsyncGenerator<readonly EntradaDeDiario[], void, undefined> {
+    // De la mas antigua a la mas reciente y, a igual hora, por identificador: el orden de PostgreSQL.
+    const todas = [...this.de(userId)].sort(
+      (una, otra) =>
+        una.creadaEn.getTime() - otra.creadaEn.getTime() ||
+        Number(una.id.value > otra.id.value) - Number(una.id.value < otra.id.value),
     );
+
+    for (let inicio = 0; inicio < todas.length; inicio += FILAS_POR_PAGINA) {
+      yield await Promise.resolve(todas.slice(inicio, inicio + FILAS_POR_PAGINA));
+    }
   }
 
   entreDias(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly EntradaDeDiario[]> {

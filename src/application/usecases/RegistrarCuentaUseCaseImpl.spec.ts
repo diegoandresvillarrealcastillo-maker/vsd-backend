@@ -11,6 +11,7 @@ import {
   OutdatedTermsError,
   UnderageError,
 } from '../../domain/model/DomainError.js';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import { Rol, User, type ConsentimientoAceptado } from '../../domain/model/User.js';
 import type { EventoDeSeguridad } from '../../domain/model/EventoDeSeguridad.js';
@@ -18,6 +19,7 @@ import type { RegistrarCuentaCommand } from '../../domain/ports/in/RegistrarCuen
 import type { ProveedorDeIdentidadPort } from '../../domain/ports/out/ProveedorDeIdentidadPort.js';
 import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { BajaDeCuenta } from '../services/BajaDeCuenta.js';
 import { BorrarCuentaUseCaseImpl } from './BorrarCuentaUseCaseImpl.js';
 import {
   RegistrarCuentaUseCaseImpl,
@@ -39,7 +41,7 @@ const AHORA = new Date('2026-09-25T10:00:00.000Z');
 class RepositorioDoble implements UserRepositoryPort {
   private readonly porId = new Map<string, User>();
 
-  /** Cuantas veces se llamo a `save`. */
+  /** Cuantas veces se guardo, con `save` o con `guardarCambios`. */
   guardados = 0;
 
   findById(id: UserId): Promise<User | null> {
@@ -61,25 +63,46 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.guardados += 1;
+    this.porId.set(quedo.id.value, quedo);
+
+    return Promise.resolve(quedo);
+  }
+
   consentimientosDe(): Promise<readonly ConsentimientoAceptado[]> {
     return Promise.resolve([]);
   }
 
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await antesDeConfirmar();
+  borrarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
   }
 
   /** Los identificadores del proveedor de las cuentas dadas de baja (SCRUM-190). */
   readonly dadasDeBaja = new Set<string>();
 
-  async inactivarConTodo(
-    id: UserId,
-    _cuando: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
-    await antesDeConfirmar();
+  inactivarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
+  }
+
+  marcarBaja(id: UserId): Promise<boolean> {
+    return Promise.resolve(this.porId.has(id.value));
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
@@ -144,7 +167,7 @@ function crearCasoDeUso(ahora: Date = AHORA): Escenario {
   const caso = new RegistrarCuentaUseCaseImpl(
     cuentas,
     identidades,
-    new BorrarCuentaUseCaseImpl(cuentas, identidades),
+    new BorrarCuentaUseCaseImpl(new BajaDeCuenta(cuentas, identidades)),
     registro,
     () => new UserId(ID_NUEVO),
     () => ahora,
@@ -823,5 +846,42 @@ describe('El registro de seguridad del alta (SCRUM-167)', () => {
     await expect(caso.execute({ ...ALTA, ...cambio })).rejects.toThrow();
 
     expect(seguridad.eventos).toEqual([]);
+  });
+});
+
+describe('Entrar desde otra zona no pisa lo que cambio entretanto (SCRUM-258)', () => {
+  it('guardar la zona nueva no enciende el permiso que otra peticion acababa de apagar', async () => {
+    const { caso, cuentas } = crearCasoDeUso();
+    const orden: RegistrarCuentaCommand = {
+      ...ALTA,
+      idProveedorAuth: 'proveedor-carrera',
+      correo: 'carrera@ejemplo.test',
+    };
+
+    const creada = await caso.execute({ ...orden, zonaHoraria: 'America/Bogota' });
+
+    await cuentas.guardarCambios(creada, creada.conPreferencias({ acompanamientoPorDias: true }));
+
+    // Justo despues de que el caso de uso lee la cuenta, otra peticion apaga el permiso.
+    const leer = cuentas.findByIdProveedorAuth.bind(cuentas);
+
+    cuentas.findByIdProveedorAuth = async (idProveedorAuth) => {
+      const leida = await leer(idProveedorAuth);
+
+      if (leida !== null) {
+        await cuentas.guardarCambios(
+          leida,
+          leida.conPreferencias({ acompanamientoPorDias: false }),
+        );
+      }
+
+      return leida;
+    };
+
+    const respuesta = await caso.execute({ ...orden, zonaHoraria: 'Europe/Madrid' });
+
+    expect(respuesta.zonaHoraria).toBe('Europe/Madrid');
+    expect(respuesta.acompanamientoPorDias).toBe(false);
+    expect((await leer('proveedor-carrera'))?.acompanamientoPorDias).toBe(false);
   });
 });

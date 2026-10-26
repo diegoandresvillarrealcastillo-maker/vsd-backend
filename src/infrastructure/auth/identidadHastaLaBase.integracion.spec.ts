@@ -1,7 +1,3 @@
-// Igual que las demas pruebas de integracion: vitest no lee `.env` por su
-// cuenta y aqui hace falta saber si hay una base local a la que conectarse.
-import 'dotenv/config';
-
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
@@ -19,6 +15,7 @@ import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
 import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * De la cabecera HTTP hasta la fila de PostgreSQL.
@@ -51,7 +48,7 @@ import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaApl
  * esta prueba pasaria sin comprobar nada.
  */
 
-const URL_DUENO = process.env['DATABASE_URL'];
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const A = 'token-de-A';
 const B = 'token-de-B';

@@ -1,3 +1,4 @@
+import type { BajaPendiente } from '../domain/model/BajaPendiente.js';
 import type { UserId } from '../domain/model/Identifier.js';
 import type { ConsentimientoAceptado, User } from '../domain/model/User.js';
 import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.js';
@@ -13,7 +14,7 @@ import type { UserRepositoryPort } from '../domain/ports/out/UserRepositoryPort.
 export class RepositorioDeCuentasDoble implements UserRepositoryPort {
   private readonly porId = new Map<string, User>();
 
-  /** Cuantas veces se llamo a `save`. */
+  /** Cuantas veces se guardo, con `save` o con `guardarCambios`. */
   guardados = 0;
 
   findById(id: UserId): Promise<User | null> {
@@ -31,22 +32,43 @@ export class RepositorioDeCuentasDoble implements UserRepositoryPort {
     return Promise.resolve();
   }
 
+  guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const actual = this.porId.get(despues.id.value);
+
+    if (actual === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const quedo = actual.conLosCamposDe(despues, despues.camposCambiadosDesde(antes));
+
+    this.guardados += 1;
+    this.porId.set(quedo.id.value, quedo);
+
+    return Promise.resolve(quedo);
+  }
+
   consentimientosDe(): Promise<readonly ConsentimientoAceptado[]> {
     return Promise.resolve([]);
   }
 
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await antesDeConfirmar();
+  borrarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
   }
 
-  async inactivarConTodo(
-    id: UserId,
-    _cuando: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
-    await antesDeConfirmar();
+  inactivarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
+  }
+
+  marcarBaja(id: UserId): Promise<boolean> {
+    return Promise.resolve(this.porId.has(id.value));
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(): Promise<boolean> {

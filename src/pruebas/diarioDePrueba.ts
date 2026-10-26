@@ -18,8 +18,15 @@ import type { DiarioRepositoryPort } from '../domain/ports/out/DiarioRepositoryP
 export class DiarioDePrueba implements DiarioRepositoryPort {
   private entradas: EntradaDeDiario[] = [];
 
-  todasDe(userId: UserId): Promise<readonly EntradaDeDiario[]> {
-    return Promise.resolve(this.de(userId));
+  // Una sola pagina: el doble no necesita paginar, y asi los casos de uso no dependen de ello.
+  async *paginasDeEntradas(
+    userId: UserId,
+  ): AsyncGenerator<readonly EntradaDeDiario[], void, undefined> {
+    const todas = this.de(userId);
+
+    if (todas.length > 0) {
+      yield await Promise.resolve(todas);
+    }
   }
 
   entreDias(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly EntradaDeDiario[]> {

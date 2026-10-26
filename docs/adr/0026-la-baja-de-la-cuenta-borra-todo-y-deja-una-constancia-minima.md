@@ -2,6 +2,9 @@
 
 - **Estado:** aceptada (decisión D3 del ciclo 7, **corregible al probar y a revisar con asesoría
   jurídica**)
+- **Reemplazada en parte por:**
+  [ADR 0040](0040-baja-pendiente-y-lo-externo-fuera-de-la-transaccion.md) (2026-10-25): solo el
+  punto 2, el de en qué orden y dentro de qué transacción se borra. Todo lo demás sigue vigente.
 - **Fecha:** 2026-10-14
 - **Tarea:** SCRUM-190 (`[C7-20]`). Lo completa el frontend con el texto de la confirmación.
 - **Cambia un requisito:** el RF12 («se elimina todo lo suyo») pasa a «se elimina todo lo suyo,

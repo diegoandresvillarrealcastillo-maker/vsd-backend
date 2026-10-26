@@ -177,7 +177,7 @@
         ]
       },
       "delete": {
-        "description": "Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario, sus archivos y su identidad en Supabase Auth, y deja una constancia minima de lo que acepto (que la cuenta existio, cuando, y las versiones del aviso y de los terminos), sin nombre, correo ni fecha de nacimiento (ADR 0026). Es todo o nada: si una parte falla, no queda nada hecho. No tiene vuelta atras, y por eso exige la frase de confirmacion. Despues, el token de esa cuenta que todavia no haya caducado se rechaza con 401 CUENTA_INACTIVA.",
+        "description": "Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario, sus archivos y su identidad en Supabase Auth, y deja una constancia minima de lo que acepto (que la cuenta existio, cuando, y las versiones del aviso y de los terminos), sin nombre, correo ni fecha de nacimiento (ADR 0026). Se hace en tres pasos (ADR 0040): una marca, lo de fuera de la base (archivos e identidad) y las filas; si algo falla despues de la marca, la baja se termina sola en unos minutos. No tiene vuelta atras, y por eso exige la frase de confirmacion. Despues, el token de esa cuenta que todavia no haya caducado se rechaza con 401 CUENTA_INACTIVA.",
         "operationId": "CuentaController_borrar",
         "parameters": [],
         "requestBody": {
@@ -204,7 +204,7 @@
             "description": "Hay sesion pero no hay cuenta que borrar."
           },
           "503": {
-            "description": "BORRADO_NO_COMPLETADO: el proveedor de autenticacion no respondio y no se borro nada. Reintentar."
+            "description": "BORRADO_NO_COMPLETADO: la baja no se pudo completar en esta peticion. Si el mensaje dice que quedo pedida, se termina sola en unos minutos; si dice que no se borro nada, se puede reintentar."
           }
         },
         "security": [
@@ -317,7 +317,7 @@
     },
     "/api/cuenta/exportacion": {
       "get": {
-        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas.",
+        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas. Se escribe por piezas, sin armar todo en memoria: los resultados, el diario y los pendientes se leen de a 200 y salen uno a uno (SCRUM-262). Es el mismo JSON de siempre, pero sin `Content-Length`: si algo falla a mitad la conexion se corta, y un archivo cortado no es un JSON valido.",
         "operationId": "CuentaController_exportar",
         "parameters": [],
         "responses": {

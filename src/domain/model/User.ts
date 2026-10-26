@@ -163,6 +163,49 @@ interface Cambios {
   readonly mascotaPropiaActualizadaEl?: Date | undefined;
 }
 
+/**
+ * Lo que de una cuenta se puede cambiar una vez creada, con el nombre de su campo (SCRUM-258).
+ *
+ * El identificador, el correo, el proveedor, el rol y la fecha de registro no estan: ningun caso
+ * de uso los cambia. Si una cuenta gana un campo nuevo y no se suma aqui, una prueba lo avisa.
+ */
+export const CAMPOS_MODIFICABLES = [
+  'consentimiento',
+  'terminos',
+  'fechaDeNacimiento',
+  'nombre',
+  'modulosActivos',
+  'mascota',
+  'diarioConRecomendaciones',
+  'acompanamientoPorDias',
+  'zonaHoraria',
+  'fotoActualizadaEl',
+  'mascotaPropiaActualizadaEl',
+] as const satisfies readonly (keyof Cambios)[];
+
+export type CampoModificable = (typeof CAMPOS_MODIFICABLES)[number];
+
+/** Igualdad por valor de lo que guarda una cuenta: fechas por instante, listas y objetos por contenido. */
+function iguales(uno: unknown, otro: unknown): boolean {
+  if (uno instanceof Date && otro instanceof Date) {
+    return uno.getTime() === otro.getTime();
+  }
+
+  if (Array.isArray(uno) && Array.isArray(otro)) {
+    return uno.length === otro.length && uno.every((valor, i) => iguales(valor, otro[i]));
+  }
+
+  if (typeof uno === 'object' && typeof otro === 'object' && uno !== null && otro !== null) {
+    const unoPorClave = uno as Record<string, unknown>;
+    const otroPorClave = otro as Record<string, unknown>;
+    const claves = new Set([...Object.keys(unoPorClave), ...Object.keys(otroPorClave)]);
+
+    return [...claves].every((clave) => iguales(unoPorClave[clave], otroPorClave[clave]));
+  }
+
+  return uno === otro;
+}
+
 /** Lo que una persona puede cambiar de sus preferencias. Lo que no venga, se queda igual. */
 export interface CambiosDePreferencias {
   /** Como quiere que la llamen. */
@@ -515,6 +558,42 @@ export class User {
           ? { ...this.mascota, forma: FORMA_POR_DEFECTO_DE_LA_MASCOTA }
           : this.mascota,
     });
+  }
+
+  /**
+   * Los campos en que esta cuenta es distinta de `antes`, que es la misma cuenta como se leyo
+   * (SCRUM-258).
+   *
+   * Es lo que permite guardar **solo lo que cambio** y no la cuenta entera: quien leyo la cuenta,
+   * la cambio y la guardo entera pisaba, con lo que habia leido, lo que otra peticion hubiera
+   * cambiado entretanto (el permiso que la persona acababa de apagar). Con esto, una peticion que
+   * solo cambia la foto no puede tocar nada mas.
+   *
+   * Falla si no son dos versiones de la misma cuenta, o si cambio el correo, el rol o el proveedor,
+   * que por aqui no se cambian: se perderian sin avisar.
+   */
+  camposCambiadosDesde(antes: User): ReadonlySet<CampoModificable> {
+    if (
+      !antes.id.equals(this.id) ||
+      antes.correo !== this.correo ||
+      antes.idProveedorAuth !== this.idProveedorAuth ||
+      antes.rol !== this.rol
+    ) {
+      throw new Error(
+        'Solo se comparan dos versiones de la misma cuenta, y el correo, el rol y el proveedor no cambian por aqui.',
+      );
+    }
+
+    return new Set(CAMPOS_MODIFICABLES.filter((campo) => !iguales(this[campo], antes[campo])));
+  }
+
+  /**
+   * Esta misma cuenta con, de `otra`, solo los campos que se piden (SCRUM-258). Todo lo demas se
+   * queda como esta aqui: es como se aplica un cambio sobre lo que hay guardado, no sobre lo que se
+   * habia leido.
+   */
+  conLosCamposDe(otra: User, campos: ReadonlySet<CampoModificable>): User {
+    return this.copiaCon(Object.fromEntries([...campos].map((campo) => [campo, otra[campo]])));
   }
 
   /**

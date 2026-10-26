@@ -17,6 +17,12 @@
     "allowImportingTsExtensions": true,
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "vitest.config.mts", "prisma.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "vitest.config.mts",
+    "prisma.config.ts",
+    "scripts/carga/*.ts",
+    "scripts/carga/*.mts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

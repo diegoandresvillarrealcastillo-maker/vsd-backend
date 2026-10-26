@@ -36,6 +36,9 @@ export default tseslint.config(
       // ningun tsconfig y las reglas con tipos no pueden analizarlos.
       // Prettier si los formatea.
       'scripts/**/*.mjs',
+      // El guion de k6 se ejecuta en el motor de k6, no en Node: sus modulos (`k6/http`) y globales
+      // (`__ENV`) no existen para ESLint (SCRUM-279). Los .ts de scripts/carga si se analizan.
+      'scripts/carga/**/*.js',
     ],
   },
 

@@ -384,7 +384,7 @@ describe('MascotaPropiaUseCaseImpl: lo que pasa mientras se sube el dibujo (SCRU
     const guardar = almacen.guardar.bind(almacen);
 
     almacen.guardar = async (quien, archivo) => {
-      await cuentas.borrarConTodo(persona, () => Promise.resolve());
+      await cuentas.borrarConTodo(persona);
 
       return guardar(quien, archivo);
     };

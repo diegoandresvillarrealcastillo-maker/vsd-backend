@@ -21,6 +21,8 @@ function armar(cuenta: User | null, dias: readonly string[], ahora: Date = NOCHE
     consentimientosDe: () => Promise.resolve([]),
     borrarConTodo: () => Promise.resolve(),
     inactivarConTodo: () => Promise.resolve(),
+    marcarBaja: () => Promise.resolve(false),
+    bajasPendientes: () => Promise.resolve([]),
     estaInactivadaPorProveedor: () => Promise.resolve(false),
   };
   const resultados = {

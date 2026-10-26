@@ -205,8 +205,27 @@ model Usuario {
   preferenciaAviso PreferenciaAviso?
   consentimientos  Consentimiento[]
   datoCuriosoCursor DatoCuriosoCursor?
+  bajaPendiente BajaPendiente?
 
   @@map("usuario")
+}
+
+/// La marca de una baja de cuenta que se pidio y todavia no termino (SCRUM-267, ADR 0040). Se deja
+/// antes de lo irreversible (archivos e identidad) y se va sola, por la clave foranea, cuando se
+/// borra la fila de `usuario`: si queda una, es que la baja se corto a mitad y la tarea del API la
+/// termina. La primera marca manda: pedir la baja otra vez no cambia `conConstancia` ni `pedidaEl`.
+model BajaPendiente {
+  idUsuario String @id @map("id_usuario") @db.Uuid
+  /// Si al terminar se deja la constancia minima (la baja que pide la persona) o no (el rechazo
+  /// de un menor).
+  conConstancia Boolean @map("con_constancia")
+  /// Cuando se pidio. La tarea solo toma las que llevan un rato, para no pisar una baja en curso.
+  pedidaEl DateTime @map("pedida_el") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([pedidaEl])
+  @@map("baja_pendiente")
 }
 
 /// Todo lo que una persona ha aceptado, version por version: el aviso de

@@ -10,6 +10,7 @@ import {
   OutdatedPrivacyNoticeError,
   OutdatedTermsError,
 } from '../../domain/model/DomainError.js';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import {
   type ConsentimientoAceptado,
@@ -124,6 +125,14 @@ class RepositorioConHistorial implements UserRepositoryPort {
 
   inactivarConTodo(): Promise<void> {
     return Promise.reject(new Error('no se usa en esta prueba'));
+  }
+
+  marcarBaja(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(): Promise<boolean> {

@@ -354,7 +354,7 @@ describe('FotoDePerfilUseCaseImpl: lo que pasa mientras se sube el archivo (SCRU
   });
 
   it('si la cuenta se borra mientras se sube, no queda la foto de una cuenta que ya no existe', async () => {
-    mientrasSeSube(() => cuentas.borrarConTodo(persona, () => Promise.resolve()));
+    mientrasSeSube(() => cuentas.borrarConTodo(persona));
 
     await expect(casoDeUso.guardar(persona, PNG_REAL_DE_8_X_6, 'image/png')).rejects.toThrow(
       AccountNotProvisionedError,

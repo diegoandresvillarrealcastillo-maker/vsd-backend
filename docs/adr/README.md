@@ -45,6 +45,7 @@ nadie tenga que reconstruir de memoria por que el proyecto es como es.
 | [0037](0037-llamar-ahora-solo-con-telefonos-verificados.md)                                | «Llamar ahora» solo con teléfonos verificados                              | Aceptada (SCRUM-257)                                                                 |
 | [0038](0038-auditoria-de-codigo-parte-1-invisibles-permisos-y-reintentos.md)               | Auditoría parte 1: invisibles, permisos pisados y reintentos               | Propuesta (SCRUM-258)                                                                |
 | [0039](0039-auditoria-de-codigo-parte-2-pruebas-y-exportacion.md)                          | Auditoría parte 2: pruebas en su propia base y exportación en flujo        | Propuesta (SCRUM-266)                                                                |
+| [0040](0040-baja-pendiente-y-lo-externo-fuera-de-la-transaccion.md)                        | Baja pendiente: lo externo fuera de la transacción                         | Propuesta (SCRUM-267)                                                                |
 
 ## Reglas
 

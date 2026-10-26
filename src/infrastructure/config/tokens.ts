@@ -35,6 +35,13 @@ export const BORRAR_CUENTA = Symbol('BorrarCuentaUseCase');
  * datos: no hay autorizacion que demostrar, asi que no se conserva nada, ni la constancia.
  */
 export const BORRAR_SIN_CONSTANCIA = Symbol('BorrarCuentaSinConstanciaUseCase');
+/**
+ * Los pasos de una baja de cuenta (SCRUM-267, ADR 0040), que comparten quien la pide y la tarea que
+ * termina las que se cortaron.
+ */
+export const BAJA_DE_CUENTA = Symbol('BajaDeCuenta');
+/** Terminar las bajas pedidas que no llegaron al final. Lo llama `RelojDeBajas`. */
+export const TERMINAR_BAJAS = Symbol('TerminarBajasPendientesUseCase');
 export const EXPORTAR_DATOS = Symbol('ExportarDatosUseCase');
 
 /** El diario: sus anotaciones y los tres casos de uso (SCRUM-95). */

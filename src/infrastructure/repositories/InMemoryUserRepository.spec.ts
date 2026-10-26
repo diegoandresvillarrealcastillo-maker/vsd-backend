@@ -28,11 +28,7 @@ describe('InMemoryUserRepository, la constancia de la baja (SCRUM-190)', () => {
     const cuando = new Date('2026-10-14T15:00:00.000Z');
 
     await repositorio.save(unaCuenta({ nombre: 'Ana', correo: 'ana@ejemplo.test' }));
-    await repositorio.inactivarConTodo(
-      new UserId('11111111-1111-4111-8111-111111111111'),
-      cuando,
-      () => Promise.resolve(),
-    );
+    await repositorio.inactivarConTodo(new UserId('11111111-1111-4111-8111-111111111111'), cuando);
 
     const [constancia] = repositorio.constancias;
 

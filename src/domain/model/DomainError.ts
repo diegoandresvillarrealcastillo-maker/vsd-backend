@@ -411,19 +411,27 @@ export class InvalidNameError extends DomainError {
 }
 
 /**
- * El borrado de la cuenta no se pudo completar, y por eso no se borro nada.
+ * La baja de la cuenta no se pudo completar en esta peticion.
  *
- * Borrar es todo o nada: las filas propias y la identidad en el proveedor de
- * autenticacion. Si una de las dos mitades falla, la otra se deshace. Un
- * borrado a medias dejaria datos huerfanos, y eso incumple el derecho de
- * supresion aunque la pantalla dijera que salio bien.
+ * Desde el ADR 0040 la baja deja una marca antes de borrar lo de fuera de la base, y lo que
+ * significa este error depende de si la marca llego a quedar:
+ *
+ * - **Sin marca** (`quedoPedida` falso): la base fallo antes de empezar y no se borro nada. Se puede
+ *   intentar de nuevo.
+ * - **Con marca** (`quedoPedida` verdadero): algo fallo despues, en los archivos, en la identidad o
+ *   al borrar las filas. La baja **se termina sola** en unos minutos, y pedirla otra vez sigue el
+ *   mismo camino. Decir que no se borro nada seria falso.
+ *
+ * En los dos casos el codigo es el mismo y el contrato no cambia.
  */
 export class AccountDeletionFailedError extends DomainError {
   readonly code = 'BORRADO_NO_COMPLETADO';
 
-  constructor(causa?: unknown) {
+  constructor(causa?: unknown, quedoPedida = false) {
     super(
-      'No se pudo borrar la cuenta en este momento, así que no se borró nada. Inténtalo de nuevo en unos minutos.',
+      quedoPedida
+        ? 'No se pudo terminar de borrar la cuenta en este momento. La baja quedó pedida y se termina sola en unos minutos.'
+        : 'No se pudo pedir la baja de la cuenta en este momento, así que no se borró nada. Inténtalo de nuevo en unos minutos.',
       causa,
     );
   }

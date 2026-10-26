@@ -120,7 +120,7 @@ async function limpiar(dueno: Client): Promise<void> {
   await dueno.query('DELETE FROM entrada_diario WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM resultado WHERE id_usuario = ANY($1)', [nuestras]);
   await dueno.query('DELETE FROM usuario WHERE id_usuario = ANY($1)', [nuestras]);
-  // La constancia de la baja no cuelga de `usuario`: la deja `inactivarConTodo` (SCRUM-260).
+  // La constancia de la baja no cuelga de `usuario`: la deja `inactivarConTodo` (SCRUM-190).
   await dueno.query('DELETE FROM consentimiento_de_cuenta_inactiva WHERE id_cuenta = ANY($1)', [
     nuestras,
   ]);
@@ -171,7 +171,7 @@ describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () =
   });
 
   it('despues de borrar no queda ninguna fila suya en ninguna tabla', async () => {
-    await cuentas.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+    await cuentas.borrarConTodo(new UserId(PERSONA));
 
     const rastro = await rastroDe(dueno, PERSONA);
 
@@ -182,52 +182,120 @@ describe.skipIf(URL_DUENO === undefined)('Borrar una cuenta en PostgreSQL', () =
   });
 
   it('lo de la otra persona sigue entero', async () => {
-    await cuentas.borrarConTodo(new UserId(PERSONA), () => Promise.resolve());
+    await cuentas.borrarConTodo(new UserId(PERSONA));
 
     const rastro = await rastroDe(dueno, OTRA);
 
     expect(rastro).toMatchObject({ usuario: 1, resultado: 1, entrada_diario: 1 });
   });
 
-  it('si lo de fuera falla, PostgreSQL deshace el borrado entero', async () => {
-    await expect(
-      cuentas.borrarConTodo(new UserId(PERSONA), () =>
-        Promise.reject(new Error('Supabase no respondio')),
-      ),
-    ).rejects.toThrow('Supabase no respondio');
+  it('inactivarConTodo borra todo, deja la constancia y se lleva la marca de la baja', async () => {
+    const id = new UserId(PERSONA);
 
-    expect(await rastroDe(dueno, PERSONA)).toMatchObject({
-      usuario: 1,
-      resultado: 1,
-      entrada_diario: 1,
-    });
+    await cuentas.marcarBaja(id, true, new Date());
+    expect(await rastroDe(dueno, PERSONA)).toMatchObject({ baja_pendiente: 1 });
+
+    await cuentas.inactivarConTodo(id, new Date());
+
+    const rastro = await rastroDe(dueno, PERSONA);
+
+    expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
+    await expect(cuentas.estaInactivadaPorProveedor(`proveedor-borrado-${PERSONA}`)).resolves.toBe(
+      true,
+    );
   });
 
-  describe('con una espera externa mayor que la de Prisma por omision (SCRUM-260)', () => {
-    // Prisma da 5 s a una transaccion si nadie dice otra cosa. Lo externo de la baja (dos almacenes
-    // y la identidad, cada uno con su tope) puede pasarse de eso: la transaccion venceria con lo
-    // irreversible ya hecho, y las filas volverian sin archivos ni identidad.
-    const ESPERA_EXTERNA_MS = 6_000;
-    const esperar = () => new Promise<void>((resolve) => setTimeout(resolve, ESPERA_EXTERNA_MS));
+  it('borrarConTodo se lleva la marca de la baja y no deja constancia', async () => {
+    const id = new UserId(PERSONA);
 
-    it('borrarConTodo espera a lo de fuera y confirma el borrado', async () => {
-      await cuentas.borrarConTodo(new UserId(PERSONA), esperar);
+    await cuentas.marcarBaja(id, false, new Date());
+    expect(await rastroDe(dueno, PERSONA)).toMatchObject({ baja_pendiente: 1 });
 
-      const rastro = await rastroDe(dueno, PERSONA);
+    await cuentas.borrarConTodo(id);
 
-      expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
-    }, 20_000);
+    const rastro = await rastroDe(dueno, PERSONA);
 
-    it('inactivarConTodo espera a lo de fuera y confirma la baja con su constancia', async () => {
-      await cuentas.inactivarConTodo(new UserId(PERSONA), new Date(), esperar);
+    expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
+    await expect(cuentas.estaInactivadaPorProveedor(`proveedor-borrado-${PERSONA}`)).resolves.toBe(
+      false,
+    );
+  });
 
-      const rastro = await rastroDe(dueno, PERSONA);
+  describe('la marca de la baja y quien la ve (SCRUM-267, ADR 0040)', () => {
+    const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      expect(Object.values(rastro).every((filas) => filas === 0)).toBe(true);
+    beforeEach(async () => {
+      await cuentas.marcarBaja(new UserId(PERSONA), true, ayer);
+      await cuentas.marcarBaja(new UserId(OTRA), false, ayer);
+    });
+
+    it('cada persona ve solo su marca', async () => {
+      const vistas = await prisma.comoUsuario(PERSONA, (cliente) =>
+        cliente.bajaPendiente.findMany({ where: { idUsuario: { in: [PERSONA, OTRA] } } }),
+      );
+
+      expect(vistas.map((marca) => marca.idUsuario)).toEqual([PERSONA]);
+    });
+
+    it('una persona no puede poner la marca de otra', async () => {
+      await dueno.query('DELETE FROM baja_pendiente WHERE id_usuario = $1', [OTRA]);
+
       await expect(
-        cuentas.estaInactivadaPorProveedor(`proveedor-borrado-${PERSONA}`),
-      ).resolves.toBe(true);
-    }, 20_000);
+        prisma.comoUsuario(PERSONA, (cliente) =>
+          cliente.bajaPendiente.createMany({
+            data: [{ idUsuario: OTRA, conConstancia: true, pedidaEl: new Date() }],
+          }),
+        ),
+      ).rejects.toThrow();
+
+      expect(await rastroDe(dueno, OTRA)).toMatchObject({ baja_pendiente: 0 });
+    });
+
+    it('la marca no se edita ni se borra desde la aplicacion: se va con la cuenta', async () => {
+      await expect(
+        prisma.comoUsuario(PERSONA, (cliente) =>
+          cliente.bajaPendiente.updateMany({ data: { conConstancia: false } }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        prisma.comoUsuario(PERSONA, (cliente) => cliente.bajaPendiente.deleteMany()),
+      ).rejects.toThrow();
+
+      expect(await rastroDe(dueno, PERSONA)).toMatchObject({ baja_pendiente: 1 });
+    });
+
+    it('la tarea de bajas ve las marcas de todos, y solo para leerlas', async () => {
+      const vistas = await prisma.comoTareaDeBajas((cliente) =>
+        cliente.bajaPendiente.findMany({ where: { idUsuario: { in: [PERSONA, OTRA] } } }),
+      );
+
+      expect(vistas.map((marca) => marca.idUsuario).sort()).toEqual([PERSONA, OTRA]);
+
+      await expect(
+        prisma.comoTareaDeBajas((cliente) =>
+          cliente.bajaPendiente.createMany({
+            data: [{ idUsuario: PERSONA, conConstancia: true, pedidaEl: new Date() }],
+            skipDuplicates: true,
+          }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        prisma.comoTareaDeBajas((cliente) => cliente.bajaPendiente.deleteMany()),
+      ).rejects.toThrow();
+      await expect(
+        prisma.comoTareaDeBajas((cliente) =>
+          cliente.bajaPendiente.updateMany({ data: { conConstancia: false } }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('sin declarar ni persona ni tarea, no se ve ninguna marca', async () => {
+      const sinSesion = await prisma.comoProveedor('cualquiera', (cliente) =>
+        cliente.bajaPendiente.findMany(),
+      );
+
+      expect(sinSesion).toEqual([]);
+    });
   });
 
   it('el diario se lee en nombre de la persona y solo trae lo suyo', async () => {

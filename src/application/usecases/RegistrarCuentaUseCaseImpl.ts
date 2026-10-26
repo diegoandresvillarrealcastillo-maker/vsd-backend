@@ -288,8 +288,10 @@ export class RegistrarCuentaUseCaseImpl implements RegistrarCuentaUseCase {
    * Rechaza a un menor sin dejar nada suyo: ni cuenta ni identidad.
    *
    * Si borrar falla (el proveedor no responde) igual se rechaza: la peticion
-   * no puede salir como aceptada. Pero se anota, porque queda una identidad que
-   * hay que limpiar a mano, y quien lee el registro tiene que enterarse.
+   * no puede salir como aceptada. Pero se anota. Si habia cuenta, la baja ya
+   * dejo su marca y se termina sola (ADR 0040); si no la habia, queda una
+   * identidad que hay que limpiar a mano, y quien lee el registro tiene que
+   * enterarse.
    */
   private async rechazarAlMenor(idProveedorAuth: string, existente: User | null): Promise<never> {
     let identidadBorrada = true;

@@ -3,6 +3,7 @@ import {
   AccountNotProvisionedError,
   NoActiveModulesError,
 } from '../../domain/model/DomainError.js';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
 import { UserId } from '../../domain/model/Identifier.js';
 import type { User } from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
@@ -53,18 +54,24 @@ class RepositorioDoble implements UserRepositoryPort {
     return Promise.resolve([]);
   }
 
-  async borrarConTodo(id: UserId, antesDeConfirmar: () => Promise<void>): Promise<void> {
-    await antesDeConfirmar();
+  borrarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
   }
 
-  async inactivarConTodo(
-    id: UserId,
-    _cuando: Date,
-    antesDeConfirmar: () => Promise<void>,
-  ): Promise<void> {
-    await antesDeConfirmar();
+  inactivarConTodo(id: UserId): Promise<void> {
     this.porId.delete(id.value);
+
+    return Promise.resolve();
+  }
+
+  marcarBaja(id: UserId): Promise<boolean> {
+    return Promise.resolve(this.porId.has(id.value));
+  }
+
+  bajasPendientes(): Promise<readonly BajaPendiente[]> {
+    return Promise.resolve([]);
   }
 
   estaInactivadaPorProveedor(): Promise<boolean> {
@@ -182,7 +189,7 @@ describe('ActualizarPreferenciasUseCaseImpl: lo que otra peticion cambio entreta
     cuentas.findById = async (id) => {
       const leida = await leer(id);
 
-      await cuentas.borrarConTodo(id, () => Promise.resolve());
+      await cuentas.borrarConTodo(id);
 
       return leida;
     };

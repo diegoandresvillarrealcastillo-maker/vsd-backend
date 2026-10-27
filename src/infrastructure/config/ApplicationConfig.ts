@@ -28,12 +28,14 @@ export interface Dependencias {
   readonly sesionesRepository?: SesionesRepositoryPort;
 }
 
+const dependenciasEnMemoria = (): Dependencias => ({
+  activityResultRepository: new InMemoryActivityResultRepository(),
+  activityRepository: new InMemoryActivityRepository(),
+  recursoApoyoRepository: new InMemoryRecursoApoyoRepository(),
+});
+
 export function construirActivityResultService(
-  dependencias: Dependencias = {
-    activityResultRepository: new InMemoryActivityResultRepository(),
-    activityRepository: new InMemoryActivityRepository(),
-    recursoApoyoRepository: new InMemoryRecursoApoyoRepository(),
-  },
+  dependencias: Dependencias = dependenciasEnMemoria(),
 ): ActivityResultService {
   const casoDeUso = new RegisterActivityResultUseCaseImpl(
     dependencias.activityResultRepository,

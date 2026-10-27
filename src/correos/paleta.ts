@@ -78,7 +78,9 @@ export const FUENTE_MONOESPACIADA =
 /** La razon de contraste WCAG entre dos colores `#rrggbb`: de 1 a 21. */
 export function contraste(uno: string, otro: string): number {
   const luminancia = (color: string): number => {
-    const canales = [1, 3, 5].map((inicio) => parseInt(color.slice(inicio, inicio + 2), 16) / 255);
+    const canales = [1, 3, 5].map(
+      (inicio) => Number.parseInt(color.slice(inicio, inicio + 2), 16) / 255,
+    );
     const [rojo = 0, verde = 0, azul = 0] = canales.map((canal) =>
       canal <= 0.03928 ? canal / 12.92 : ((canal + 0.055) / 1.055) ** 2.4,
     );

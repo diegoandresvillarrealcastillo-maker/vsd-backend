@@ -67,6 +67,22 @@ describe('AsistenteGeminiEnPre', () => {
     expect(llamadas).toBe(0);
   });
 
+  it('no consulta a Gemini si solo se escribio la marca de prueba', async () => {
+    let llamadas = 0;
+    const http: typeof fetch = () => {
+      llamadas++;
+      return Promise.resolve(cuerpoDe('bienestar', 'No debe mostrarse.'));
+    };
+
+    await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: '[PRUEBA]  ',
+    });
+
+    expect(llamadas).toBe(0);
+  });
+
   it('responde con Gemini a una consulta ficticia y no envia el ID de usuario', async () => {
     let cuerpo = '';
     const http: typeof fetch = (_url, opciones) => {
@@ -105,12 +121,55 @@ describe('AsistenteGeminiEnPre', () => {
     expect(respuesta.recursos).toEqual([]);
   });
 
+  it('no acepta indicaciones clinicas generadas por el modelo', async () => {
+    const http: typeof fetch = () =>
+      Promise.resolve(cuerpoDe('consulta_clinica', 'Toma un tratamiento específico.'));
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: '[PRUEBA] Diagnostica a un personaje ficticio',
+    });
+
+    expect(respuesta.mensaje).toContain('consulta a un profesional');
+    expect(respuesta.mensaje).not.toContain('tratamiento específico');
+  });
+
+  it.each([
+    Response.json({ candidates: [] }),
+    Response.json({
+      candidates: [{ content: { parts: [{ text: '{"tipo":"desconocido","mensaje":"x"}' }] } }],
+    }),
+    cuerpoDe('bienestar', ''),
+    cuerpoDe('bienestar', 'Llama al +57 123 456 7890'),
+    cuerpoDe('bienestar', 'Visita https://ejemplo.test'),
+  ])('descarta una salida vacia, invalida o con contactos inventados', async (salida) => {
+    const http: typeof fetch = () => Promise.resolve(salida.clone());
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: '[PRUEBA] Pregunta ficticia sobre bienestar',
+    });
+
+    expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+  });
+
   it('falla de forma visible si la API no esta disponible', async () => {
     const http: typeof fetch = () => Promise.resolve(new Response('', { status: 429 }));
     const respuesta = await crear(http).responder({
       userId: USUARIO,
       zonaHoraria: 'America/Bogota',
       texto: '[PRUEBA] ¿Cómo organizo mi descanso?',
+    });
+
+    expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+  });
+
+  it('falla de forma visible si la conexion se interrumpe', async () => {
+    const http: typeof fetch = () => Promise.reject(new Error('conexion de prueba'));
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: '[PRUEBA] Pregunta ficticia sobre bienestar',
     });
 
     expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');

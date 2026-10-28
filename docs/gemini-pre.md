@@ -56,10 +56,12 @@ backend: la respuesta al usuario debe indicar que la prueba no está disponible.
   reales de salud. Ver las condiciones de Gemini API.
 - No se envían IDs, nombres de mascota ni resultados personales a Gemini: solo
   el texto de prueba tras el prefijo.
-- El servidor interrumpe la solicitud a Gemini a los ocho segundos. El
+- El servidor interrumpe la solicitud a Gemini a los quince segundos. El
   navegador espera veinte segundos antes de mostrar su propio aviso.
 - Si Gemini devuelve un error, una respuesta vacía o una forma inesperada, VSD
   muestra un aviso de fallo. No cambia los recursos ni los números de crisis.
+- Render registra solo la categoría del fallo y, si aplica, el estado HTTP de
+  Google. Nunca registra la clave, la pregunta ni el cuerpo de la respuesta.
 - Para apagar la prueba, quitar `GEMINI_PRE_API_KEY` y `GEMINI_PRE_USER_IDS` de
   Render y volver a desplegar PRE. El asistente por reglas sigue funcionando.
 

@@ -9,8 +9,10 @@ import {
 import type { AjustesGeminiEnPre } from '../config/environment.js';
 
 const MARCA_DE_PRUEBA = '[PRUEBA]';
-const URL_GEMINI =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+// Los proyectos nuevos pueden no tener acceso a la familia 2.5. Ambos modelos
+// tienen nivel gratuito; solo se intenta el segundo si el primero devuelve 404.
+const MODELOS_GEMINI = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite'] as const;
+const BASE_GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const ESPERA_GEMINI_MS = 15_000;
 
 type MotivoDeFallo =
@@ -89,7 +91,7 @@ export class AsistenteGeminiEnPre implements AsistentePort {
     }
 
     try {
-      const respuesta = await this.http(URL_GEMINI, {
+      const opciones: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +101,7 @@ export class AsistenteGeminiEnPre implements AsistentePort {
           systemInstruction: { parts: [{ text: INSTRUCCION }] },
           contents: [{ role: 'user', parts: [{ text: pregunta }] }],
           generationConfig: {
-            maxOutputTokens: 512,
+            maxOutputTokens: 1_024,
             responseMimeType: 'application/json',
             responseSchema: {
               type: 'OBJECT',
@@ -115,8 +117,20 @@ export class AsistenteGeminiEnPre implements AsistentePort {
           },
         }),
         signal: AbortSignal.timeout(ESPERA_GEMINI_MS),
-      });
+      };
+      let respuesta: Response | undefined;
+      for (const [indice, modelo] of MODELOS_GEMINI.entries()) {
+        respuesta = await this.http(`${BASE_GEMINI}${modelo}:generateContent`, opciones);
+        if (respuesta.status !== 404 || indice === MODELOS_GEMINI.length - 1) {
+          break;
+        }
+        // No registrar el cuerpo del proveedor ni el texto de la persona.
+        this.registro.warn(`Gemini PRE: modelo_no_disponible (${modelo})`);
+      }
 
+      if (respuesta === undefined) {
+        return this.fallo('conexion');
+      }
       if (!respuesta.ok) {
         return this.fallo('respuesta_http', respuesta.status);
       }

@@ -193,6 +193,12 @@ export class AsistenteGeminiEnPre implements AsistentePort {
     this.registro.warn(
       `Gemini PRE: ${motivo}${estadoHttp === undefined ? '' : ` (${estadoHttp})`}`,
     );
-    return this.sinRecursos(MENSAJE_FALLIDO);
+    // Solo lo ven las cuentas autorizadas de PRE que enviaron [PRUEBA]. El
+    // codigo no contiene preguntas, claves ni el cuerpo devuelto por Google.
+    const codigo =
+      motivo === 'respuesta_http' && estadoHttp !== undefined
+        ? `HTTP-${estadoHttp}`
+        : motivo.toUpperCase();
+    return this.sinRecursos(`${MENSAJE_FALLIDO} (PRE-GEMINI-${codigo})`);
   }
 }

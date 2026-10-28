@@ -142,6 +142,9 @@ describe('AsistenteGeminiEnPre', () => {
       });
 
       expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+      expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-403');
+      expect(respuesta.mensaje).not.toContain('clave-de-prueba');
+      expect(respuesta.mensaje).not.toContain('Un personaje ficticio');
       expect(advertencia).toHaveBeenCalledWith('Gemini PRE: respuesta_http (403)');
     } finally {
       advertencia.mockRestore();

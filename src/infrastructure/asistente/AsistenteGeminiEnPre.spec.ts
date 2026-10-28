@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 import { EXPRESIONES_DE_RIESGO } from '../../domain/model/SenalesDeRiesgo.js';
 import { Intencion } from '../../domain/ports/in/AsistentePort.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
@@ -102,6 +103,49 @@ describe('AsistenteGeminiEnPre', () => {
     expect(cuerpo).not.toContain('[PRUEBA]');
     expect(respuesta.mensaje).toContain('pausa breve');
     expect(respuesta.senalDeRiesgo).toBe(false);
+  });
+
+  it('lee el texto cuando Gemini incluye primero una parte de razonamiento', async () => {
+    const http: typeof fetch = () =>
+      Promise.resolve(
+        Response.json({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { thought: true, text: 'Razonamiento interno.' },
+                  { text: JSON.stringify({ tipo: 'bienestar', mensaje: 'Haz una pausa breve.' }) },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: '[PRUEBA] ¿Qué hábito puede probar un personaje ficticio?',
+    });
+
+    expect(respuesta.mensaje).toBe('Haz una pausa breve.');
+  });
+
+  it('registra solo el estado HTTP cuando Gemini rechaza la solicitud', async () => {
+    const advertencia = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const http: typeof fetch = () => Promise.resolve(new Response('rechazado', { status: 403 }));
+      const respuesta = await crear(http).responder({
+        userId: USUARIO,
+        zonaHoraria: 'America/Bogota',
+        texto: '[PRUEBA] Un personaje ficticio se distrae al estudiar.',
+      });
+
+      expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+      expect(advertencia).toHaveBeenCalledWith('Gemini PRE: respuesta_http (403)');
+    } finally {
+      advertencia.mockRestore();
+    }
   });
 
   it('usa una negativa fija para asuntos ajenos y descarta el mensaje del modelo', async () => {

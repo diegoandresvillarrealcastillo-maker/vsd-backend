@@ -69,6 +69,13 @@ describe('POST /api/asistente', () => {
     await app.close();
   });
 
+  it('rechaza una pregunta sin sesion antes de llegar al asistente', async () => {
+    await request(app.getHttpServer())
+      .post('/api/asistente')
+      .send({ texto: 'Una pregunta ficticia sobre bienestar' })
+      .expect(401);
+  });
+
   it('responde a una pregunta reconocida con recursos', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')

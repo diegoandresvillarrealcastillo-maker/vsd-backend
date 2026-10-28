@@ -17,8 +17,8 @@ import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
  * cambia una linea del modulo que decide cual se inyecta.
  *
  * Responde 200 y no 201 porque no crea nada. El servidor no conserva el texto.
- * En PRE, las cuentas de prueba pueden enviarlo deliberadamente a Gemini con
- * el prefijo [PRUEBA]; solo deben usar datos ficticios.
+ * En PRE, las preguntas no reconocidas por las reglas de cuentas autenticadas
+ * pueden enviarse a Gemini; solo deben usarse datos ficticios.
  */
 @ApiTags('Asistente')
 @ApiBearerAuth('sesion')
@@ -35,7 +35,7 @@ export class AsistenteController {
   @ApiOperation({
     summary: 'Preguntar al asistente',
     description:
-      'VSD IA responde por reglas. Solo en PRE, las cuentas autorizadas pueden probar Gemini con preguntas ficticias precedidas por [PRUEBA]. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion y nunca se envia a Gemini. El asistente no diagnostica ni indica tratamientos.',
+      'VSD IA responde por reglas. Solo en PRE, las preguntas no reconocidas de cuentas autenticadas pueden enviarse a Gemini para pruebas ficticias. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion y nunca se envia a Gemini. El asistente no diagnostica ni indica tratamientos.',
   })
   @ApiBody({ type: ConsultarAsistenteDto })
   @ApiResponse({

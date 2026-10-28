@@ -16,7 +16,7 @@ function crear(http: typeof fetch) {
       new InMemoryRecursoApoyoRepository(),
       new InMemoryActivityResultRepository(),
     ),
-    { clave: 'clave-de-prueba', usuariosDePrueba: new Set([USUARIO]) },
+    { clave: 'clave-de-prueba' },
     http,
   );
 }
@@ -46,7 +46,7 @@ describe('AsistenteGeminiEnPre', () => {
     expect(respuesta.recursos.length).toBeGreaterThan(0);
   });
 
-  it('solo envia consultas marcadas de cuentas autorizadas', async () => {
+  it('prioriza las respuestas conocidas de las reglas sin consultar a Gemini', async () => {
     let llamadas = 0;
     const http: typeof fetch = () => {
       llamadas++;
@@ -54,18 +54,30 @@ describe('AsistenteGeminiEnPre', () => {
     };
     const asistente = crear(http);
 
-    await asistente.responder({
-      userId: OTRO,
-      zonaHoraria: 'America/Bogota',
-      texto: '[PRUEBA] ¿Cómo puedo organizar una pausa?',
-    });
-    await asistente.responder({
+    const respuesta = await asistente.responder({
       userId: USUARIO,
       zonaHoraria: 'America/Bogota',
-      texto: '¿Cómo puedo organizar una pausa?',
+      texto: 'Hola',
     });
 
     expect(llamadas).toBe(0);
+    expect(respuesta.intencion).toBe(Intencion.SALUDO);
+  });
+
+  it('consulta a Gemini sin prefijo para otra cuenta cuando las reglas no reconocen el tema', async () => {
+    let llamadas = 0;
+    const http: typeof fetch = () => {
+      llamadas++;
+      return Promise.resolve(cuerpoDe('bienestar', 'Haz una pausa breve.'));
+    };
+    const respuesta = await crear(http).responder({
+      userId: OTRO,
+      zonaHoraria: 'America/Bogota',
+      texto: 'Un personaje ficticio se distrae al estudiar. ¿Qué hábito puede probar?',
+    });
+
+    expect(llamadas).toBe(1);
+    expect(respuesta.mensaje).toBe('Haz una pausa breve.');
   });
 
   it('no consulta a Gemini si solo se escribio la marca de prueba', async () => {
@@ -142,6 +154,9 @@ describe('AsistenteGeminiEnPre', () => {
       });
 
       expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+      expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-403');
+      expect(respuesta.mensaje).not.toContain('clave-de-prueba');
+      expect(respuesta.mensaje).not.toContain('Un personaje ficticio');
       expect(advertencia).toHaveBeenCalledWith('Gemini PRE: respuesta_http (403)');
     } finally {
       advertencia.mockRestore();
@@ -202,7 +217,7 @@ describe('AsistenteGeminiEnPre', () => {
     const respuesta = await crear(http).responder({
       userId: USUARIO,
       zonaHoraria: 'America/Bogota',
-      texto: '[PRUEBA] ¿Cómo organizo mi descanso?',
+      texto: 'Un personaje ficticio se distrae al estudiar. ¿Qué hábito puede probar?',
     });
 
     expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');

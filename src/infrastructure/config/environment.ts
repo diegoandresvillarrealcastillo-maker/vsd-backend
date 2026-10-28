@@ -191,6 +191,10 @@ const esquema = z
     // ella se usa una clave al azar por arranque, y las huellas no se pueden
     // comparar entre un despliegue y otro.
     REGISTRO_SEGURIDAD_CLAVE_IP: z.string().trim().optional(),
+    // Solo PRE: una clave gratuita y cuentas de prueba explicitas. Nunca se
+    // habilita para produccion ni para todas las cuentas del ambiente.
+    GEMINI_PRE_API_KEY: z.string().trim().optional(),
+    GEMINI_PRE_USER_IDS: z.string().trim().optional(),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -246,6 +250,44 @@ const esquema = z
 
     validarElRegistroDeSeguridad(valores, ctx);
 
+    const claveGemini = valores.GEMINI_PRE_API_KEY ?? '';
+    const usuariosGemini = valores.GEMINI_PRE_USER_IDS ?? '';
+
+    if (claveGemini !== '' || usuariosGemini !== '') {
+      if (valores.NODE_ENV !== Ambiente.PREPRODUCCION) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GEMINI_PRE_API_KEY'],
+          message: 'La prueba de Gemini solo se permite en preproduction.',
+        });
+      }
+
+      if (claveGemini === '' || usuariosGemini === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GEMINI_PRE_USER_IDS'],
+          message: 'GEMINI_PRE_API_KEY y GEMINI_PRE_USER_IDS van juntas.',
+        });
+      }
+
+      if (
+        usuariosGemini !== '' &&
+        !usuariosGemini
+          .split(',')
+          .every((id) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+              id.trim(),
+            ),
+          )
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GEMINI_PRE_USER_IDS'],
+          message: 'Indica identificadores UUID de cuentas de prueba separados por coma.',
+        });
+      }
+    }
+
     if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
       ctx.addIssue({
         code: 'custom',
@@ -287,6 +329,13 @@ export interface Configuracion {
   readonly vapid: ClavesVapid | undefined;
   /** Registro de eventos de seguridad (SCRUM-163). */
   readonly registroDeSeguridad: AjustesDelRegistroDeSeguridad;
+  /** Gemini gratis solo para cuentas de prueba en PRE. */
+  readonly geminiEnPre: AjustesGeminiEnPre | undefined;
+}
+
+export interface AjustesGeminiEnPre {
+  readonly clave: string;
+  readonly usuariosDePrueba: ReadonlySet<string>;
 }
 
 export interface AjustesDelRegistroDeSeguridad {
@@ -347,6 +396,8 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     REGISTRO_SEGURIDAD_TOKEN,
     REGISTRO_SEGURIDAD_CABECERA,
     REGISTRO_SEGURIDAD_CLAVE_IP,
+    GEMINI_PRE_API_KEY,
+    GEMINI_PRE_USER_IDS,
   } = resultado.data;
 
   return {
@@ -386,5 +437,14 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
       claveDeIp:
         (REGISTRO_SEGURIDAD_CLAVE_IP ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_CLAVE_IP,
     },
+    geminiEnPre:
+      (GEMINI_PRE_API_KEY ?? '') === ''
+        ? undefined
+        : {
+            clave: GEMINI_PRE_API_KEY ?? '',
+            usuariosDePrueba: new Set(
+              (GEMINI_PRE_USER_IDS ?? '').split(',').map((id) => id.trim().toLowerCase()),
+            ),
+          },
   };
 }

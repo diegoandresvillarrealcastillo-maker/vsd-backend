@@ -14,6 +14,12 @@ En otro caso, se usa el asistente actual. El servidor se niega a arrancar si
 la clave aparece en production o development. La clave no se imprime ni
 se devuelve al navegador.
 
+La API consulta primero `gemini-3-flash-preview`. Si Google devuelve 404 porque
+ese modelo no esta disponible para el proyecto, intenta una sola vez
+`gemini-3.1-flash-lite`. Ambos tienen nivel gratuito, sujeto a los limites
+vigentes del proyecto en Google AI Studio. Los demas errores (incluido 429 por
+cuota) no provocan un segundo intento.
+
 ## Preparacion
 
 1. Crear cuentas de prueba de adultos en PRE. Usar nombres y datos ficticios.

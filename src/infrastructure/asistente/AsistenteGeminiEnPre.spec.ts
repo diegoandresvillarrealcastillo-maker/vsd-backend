@@ -66,8 +66,11 @@ describe('AsistenteGeminiEnPre', () => {
 
   it('consulta a Gemini sin prefijo para otra cuenta cuando las reglas no reconocen el tema', async () => {
     let llamadas = 0;
-    const http: typeof fetch = () => {
+    const http: typeof fetch = (url) => {
       llamadas++;
+      expect(url).toBe(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+      );
       return Promise.resolve(cuerpoDe('bienestar', 'Haz una pausa breve.'));
     };
     const respuesta = await crear(http).responder({
@@ -78,6 +81,51 @@ describe('AsistenteGeminiEnPre', () => {
 
     expect(llamadas).toBe(1);
     expect(respuesta.mensaje).toBe('Haz una pausa breve.');
+  });
+
+  it('prueba Flash-Lite si Google no encuentra el primer modelo', async () => {
+    const urls: string[] = [];
+    const cuerpos: string[] = [];
+    const http: typeof fetch = (url, opciones) => {
+      urls.push(typeof url === 'string' ? url : url instanceof URL ? url.href : url.url);
+      cuerpos.push(typeof opciones?.body === 'string' ? opciones.body : '');
+      return Promise.resolve(
+        urls.length === 1
+          ? new Response('', { status: 404 })
+          : cuerpoDe('bienestar', 'Prueba con una tarea a la vez.'),
+      );
+    };
+
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: 'Un personaje ficticio se distrae al estudiar. ¿Qué hábito puede probar?',
+    });
+
+    expect(urls).toEqual([
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
+    ]);
+    expect(cuerpos[0]).toBe(cuerpos[1]);
+    expect(cuerpos[0]).not.toContain(USUARIO);
+    expect(respuesta.mensaje).toBe('Prueba con una tarea a la vez.');
+  });
+
+  it('conserva el codigo 404 si ninguno de los dos modelos esta disponible', async () => {
+    let llamadas = 0;
+    const http: typeof fetch = () => {
+      llamadas++;
+      return Promise.resolve(new Response('', { status: 404 }));
+    };
+
+    const respuesta = await crear(http).responder({
+      userId: USUARIO,
+      zonaHoraria: 'America/Bogota',
+      texto: 'Un personaje ficticio se distrae al estudiar. ¿Qué hábito puede probar?',
+    });
+
+    expect(llamadas).toBe(2);
+    expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-404');
   });
 
   it('no consulta a Gemini si solo se escribio la marca de prueba', async () => {
@@ -146,7 +194,11 @@ describe('AsistenteGeminiEnPre', () => {
   it('registra solo el estado HTTP cuando Gemini rechaza la solicitud', async () => {
     const advertencia = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     try {
-      const http: typeof fetch = () => Promise.resolve(new Response('rechazado', { status: 403 }));
+      let llamadas = 0;
+      const http: typeof fetch = () => {
+        llamadas++;
+        return Promise.resolve(new Response('rechazado', { status: 403 }));
+      };
       const respuesta = await crear(http).responder({
         userId: USUARIO,
         zonaHoraria: 'America/Bogota',
@@ -157,6 +209,7 @@ describe('AsistenteGeminiEnPre', () => {
       expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-403');
       expect(respuesta.mensaje).not.toContain('clave-de-prueba');
       expect(respuesta.mensaje).not.toContain('Un personaje ficticio');
+      expect(llamadas).toBe(1);
       expect(advertencia).toHaveBeenCalledWith('Gemini PRE: respuesta_http (403)');
     } finally {
       advertencia.mockRestore();

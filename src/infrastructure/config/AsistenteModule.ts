@@ -3,13 +3,16 @@ import { ConsultarLasReglasLocalesUseCaseImpl } from '../../application/usecases
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { AsistentePorReglas } from '../asistente/AsistentePorReglas.js';
+import { AsistenteGeminiEnPre } from '../asistente/AsistenteGeminiEnPre.js';
 import { AsistenteController } from '../controllers/AsistenteController.js';
 import { ReglasLocalesDelAsistenteController } from '../controllers/ReglasLocalesDelAsistenteController.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
+import type { Configuracion } from './environment.js';
 import {
   ACTIVITY_RESULT_REPOSITORY,
   ASISTENTE,
   CONSULTAR_REGLAS_LOCALES,
+  CONFIGURACION,
   RECURSO_APOYO_REPOSITORY,
 } from './tokens.js';
 
@@ -40,8 +43,15 @@ import {
       useFactory: (
         recursos: RecursoApoyoRepositoryPort,
         resultados: ActivityResultRepositoryPort,
-      ) => new AsistentePorReglas(recursos, resultados),
-      inject: [RECURSO_APOYO_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
+        configuracion: Configuracion,
+      ) => {
+        const reglas = new AsistentePorReglas(recursos, resultados);
+
+        return configuracion.geminiEnPre === undefined
+          ? reglas
+          : new AsistenteGeminiEnPre(reglas, configuracion.geminiEnPre);
+      },
+      inject: [RECURSO_APOYO_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, CONFIGURACION],
     },
     {
       provide: CONSULTAR_REGLAS_LOCALES,

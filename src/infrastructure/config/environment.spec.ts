@@ -9,6 +9,40 @@ const VALIDA = {
 };
 
 describe('validarConfiguracion', () => {
+  describe('Gemini en PRE', () => {
+    const ID = '11111111-1111-4111-8111-111111111111';
+
+    it('requiere clave y cuentas de prueba juntas', () => {
+      expect(() => validarConfiguracion({ ...VALIDA, GEMINI_PRE_API_KEY: 'de-prueba' })).toThrow(
+        /GEMINI_PRE_USER_IDS/,
+      );
+    });
+
+    it.each(['development', 'production'])('rechaza la clave de prueba en %s', (ambiente) => {
+      expect(() =>
+        validarConfiguracion({
+          ...VALIDA,
+          NODE_ENV: ambiente,
+          GEMINI_PRE_API_KEY: 'de-prueba',
+          GEMINI_PRE_USER_IDS: ID,
+        }),
+      ).toThrow(/preproduction/);
+    });
+
+    it('lee los IDs de cuentas de prueba en PRE', () => {
+      const configuracion = validarConfiguracion({
+        ...VALIDA,
+        NODE_ENV: 'preproduction',
+        DATABASE_URL: 'postgresql://x:y@z:5432/db',
+        SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
+        GEMINI_PRE_API_KEY: 'clave-de-prueba',
+        GEMINI_PRE_USER_IDS: ID,
+      });
+
+      expect(configuracion.geminiEnPre?.usuariosDePrueba.has(ID)).toBe(true);
+    });
+  });
+
   it('acepta una configuracion valida', () => {
     const configuracion = validarConfiguracion(VALIDA);
 

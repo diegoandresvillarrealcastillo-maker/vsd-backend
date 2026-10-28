@@ -16,8 +16,9 @@ import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
  * exista una implementacion con modelo de lenguaje, este archivo no cambia:
  * cambia una linea del modulo que decide cual se inyecta.
  *
- * Responde 200 y no 201 porque no crea nada. Una consulta al asistente no deja
- * rastro: el texto se usa para responder y se descarta.
+ * Responde 200 y no 201 porque no crea nada. El servidor no conserva el texto.
+ * En PRE, las cuentas de prueba pueden enviarlo deliberadamente a Gemini con
+ * el prefijo [PRUEBA]; solo deben usar datos ficticios.
  */
 @ApiTags('Asistente')
 @ApiBearerAuth('sesion')
@@ -34,7 +35,7 @@ export class AsistenteController {
   @ApiOperation({
     summary: 'Preguntar al asistente',
     description:
-      'VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.',
+      'VSD IA responde por reglas. Solo en PRE, las cuentas autorizadas pueden probar Gemini con preguntas ficticias precedidas por [PRUEBA]. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion y nunca se envia a Gemini. El asistente no diagnostica ni indica tratamientos.',
   })
   @ApiBody({ type: ConsultarAsistenteDto })
   @ApiResponse({

@@ -8,6 +8,7 @@
   "include": [
     "src/**/*.ts",
     "vitest.config.mts",
+    "vitest.integracion.config.mts",
     "prisma.config.ts",
     "scripts/carga/*.ts",
     "scripts/carga/*.mts"

@@ -96,6 +96,11 @@ remote: - 3 of 3 required status checks are expected.
 - Las pruebas viven junto al archivo que prueban.
 - `domain/` y `application/` deben alcanzar al menos **80 %** de
   cobertura. Son las capas donde vive la logica; el resto es cableado.
+- SonarQube suma dos informes de cobertura: el de la suite unitaria (`coverage/`) y el de las
+  pruebas de integracion contra PostgreSQL (`coverage-integracion/`, con
+  `npm run test:integracion:cobertura`). Los repositorios de Prisma solo se ejercitan con las de
+  integracion, asi que sin el segundo informe aparecerian sin cubrir. El CI lo saca en «Calidad del
+  codigo», con una base desechable y en serie (SCRUM-301).
 - Toda regla de autorizacion necesita una prueba **en negativo**: no
   basta comprobar que el dueno accede a su dato, hay que comprobar que
   otro usuario recibe un rechazo.

@@ -59,6 +59,13 @@ mismos permisos que el nuestro. Tres controles, ademas de Gitleaks:
   nada.
 - Los commits de Dependabot no citan un ticket; `commitlint.config.mjs` los
   reconoce por su firma y los deja pasar.
+- **Avisos sin version corregida (SCRUM-298).** `npm audit` no ve todos (los de
+  `picomatch` y `uri-js` estan sin revisar en GitHub) y SonarQube si. Los que hoy
+  no tienen arreglo se llevan, con su alcance y su riesgo, en
+  [avisos-de-dependencias.md](avisos-de-dependencias.md): no se aceptan en
+  `vulnerabilidades-aceptadas.json` (que solo cubre lo que `npm audit` reporta
+  como grave en produccion) ni se dan por resueltos hasta que un nuevo analisis
+  de SonarQube ya no los muestre.
 
 ### Lo que la API deja ver y a quien deja llamarla (SCRUM-155)
 

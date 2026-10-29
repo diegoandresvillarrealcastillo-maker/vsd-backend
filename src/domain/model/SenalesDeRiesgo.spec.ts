@@ -144,6 +144,22 @@ describe('el riesgo con invisibles dentro y entre palabras a la vez (SCRUM-318)'
     },
   );
 
+  it.each(EXPRESIONES_DE_RIESGO.filter((expresion) => expresion.split(' ').length >= 3))(
+    '«%s» se detecta alternando espacios de verdad e invisibles entre las palabras',
+    (expresion) => {
+      // Con un espacio real en medio, ni quitar todos los invisibles ni leerlos todos como espacio
+      // alcanza: hace falta decidir en cada hueco.
+      let n = 0;
+      const separador = () => (n++ % 2 === 0 ? '\u{200B}' : ' ');
+      const texto = expresion
+        .split(' ')
+        .map((palabra) => `${palabra.slice(0, 2)}\u{200D}${palabra.slice(2)}`)
+        .reduce((junto, palabra) => `${junto}${separador()}${palabra}`);
+
+      expect(hayRiesgo(texto)).toBe(true);
+    },
+  );
+
   it('un invisible junto a un espacio de verdad tampoco separa de mas', () => {
     expect(hayRiesgo('quiero \u{200B}mo\u{200B}rir')).toBe(true);
     expect(hayRiesgo('quiero\u{200B} mo\u{200B}rir')).toBe(true);

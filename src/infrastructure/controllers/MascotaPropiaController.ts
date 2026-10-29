@@ -27,6 +27,7 @@ import { MASCOTA_PROPIA } from '../config/tokens.js';
 import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
 import { LIMITE_DE_ESCRIBIR_ARCHIVOS } from '../limites/limites.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
+import { bytesDelCuerpo, RespuestasDeSubirUnArchivo } from './subirUnArchivoPersonal.js';
 
 /**
  * La mascota propia de la cuenta propia: un SVG que sube la persona (SCRUM-122).
@@ -59,30 +60,18 @@ export class MascotaPropiaController {
   @ApiConsumes('image/svg+xml')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
   @ApiResponse({ status: 200, description: 'La cuenta como quedó.', type: CuentaRespuestaDto })
-  @ApiResponse({
-    status: 400,
-    description:
+  @RespuestasDeSubirUnArchivo({
+    invalido:
       'MASCOTA_SVG_NO_ES_UN_SVG, MASCOTA_SVG_PELIGROSO, MASCOTA_SVG_NO_ADMITIDO o MASCOTA_SVG_DEMASIADO_COMPLEJO.',
-  })
-  @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })
-  @ApiResponse({ status: 403, description: 'Hay sesión pero todavía no hay cuenta.' })
-  @ApiResponse({
-    status: 413,
-    description: 'MASCOTA_SVG_DEMASIADO_PESADO, o CUERPO_DEMASIADO_GRANDE si pasa de 120 KB.',
-  })
-  @ApiResponse({ status: 415, description: 'MASCOTA_SVG_TIPO_NO_PERMITIDO: solo .svg.' })
-  @ApiResponse({
-    status: 503,
-    description: 'ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar.',
+    pesado: 'MASCOTA_SVG_DEMASIADO_PESADO, o CUERPO_DEMASIADO_GRANDE si pasa de 120 KB.',
+    tipo: 'MASCOTA_SVG_TIPO_NO_PERMITIDO: solo .svg.',
   })
   async guardar(
     @Body() cuerpo: unknown,
     @Headers('content-type') tipo: string | undefined,
     @CuentaActual() cuenta: User,
   ): Promise<CuentaRespuestaDto> {
-    // Si el tipo no era un SVG, el lector no toco el cuerpo y aqui llega otra
-    // cosa. No importa: el tipo se mira primero y falla con su motivo.
-    const contenido = Buffer.isBuffer(cuerpo) ? cuerpo : new Uint8Array(0);
+    const contenido = bytesDelCuerpo(cuerpo);
 
     return CuentaRespuestaDto.desde(await this.mascotas.guardar(cuenta.id, contenido, tipo ?? ''));
   }

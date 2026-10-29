@@ -1,4 +1,9 @@
 import type { Dia } from '../domain/model/Calendario.js';
+import {
+  entradaConId,
+  entradaDeLaOperacion,
+  entradasEntreDias,
+} from '../domain/model/ConsultasDelDiario.js';
 import type { EntradaDeDiario } from '../domain/model/EntradaDeDiario.js';
 import type { ClientOperationId, EntradaId, UserId } from '../domain/model/Identifier.js';
 import type { DiarioRepositoryPort } from '../domain/ports/out/DiarioRepositoryPort.js';
@@ -30,24 +35,15 @@ export class DiarioDePrueba implements DiarioRepositoryPort {
   }
 
   entreDias(userId: UserId, desde: Dia, hasta: Dia): Promise<readonly EntradaDeDiario[]> {
-    return Promise.resolve(
-      this.de(userId)
-        .filter((entrada) => entrada.dia >= desde && entrada.dia <= hasta)
-        .sort(
-          (una, otra) =>
-            una.dia.localeCompare(otra.dia) || una.creadaEn.getTime() - otra.creadaEn.getTime(),
-        ),
-    );
+    return Promise.resolve(entradasEntreDias(this.de(userId), desde, hasta));
   }
 
   porId(userId: UserId, id: EntradaId): Promise<EntradaDeDiario | null> {
-    return Promise.resolve(this.de(userId).find((entrada) => entrada.id.equals(id)) ?? null);
+    return Promise.resolve(entradaConId(this.de(userId), id));
   }
 
   porOperacion(userId: UserId, operacion: ClientOperationId): Promise<EntradaDeDiario | null> {
-    return Promise.resolve(
-      this.de(userId).find((entrada) => entrada.clientOperationId.equals(operacion)) ?? null,
-    );
+    return Promise.resolve(entradaDeLaOperacion(this.de(userId), operacion));
   }
 
   guardarNueva(entrada: EntradaDeDiario): Promise<EntradaDeDiario> {

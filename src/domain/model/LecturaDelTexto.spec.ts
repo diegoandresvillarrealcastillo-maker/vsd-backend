@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   ERRATAS_FRECUENTES,
+  contieneLaExpresion,
   corregirPalabras,
   distanciaDeEdicion,
+  leerConInvisibles,
   normalizar,
   palabrasDe,
   vocabularioDe,
@@ -81,6 +83,55 @@ describe('caracteres invisibles', () => {
 
   it('las tildes, la eñe y la diéresis se siguen quitando como siempre', () => {
     expect(normalizar('ÁÉÍÓÚ Ñandú pingüino')).toBe('aeiou nandu pinguino');
+  });
+});
+
+/**
+ * Los invisibles dentro y entre palabras a la vez (SCRUM-318): se lee dejando una marca donde
+ * estaban, y quien compara decide en cada sitio que eran.
+ */
+describe('contieneLaExpresion sobre lo leido con invisibles', () => {
+  const dentro = (texto: string, expresion = 'quiero morir') =>
+    contieneLaExpresion(leerConInvisibles(texto), expresion);
+
+  it('lo leido se parece a normalizar, con una marca donde habia invisibles', () => {
+    expect(leerConInvisibles('  Quiero   MORÍR ')).toBe(normalizar('  Quiero   MORÍR '));
+    expect(leerConInvisibles('mo\u{200B}rir')).not.toBe('morir');
+    expect(leerConInvisibles('mo\u{200B}rir').replace('\u{1}', '')).toBe('morir');
+  });
+
+  it.each([
+    'quiero morir',
+    'quiero\u{200B}morir',
+    'quiero mo\u{200B}rir',
+    'quiero\u{200B}mo\u{200B}rir',
+    'quiero \u{200B} \u{AD}morir',
+    'q\u{200B}u\u{200B}i\u{200B}e\u{200B}r\u{200B}o\u{200B}\u{200B}m\u{200B}o\u{200B}r\u{200B}i\u{200B}r',
+    'QUIERO\u{2060}MORÍR',
+  ])('reconoce «%s»', (texto) => {
+    expect(dentro(texto)).toBe(true);
+  });
+
+  it.each(['quieromorir', 'quiero  mor', 'quiero\u{200B}', 'quier\u{200B}o\u{200B}morr', ''])(
+    'no reconoce «%s»',
+    (texto) => {
+      expect(dentro(texto)).toBe(false);
+    },
+  );
+
+  it('un invisible antes de la primera letra o despues de la ultima no estorba ni inventa', () => {
+    expect(dentro('\u{200B}quiero morir\u{200B}')).toBe(true);
+    expect(dentro('\u{200B}quiero\u{200B}')).toBe(false);
+  });
+
+  it('una expresion de una sola palabra y una vacia', () => {
+    expect(dentro('a veces pienso en suicid\u{200B}arme', 'suicidarme')).toBe(true);
+    expect(dentro('suicidarme', '')).toBe(false);
+  });
+
+  it('busca en todas las apariciones de la primera letra, no solo en la primera', () => {
+    expect(dentro('qqquiero\u{200B}mo\u{200B}rir')).toBe(true);
+    expect(dentro('quiero quiero\u{200B}morir')).toBe(true);
   });
 });
 

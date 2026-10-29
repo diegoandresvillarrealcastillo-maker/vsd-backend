@@ -73,6 +73,102 @@ export function conInvisiblesComoEspacio(texto: string): string {
 }
 
 /**
+ * Donde había invisibles, en un texto leído con `leerConInvisibles`. Es un carácter de control que
+ * `normalizar` no toca; si ya venía uno en lo escrito, se lee igual: como un invisible más.
+ */
+const MARCA_DE_INVISIBLE = '\u{1}';
+
+/**
+ * El texto comparable (como `normalizar`) pero **dejando una marca donde había invisibles**, en
+ * lugar de decidir por adelantado qué eran (SCRUM-318).
+ *
+ * Quitarlos todos cierra «mo» + U+200B + «rir» y convertirlos todos en espacio cierra «quiero» +
+ * U+200B + «morir», pero una sola frase puede llevar los dos usos a la vez («quiero» + U+200B +
+ * «mo» + U+200B + «rir»), y ninguna de las dos lecturas globales la ve. Con la marca, quien compara
+ * (`contieneLaExpresion`) decide en cada sitio: dentro de una palabra la marca no cuenta, y entre
+ * dos palabras hace de separación.
+ */
+export function leerConInvisibles(texto: string): string {
+  return texto
+    .normalize('NFKD')
+    .replace(INVISIBLES, MARCA_DE_INVISIBLE)
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/**
+ * Cierto si `leido` (de `leerConInvisibles`) contiene `expresion`, una expresión ya normalizada de
+ * la lista de riesgo: palabras en minúscula y sin tildes separadas por un espacio.
+ *
+ * - Entre dos letras de una misma palabra puede haber invisibles: no cuentan.
+ * - El espacio de la expresión coincide con **uno o más** espacios o invisibles, mezclados como
+ *   sea. Tiene que haber al menos uno: «quieromorir» no es «quiero morir».
+ * - Se busca como subcadena, igual que antes: no pide límites de palabra.
+ *
+ * ## Por qué es seguro
+ *
+ * La expresión es un dato de confianza y lo escrito por la persona **no se convierte en expresión
+ * regular ni se enumeran variantes**: se recorre el texto una vez por cada aparición de la primera
+ * letra, y cada intento avanza sin retroceder. El coste es, como mucho, el largo del texto por el de
+ * la expresión, sin importar cuántos invisibles lleve.
+ */
+export function contieneLaExpresion(leido: string, expresion: string): boolean {
+  const primera = expresion[0];
+
+  if (primera === undefined) {
+    return false;
+  }
+
+  for (
+    let inicio = leido.indexOf(primera);
+    inicio !== -1;
+    inicio = leido.indexOf(primera, inicio + 1)
+  ) {
+    if (coincideDesde(leido, inicio, expresion)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function coincideDesde(leido: string, inicio: number, expresion: string): boolean {
+  let posicion = inicio;
+
+  for (let i = 0; i < expresion.length; i += 1) {
+    if (expresion[i] === ' ') {
+      const desde = posicion;
+
+      while (leido[posicion] === ' ' || leido[posicion] === MARCA_DE_INVISIBLE) {
+        posicion += 1;
+      }
+
+      // Sin ningun espacio ni invisible no hay separacion entre las palabras.
+      if (posicion === desde) {
+        return false;
+      }
+
+      continue;
+    }
+
+    // Dentro de una palabra, un invisible entre dos letras no cuenta.
+    while (i > 0 && leido[posicion] === MARCA_DE_INVISIBLE) {
+      posicion += 1;
+    }
+
+    if (leido[posicion] !== expresion[i]) {
+      return false;
+    }
+
+    posicion += 1;
+  }
+
+  return true;
+}
+
+/**
  * Las palabras de un texto: enteras, sin tildes, sin signos y en minúscula.
  *
  * Tres letras iguales seguidas se leen como una («holaaaa», «graciasss»): en español ninguna

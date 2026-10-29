@@ -1,9 +1,10 @@
 import {
   conInvisiblesComoEspacio,
+  contieneLaExpresion,
   corregirPalabras,
+  leerConInvisibles,
   vocabularioDe,
 } from '../domain/model/LecturaDelTexto.js';
-import { normalizar } from '../domain/model/SenalesDeRiesgo.js';
 import type { ReglasLocalesDelAsistente } from '../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
 import {
   contieneAlguno,
@@ -90,11 +91,10 @@ function lineasDeLaZona(reglas: ReglasLocalesDelAsistente, zona: string): readon
 }
 
 /**
- * El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
- * busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
+ * El riesgo con las erratas leidas como se quisieron escribir. Esta busqueda solo suma (SCRUM-193),
+ * con el vocabulario del propio riesgo.
  */
-function hayRiesgoEn(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
-  const limpio = normalizar(texto);
+function hayRiesgoConErratas(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
   const vocabularioDelRiesgo = vocabularioDe([reglas.riesgo.expresiones]);
   const corregidoDelRiesgo = corregirPalabras(
     palabrasDe(texto),
@@ -102,20 +102,26 @@ function hayRiesgoEn(reglas: ReglasLocalesDelAsistente, texto: string): boolean 
     reglas.erratas,
   ).join(' ');
 
-  return reglas.riesgo.expresiones.some(
-    (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
-  );
+  return reglas.riesgo.expresiones.some((expresion) => corregidoDelRiesgo.includes(expresion));
 }
 
 /**
- * Lo mismo que `hayRiesgo` del servidor: un invisible puede esconder una letra o hacer de espacio, y
- * se mira de las dos formas (SCRUM-258).
+ * Lo mismo que `hayRiesgo` del servidor: tal cual, con los invisibles leidos en cada sitio como lo
+ * que sean (dentro de una palabra no cuentan, entre palabras separan; SCRUM-258 y SCRUM-318), y
+ * despues con las erratas, mirando los invisibles quitados y como espacio.
  */
 function hayRiesgoLocal(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
+  const leido = leerConInvisibles(texto);
+
+  if (reglas.riesgo.expresiones.some((expresion) => contieneLaExpresion(leido, expresion))) {
+    return true;
+  }
+
   const comoSeparador = conInvisiblesComoEspacio(texto);
 
   return (
-    hayRiesgoEn(reglas, texto) || (comoSeparador !== texto && hayRiesgoEn(reglas, comoSeparador))
+    hayRiesgoConErratas(reglas, texto) ||
+    (comoSeparador !== texto && hayRiesgoConErratas(reglas, comoSeparador))
   );
 }
 

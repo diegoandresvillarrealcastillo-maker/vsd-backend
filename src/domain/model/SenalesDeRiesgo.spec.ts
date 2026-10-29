@@ -90,6 +90,9 @@ describe('el riesgo con caracteres invisibles (SCRUM-258): lo que no se ve no es
   it('con una errata y un invisible a la vez', () => {
     expect(hayRiesgo('kiero mo\u{200B}rirme')).toBe(true);
     expect(hayRiesgo('me kie\u{AD}ro matar')).toBe(true);
+    // El invisible hace de espacio entre dos palabras y una de ellas lleva la errata (SCRUM-318).
+    expect(hayRiesgo('kiero\u{200B}morirme')).toBe(true);
+    expect(hayRiesgo('a veces\u{200B}suisidarme')).toBe(true);
   });
 
   it('con letras de ancho completo', () => {
@@ -99,6 +102,95 @@ describe('el riesgo con caracteres invisibles (SCRUM-258): lo que no se ve no es
   it('un texto sin riesgo no empieza a dispararlo por llevar invisibles', () => {
     expect(hayRiesgo('hola\u{200B} buenas\u{AD}tardes\u{FEFF}')).toBe(false);
     expect(hayRiesgo('\u{200B}\u{200C}\u{200D}')).toBe(false);
+  });
+});
+
+describe('el riesgo con invisibles dentro y entre palabras a la vez (SCRUM-318)', () => {
+  const ROTATIVOS = ['\u{200B}', '\u{AD}', '\u{200D}', '\u{2060}', '\u{FEFF}', '\u{200E}'];
+
+  /**
+   * La expresion con un invisible en cada hueco, de los dos tipos a la vez: uno tras la segunda
+   * letra de cada palabra (escondido dentro de ella) y otro en lugar de cada espacio.
+   */
+  function mezclada(expresion: string, invisibles: readonly string[]): string {
+    let n = 0;
+    const siguiente = () => invisibles[n++ % invisibles.length] ?? '';
+
+    return expresion
+      .split(' ')
+      .map((palabra) =>
+        palabra.length > 2 ? `${palabra.slice(0, 2)}${siguiente()}${palabra.slice(2)}` : palabra,
+      )
+      .join(siguiente());
+  }
+
+  it('el caso de la auditoria: uno entre las palabras y otro dentro de la segunda', () => {
+    expect(hayRiesgo('quiero​mo​rir')).toBe(true);
+  });
+
+  it.each(EXPRESIONES_DE_RIESGO)('«%s» se detecta mezclando los dos usos', (expresion) => {
+    expect(hayRiesgo(mezclada(expresion, ['\u{200B}']))).toBe(true);
+    expect(hayRiesgo(mezclada(expresion, ROTATIVOS))).toBe(true);
+    expect(hayRiesgo(`hoy fue largo y ${mezclada(expresion, ROTATIVOS)} gracias`)).toBe(true);
+  });
+
+  it.each(EXPRESIONES_DE_RIESGO)(
+    '«%s» se detecta con un invisible en cada hueco y alrededor de cada espacio',
+    (expresion) => {
+      const entreTodo = [...expresion].map((c) => (c === ' ' ? '\u{200B} \u{200D}' : c));
+
+      expect(hayRiesgo(entreTodo.join('\u{200B}'))).toBe(true);
+      expect(hayRiesgo(entreTodo.join('\u{AD}\u{200B}'))).toBe(true);
+    },
+  );
+
+  it.each(EXPRESIONES_DE_RIESGO.filter((expresion) => expresion.split(' ').length >= 3))(
+    '«%s» se detecta alternando espacios de verdad e invisibles entre las palabras',
+    (expresion) => {
+      // Con un espacio real en medio, ni quitar todos los invisibles ni leerlos todos como espacio
+      // alcanza: hace falta decidir en cada hueco.
+      let n = 0;
+      const separador = () => (n++ % 2 === 0 ? '\u{200B}' : ' ');
+      const texto = expresion
+        .split(' ')
+        .map((palabra) => `${palabra.slice(0, 2)}\u{200D}${palabra.slice(2)}`)
+        .reduce((junto, palabra) => `${junto}${separador()}${palabra}`);
+
+      expect(hayRiesgo(texto)).toBe(true);
+    },
+  );
+
+  it('un invisible junto a un espacio de verdad tampoco separa de mas', () => {
+    expect(hayRiesgo('quiero \u{200B}mo\u{200B}rir')).toBe(true);
+    expect(hayRiesgo('quiero\u{200B} mo\u{200B}rir')).toBe(true);
+    expect(hayRiesgo('qui\u{200B}ero\u{200B}\u{200B}\u{200D}morir')).toBe(true);
+  });
+
+  it.each([
+    'hola\u{200B} bue\u{200B}nas tar\u{AD}des',
+    'quiero\u{200B}comer',
+    'quiero\u{200B}comer\u{200B}morir',
+    'mo\u{200B}rir de risa',
+    'no\u{200B}vale\u{200B}la\u{200B}pena',
+    'quie\u{200B}ro un ca\u{200B}fe',
+    'hoy me\u{200B} sentí\u{200B}bien',
+  ])('«%s» no dispara por llevar invisibles mezclados', (texto) => {
+    expect(hayRiesgo(texto)).toBe(false);
+  });
+
+  it('sin ningun separador entre las palabras no se inventa la expresion', () => {
+    // Las palabras de la expresion tienen que estar separadas por algo: un espacio o un invisible.
+    expect(hayRiesgo('hacerme\u{200B}dano')).toBe(true);
+    expect(hayRiesgo('hacermedano')).toBe(false);
+    expect(hayRiesgo('quieromorir')).toBe(false);
+  });
+
+  it('un texto largo de puros invisibles se resuelve sin variantes exponenciales', () => {
+    const relleno = '\u{200B}'.repeat(20_000);
+
+    expect(hayRiesgo(`quiero${relleno}x${relleno}morir`)).toBe(false);
+    expect(hayRiesgo(`quiero${relleno}mo${relleno}rir`)).toBe(true);
+    expect(hayRiesgo('quiero\u{200B}'.repeat(5_000))).toBe(false);
   });
 });
 

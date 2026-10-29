@@ -1,8 +1,4 @@
-import {
-  AccountNotProvisionedError,
-  FileStorageUnavailableError,
-  OwnPetNotFoundError,
-} from '../../domain/model/DomainError.js';
+import { AccountNotProvisionedError, OwnPetNotFoundError } from '../../domain/model/DomainError.js';
 import type { UserId } from '../../domain/model/Identifier.js';
 import { SvgDeMascota } from '../../domain/model/svg/SvgDeMascota.js';
 import type { User } from '../../domain/model/User.js';
@@ -12,6 +8,7 @@ import type {
 } from '../../domain/ports/in/MascotaPropiaUseCase.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { conAlmacen, cuentaDe, guardarLaMarca } from './ArchivoPersonalDeLaCuenta.js';
 
 /**
  * La mascota propia de la cuenta propia (SCRUM-122).
@@ -32,9 +29,9 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
   async guardar(persona: UserId, contenido: Uint8Array, tipoDeclarado: string): Promise<User> {
     // Primero lo que no depende de nadie: si el archivo no vale, no se toca nada.
     const svg = SvgDeMascota.crear(contenido, tipoDeclarado);
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
-    await this.conAlmacen(() =>
+    await conAlmacen(() =>
       this.almacen.guardar(persona, { contenido: svg.contenido, tipo: svg.tipo }),
     );
 
@@ -42,7 +39,7 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
 
     if (quedo === null) {
       // La cuenta se borro mientras se subia el archivo: no queda el dibujo de quien ya no existe.
-      await this.conAlmacen(() => this.almacen.borrar(persona));
+      await conAlmacen(() => this.almacen.borrar(persona));
 
       throw new AccountNotProvisionedError();
     }
@@ -51,14 +48,14 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
   }
 
   async leer(persona: UserId): Promise<MascotaPropiaLeida> {
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
     // Sin marca no se pregunta al almacenamiento: no hay nada que buscar.
     if (cuenta.mascotaPropiaActualizadaEl === undefined) {
       throw new OwnPetNotFoundError();
     }
 
-    const archivo = await this.conAlmacen(() => this.almacen.leer(persona));
+    const archivo = await conAlmacen(() => this.almacen.leer(persona));
 
     // Marca sin archivo: se perdio por el camino. Para quien la pide es lo
     // mismo que no tener.
@@ -74,11 +71,11 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
   }
 
   async quitar(persona: UserId): Promise<User> {
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
     // Se borra siempre, haya marca o no: si quedo un archivo suelto de un
     // intento a medias, esto es lo que lo limpia.
-    await this.conAlmacen(() => this.almacen.borrar(persona));
+    await conAlmacen(() => this.almacen.borrar(persona));
 
     const sin = cuenta.sinMascotaPropia();
 
@@ -86,31 +83,6 @@ export class MascotaPropiaUseCaseImpl implements MascotaPropiaUseCase {
       return cuenta;
     }
 
-    const quedo = await this.cuentas.guardarCambios(cuenta, sin);
-
-    if (quedo === null) {
-      throw new AccountNotProvisionedError();
-    }
-
-    return quedo;
-  }
-
-  private async cuentaDe(persona: UserId): Promise<User> {
-    const cuenta = await this.cuentas.findById(persona);
-
-    if (cuenta === null) {
-      throw new AccountNotProvisionedError();
-    }
-
-    return cuenta;
-  }
-
-  /** El almacenamiento es de fuera: si falla, se cuenta como lo que es y sin su detalle. */
-  private async conAlmacen<T>(accion: () => Promise<T>): Promise<T> {
-    try {
-      return await accion();
-    } catch (error) {
-      throw new FileStorageUnavailableError(error);
-    }
+    return guardarLaMarca(this.cuentas, cuenta, sin);
   }
 }

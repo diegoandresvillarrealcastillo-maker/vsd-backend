@@ -3,7 +3,7 @@ import { ClientOperationId, PendienteId, UserId } from '../../domain/model/Ident
 import { Pendiente } from '../../domain/model/Pendiente.js';
 import type { PendientesRepositoryPort } from '../../domain/ports/out/PendientesRepositoryPort.js';
 import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
-import { porPaginas } from '../persistence/porPaginas.js';
+import { despuesDeLaCreacion, porPaginas } from '../persistence/porPaginas.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /** Un dia AAAA-MM-DD como valor de una columna DATE, o `null` si no hay. */
@@ -35,23 +35,11 @@ export class PrismaPendientesRepository implements PendientesRepositoryPort {
   async *paginasDePendientes(
     userId: UserId,
   ): AsyncGenerator<readonly Pendiente[], void, undefined> {
-    // El cursor es (fecha de creacion, id), el orden total de la lectura: lo que sigue es lo
-    // estrictamente posterior y, a igual hora, el de mayor identificador. La columna guarda
-    // milisegundos, los mismos que entrega Prisma, asi que la comparacion es exacta.
+    // El cursor es (fecha de creacion, id), el orden total de la lectura: ver `despuesDeLaCreacion`.
     const paginas = porPaginas<FilaDePendiente>((ultima, limite) =>
       this.prisma.comoUsuario(userId.value, (cliente) =>
         cliente.pendiente.findMany({
-          where: {
-            idUsuario: userId.value,
-            ...(ultima === undefined
-              ? {}
-              : {
-                  OR: [
-                    { fechaCreacion: { gt: ultima.fechaCreacion } },
-                    { fechaCreacion: ultima.fechaCreacion, id: { gt: ultima.id } },
-                  ],
-                }),
-          },
+          where: { idUsuario: userId.value, ...despuesDeLaCreacion(ultima) },
           orderBy: [{ fechaCreacion: 'asc' }, { id: 'asc' }],
           take: limite,
         }),

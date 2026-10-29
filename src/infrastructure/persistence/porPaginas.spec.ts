@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FILAS_POR_PAGINA } from '../../domain/ports/out/LecturaPorPaginas.js';
-import { porPaginas } from './porPaginas.js';
+import { despuesDeLaCreacion, porPaginas } from './porPaginas.js';
 
 /** Una lectura por cursor sobre una lista: lo que sigue a `ultima`, de a `limite`. */
 function lecturaSobre(filas: readonly number[]) {
@@ -85,5 +85,50 @@ describe('porPaginas', () => {
     };
 
     await expect(recorrer(leer)).rejects.toThrow('la base se cayo');
+  });
+});
+
+describe('despuesDeLaCreacion', () => {
+  const T1 = new Date('2026-10-01T10:00:00.000Z');
+  const T2 = new Date('2026-10-01T10:00:00.001Z');
+  const FILAS = [
+    { fechaCreacion: T1, id: 'a' },
+    { fechaCreacion: T1, id: 'b' },
+    { fechaCreacion: T1, id: 'c' },
+    { fechaCreacion: T2, id: 'a' },
+  ] as const;
+
+  /** Lo que haria la base con el filtro: deja pasar la fila si cumple alguna de las condiciones. */
+  function filasQueSiguen(ultima: (typeof FILAS)[number]) {
+    const condiciones = despuesDeLaCreacion(ultima).OR ?? [];
+
+    return FILAS.filter((fila) =>
+      condiciones.some((condicion) =>
+        'id' in condicion
+          ? fila.fechaCreacion.getTime() === condicion.fechaCreacion.getTime() &&
+            fila.id > condicion.id.gt
+          : fila.fechaCreacion > condicion.fechaCreacion.gt,
+      ),
+    );
+  }
+
+  it('sin una fila anterior no filtra nada: es la primera pagina', () => {
+    expect(despuesDeLaCreacion(undefined)).toEqual({});
+  });
+
+  it('a igual hora sigue el de mayor identificador, y despues lo de una hora posterior', () => {
+    expect(filasQueSiguen(FILAS[1])).toEqual([FILAS[2], FILAS[3]]);
+  });
+
+  it('despues de la primera no se repite ninguna', () => {
+    expect(filasQueSiguen(FILAS[0])).toEqual([FILAS[1], FILAS[2], FILAS[3]]);
+  });
+
+  it('despues de la ultima no queda nada', () => {
+    expect(filasQueSiguen(FILAS[3])).toEqual([]);
+  });
+
+  it('la hora posterior se compara tal cual, sin redondear los milisegundos', () => {
+    expect(filasQueSiguen(FILAS[2])).toEqual([FILAS[3]]);
   });
 });

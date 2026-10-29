@@ -1,14 +1,11 @@
-import {
-  AccountNotProvisionedError,
-  FileStorageUnavailableError,
-  PhotoNotFoundError,
-} from '../../domain/model/DomainError.js';
+import { AccountNotProvisionedError, PhotoNotFoundError } from '../../domain/model/DomainError.js';
 import { FotoDePerfil } from '../../domain/model/FotoDePerfil.js';
 import type { UserId } from '../../domain/model/Identifier.js';
 import type { User } from '../../domain/model/User.js';
 import type { FotoDePerfilUseCase, FotoLeida } from '../../domain/ports/in/FotoDePerfilUseCase.js';
 import type { AlmacenPersonalPort } from '../../domain/ports/out/AlmacenPersonalPort.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
+import { conAlmacen, cuentaDe, guardarLaMarca } from './ArchivoPersonalDeLaCuenta.js';
 
 /**
  * La foto de perfil de la cuenta propia (SCRUM-120).
@@ -32,9 +29,9 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
   async guardar(persona: UserId, contenido: Uint8Array, tipoDeclarado: string): Promise<User> {
     // Primero lo que no depende de nadie: si el archivo no vale, no se toca nada.
     const foto = FotoDePerfil.crear(contenido, tipoDeclarado);
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
-    await this.conAlmacen(() =>
+    await conAlmacen(() =>
       this.almacen.guardar(persona, { contenido: foto.contenido, tipo: foto.tipo }),
     );
 
@@ -42,7 +39,7 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
 
     if (quedo === null) {
       // La cuenta se borro mientras se subia el archivo: no queda la foto de quien ya no existe.
-      await this.conAlmacen(() => this.almacen.borrar(persona));
+      await conAlmacen(() => this.almacen.borrar(persona));
 
       throw new AccountNotProvisionedError();
     }
@@ -51,14 +48,14 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
   }
 
   async leer(persona: UserId): Promise<FotoLeida> {
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
     // Sin marca no se pregunta al almacenamiento: no hay nada que buscar.
     if (cuenta.fotoActualizadaEl === undefined) {
       throw new PhotoNotFoundError();
     }
 
-    const archivo = await this.conAlmacen(() => this.almacen.leer(persona));
+    const archivo = await conAlmacen(() => this.almacen.leer(persona));
 
     // Marca sin archivo: la foto se perdio por el camino. Para quien la pide
     // es lo mismo que no tener.
@@ -74,11 +71,11 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
   }
 
   async quitar(persona: UserId): Promise<User> {
-    const cuenta = await this.cuentaDe(persona);
+    const cuenta = await cuentaDe(this.cuentas, persona);
 
     // Se borra siempre, haya marca o no: si quedo un archivo suelto de un
     // intento a medias, esto es lo que lo limpia.
-    await this.conAlmacen(() => this.almacen.borrar(persona));
+    await conAlmacen(() => this.almacen.borrar(persona));
 
     const sinFoto = cuenta.sinFoto();
 
@@ -86,31 +83,6 @@ export class FotoDePerfilUseCaseImpl implements FotoDePerfilUseCase {
       return cuenta;
     }
 
-    const quedo = await this.cuentas.guardarCambios(cuenta, sinFoto);
-
-    if (quedo === null) {
-      throw new AccountNotProvisionedError();
-    }
-
-    return quedo;
-  }
-
-  private async cuentaDe(persona: UserId): Promise<User> {
-    const cuenta = await this.cuentas.findById(persona);
-
-    if (cuenta === null) {
-      throw new AccountNotProvisionedError();
-    }
-
-    return cuenta;
-  }
-
-  /** El almacenamiento es de fuera: si falla, se cuenta como lo que es y sin su detalle. */
-  private async conAlmacen<T>(accion: () => Promise<T>): Promise<T> {
-    try {
-      return await accion();
-    } catch (error) {
-      throw new FileStorageUnavailableError(error);
-    }
+    return guardarLaMarca(this.cuentas, cuenta, sinFoto);
   }
 }

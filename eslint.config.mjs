@@ -30,6 +30,7 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'coverage/**',
+      'coverage-integracion/**',
       'node_modules/**',
       '*.config.mjs',
       // Guiones de herramientas, no codigo de la aplicacion. No los cubre

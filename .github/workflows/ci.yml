@@ -106,6 +106,25 @@ jobs:
   calidad:
     name: Calidad del codigo
     runs-on: ubuntu-24.04
+
+    # La misma base que usa "Pruebas contra PostgreSQL". Aqui solo sirve para que las pruebas de
+    # integracion aporten su cobertura al informe de SonarQube (SCRUM-301); sin ella se saltarian solas.
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: vsd
+          # Credenciales de un contenedor que vive unos minutos y no contiene informacion de nadie.
+          POSTGRES_PASSWORD: vsd_ci
+          POSTGRES_DB: vsd_health
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vsd -d vsd_health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Descargar el codigo
         uses: actions/checkout@v7
@@ -152,8 +171,24 @@ jobs:
 
       - name: Ejecutar las pruebas con cobertura
         if: steps.proyecto.outputs.existe == 'si'
-        # Falla si domain/ o application/ bajan del 80 %.
+        # Falla si domain/ o application/ bajan del 80 %. Sin TEST_DATABASE_URL, las pruebas de
+        # integracion se saltan: su cobertura viene del paso siguiente.
         run: npm run test:coverage
+
+      - name: Aplicar las migraciones a la base desechable
+        if: steps.proyecto.outputs.existe == 'si'
+        env:
+          DIRECT_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Ejecutar las pruebas de integracion con cobertura
+        if: steps.proyecto.outputs.existe == 'si'
+        # En serie: en paralelo fallan de forma intermitente. Este paso solo saca el informe para
+        # SonarQube; "Pruebas contra PostgreSQL" sigue siendo el que exige que se ejecuten.
+        env:
+          TEST_DATABASE_URL: postgresql://vsd:vsd_ci@localhost:5432/vsd_health?schema=public
+          PRUEBAS_DE_INTEGRACION: obligatorias
+        run: npm run test:integracion:cobertura
 
       # SonarQube Cloud (SCRUM-277). Se salta mientras no exista la variable SONAR_PROJECT_KEY, para
       # no poner el CI en rojo antes de crear el proyecto, y en PR de forks, a los que GitHub no
@@ -179,6 +214,7 @@ jobs:
           test -n "$SONAR_TOKEN"
           test -n "$SONAR_ORGANIZATION"
           test -s coverage/lcov.info
+          test -s coverage-integracion/lcov.info
 
       - name: Analizar con SonarQube Cloud y exigir el Quality Gate en los PR
         if: >-

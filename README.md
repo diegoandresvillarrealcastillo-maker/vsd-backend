@@ -146,17 +146,18 @@ interrupcion funcionan sobre los archivos `.ts`.
 
 ### Comandos disponibles
 
-| Comando                    | Que hace                                       |
-| -------------------------- | ---------------------------------------------- |
-| `npm run start:dev`        | Arranca la API y recarga al guardar            |
-| `npm test`                 | Ejecuta las pruebas                            |
-| `npm run test:watch`       | Pruebas en modo continuo                       |
-| `npm run test:coverage`    | Pruebas con informe de cobertura               |
-| `npm run test:integracion` | Solo las pruebas contra PostgreSQL real        |
-| `npm run lint`             | Estilo y fronteras de la arquitectura          |
-| `npm run typecheck`        | Revisa los tipos sin compilar                  |
-| `npm run build`            | Compila a `dist/`                              |
-| `npm run openapi`          | Genera `openapi.json` sin levantar el servidor |
+| Comando                              | Que hace                                                       |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `npm run start:dev`                  | Arranca la API y recarga al guardar                            |
+| `npm test`                           | Ejecuta las pruebas                                            |
+| `npm run test:watch`                 | Pruebas en modo continuo                                       |
+| `npm run test:coverage`              | Pruebas con informe de cobertura                               |
+| `npm run test:integracion`           | Solo las pruebas contra PostgreSQL real                        |
+| `npm run test:integracion:cobertura` | Las mismas, en serie y con informe de cobertura para SonarQube |
+| `npm run lint`                       | Estilo y fronteras de la arquitectura                          |
+| `npm run typecheck`                  | Revisa los tipos sin compilar                                  |
+| `npm run build`                      | Compila a `dist/`                                              |
+| `npm run openapi`                    | Genera `openapi.json` sin levantar el servidor                 |
 
 ### La imagen de Docker
 

@@ -78,6 +78,13 @@ export const CASOS_DE_LAS_REGLAS_LOCALES: readonly ConsultaSinConexion[] = [
   { texto: 'ｑｕｉｅｒｏ ｍｏｒｉｒｍｅ', zona: BOGOTA },
   // Y sin riesgo no se inventa: un saludo con un invisible sigue siendo un saludo.
   { texto: 'hola\u{200B} buenas noches', zona: BOGOTA },
+  // Los dos usos a la vez (SCRUM-318): uno en lugar del espacio y otro dentro de la palabra.
+  { texto: 'quiero\u{200B}mo\u{200B}rir', zona: BOGOTA },
+  { texto: 'no\u{AD}aguan\u{200D}to\u{2060}mas', zona: BOGOTA },
+  { texto: 'hoy me siento mal, quiero \u{200B}ma\u{200B}tarme', zona: MADRID },
+  // Sin separador no hay expresion, y con invisibles mezclados un saludo sigue siendo un saludo.
+  { texto: 'quieromorir', zona: BOGOTA },
+  { texto: 'ho\u{200B}la\u{200B}buenas\u{AD}tardes', zona: BOGOTA },
 
   // ---- lo que no se reconoce: el catalogo, sin lineas de atencion (SCRUM-176)
   { texto: 'a que hora abre la biblioteca', zona: BOGOTA },

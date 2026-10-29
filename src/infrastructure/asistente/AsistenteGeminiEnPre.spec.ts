@@ -46,6 +46,28 @@ describe('AsistenteGeminiEnPre', () => {
     expect(respuesta.recursos.length).toBeGreaterThan(0);
   });
 
+  it.each([
+    ['uno entre las palabras y otro dentro de la segunda', 'quiero​mo​rir'],
+    ['con un invisible junto al espacio de verdad', 'quiero ​mo​rirme'],
+    ['con letras de ancho completo y un invisible', 'ｑｕｉｅｒｏ​ｍｏ​ｒｉｒ'],
+  ])(
+    'una senal de crisis con invisibles (%s) tampoco llega a Gemini (SCRUM-318)',
+    async (_caso, texto) => {
+      const http = vi.fn<typeof fetch>(() =>
+        Promise.resolve(cuerpoDe('bienestar', 'No debe verse.')),
+      );
+      const respuesta = await crear(http).responder({
+        userId: USUARIO,
+        zonaHoraria: 'America/Bogota',
+        texto,
+      });
+
+      expect(http).not.toHaveBeenCalled();
+      expect(respuesta.senalDeRiesgo).toBe(true);
+      expect(respuesta.incluyeLineasDeAtencion).toBe(true);
+    },
+  );
+
   it('prioriza las respuestas conocidas de las reglas sin consultar a Gemini', async () => {
     let llamadas = 0;
     const http: typeof fetch = () => {

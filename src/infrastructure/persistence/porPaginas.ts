@@ -32,3 +32,28 @@ export async function* porPaginas<Fila>(
     ultima = pagina.at(-1);
   }
 }
+
+/** La fila de la que se sigue: lo unico que el cursor por fecha de creacion necesita de ella. */
+interface UltimaFilaCreada {
+  readonly fechaCreacion: Date;
+  readonly id: string;
+}
+
+/**
+ * El filtro de `where` del cursor (fecha de creacion, id) para `porPaginas`: lo que sigue es lo
+ * estrictamente posterior a `ultima` y, a igual hora, el de mayor identificador. La columna guarda
+ * milisegundos, los mismos que entrega Prisma, asi que la comparacion es exacta. Sin `ultima`, no
+ * filtra: es la primera pagina. Va con `orderBy: [{ fechaCreacion: 'asc' }, { id: 'asc' }]`.
+ */
+export function despuesDeLaCreacion(ultima: UltimaFilaCreada | undefined): {
+  OR?: [{ fechaCreacion: { gt: Date } }, { fechaCreacion: Date; id: { gt: string } }];
+} {
+  return ultima === undefined
+    ? {}
+    : {
+        OR: [
+          { fechaCreacion: { gt: ultima.fechaCreacion } },
+          { fechaCreacion: ultima.fechaCreacion, id: { gt: ultima.id } },
+        ],
+      };
+}

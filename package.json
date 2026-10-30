@@ -34,6 +34,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integracion": "vitest run integracion.spec",
+    "test:integracion:cobertura": "vitest run integracion.spec --no-file-parallelism --coverage --config vitest.integracion.config.mts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

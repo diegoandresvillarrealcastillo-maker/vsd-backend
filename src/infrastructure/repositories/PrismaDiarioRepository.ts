@@ -5,7 +5,7 @@ import { EntradaDeDiario } from '../../domain/model/EntradaDeDiario.js';
 import { ClientOperationId, EntradaId, UserId } from '../../domain/model/Identifier.js';
 import type { DiarioRepositoryPort } from '../../domain/ports/out/DiarioRepositoryPort.js';
 import { esOperacionRepetida } from '../persistence/esOperacionRepetida.js';
-import { porPaginas } from '../persistence/porPaginas.js';
+import { despuesDeLaCreacion, porPaginas } from '../persistence/porPaginas.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
 /** Un dia como lo guarda una columna DATE: la medianoche UTC de esa fecha. */
@@ -45,23 +45,11 @@ export class PrismaDiarioRepository implements DiarioRepositoryPort {
   async *paginasDeEntradas(
     userId: UserId,
   ): AsyncGenerator<readonly EntradaDeDiario[], void, undefined> {
-    // El cursor es (fecha de creacion, id), el orden total de la lectura: lo que sigue es lo
-    // estrictamente posterior y, a igual hora, el de mayor identificador. La columna guarda
-    // milisegundos, los mismos que entrega Prisma, asi que la comparacion es exacta.
+    // El cursor es (fecha de creacion, id), el orden total de la lectura: ver `despuesDeLaCreacion`.
     const paginas = porPaginas<EntradaDiario>((ultima, limite) =>
       this.prisma.comoUsuario(userId.value, (cliente) =>
         cliente.entradaDiario.findMany({
-          where: {
-            idUsuario: userId.value,
-            ...(ultima === undefined
-              ? {}
-              : {
-                  OR: [
-                    { fechaCreacion: { gt: ultima.fechaCreacion } },
-                    { fechaCreacion: ultima.fechaCreacion, id: { gt: ultima.id } },
-                  ],
-                }),
-          },
+          where: { idUsuario: userId.value, ...despuesDeLaCreacion(ultima) },
           orderBy: [{ fechaCreacion: 'asc' }, { id: 'asc' }],
           take: limite,
         }),

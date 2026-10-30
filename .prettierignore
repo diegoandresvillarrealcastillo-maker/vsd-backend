@@ -1,5 +1,6 @@
 dist/
 coverage/
+coverage-integracion/
 node_modules/
 package-lock.json
 

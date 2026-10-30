@@ -30,7 +30,9 @@
 
 import {
   conInvisiblesComoEspacio,
+  contieneLaExpresion,
   corregirPalabras,
+  leerConInvisibles,
   normalizar,
   palabrasDe,
   vocabularioDe,
@@ -108,24 +110,28 @@ const VOCABULARIO_DE_RIESGO = vocabularioDe([EXPRESIONES_DE_RIESGO]);
  * habla, que no corrija lo ambiguo) estan en `LecturaDelTexto.ts`.
  */
 export function hayRiesgo(texto: string): boolean {
-  if (hayRiesgoEn(texto)) {
+  // Un invisible puede esconder una letra (mo + U+200B + rir) o hacer de espacio (quiero + U+200B +
+  // morir), y una misma frase puede llevar los dos a la vez. Por eso la busqueda directa decide en
+  // cada sitio que es cada uno, y no por adelantado para todo el texto (SCRUM-258, SCRUM-318).
+  const leido = leerConInvisibles(texto);
+
+  if (EXPRESIONES_DE_RIESGO.some((expresion) => contieneLaExpresion(leido, expresion))) {
     return true;
   }
 
-  // Un invisible puede esconder una letra (mo + U+200B + rir) o hacer de espacio (quiero + U+200B +
-  // morir). La primera lectura los quita; esta los lee como espacio. Solo suma (SCRUM-258).
+  // Con erratas, en cambio, las palabras se leen enteras y no hay donde marcar: se mira con los
+  // invisibles quitados y con los invisibles como espacio. Una errata junto con los dos usos de un
+  // invisible a la vez queda fuera: es una combinacion que la lista, que es un suelo, no cubre.
+  if (hayRiesgoConErratas(texto)) {
+    return true;
+  }
+
   const comoSeparador = conInvisiblesComoEspacio(texto);
 
-  return comoSeparador !== texto && hayRiesgoEn(comoSeparador);
+  return comoSeparador !== texto && hayRiesgoConErratas(comoSeparador);
 }
 
-function hayRiesgoEn(texto: string): boolean {
-  const limpio = normalizar(texto);
-
-  if (EXPRESIONES_DE_RIESGO.some((expresion) => limpio.includes(expresion))) {
-    return true;
-  }
-
+function hayRiesgoConErratas(texto: string): boolean {
   const corregido = corregirPalabras(palabrasDe(texto), VOCABULARIO_DE_RIESGO).join(' ');
 
   return EXPRESIONES_DE_RIESGO.some((expresion) => corregido.includes(expresion));

@@ -27,6 +27,7 @@ import { FOTO_DE_PERFIL } from '../config/tokens.js';
 import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
 import { LIMITE_DE_ESCRIBIR_ARCHIVOS } from '../limites/limites.js';
 import { CuentaRespuestaDto } from './dto/CuentaRespuestaDto.js';
+import { bytesDelCuerpo, RespuestasDeSubirUnArchivo } from './subirUnArchivoPersonal.js';
 
 /**
  * La foto de perfil de la cuenta propia (SCRUM-120).
@@ -60,29 +61,17 @@ export class FotoDePerfilController {
   @ApiConsumes('image/jpeg', 'image/png')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
   @ApiResponse({ status: 200, description: 'La cuenta como quedó.', type: CuentaRespuestaDto })
-  @ApiResponse({
-    status: 400,
-    description: 'FOTO_NO_ES_UNA_IMAGEN o FOTO_DEMASIADO_GRANDE (más de 1024 píxeles por lado).',
-  })
-  @ApiResponse({ status: 401, description: 'Falta la sesión o el token no es válido.' })
-  @ApiResponse({ status: 403, description: 'Hay sesión pero todavía no hay cuenta.' })
-  @ApiResponse({
-    status: 413,
-    description: 'FOTO_DEMASIADO_PESADA, o CUERPO_DEMASIADO_GRANDE si pasa de 60 KB.',
-  })
-  @ApiResponse({ status: 415, description: 'FOTO_TIPO_NO_PERMITIDO: solo .jpg y .png.' })
-  @ApiResponse({
-    status: 503,
-    description: 'ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar.',
+  @RespuestasDeSubirUnArchivo({
+    invalido: 'FOTO_NO_ES_UNA_IMAGEN o FOTO_DEMASIADO_GRANDE (más de 1024 píxeles por lado).',
+    pesado: 'FOTO_DEMASIADO_PESADA, o CUERPO_DEMASIADO_GRANDE si pasa de 60 KB.',
+    tipo: 'FOTO_TIPO_NO_PERMITIDO: solo .jpg y .png.',
   })
   async guardar(
     @Body() cuerpo: unknown,
     @Headers('content-type') tipo: string | undefined,
     @CuentaActual() cuenta: User,
   ): Promise<CuentaRespuestaDto> {
-    // Si el tipo no era una imagen, el lector no tocó el cuerpo y aqui llega
-    // otra cosa. No importa: el tipo se mira primero y falla con su motivo.
-    const contenido = Buffer.isBuffer(cuerpo) ? cuerpo : new Uint8Array(0);
+    const contenido = bytesDelCuerpo(cuerpo);
 
     return CuentaRespuestaDto.desde(await this.fotos.guardar(cuenta.id, contenido, tipo ?? ''));
   }

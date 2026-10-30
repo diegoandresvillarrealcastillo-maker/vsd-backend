@@ -16,7 +16,6 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.spec.ts',
-        'src/infrastructure/config/**',
         // Arranque del proceso: solo se puede ejercitar levantando un
         // servidor que escuche de verdad, y eso ya lo cubren las pruebas de
         // integracion a traves de configurarAplicacion().

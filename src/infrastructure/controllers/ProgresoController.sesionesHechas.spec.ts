@@ -23,7 +23,7 @@ describe('sesiones hechas del sendero', () => {
         { idSesion: '22222222-2222-4222-8222-222222222222' },
         { idSesion: null },
       ]);
-    const comoUsuario = vi.fn(async (_id: string, consultar: (cliente: unknown) => unknown) =>
+    const comoUsuario = vi.fn((_id: string, consultar: (cliente: unknown) => unknown) =>
       consultar({ resultado: { findMany: buscar } }),
     );
     const controlador = new ProgresoController(progreso, historial, {

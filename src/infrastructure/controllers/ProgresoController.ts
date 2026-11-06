@@ -4,7 +4,8 @@ import type { User } from '../../domain/model/User.js';
 import type { ConsultarHistorialDelModuloUseCase } from '../../domain/ports/in/ConsultarHistorialDelModuloUseCase.js';
 import type { ConsultarProgresoUseCase } from '../../domain/ports/in/ConsultarProgresoUseCase.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
-import { CONSULTAR_HISTORIAL_DEL_MODULO, CONSULTAR_PROGRESO } from '../config/tokens.js';
+import { CONSULTAR_HISTORIAL_DEL_MODULO, CONSULTAR_PROGRESO, PRISMA } from '../config/tokens.js';
+import type { PrismaService } from '../persistence/PrismaService.js';
 import {
   HistorialDelModuloConsultaDto,
   HistorialDelModuloParametrosDto,
@@ -22,7 +23,31 @@ export class ProgresoController {
     private readonly progreso: ConsultarProgresoUseCase,
     @Inject(CONSULTAR_HISTORIAL_DEL_MODULO)
     private readonly historial: ConsultarHistorialDelModuloUseCase,
+    @Inject(PRISMA)
+    private readonly prisma: PrismaService | null,
   ) {}
+
+  /** Identificadores de sesiones hechas por esta persona; nunca se exponen resultados ajenos. */
+  @Get(':modulo/sesiones-hechas')
+  @Header('Cache-Control', 'no-store')
+  async sesionesHechas(
+    @Param() parametros: HistorialDelModuloParametrosDto,
+    @CuentaActual() cuenta: User,
+  ): Promise<string[]> {
+    if (this.prisma === null) return [];
+    const filas = await this.prisma.comoUsuario(cuenta.id.value, (cliente) =>
+      cliente.resultado.findMany({
+        where: {
+          idUsuario: cuenta.id.value,
+          idSesion: { not: null },
+          actividad: { categoria: { modulo: parametros.modulo } },
+        },
+        select: { idSesion: true },
+        distinct: ['idSesion'],
+      }),
+    );
+    return filas.flatMap((fila) => (fila.idSesion === null ? [] : [fila.idSesion]));
+  }
 
   @Get()
   // Cambia cada vez que la persona hace algo: no tiene sentido guardarlo.

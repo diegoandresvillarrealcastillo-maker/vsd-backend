@@ -73,7 +73,7 @@ export function leerLasRespuestas(texto: string): RespuestasDeUnaHoja {
 
   for (const linea of texto.split(/\r?\n/u)) {
     const mecanica = new RegExp(
-      `^((?:COG|BIE|EMO)-\\d{2}) · .*: ${PARTE_DE_LA_DECISION}$`,
+      `^((?:COG|BIE|EMO)-\\d{2,3}) · .*: ${PARTE_DE_LA_DECISION}$`,
       'u',
     ).exec(linea);
 
@@ -83,7 +83,7 @@ export function leerLasRespuestas(texto: string): RespuestasDeUnaHoja {
     }
 
     const sesion = new RegExp(
-      `^((?:COG|BIE|EMO)-\\d{2}-\\d{3}) · .*: ${PARTE_DE_LA_DECISION}$`,
+      `^((?:COG|BIE|EMO)-\\d{2,3}-\\d{3}) · .*: ${PARTE_DE_LA_DECISION}$`,
       'u',
     ).exec(linea);
 
@@ -98,7 +98,7 @@ export function leerLasRespuestas(texto: string): RespuestasDeUnaHoja {
       continue;
     }
 
-    const comentario = /^Comentario ((?:COG|BIE|EMO)-\d{2}(?:-\d{3})?): (.+)$/u.exec(linea);
+    const comentario = /^Comentario ((?:COG|BIE|EMO)-\d{2,3}(?:-\d{3})?): (.+)$/u.exec(linea);
 
     if (comentario?.[1] !== undefined && comentario[2] !== undefined) {
       comentarios[comentario[1]] = comentario[2].trim();

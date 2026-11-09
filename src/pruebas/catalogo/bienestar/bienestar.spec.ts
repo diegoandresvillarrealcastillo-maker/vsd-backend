@@ -10,6 +10,7 @@ import { CUANTAS, sesionesDeCaminatas, sesionesDeCuidados, sesionesDeSueno } fro
 import { sesionesDeEscaneo } from './escaneo.ts';
 import { sesionesDeAntesDeDormir, sesionesDeDescanso } from './noche.ts';
 import { NUMERO_DE_MICRO_PAUSAS, sesionesDeRespiro } from './respiro.ts';
+import { loteDeBienestar365 } from './365.ts';
 
 /**
  * Lo propio de cada mecanica de Bienestar (SCRUM-223): las barandas de las fichas BIE-01 a BIE-09 hechas
@@ -20,6 +21,29 @@ type Parametros = Record<string, any>;
 
 const parametrosDe = (sesiones: { parametros: unknown }[]) =>
   sesiones.map((s) => s.parametros as Parametros);
+
+function nucleoDe(parametros: Parametros): string | null {
+  switch (parametros['modo']) {
+    case 'tarjeta':
+      return parametros['texto'];
+    case 'preguntas':
+      return parametros['preguntas'][0]?.texto ?? null;
+    case 'lista':
+      return parametros['items'][0]?.texto ?? null;
+    case 'pasos':
+      return parametros['pasos']?.[0]?.texto ?? null;
+    default:
+      return parametros['invitacion'] ?? null;
+  }
+}
+
+const normalizarNucleo = (texto: string) =>
+  texto
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase('es-CO')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 
 describe('el lote de Bienestar', () => {
   const lote = loteDeBienestar();
@@ -45,6 +69,103 @@ describe('el lote de Bienestar', () => {
 
     expect(bie04?.nombre).toBe('Un cuidado pequeño de hoy');
     expect(JSON.stringify(bie04)).not.toMatch(/comida|dieta|peso|calor[ií]a|adelgaz|cuerpo ideal/i);
+  });
+});
+
+describe('Bienestar 365', () => {
+  const existentes = loteDeBienestar().mecanicas;
+  const nuevas = loteDeBienestar365().mecanicas;
+
+  it('completa 365 actividades con códigos consecutivos y únicos', () => {
+    expect(existentes.length + nuevas.length).toBe(365);
+    expect(nuevas.map((mecanica) => mecanica.codigo)).toEqual(
+      Array.from({ length: 356 }, (_, indice) => `BIE-${String(indice + 10).padStart(2, '0')}`),
+    );
+    expect(new Set([...existentes, ...nuevas].map((mecanica) => mecanica.id)).size).toBe(365);
+  });
+
+  it('cada actividad nueva tiene un nombre y una invitación distintos', () => {
+    const nombres = nuevas.map((mecanica) => mecanica.nombre);
+    const firmas = nuevas.map((mecanica) => JSON.stringify(mecanica.sesiones[0]?.parametros));
+
+    expect(nuevas).toHaveLength(356);
+    expect(new Set(nombres).size).toBe(356);
+    expect(new Set(firmas).size).toBe(356);
+  });
+
+  it('cada ficha tiene una descripción propia de dos o tres palabras', () => {
+    const descripciones = nuevas.map((mecanica) => mecanica.descripcion);
+
+    expect(new Set(descripciones).size).toBe(356);
+    expect(descripciones.every((texto) => texto.trim().split(/\s+/u).length >= 2)).toBe(true);
+    expect(descripciones.every((texto) => texto.trim().split(/\s+/u).length <= 3)).toBe(true);
+  });
+
+  it('intercala las trece familias durante el año y ninguna queda fuera', () => {
+    const porFamilia = new Map<string, number>();
+
+    for (const mecanica of nuevas) {
+      const familia = mecanica.nombre.split(':')[0] ?? '';
+
+      porFamilia.set(familia, (porFamilia.get(familia) ?? 0) + 1);
+    }
+
+    expect(porFamilia.size).toBe(13);
+    expect([...porFamilia.values()].sort((a, b) => a - b)).toEqual([
+      27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28,
+    ]);
+    expect(nuevas.slice(0, 13).map((mecanica) => mecanica.nombre.split(':')[0])).toEqual([
+      'Cuidado diario', 'Movimiento amable', 'Descanso y ritmo', 'Vínculos', 'Creación',
+      'Regulación emocional', 'Organización cotidiana', 'Comer con flexibilidad',
+      'Autonomía y límites', 'Juego y disfrute', 'Bienestar digital', 'Aire libre y comunidad',
+      'Aprendizaje cotidiano',
+    ]);
+  });
+
+  it('ningún núcleo de actividad se repite en las otras fichas ni en las nueve originales', () => {
+    const nucleosNuevos = nuevas.map((mecanica) => {
+      const parametros = mecanica.sesiones[0]?.parametros as Parametros;
+      const nucleo = nucleoDe(parametros);
+
+      expect(nucleo, mecanica.codigo).not.toBeNull();
+
+      return normalizarNucleo(nucleo as string);
+    });
+    const nucleosExistentes = existentes.flatMap((mecanica) =>
+      mecanica.sesiones.flatMap((una) => {
+        const nucleo = nucleoDe(una.parametros as Parametros);
+
+        return nucleo === null ? [] : [normalizarNucleo(nucleo)];
+      }),
+    );
+
+    expect(new Set(nucleosNuevos).size).toBe(356);
+    expect(nucleosNuevos.filter((nucleo) => nucleosExistentes.includes(nucleo))).toEqual([]);
+  });
+
+  it('distribuye las actividades entre cinco interacciones VSD sin puntaje y pendientes de revisión', () => {
+    const porModo = new Map<string, number>();
+
+    for (const mecanica of nuevas) {
+      expect(mecanica.direccion).toBe('sin_puntaje');
+      expect(mecanica.revision).toBe('pendiente');
+      expect(mecanica.publicar).toBe(false);
+      expect(mecanica.sesiones).toHaveLength(1);
+      const modo = (mecanica.sesiones[0]?.parametros as Parametros).modo as string;
+
+      expect(['tarjeta', 'preguntas', 'lista', 'pasos', 'escritura']).toContain(modo);
+      porModo.set(modo, (porModo.get(modo) ?? 0) + 1);
+    }
+
+    expect([...porModo.entries()].sort()).toEqual(
+      [
+        ['lista', 82],
+        ['pasos', 55],
+        ['preguntas', 109],
+        ['escritura', 55],
+        ['tarjeta', 55],
+      ].sort(),
+    );
   });
 });
 

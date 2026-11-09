@@ -8,9 +8,10 @@ revisa, y **una migración** que sale de sus respuestas.
 > rol y su fecha. La base lo impone (`CHECK sesion_de_actividad_publicada_revisada`), y una sesión ya revisada no
 > se vuelve a editar (disparador). Ni la hoja ni el generador publican nada por sí solos.
 
-## Qué hay por revisar
+## Revisión inicial del catálogo (2026-10-20)
 
-18 mecánicas y **714 sesiones nuevas** (las 6 sesiones del piloto se revisan con su propia hoja, la de `piloto/`):
+La primera publicación incluyó las siguientes 18 mecánicas y **714 sesiones nuevas** (las 6 sesiones del piloto
+se revisaron con su propia hoja, la de `piloto/`):
 
 | Módulo    | Mecánicas                | Sesiones                | Revisión                                    |
 | --------- | ------------------------ | ----------------------- | ------------------------------------------- |
@@ -18,8 +19,20 @@ revisa, y **una migración** que sale de sus respuestas.
 | Bienestar | BIE-01 a BIE-09          | 357 (BIE-01: 37 nuevas) | profesional, salvo BIE-05, 08 y 09 (ligera) |
 | Emociones | EMO-01 a 05, 07, 08 y 09 | 317 (EMO-02: 37 nuevas) | profesional, salvo EMO-05 y 09 (ligera)     |
 
-EMO-06 se difiere (D-C4). Lo que cada ficha pide mirar con más cuidado está en
-`src/pruebas/catalogo/revision/pedidos.ts`, tomado de las barandas de `CATALOGO-FICHAS-DE-MECANICAS.md`.
+EMO-06 se difirió (D-C4). Las barandas de cada ficha están en `src/pruebas/catalogo/revision/pedidos.ts`.
+
+## Catálogo anual (2026-11-08)
+
+El lote anual agrega **1087 mecánicas y 1861 sesiones**. Diego y Samuel aprobaron internamente este contenido
+como orientación no clínica para PRE; la hoja de aprobación y el alcance están en
+`docs/revisiones/2026-11-08-diego-y-samuel-catalogo-365.txt`. La migración generada por el publicador oficial es
+`20261108120000_publicar_catalogo_365_aprobado_por_el_equipo`.
+
+| Módulo | Mecánicas | Sesiones |
+| --- | ---: | ---: |
+| Cognición | 357 | 474 |
+| Bienestar | 365 | 713 |
+| Emociones | 365 | 674 |
 
 ## Paso 1 · Generar las hojas
 

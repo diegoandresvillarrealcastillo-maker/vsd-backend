@@ -80,8 +80,8 @@ function deLaMecanica(codigo: string) {
 // ---------------------------------------------------------------------------
 
 describe('lo que hay por revisar', () => {
-  it('son las 18 mecanicas que se siembran pendientes: COG-08, las nueve de Bienestar y ocho de Emociones', () => {
-    expect(catalogo.map((m) => m.codigo)).toEqual([
+  it('incluye las fichas pendientes de los tres modulos y los planes anuales', () => {
+    const codigosEsperados = [
       'COG-08',
       'BIE-01',
       'BIE-02',
@@ -100,13 +100,31 @@ describe('lo que hay por revisar', () => {
       'EMO-07',
       'EMO-08',
       'EMO-09',
+    ];
+    const cognicion365 = Array.from({ length: 356 }, (_, indice) =>
+      `COG-${String(indice + 10).padStart(2, '0')}`,
+    );
+    const bienestar365 = Array.from({ length: 356 }, (_, indice) =>
+      `BIE-${String(indice + 10).padStart(2, '0')}`,
+    );
+    const emociones365 = Array.from({ length: 357 }, (_, indice) =>
+      `EMO-${String(indice + 10).padStart(2, '0')}`,
+    );
+
+    expect(catalogo.map((m) => m.codigo)).toEqual([
+      codigosEsperados[0],
+      ...cognicion365,
+      ...codigosEsperados.slice(1, 10),
+      ...bienestar365,
+      ...codigosEsperados.slice(10),
+      ...emociones365,
     ]);
   });
 
-  it('suman 714 sesiones nuevas: las del piloto se revisan con su propia hoja', () => {
+  it('suman 1861 sesiones nuevas: las del piloto se revisan con su propia hoja', () => {
     const total = catalogo.reduce((suma, m) => suma + m.sesiones.length, 0);
 
-    expect(total).toBe(40 + 357 + 317);
+    expect(total).toBe(40 + 40 + 40 + 354 + 357 + 356 + 317 + 357);
     expect(deLaMecanica('BIE-01').sesiones).toHaveLength(37);
     expect(deLaMecanica('EMO-02').sesiones).toHaveLength(37);
   });
@@ -544,7 +562,7 @@ describe('la migracion que publica lo revisado', () => {
     expect(sql).not.toContain(deLaMecanica('BIE-03').id);
     expect(pendientes.find((p) => p.codigo === 'BIE-02')?.motivo).toContain('No sale');
     expect(pendientes.find((p) => p.codigo === 'BIE-03')?.motivo).toContain('Sin marcar');
-    expect(pendientes).toHaveLength(17);
+    expect(pendientes).toHaveLength(catalogo.length - 1);
   });
 
   it('dos personas, dos mecanicas: cada sentencia lleva su revisor y su fecha', () => {
@@ -706,7 +724,7 @@ EMO-02-001 · Algo: Aprobada
     expect(sql.match(/^ {2}\);$/gmu)).toHaveLength(catalogo.length);
   });
 
-  it('aprobar todo publica las 714 sesiones nuevas, y cada identificador sale una sola vez', () => {
+  it('aprobar todo publica las 1504 sesiones nuevas, y cada identificador sale una sola vez', () => {
     const { sql, publicadas } = publicar(
       respuestasDe(
         'Ana',
@@ -716,9 +734,9 @@ EMO-02-001 · Algo: Aprobada
     );
     const ids = [...sql.matchAll(/^ {4}'([0-9a-f-]{36})'/gmu)].map(([, id]) => id);
 
-    expect(publicadas).toBe(714);
-    expect(ids).toHaveLength(714);
-    expect(new Set(ids).size).toBe(714);
+    expect(publicadas).toBe(1504);
+    expect(ids).toHaveLength(1504);
+    expect(new Set(ids).size).toBe(1504);
   });
 
   it('es una funcion pura de lo que se le da: la misma entrada, el mismo SQL', () => {

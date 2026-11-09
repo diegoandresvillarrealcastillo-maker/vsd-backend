@@ -20,7 +20,41 @@ export interface PedidoDeRevision {
   readonly foco: string;
 }
 
+const PEDIDOS_DE_BIENESTAR_365: Record<string, PedidoDeRevision> = Object.fromEntries(
+  Array.from({ length: 356 }, (_, indice) => [
+    `BIE-${String(indice + 10).padStart(2, '0')}`,
+    {
+      revision: 'profesional',
+      quien: 'Profesional de la salud (revisión de contenido cotidiano)',
+      foco: 'Confirmar que la invitación sea opcional, inclusiva, viable y segura; que no prometa resultados clínicos ni sustituya atención profesional; y que el texto se entienda con facilidad.',
+    },
+  ]),
+);
+
+const PEDIDOS_DE_COGNICION_365: Record<string, PedidoDeRevision> = Object.fromEntries(
+  Array.from({ length: 356 }, (_, indice) => [
+    `COG-${String(indice + 10).padStart(2, '0')}`,
+    {
+      revision: 'profesional',
+      quien: 'Profesional de psicología o neuropsicología (revisión de contenido)',
+      foco: 'Confirmar que el reto sea comprensible y seguro, no se presente como evaluación o diagnóstico, y que las instrucciones y respuestas coincidan con la tarea.',
+    },
+  ]),
+);
+
+const PEDIDOS_DE_EMOCIONES_365: Record<string, PedidoDeRevision> = Object.fromEntries(
+  Array.from({ length: 357 }, (_, indice) => [
+    `EMO-${String(indice + 10).padStart(2, '0')}`,
+    {
+      revision: 'profesional',
+      quien: 'Profesional de psicología (revisión de contenido emocional)',
+      foco: 'Confirmar que la actividad no diagnostique, no interprete la emoción ni fuerce una respuesta; que permita pasar o parar, cuide la intimidad y muestre apoyo cuando corresponda.',
+    },
+  ]),
+);
+
 export const PEDIDOS_DE_REVISION: Readonly<Record<string, PedidoDeRevision>> = {
+  ...PEDIDOS_DE_COGNICION_365,
   'COG-08': {
     revision: 'ligera',
     quien: 'Revisión ligera: que no se confunda con una prueba',
@@ -71,6 +105,8 @@ export const PEDIDOS_DE_REVISION: Readonly<Record<string, PedidoDeRevision>> = {
     quien: 'Revisión ligera',
     foco: 'Sin ejercicios que obliguen a levantarse en espacios sin permiso (aula, trabajo); ninguna promete productividad.',
   },
+  ...PEDIDOS_DE_BIENESTAR_365,
+  ...PEDIDOS_DE_EMOCIONES_365,
   'EMO-01': {
     revision: 'profesional',
     quien: 'Psicología: la taxonomía y las definiciones',

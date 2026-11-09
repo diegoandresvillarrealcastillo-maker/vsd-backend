@@ -23,7 +23,7 @@ describe('Catálogo de sesiones publicadas (SCRUM-322)', () => {
         idActividad: ID,
         titulo: 'Pausa consciente',
         nivel: 1,
-        actividad: { nombre: 'Respirar' },
+        actividad: { nombre: 'Respirar', frecuencia: 'diaria', diasSemana: [] },
       },
     ]);
 
@@ -34,11 +34,15 @@ describe('Catálogo de sesiones publicadas (SCRUM-322)', () => {
         titulo: 'Pausa consciente',
         nivel: 1,
         actividad: 'Respirar',
+        frecuencia: { tipo: 'diaria' },
       },
     ]);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { publicado: true, actividad: { estado: true, categoria: { modulo: 'bienestar' } } },
+        select: expect.objectContaining({
+          actividad: { select: { nombre: true, frecuencia: true, diasSemana: true } },
+        }),
       }),
     );
     expect(await instancia.sesionesPublicadas('inexistente')).toEqual([]);

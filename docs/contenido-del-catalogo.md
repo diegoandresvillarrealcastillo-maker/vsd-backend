@@ -32,12 +32,12 @@ aplicado en ningún ambiente.
 
 ## Identificadores
 
-| Qué      | Forma                                  | Ejemplo                                                   |
-| -------- | -------------------------------------- | --------------------------------------------------------- |
-| Mecánica | `0acd0000-0000-4000-8000-000000000CNN` | COG-02 → `…000000000102`, EMO-03 → `…000000000303`        |
-| Sesión   | `5e51CCNN-0000-4000-8000-0000000000SS` | COG-02, sesión 7 → `5e510102-0000-4000-8000-000000000007` |
+| Qué      | Forma                              | Ejemplo                                                   |
+| -------- | ---------------------------------- | --------------------------------------------------------- |
+| Mecánica | `0acd0000-0000-4000-8000-<12 hex>` | COG-02 → `…000000000102`, COG-100 admite tres cifras      |
+| Sesión   | `5e51CCNN` / `5e5CCNNN` + sufijo   | COG-02, sesión 7 → `5e510102-0000-4000-8000-000000000007` |
 
-`C` es la categoría (1 Cognición, 2 Bienestar, 3 Emociones), `NN` el número de la ficha y `SS` la sesión, de 01 a 40.
+`C` es la categoría (1 Cognición, 2 Bienestar, 3 Emociones), `NN` o `NNN` es el número de la ficha y `SS` la sesión. Las fichas de hasta dos cifras conservan sus UUID anteriores; las de tres cifras usan un prefijo nuevo para no cambiar identificadores ya sembrados.
 
 ## Qué sale publicado
 

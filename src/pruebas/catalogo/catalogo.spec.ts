@@ -47,7 +47,20 @@ export function caracteresFueraDeWin1252(texto: string): string[] {
 
 /** Cuantas sesiones tiene cada mecanica en total: las que ya estaban sembradas mas las del lote. */
 const YA_SEMBRADAS: Readonly<Record<string, number>> = { 'COG-01': 4, 'BIE-01': 3, 'EMO-02': 3 };
-const SESIONES_POR_MECANICA = 40;
+const BIENESTAR_365: Readonly<Record<string, number>> = Object.fromEntries(
+  Array.from({ length: 356 }, (_, indice) => [`BIE-${String(indice + 10).padStart(2, '0')}`, 1]),
+);
+const EMOCIONES_365: Readonly<Record<string, number>> = Object.fromEntries(
+  Array.from({ length: 357 }, (_, indice) => [`EMO-${String(indice + 10).padStart(2, '0')}`, 1]),
+);
+const SESIONES_POR_MECANICA: Readonly<Record<string, number>> = Object.fromEntries(
+  MECANICAS.map((mecanica) => [
+    mecanica.codigo,
+    mecanica.motor === 'reto_compuesto_cognitivo'
+      ? 1
+      : (BIENESTAR_365[mecanica.codigo] ?? EMOCIONES_365[mecanica.codigo] ?? 40),
+  ]),
+);
 
 describe.each(LOTES)('el lote $lote.migracion', (una) => {
   it('el SQL que esta en el repositorio es el que produce el generador', () => {
@@ -153,10 +166,10 @@ describe('las mecanicas', () => {
   );
 
   it.each(MECANICAS.map((m) => [m.codigo, m] as const))(
-    '%s: tiene 40 sesiones contando las que ya estaban sembradas',
+    '%s: tiene el número esperado de sesiones contando las que ya estaban sembradas',
     (_, m) => {
       expect(m.sesiones.length + (YA_SEMBRADAS[m.codigo] ?? 0), m.codigo).toBe(
-        SESIONES_POR_MECANICA,
+        SESIONES_POR_MECANICA[m.codigo] ?? 40,
       );
     },
   );

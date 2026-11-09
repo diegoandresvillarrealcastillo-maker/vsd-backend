@@ -59,9 +59,10 @@ export class CatalogoController {
     });
 
     return sesiones.map((sesion) => {
-      const frecuencia: Frecuencia = sesion.actividad.frecuencia === 'semanal'
-        ? { tipo: 'semanal', dias: sesion.actividad.diasSemana }
-        : { tipo: sesion.actividad.frecuencia };
+      const frecuencia: Frecuencia =
+        sesion.actividad.frecuencia === 'semanal'
+          ? { tipo: 'semanal', dias: sesion.actividad.diasSemana }
+          : { tipo: sesion.actividad.frecuencia };
 
       return {
         id: sesion.id,

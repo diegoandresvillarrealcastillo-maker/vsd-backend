@@ -49,14 +49,16 @@ function rotar<T>(elementos: readonly T[], desplazamiento: number): T[] {
 
 function moverOpciones(rondas: unknown, salto: number, claveOpciones: string): void {
   if (!Array.isArray(rondas)) return;
-  for (const valor of rondas) {
+  const rondasComoDatos: unknown[] = rondas;
+  for (const valor of rondasComoDatos) {
     if (typeof valor !== 'object' || valor === null) continue;
     const ronda = valor as Record<string, unknown>;
     const opciones = ronda[claveOpciones];
     const correcta = ronda.correcta ?? ronda.intruso;
     if (!Array.isArray(opciones) || typeof correcta !== 'number') continue;
-    const respuesta = opciones[correcta];
-    const nuevas = rotar(opciones, salto);
+    const opcionesComoDatos: unknown[] = opciones;
+    const respuesta = opcionesComoDatos[correcta];
+    const nuevas = rotar(opcionesComoDatos, salto);
     const indice = nuevas.indexOf(respuesta);
     ronda[claveOpciones] = nuevas;
     if ('correcta' in ronda) ronda.correcta = indice;
@@ -80,7 +82,8 @@ function variarSesion(
     switch (codigo) {
       case 'COG-01':
         if (variante === 3 && Array.isArray(parametros.casillas)) {
-          parametros.casillas = [...parametros.casillas].reverse();
+          const casillas: unknown[] = parametros.casillas;
+          parametros.casillas = [...casillas].reverse();
         } else {
           rotarCampo('casillas', variante + 1);
         }
@@ -119,19 +122,23 @@ function variarSesion(
             if (variante === 2) return { fila: 4 - columna, columna: fila };
             return { fila, columna: 4 - columna };
           };
-          parametros.celdas = celdas.map((valor) => {
+          const celdasComoDatos: unknown[] = celdas;
+          const nuevasCeldas: unknown[] = celdasComoDatos.map((valor) => {
             if (typeof valor !== 'object' || valor === null) return valor;
             const celda = valor as Record<string, unknown>;
             if (typeof celda.fila !== 'number' || typeof celda.columna !== 'number') return celda;
             return { ...celda, ...transformar(celda.fila, celda.columna) };
           });
-          const objetivo = (parametros.celdas as Record<string, unknown>[]).find(
-            (celda) => celda.clave === solucion,
+          parametros.celdas = nuevasCeldas;
+          const objetivo = nuevasCeldas.find(
+            (celda): celda is Record<string, unknown> =>
+              typeof celda === 'object' && celda !== null && !Array.isArray(celda),
           );
-          if (objetivo !== undefined && Array.isArray(parametros.pistas)) {
-            parametros.pistas = (parametros.pistas as string[]).map((pista) =>
-              /^Está en la fila \d+\.$/u.test(pista)
-                ? `Está en la fila ${String(objetivo.fila)}.`
+          if (objetivo?.['clave'] === solucion && Array.isArray(parametros.pistas)) {
+            const pistas: unknown[] = parametros.pistas;
+            parametros.pistas = pistas.map((pista) =>
+              typeof pista === 'string' && /^Está en la fila \d+\.$/u.test(pista)
+                ? `Está en la fila ${String(objetivo['fila'])}.`
                 : pista,
             );
           }
@@ -141,10 +148,16 @@ function variarSesion(
       case 'COG-11': {
         const opciones = parametros.opciones;
         if (Array.isArray(opciones)) {
-          if (variante === 0) parametros.opciones = rotar(opciones, 1);
-          else if (variante === 1) parametros.opciones = rotar(opciones, 2);
-          else if (variante === 2) parametros.opciones = [...opciones].reverse();
-          else parametros.opciones = [opciones[1], opciones[0], ...opciones.slice(2)];
+          const opcionesComoDatos: unknown[] = opciones;
+          if (variante === 0) parametros.opciones = rotar(opcionesComoDatos, 1);
+          else if (variante === 1) parametros.opciones = rotar(opcionesComoDatos, 2);
+          else if (variante === 2) parametros.opciones = [...opcionesComoDatos].reverse();
+          else
+            parametros.opciones = [
+              opcionesComoDatos[1],
+              opcionesComoDatos[0],
+              ...opcionesComoDatos.slice(2),
+            ];
         }
         break;
       }

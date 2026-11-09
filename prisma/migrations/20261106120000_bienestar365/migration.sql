@@ -152,9 +152,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000000219',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Juego y disfrute: Arma un rompecabezas',
+    'Juego y disfrute: Resuelve una sección',
     'bitacora',
-    'Arma un rompecabezas',
+    'Resuelve una sección',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -902,9 +902,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000000269',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Comer con flexibilidad: Arma un plato',
+    'Comer con flexibilidad: Combina dos texturas',
     'bitacora',
-    'Arma un plato',
+    'Combina dos texturas',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -2102,9 +2102,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000002149',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Juego y disfrute: Arma una lista',
+    'Juego y disfrute: Escoge tres canciones',
     'bitacora',
-    'Arma una lista',
+    'Escoge tres canciones',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -2237,9 +2237,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000002158',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Regulación emocional: Piensa para ti',
+    'Regulación emocional: Prioriza una decisión',
     'bitacora',
-    'Piensa para ti',
+    'Prioriza una decisión',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -2462,9 +2462,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000002173',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Comer con flexibilidad: Arma una merienda',
+    'Comer con flexibilidad: Prepara una merienda',
     'bitacora',
-    'Arma una merienda',
+    'Prepara una merienda',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -2792,9 +2792,9 @@ VALUES
   (
     '0acd0000-0000-4000-8000-000000002195',
     (SELECT "id_categoria" FROM "categoria" WHERE "nombre" = 'Bienestar'),
-    'Vínculos: Pide que te',
+    'Vínculos: Solicita una explicación',
     'bitacora',
-    'Pide que te',
+    'Solicita una explicación',
     TRUE,
     'sin_puntaje',
     NULL,
@@ -5434,7 +5434,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000214',
     'Creación: Inventa un título',
     1,
-    '{"modo":"escritura","invitacion":"Inventa un título para el día de hoy y acompáñalo con una frase.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Inventa un título para el día de hoy y acompáñalo con una frase.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5504,7 +5504,7 @@ VALUES
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-19 · Juego y disfrute: Arma un rompecabezas: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-19 · Juego y disfrute: Resuelve una sección: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -5512,9 +5512,9 @@ VALUES
   (
     '5e510219-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000000219',
-    'Juego y disfrute: Arma un rompecabezas',
+    'Juego y disfrute: Resuelve una sección',
     1,
-    '{"modo":"tarjeta","indicacion":"Sin respuestas buenas o malas. Tú eliges si probarlo.","titulo":"Juego y disfrute: Arma un rompecabezas","texto":"Arma un rompecabezas pequeño o resuelve una parte de uno que ya tengas empezado.","opciones":[{"clave":"ahora","texto":"Lo intentaré ahora"},{"clave":"despues","texto":"Quizá en otro momento"},{"clave":"hoy-no","texto":"Hoy no"}],"cierre":"Gracias por hacer una pausa a tu manera."}'::jsonb,
+    '{"modo":"tarjeta","indicacion":"Sin respuestas buenas o malas. Tú eliges si probarlo.","titulo":"Juego y disfrute: Resuelve una sección","texto":"Resuelve una sección de un rompecabezas pequeño o continúa uno que ya tengas empezado.","opciones":[{"clave":"ahora","texto":"Lo intentaré ahora"},{"clave":"despues","texto":"Quizá en otro momento"},{"clave":"hoy-no","texto":"Hoy no"}],"cierre":"Gracias por hacer una pausa a tu manera."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5562,7 +5562,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000222',
     'Aprendizaje cotidiano: Aprende una palabra',
     1,
-    '{"modo":"escritura","invitacion":"Aprende una palabra nueva y úsala en una frase sobre tu día.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Aprende una palabra nueva y úsala en una frase sobre tu día.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5642,7 +5642,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000227',
     'Creación: Dibuja un objeto',
     1,
-    '{"modo":"escritura","invitacion":"Dibuja un objeto cotidiano usando solo círculos, líneas y puntos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Dibuja un objeto cotidiano usando solo círculos, líneas y puntos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5770,7 +5770,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000235',
     'Aprendizaje cotidiano: Pídele a alguien',
     1,
-    '{"modo":"escritura","invitacion":"Pídele a alguien que te enseñe un atajo o habilidad que use con frecuencia.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Pídele a alguien que te enseñe un atajo o habilidad que use con frecuencia.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5850,7 +5850,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000240',
     'Creación: Escribe un diálogo',
     1,
-    '{"modo":"escritura","invitacion":"Escribe un diálogo breve entre dos objetos que tengas cerca.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe un diálogo breve entre dos objetos que tengas cerca.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -5978,7 +5978,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000248',
     'Aprendizaje cotidiano: Elige sus pasos',
     1,
-    '{"modo":"escritura","invitacion":"Elige una tarea conocida y descubre una forma distinta de hacer uno de sus pasos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Elige una tarea conocida y descubre una forma distinta de hacer uno de sus pasos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6058,7 +6058,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000253',
     'Creación: Crea una lista',
     1,
-    '{"modo":"escritura","invitacion":"Crea una lista de cinco nombres posibles para una cafetería imaginaria.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Crea una lista de cinco nombres posibles para una cafetería imaginaria.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6186,7 +6186,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000261',
     'Aprendizaje cotidiano: Mira un tutorial',
     1,
-    '{"modo":"escritura","invitacion":"Mira un tutorial breve sobre una habilidad práctica que de verdad quieras aprender.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Mira un tutorial breve sobre una habilidad práctica que de verdad quieras aprender.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6266,7 +6266,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000266',
     'Creación: Diseña en papel',
     1,
-    '{"modo":"escritura","invitacion":"Diseña en papel un emblema para una actividad que disfrutas.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Diseña en papel un emblema para una actividad que disfrutas.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6304,7 +6304,7 @@ VALUES
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-69 · Comer con flexibilidad: Arma un plato: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-69 · Comer con flexibilidad: Combina dos texturas: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -6312,9 +6312,9 @@ VALUES
   (
     '5e510269-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000000269',
-    'Comer con flexibilidad: Arma un plato',
+    'Comer con flexibilidad: Combina dos texturas',
     1,
-    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Arma un plato con dos texturas distintas usando alimentos que ya tengas.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Comer con flexibilidad: Arma un plato» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
+    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Combina dos texturas distintas usando alimentos que ya tengas disponibles.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Comer con flexibilidad: Combina dos texturas» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6394,7 +6394,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000274',
     'Aprendizaje cotidiano: Lee una página',
     1,
-    '{"modo":"escritura","invitacion":"Lee una página sobre un tema que siempre te haya dado curiosidad.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Lee una página sobre un tema que siempre te haya dado curiosidad.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6474,7 +6474,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000279',
     'Creación: Escribe una receta',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una receta ficticia para preparar una tarde tranquila, con ingredientes inventados.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe una receta ficticia para preparar una tarde tranquila, con ingredientes inventados.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6602,7 +6602,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000287',
     'Aprendizaje cotidiano: Practica una frase',
     1,
-    '{"modo":"escritura","invitacion":"Practica una frase en otro idioma y úsala en un contexto inventado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Practica una frase en otro idioma y úsala en un contexto inventado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6682,7 +6682,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000292',
     'Creación: Haz un mapa',
     1,
-    '{"modo":"escritura","invitacion":"Haz un mapa sencillo de un lugar conocido sin escribir sus nombres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Haz un mapa sencillo de un lugar conocido sin escribir sus nombres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6810,7 +6810,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002100',
     'Aprendizaje cotidiano: Pregunta su familia',
     1,
-    '{"modo":"escritura","invitacion":"Pregunta a una persona mayor qué habilidad cotidiana aprendió de su familia.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Pregunta a una persona mayor qué habilidad cotidiana aprendió de su familia.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6890,7 +6890,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002105',
     'Creación: Inventa un final',
     1,
-    '{"modo":"escritura","invitacion":"Inventa un final distinto para una historia, serie o película que recuerdes.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Inventa un final distinto para una historia, serie o película que recuerdes.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7018,7 +7018,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002113',
     'Aprendizaje cotidiano: Identifica una herramienta',
     1,
-    '{"modo":"escritura","invitacion":"Identifica una herramienta que no sepas usar y busca su guía antes de probarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Identifica una herramienta que no sepas usar y busca su guía antes de probarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7098,7 +7098,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002118',
     'Creación: Crea un ritmo',
     1,
-    '{"modo":"escritura","invitacion":"Crea un ritmo de cuatro golpes con los dedos y ponle un nombre.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Crea un ritmo de cuatro golpes con los dedos y ponle un nombre.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7226,7 +7226,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002126',
     'Aprendizaje cotidiano: Enséñale a alguien',
     1,
-    '{"modo":"escritura","invitacion":"Enséñale a alguien un conocimiento pequeño que te resulte fácil compartir.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Enséñale a alguien un conocimiento pequeño que te resulte fácil compartir.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7306,7 +7306,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002131',
     'Creación: Escribe una nota',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una nota dirigida a ti dentro de un mes con un deseo realista.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe una nota dirigida a ti dentro de un mes con un deseo realista.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7434,7 +7434,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002139',
     'Aprendizaje cotidiano: Elige una actividad',
     1,
-    '{"modo":"escritura","invitacion":"Elige una actividad creativa y aprende una técnica nueva en una sola sesión.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Elige una actividad creativa y aprende una técnica nueva en una sola sesión.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7514,7 +7514,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002144',
     'Creación: Dibuja una escena',
     1,
-    '{"modo":"escritura","invitacion":"Dibuja una escena usando la mano que no sueles utilizar, si te resulta cómodo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Dibuja una escena usando la mano que no sueles utilizar, si te resulta cómodo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7584,7 +7584,7 @@ VALUES
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-149 · Juego y disfrute: Arma una lista: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-149 · Juego y disfrute: Escoge tres canciones: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -7592,9 +7592,9 @@ VALUES
   (
     '5e502149-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000002149',
-    'Juego y disfrute: Arma una lista',
+    'Juego y disfrute: Escoge tres canciones',
     1,
-    '{"modo":"tarjeta","indicacion":"Sin respuestas buenas o malas. Tú eliges si probarlo.","titulo":"Juego y disfrute: Arma una lista","texto":"Arma una lista colaborativa de canciones para un estado de ánimo que elijas.","opciones":[{"clave":"ahora","texto":"Lo intentaré ahora"},{"clave":"despues","texto":"Quizá en otro momento"},{"clave":"hoy-no","texto":"Hoy no"}],"cierre":"Gracias por hacer una pausa a tu manera."}'::jsonb,
+    '{"modo":"tarjeta","indicacion":"Sin respuestas buenas o malas. Tú eliges si probarlo.","titulo":"Juego y disfrute: Escoge tres canciones","texto":"Escoge tres canciones que representen el estado de ánimo que elijas y organízalas en una lista.","opciones":[{"clave":"ahora","texto":"Lo intentaré ahora"},{"clave":"despues","texto":"Quizá en otro momento"},{"clave":"hoy-no","texto":"Hoy no"}],"cierre":"Gracias por hacer una pausa a tu manera."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7642,7 +7642,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002152',
     'Aprendizaje cotidiano: Anota una pregunta',
     1,
-    '{"modo":"escritura","invitacion":"Anota una pregunta que surgió hoy y qué fuente fiable consultarías para responderla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Anota una pregunta que surgió hoy y qué fuente fiable consultarías para responderla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7722,13 +7722,13 @@ VALUES
     '0acd0000-0000-4000-8000-000000002157',
     'Creación: Inventa una palabra',
     1,
-    '{"modo":"escritura","invitacion":"Inventa una palabra para describir un momento que no tiene nombre.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Inventa una palabra para describir un momento que no tiene nombre.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-158 · Regulación emocional: Piensa para ti: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-158 · Regulación emocional: Prioriza una decisión: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -7736,9 +7736,9 @@ VALUES
   (
     '5e502158-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000002158',
-    'Regulación emocional: Piensa para ti',
+    'Regulación emocional: Prioriza una decisión',
     1,
-    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Piensa en una decisión pendiente y separa lo urgente de lo importante para ti.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Regulación emocional: Piensa para ti» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
+    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Prioriza una decisión pendiente y separa los pasos que te parecen importantes.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Regulación emocional: Prioriza una decisión» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7850,7 +7850,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002165',
     'Aprendizaje cotidiano: Aprende un dato',
     1,
-    '{"modo":"escritura","invitacion":"Aprende un dato sobre un lugar cercano y compártelo con alguien interesado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Aprende un dato sobre un lugar cercano y compártelo con alguien interesado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7930,7 +7930,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002170',
     'Creación: Crea una postal',
     1,
-    '{"modo":"escritura","invitacion":"Crea una postal imaginaria de un lugar que te gustaría visitar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Crea una postal imaginaria de un lugar que te gustaría visitar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7968,7 +7968,7 @@ VALUES
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-173 · Comer con flexibilidad: Arma una merienda: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-173 · Comer con flexibilidad: Prepara una merienda: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -7976,9 +7976,9 @@ VALUES
   (
     '5e502173-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000002173',
-    'Comer con flexibilidad: Arma una merienda',
+    'Comer con flexibilidad: Prepara una merienda',
     1,
-    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Arma una merienda con lo que ya está disponible, sin convertirlo en una meta.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Comer con flexibilidad: Arma una merienda» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
+    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Prepara una merienda con lo que ya está disponible, sin convertirlo en una meta.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Comer con flexibilidad: Prepara una merienda» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8058,7 +8058,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002178',
     'Aprendizaje cotidiano: Practica paso olvidaste',
     1,
-    '{"modo":"escritura","invitacion":"Practica recordar una receta o instrucción y comprueba qué paso olvidaste.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Practica recordar una receta o instrucción y comprueba qué paso olvidaste.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8138,7 +8138,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002183',
     'Creación: Escribe una historia',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una historia de seis líneas donde un objeto encuentra un nuevo uso.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe una historia de seis líneas donde un objeto encuentra un nuevo uso.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8266,7 +8266,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002191',
     'Aprendizaje cotidiano: Elige un objeto',
     1,
-    '{"modo":"escritura","invitacion":"Elige un objeto cotidiano y averigua cómo se fabrica o para qué se diseñó.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Elige un objeto cotidiano y averigua cómo se fabrica o para qué se diseñó.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8320,7 +8320,7 @@ VALUES
   )
 ON CONFLICT ("id_sesion") DO NOTHING;
 
--- BIE-195 · Vínculos: Pide que te: 1 sesiones, SIN PUBLICAR (revision: pendiente).
+-- BIE-195 · Vínculos: Solicita una explicación: 1 sesiones, SIN PUBLICAR (revision: pendiente).
 INSERT INTO "sesion_de_actividad" (
   "id_sesion", "id_actividad", "titulo", "nivel", "parametros", "publicado", "revision"
 )
@@ -8328,9 +8328,9 @@ VALUES
   (
     '5e502195-0000-4000-8000-000000000001',
     '0acd0000-0000-4000-8000-000000002195',
-    'Vínculos: Pide que te',
+    'Vínculos: Solicita una explicación',
     1,
-    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Pide que te expliquen algo que no entendiste, sin disculparte por preguntar.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Vínculos: Pide que te» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
+    '{"modo":"preguntas","indicacion":"Elige lo que te sirva; puedes cambiarlo o dejarlo para otro momento.","preguntas":[{"clave":"momento","texto":"¿Cuándo te gustaría probarlo? Solicita una explicación clara cuando una indicación no te quede clara.","tipo":"opcion","opciones":[{"clave":"inicio","texto":"Al empezar el día"},{"clave":"entre","texto":"Entre dos actividades"},{"clave":"cuando-pueda","texto":"Cuando me venga bien"}]},{"clave":"ajuste","texto":"¿Qué versión de «Vínculos: Solicita una explicación» te resulta posible hoy?","tipo":"opcion","opciones":[{"clave":"igual","texto":"Tal como está"},{"clave":"pequeno","texto":"En una versión pequeña"},{"clave":"despues","texto":"Quizá otro día"}]}],"enlaceAlAviso":false,"conLineasDeAyuda":false,"cierre":"Tu plan puede cambiar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8346,7 +8346,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002196',
     'Creación: Diseña una portada',
     1,
-    '{"modo":"escritura","invitacion":"Diseña una portada para una lista de canciones que represente tu semana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Diseña una portada para una lista de canciones que represente tu semana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8474,7 +8474,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002204',
     'Aprendizaje cotidiano: Pídele parecido útil',
     1,
-    '{"modo":"escritura","invitacion":"Pídele a alguien que te muestre cómo hace una tarea que siempre te ha parecido útil.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Pídele a alguien que te muestre cómo hace una tarea que siempre te ha parecido útil.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8554,7 +8554,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002209',
     'Creación: Haz un collage',
     1,
-    '{"modo":"escritura","invitacion":"Haz un collage con formas o palabras recortadas de papel que ya no uses.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Haz un collage con formas o palabras recortadas de papel que ya no uses.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8682,7 +8682,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002217',
     'Aprendizaje cotidiano: Aprende una regla',
     1,
-    '{"modo":"escritura","invitacion":"Aprende una regla de un juego nuevo y explícasela a otra persona.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Aprende una regla de un juego nuevo y explícasela a otra persona.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8762,7 +8762,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002222',
     'Creación: Describe un color',
     1,
-    '{"modo":"escritura","invitacion":"Describe un color sin nombrarlo y deja que otra persona lo adivine, si quieres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Describe un color sin nombrarlo y deja que otra persona lo adivine, si quieres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8890,7 +8890,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002230',
     'Aprendizaje cotidiano: Prueba una técnica',
     1,
-    '{"modo":"escritura","invitacion":"Prueba una técnica para tomar notas y decide si te sirve para una próxima reunión.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Prueba una técnica para tomar notas y decide si te sirve para una próxima reunión.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8970,7 +8970,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002235',
     'Creación: Inventa una celebración',
     1,
-    '{"modo":"escritura","invitacion":"Inventa una celebración pequeña para marcar el final de una tarea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Inventa una celebración pequeña para marcar el final de una tarea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9098,7 +9098,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002243',
     'Aprendizaje cotidiano: Busca el significado',
     1,
-    '{"modo":"escritura","invitacion":"Busca el significado de una palabra que oíste y escribe un ejemplo propio.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Busca el significado de una palabra que oíste y escribe un ejemplo propio.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9178,7 +9178,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002248',
     'Creación: Escribe tres versos',
     1,
-    '{"modo":"escritura","invitacion":"Escribe tres versos libres sobre algo cotidiano que te resulte agradable.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe tres versos libres sobre algo cotidiano que te resulte agradable.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9306,7 +9306,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002256',
     'Aprendizaje cotidiano: Compara dos instrucciones',
     1,
-    '{"modo":"escritura","invitacion":"Compara dos instrucciones para una tarea y elige cuál te resulta más clara.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Compara dos instrucciones para una tarea y elige cuál te resulta más clara.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9386,7 +9386,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002261',
     'Creación: Dibuja un recorrido',
     1,
-    '{"modo":"escritura","invitacion":"Dibuja un recorrido fantástico entre dos lugares conocidos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Dibuja un recorrido fantástico entre dos lugares conocidos.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9514,7 +9514,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002269',
     'Aprendizaje cotidiano: Practica una habilidad',
     1,
-    '{"modo":"escritura","invitacion":"Practica una habilidad manual con materiales que ya tengas, sin buscar que quede perfecta.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Practica una habilidad manual con materiales que ya tengas, sin buscar que quede perfecta.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9594,7 +9594,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002274',
     'Creación: Crea una mini',
     1,
-    '{"modo":"escritura","invitacion":"Crea una mini historieta de tres cuadros sobre una situación cotidiana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Crea una mini historieta de tres cuadros sobre una situación cotidiana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9722,7 +9722,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002282',
     'Aprendizaje cotidiano: Elige un tema',
     1,
-    '{"modo":"escritura","invitacion":"Elige un tema que te interese y crea tres preguntas para seguir aprendiendo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Elige un tema que te interese y crea tres preguntas para seguir aprendiendo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9802,7 +9802,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002287',
     'Creación: Inventa un juego',
     1,
-    '{"modo":"escritura","invitacion":"Inventa un juego de palabras con el nombre de un objeto cercano.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Inventa un juego de palabras con el nombre de un objeto cercano.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9930,7 +9930,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002295',
     'Aprendizaje cotidiano: Pide quieras probar',
     1,
-    '{"modo":"escritura","invitacion":"Pide retroalimentación sobre una tarea y escoge una sugerencia que quieras probar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Pide retroalimentación sobre una tarea y escoge una sugerencia que quieras probar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10010,7 +10010,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002300',
     'Creación: Escribe un anuncio',
     1,
-    '{"modo":"escritura","invitacion":"Escribe un anuncio divertido para una planta, taza o herramienta imaginaria.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe un anuncio divertido para una planta, taza o herramienta imaginaria.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10138,7 +10138,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002308',
     'Aprendizaje cotidiano: Aprende cómo se',
     1,
-    '{"modo":"escritura","invitacion":"Aprende cómo se organiza una actividad cultural o deportiva de tu comunidad.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Aprende cómo se organiza una actividad cultural o deportiva de tu comunidad.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10218,7 +10218,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002313',
     'Creación: Combina dos actividades',
     1,
-    '{"modo":"escritura","invitacion":"Combina dos actividades que disfrutas y ponle un nombre a la mezcla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Combina dos actividades que disfrutas y ponle un nombre a la mezcla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10346,7 +10346,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002321',
     'Aprendizaje cotidiano: Explica con tus',
     1,
-    '{"modo":"escritura","invitacion":"Explica con tus palabras algo que aprendiste recientemente, aunque sea en una nota privada.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Explica con tus palabras algo que aprendiste recientemente, aunque sea en una nota privada.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10426,7 +10426,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002326',
     'Creación: Haz canción inventada',
     1,
-    '{"modo":"escritura","invitacion":"Haz una lista de sonidos y conviértela en el título de una canción inventada.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Haz una lista de sonidos y conviértela en el título de una canción inventada.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10554,7 +10554,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002334',
     'Aprendizaje cotidiano: Elige una receta',
     1,
-    '{"modo":"escritura","invitacion":"Elige una receta, juego o manualidad y lee todos los pasos antes de empezar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Elige una receta, juego o manualidad y lee todos los pasos antes de empezar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10634,7 +10634,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002339',
     'Creación: Diseña una etiqueta',
     1,
-    '{"modo":"escritura","invitacion":"Diseña una etiqueta para una caja donde guardarías recuerdos importantes.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Diseña una etiqueta para una caja donde guardarías recuerdos importantes.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10762,7 +10762,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002347',
     'Aprendizaje cotidiano: Busca parecía complicado',
     1,
-    '{"modo":"escritura","invitacion":"Busca una forma accesible de aprender algo que antes te parecía complicado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Busca una forma accesible de aprender algo que antes te parecía complicado.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10842,7 +10842,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002352',
     'Creación: Escribe una pregunta',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una pregunta curiosa que te gustaría explorar sin buscar respuesta hoy.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Escribe una pregunta curiosa que te gustaría explorar sin buscar respuesta hoy.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10970,7 +10970,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002360',
     'Aprendizaje cotidiano: Anota qué habilidad',
     1,
-    '{"modo":"escritura","invitacion":"Anota qué habilidad te gustaría compartir con otra persona y cómo podrías enseñarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Anota qué habilidad te gustaría compartir con otra persona y cómo podrías enseñarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11050,7 +11050,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000002365',
     'Creación: Crea un patrón',
     1,
-    '{"modo":"escritura","invitacion":"Crea un patrón visual con tres formas y cambia el orden en cada línea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
+    '{"invitacion":"Crea un patrón visual con tres formas y cambia el orden en cada línea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Gracias por dejar esta idea en tus palabras."}'::jsonb,
     FALSE,
     'pendiente'
   )

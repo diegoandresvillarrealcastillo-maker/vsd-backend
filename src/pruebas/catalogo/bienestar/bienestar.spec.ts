@@ -115,9 +115,18 @@ describe('Bienestar 365', () => {
       27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28,
     ]);
     expect(nuevas.slice(0, 13).map((mecanica) => mecanica.nombre.split(':')[0])).toEqual([
-      'Cuidado diario', 'Movimiento amable', 'Descanso y ritmo', 'Vínculos', 'Creación',
-      'Regulación emocional', 'Organización cotidiana', 'Comer con flexibilidad',
-      'Autonomía y límites', 'Juego y disfrute', 'Bienestar digital', 'Aire libre y comunidad',
+      'Cuidado diario',
+      'Movimiento amable',
+      'Descanso y ritmo',
+      'Vínculos',
+      'Creación',
+      'Regulación emocional',
+      'Organización cotidiana',
+      'Comer con flexibilidad',
+      'Autonomía y límites',
+      'Juego y disfrute',
+      'Bienestar digital',
+      'Aire libre y comunidad',
       'Aprendizaje cotidiano',
     ]);
   });
@@ -133,7 +142,7 @@ describe('Bienestar 365', () => {
     });
     const nucleosExistentes = existentes.flatMap((mecanica) =>
       mecanica.sesiones.flatMap((una) => {
-        const nucleo = nucleoDe(una.parametros as Parametros);
+        const nucleo = nucleoDe(una.parametros);
 
         return nucleo === null ? [] : [normalizarNucleo(nucleo)];
       }),
@@ -151,7 +160,10 @@ describe('Bienestar 365', () => {
       expect(mecanica.revision).toBe('pendiente');
       expect(mecanica.publicar).toBe(false);
       expect(mecanica.sesiones).toHaveLength(1);
-      const modo = (mecanica.sesiones[0]?.parametros as Parametros).modo as string;
+      const modo =
+        mecanica.motor === 'escritura_breve'
+          ? 'escritura'
+          : ((mecanica.sesiones[0]?.parametros as Parametros).modo as string);
 
       expect(['tarjeta', 'preguntas', 'lista', 'pasos', 'escritura']).toContain(modo);
       porModo.set(modo, (porModo.get(modo) ?? 0) + 1);

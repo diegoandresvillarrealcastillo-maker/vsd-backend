@@ -11,10 +11,7 @@ import {
   loteDeRetosCompuestos365,
 } from './cognicion/retosCompuestos.ts';
 import { CABECERA_DE_EMOCIONES, loteDeEmociones } from './emociones/index.ts';
-import {
-  CABECERA_DE_EMOCIONES_365,
-  loteDeEmociones365,
-} from './emociones/365.ts';
+import { CABECERA_DE_EMOCIONES_365, loteDeEmociones365 } from './emociones/365.ts';
 import { sqlDelLote } from './sql.ts';
 import type { Lote } from './tipos.ts';
 

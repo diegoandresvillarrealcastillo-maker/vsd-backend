@@ -378,7 +378,7 @@ BIE-15 · Regulación emocional: Pon palabra perfecta: Aprobada
 BIE-16 · Organización cotidiana: Divide un pendiente: Aprobada
 BIE-17 · Comer con flexibilidad: Elige una comida: Aprobada
 BIE-18 · Autonomía y límites: Ensaya una respuesta: Aprobada
-BIE-19 · Juego y disfrute: Arma un rompecabezas: Aprobada
+BIE-19 · Juego y disfrute: Resuelve una sección: Aprobada
 BIE-20 · Bienestar digital: Silencia respuesta inmediata: Aprobada
 BIE-21 · Aire libre y comunidad: Elige un trayecto: Aprobada
 BIE-22 · Aprendizaje cotidiano: Aprende una palabra: Aprobada
@@ -428,7 +428,7 @@ BIE-65 · Vínculos: Invita a alguien: Aprobada
 BIE-66 · Creación: Diseña en papel: Aprobada
 BIE-67 · Regulación emocional: Haz una tarjeta: Aprobada
 BIE-68 · Organización cotidiana: Agrupa en el: Aprobada
-BIE-69 · Comer con flexibilidad: Arma un plato: Aprobada
+BIE-69 · Comer con flexibilidad: Combina dos texturas: Aprobada
 BIE-70 · Autonomía y límites: Practica otro momento: Aprobada
 BIE-71 · Juego y disfrute: Construye una figura: Aprobada
 BIE-72 · Bienestar digital: Configura un modo: Aprobada
@@ -508,7 +508,7 @@ BIE-145 · Regulación emocional: Escribe cómo explicarías: Aprobada
 BIE-146 · Organización cotidiana: Compara dos formas: Aprobada
 BIE-147 · Comer con flexibilidad: Prueba un utensilio: Aprobada
 BIE-148 · Autonomía y límites: Formula una petición: Aprobada
-BIE-149 · Juego y disfrute: Arma una lista: Aprobada
+BIE-149 · Juego y disfrute: Escoge tres canciones: Aprobada
 BIE-150 · Bienestar digital: Elige una franja: Aprobada
 BIE-151 · Aire libre y comunidad: Pasa la comunidad: Aprobada
 BIE-152 · Aprendizaje cotidiano: Anota una pregunta: Aprobada
@@ -517,7 +517,7 @@ BIE-154 · Movimiento amable: Imita con las: Aprobada
 BIE-155 · Descanso y ritmo: Haz sin calificarlas: Aprobada
 BIE-156 · Vínculos: Pregunta a alguien: Aprobada
 BIE-157 · Creación: Inventa una palabra: Aprobada
-BIE-158 · Regulación emocional: Piensa para ti: Aprobada
+BIE-158 · Regulación emocional: Prioriza una decisión: Aprobada
 BIE-159 · Organización cotidiana: Agrupa los objetos: Aprobada
 BIE-160 · Comer con flexibilidad: Elige una música: Aprobada
 BIE-161 · Autonomía y límites: Decide qué horario: Aprobada
@@ -532,7 +532,7 @@ BIE-169 · Vínculos: Invita su manera: Aprobada
 BIE-170 · Creación: Crea una postal: Aprobada
 BIE-171 · Regulación emocional: Elige a quién: Aprobada
 BIE-172 · Organización cotidiana: Revisa tus compromisos: Aprobada
-BIE-173 · Comer con flexibilidad: Arma una merienda: Aprobada
+BIE-173 · Comer con flexibilidad: Prepara una merienda: Aprobada
 BIE-174 · Autonomía y límites: Practica una decisión: Aprobada
 BIE-175 · Juego y disfrute: Dibuja un mapa: Aprobada
 BIE-176 · Bienestar digital: Guarda una página: Aprobada
@@ -554,7 +554,7 @@ BIE-191 · Aprendizaje cotidiano: Elige un objeto: Aprobada
 BIE-192 · Cuidado diario: Deja empezar mañana: Aprobada
 BIE-193 · Movimiento amable: Acompaña una canción: Aprobada
 BIE-194 · Descanso y ritmo: Prepara una nota: Aprobada
-BIE-195 · Vínculos: Pide que te: Aprobada
+BIE-195 · Vínculos: Solicita una explicación: Aprobada
 BIE-196 · Creación: Diseña una portada: Aprobada
 BIE-197 · Regulación emocional: Haz una conversación: Aprobada
 BIE-198 · Organización cotidiana: Convierte una instrucción: Aprobada

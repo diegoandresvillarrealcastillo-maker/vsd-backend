@@ -92,7 +92,9 @@ const IDEAS = FAMILIAS_DIVERSAS.flatMap((familia, familiaIndice) =>
 const TOTAL_NUEVAS = 356;
 
 if (IDEAS.length < TOTAL_NUEVAS) {
-  throw new Error(`Bienestar 365 necesita ${TOTAL_NUEVAS} invitaciones nuevas; hay ${IDEAS.length}.`);
+  throw new Error(
+    `Bienestar 365 necesita ${TOTAL_NUEVAS} invitaciones nuevas; hay ${IDEAS.length}.`,
+  );
 }
 
 function crearParametros(
@@ -184,7 +186,6 @@ function crearParametros(
       return {
         motor: 'escritura_breve',
         parametros: {
-          modo: 'escritura',
           invitacion: idea.texto,
           campos: 1,
           minimo: 1,

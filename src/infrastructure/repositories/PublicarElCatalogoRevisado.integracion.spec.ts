@@ -50,7 +50,7 @@ const MIGRACION_365 = readFileSync(
     process.cwd(),
     'prisma',
     'migrations',
-    '20261108120000_publicar_catalogo_365_aprobado_por_el_equipo',
+    '20261110120000_publicar_catalogo_365_aprobado_por_el_equipo',
     'migration.sql',
   ),
   'utf8',
@@ -119,84 +119,82 @@ describe('la publicación del catálogo anual aprobado por el equipo', () => {
   });
 });
 
-describe.skipIf(URL_DUENO === undefined)(
-  'la publicacion anual, contra PostgreSQL',
-  () => {
-    let dueno: Client;
+describe.skipIf(URL_DUENO === undefined)('la publicacion anual, contra PostgreSQL', () => {
+  let dueno: Client;
 
-    beforeAll(async () => {
-      dueno = new Client({ connectionString: URL_DUENO });
-      await dueno.connect();
-    });
+  beforeAll(async () => {
+    dueno = new Client({ connectionString: URL_DUENO });
+    await dueno.connect();
+  });
 
-    afterAll(async () => {
-      await dueno.end();
-    });
+  afterAll(async () => {
+    await dueno.end();
+  });
 
-    async function publicadas(): Promise<number> {
-      const { rows } = await dueno.query<{ n: string }>(
-        'SELECT count(*) AS n FROM sesion_de_actividad WHERE publicado',
-      );
+  async function publicadas(): Promise<number> {
+    const { rows } = await dueno.query<{ n: string }>(
+      'SELECT count(*) AS n FROM sesion_de_actividad WHERE publicado',
+    );
 
-      return Number(rows[0]?.n);
-    }
+    return Number(rows[0]?.n);
+  }
 
-    it('en cualquier estado de la base, nada esta publicado sin que alguien lo haya revisado', async () => {
-      const { rows } = await dueno.query<{ publicadas_sin_revision: string; sin_firma: string }>(
-        `SELECT count(*) FILTER (WHERE publicado AND revision = 'pendiente') AS publicadas_sin_revision,
+  it('en cualquier estado de la base, nada esta publicado sin que alguien lo haya revisado', async () => {
+    const { rows } = await dueno.query<{ publicadas_sin_revision: string; sin_firma: string }>(
+      `SELECT count(*) FILTER (WHERE publicado AND revision = 'pendiente') AS publicadas_sin_revision,
                 count(*) FILTER (WHERE revision = 'revisada'
                                    AND (coalesce(btrim(revisada_por), '') = '' OR revisada_el IS NULL)) AS sin_firma
            FROM sesion_de_actividad`,
-      );
+    );
 
-      expect(Number(rows[0]?.publicadas_sin_revision)).toBe(0);
-      expect(Number(rows[0]?.sin_firma)).toBe(0);
-    });
+    expect(Number(rows[0]?.publicadas_sin_revision)).toBe(0);
+    expect(Number(rows[0]?.sin_firma)).toBe(0);
+  });
 
-    it('publica las 1861 sesiones a nombre del equipo y con su fecha, y nada mas', async () => {
-      await enElCatalogoComoSembrado(dueno, async () => {
-        const antes = await publicadas();
+  it('publica las 1861 sesiones a nombre del equipo y con su fecha, y nada mas', async () => {
+    await enElCatalogoComoSembrado(dueno, async () => {
+      const antes = await publicadas();
 
-        expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(1861);
+      expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(1861);
 
-        const { rows } = await dueno.query<{ revisada_por: string; dia: string; n: string }>(
-          `SELECT revisada_por, to_char(revisada_el AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS dia,
+      const { rows } = await dueno.query<{ revisada_por: string; dia: string; n: string }>(
+        `SELECT revisada_por, to_char(revisada_el AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS dia,
                   count(*) AS n
              FROM sesion_de_actividad WHERE revision = 'revisada' GROUP BY 1, 2`,
-        );
+      );
 
-        expect(rows.map((r) => [r.revisada_por, r.dia, Number(r.n)])).toEqual([
-          [REVISOR_365, '2026-11-08', 1861],
-        ]);
-        // Publica 720 y nada mas: lo que no pedia revision ya estaba publicado y no se toca.
-        expect((await publicadas()) - antes).toBe(1861);
+      expect(rows.map((r) => [r.revisada_por, r.dia, Number(r.n)])).toEqual([
+        [REVISOR_365, '2026-11-08', 1861],
+      ]);
+      // Publica el catalogo anual y nada mas: lo que no pedia revision ya estaba publicado y no se toca.
+      expect((await publicadas()) - antes).toBe(1861);
 
-        // Y no queda nada pendiente de las que tenian que revisarse.
-        const pendientes = await dueno.query<{ n: string }>(
-          `SELECT count(*) AS n FROM sesion_de_actividad WHERE revision = 'pendiente'`,
-        );
+      // Y no queda nada pendiente de las que tenian que revisarse.
+      const pendientes = await dueno.query<{ n: string }>(
+        `SELECT count(*) AS n FROM sesion_de_actividad WHERE revision = 'pendiente'`,
+      );
 
-        expect(Number(pendientes.rows[0]?.n)).toBe(0);
-      });
+      // Las seis sesiones del piloto no vienen en la hoja anual y quedan pendientes.
+      expect(Number(pendientes.rows[0]?.n)).toBe(6);
     });
+  });
 
-    it('aplicarla dos veces no cambia nada la segunda vez', async () => {
-      await enElCatalogoComoSembrado(dueno, async () => {
-        expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(1861);
-        expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(0);
-      });
+  it('aplicarla dos veces no cambia nada la segunda vez', async () => {
+    await enElCatalogoComoSembrado(dueno, async () => {
+      expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(1861);
+      expect(filasCambiadas(await dueno.query(MIGRACION_365))).toBe(0);
     });
+  });
 
-    it('despues de aplicarla, la base no deja editar lo que quedo revisado', async () => {
-      await enElCatalogoComoSembrado(dueno, async () => {
-        await dueno.query(MIGRACION_365);
+  it('despues de aplicarla, la base no deja editar lo que quedo revisado', async () => {
+    await enElCatalogoComoSembrado(dueno, async () => {
+      await dueno.query(MIGRACION_365);
 
-        await expect(
-          dueno.query(
-            `UPDATE sesion_de_actividad SET revisada_por = 'otra persona' WHERE revision = 'revisada'`,
-          ),
-        ).rejects.toThrow();
-      });
+      await expect(
+        dueno.query(
+          `UPDATE sesion_de_actividad SET revisada_por = 'otra persona' WHERE revision = 'revisada'`,
+        ),
+      ).rejects.toThrow();
     });
-  },
-);
+  });
+});

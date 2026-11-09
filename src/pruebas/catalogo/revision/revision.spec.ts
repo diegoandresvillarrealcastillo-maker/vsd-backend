@@ -101,14 +101,17 @@ describe('lo que hay por revisar', () => {
       'EMO-08',
       'EMO-09',
     ];
-    const cognicion365 = Array.from({ length: 356 }, (_, indice) =>
-      `COG-${String(indice + 10).padStart(2, '0')}`,
+    const cognicion365 = Array.from(
+      { length: 356 },
+      (_, indice) => `COG-${String(indice + 10).padStart(2, '0')}`,
     );
-    const bienestar365 = Array.from({ length: 356 }, (_, indice) =>
-      `BIE-${String(indice + 10).padStart(2, '0')}`,
+    const bienestar365 = Array.from(
+      { length: 356 },
+      (_, indice) => `BIE-${String(indice + 10).padStart(2, '0')}`,
     );
-    const emociones365 = Array.from({ length: 357 }, (_, indice) =>
-      `EMO-${String(indice + 10).padStart(2, '0')}`,
+    const emociones365 = Array.from(
+      { length: 357 },
+      (_, indice) => `EMO-${String(indice + 10).padStart(2, '0')}`,
     );
 
     expect(catalogo.map((m) => m.codigo)).toEqual([
@@ -724,7 +727,7 @@ EMO-02-001 · Algo: Aprobada
     expect(sql.match(/^ {2}\);$/gmu)).toHaveLength(catalogo.length);
   });
 
-  it('aprobar todo publica las 1504 sesiones nuevas, y cada identificador sale una sola vez', () => {
+  it('aprobar todo publica las 1861 sesiones nuevas, y cada identificador sale una sola vez', () => {
     const { sql, publicadas } = publicar(
       respuestasDe(
         'Ana',
@@ -734,9 +737,9 @@ EMO-02-001 · Algo: Aprobada
     );
     const ids = [...sql.matchAll(/^ {4}'([0-9a-f-]{36})'/gmu)].map(([, id]) => id);
 
-    expect(publicadas).toBe(1504);
-    expect(ids).toHaveLength(1504);
-    expect(new Set(ids).size).toBe(1504);
+    expect(publicadas).toBe(1861);
+    expect(ids).toHaveLength(1861);
+    expect(new Set(ids).size).toBe(1861);
   });
 
   it('es una funcion pura de lo que se le da: la misma entrada, el mismo SQL', () => {

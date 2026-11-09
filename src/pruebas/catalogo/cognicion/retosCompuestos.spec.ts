@@ -140,21 +140,25 @@ describe('los retos compuestos de Cognición 365', () => {
             case 'COG-03':
               return Array.isArray(parametros['elementos']) ? parametros['elementos'].length : 0;
             case 'COG-05': {
+              const secuencia = Array.isArray(parametros['secuencia'])
+                ? (parametros['secuencia'] as unknown[])
+                : [];
+              const elementosObjetivo = Array.isArray(parametros['objetivos'])
+                ? (parametros['objetivos'] as unknown[])
+                : [];
               const objetivos = new Set(
-                Array.isArray(parametros['objetivos'])
-                  ? parametros['objetivos'].flatMap((objetivo) =>
-                      typeof objetivo === 'object' &&
-                      objetivo !== null &&
-                      'clave' in objetivo &&
-                      typeof objetivo.clave === 'string'
-                        ? [objetivo.clave]
-                        : [],
-                    )
-                  : [],
+                elementosObjetivo.flatMap((objetivo) =>
+                  typeof objetivo === 'object' &&
+                  objetivo !== null &&
+                  !Array.isArray(objetivo) &&
+                  'clave' in objetivo &&
+                  typeof objetivo.clave === 'string'
+                    ? [objetivo.clave]
+                    : [],
+                ),
               );
-              return Array.isArray(parametros['secuencia'])
-                ? parametros['secuencia'].filter((clave) => objetivos.has(clave)).length
-                : 0;
+              return secuencia.filter((clave) => typeof clave === 'string' && objetivos.has(clave))
+                .length;
             }
             case 'COG-06':
               return Array.isArray(parametros['elementos']) ? parametros['elementos'].length : 0;

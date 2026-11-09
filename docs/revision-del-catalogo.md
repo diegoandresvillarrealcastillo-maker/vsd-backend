@@ -26,13 +26,13 @@ EMO-06 se difirió (D-C4). Las barandas de cada ficha están en `src/pruebas/cat
 El lote anual agrega **1087 mecánicas y 1861 sesiones**. Diego y Samuel aprobaron internamente este contenido
 como orientación no clínica para PRE; la hoja de aprobación y el alcance están en
 `docs/revisiones/2026-11-08-diego-y-samuel-catalogo-365.txt`. La migración generada por el publicador oficial es
-`20261108120000_publicar_catalogo_365_aprobado_por_el_equipo`.
+`20261110120000_publicar_catalogo_365_aprobado_por_el_equipo`.
 
-| Módulo | Mecánicas | Sesiones |
-| --- | ---: | ---: |
-| Cognición | 357 | 474 |
-| Bienestar | 365 | 713 |
-| Emociones | 365 | 674 |
+| Módulo    | Mecánicas | Sesiones |
+| --------- | --------: | -------: |
+| Cognición |       357 |      474 |
+| Bienestar |       365 |      713 |
+| Emociones |       365 |      674 |
 
 ## Paso 1 · Generar las hojas
 

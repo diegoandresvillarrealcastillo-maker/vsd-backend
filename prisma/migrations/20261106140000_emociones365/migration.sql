@@ -6204,7 +6204,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000000361',
     'Señal de cansancio emocional',
     1,
-    '{"modo":"lista","indicacion":"Marca una pista que te invita a bajar el ritmo; no tienes que hacer nada con ella ahora.","items":[{"clave":"opcion-1","texto":"Una sensación física"},{"clave":"opcion-2","texto":"Un pensamiento o palabra"},{"clave":"opcion-3","texto":"Un gesto o impulso"},{"clave":"opcion-4","texto":"Prefiero pasar"}],"cierre":"Puedes marcar una, varias o ninguna."}'::jsonb,
+    '{"modo":"lista","indicacion":"Marca una pista que te invita a bajar el ritmo; puedes dejarla aquí por ahora.","items":[{"clave":"opcion-1","texto":"Una sensación física"},{"clave":"opcion-2","texto":"Un pensamiento o palabra"},{"clave":"opcion-3","texto":"Un gesto o impulso"},{"clave":"opcion-4","texto":"Prefiero pasar"}],"cierre":"Puedes marcar una, varias o ninguna."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6828,7 +6828,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003100',
     'Una frase para el ánimo',
     1,
-    '{"modo":"escritura","invitacion":"Completa a tu manera: «Ahora mismo, por dentro se parece a…». Puedes dejarlo vacío.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa a tu manera: «Ahora mismo, por dentro se parece a…». Puedes dejarlo vacío.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6844,7 +6844,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003101',
     'Lo que me gustaría decir',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase que exprese algo que hoy te cuesta poner en palabras. No tienes que compartirla.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase que exprese algo que hoy te cuesta poner en palabras. Puedes guardarla para ti.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6860,7 +6860,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003102',
     'Un nombre provisional',
     1,
-    '{"modo":"escritura","invitacion":"Ponle un nombre temporal a lo que sientes, sabiendo que puedes cambiarlo después.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Ponle un nombre temporal a lo que sientes, sabiendo que puedes cambiarlo después.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6876,7 +6876,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003103',
     'La emoción como clima',
     1,
-    '{"modo":"escritura","invitacion":"Describe tu momento con una imagen del clima, sin explicar por qué.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe tu momento con una imagen del clima, sin explicar por qué.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6892,7 +6892,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003104',
     'Un color sin significado',
     1,
-    '{"modo":"escritura","invitacion":"Elige un color para este instante y escribe una palabra sobre él. No hace falta interpretarlo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Elige un color para este instante y escribe una palabra sobre él. No hace falta interpretarlo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6908,7 +6908,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003105',
     'Una nota sin destinatario',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una nota breve sobre una emoción que pasó por tu día. Puedes borrarla al terminar.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una nota breve sobre una emoción que pasó por tu día. Puedes borrarla al terminar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6924,7 +6924,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003106',
     'Una pregunta amable',
     1,
-    '{"modo":"escritura","invitacion":"Anota una pregunta que te gustaría hacerte con curiosidad, sin exigir una respuesta.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una pregunta que te gustaría hacerte con curiosidad, sin exigir una respuesta.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6940,7 +6940,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003107',
     'Un título para hoy',
     1,
-    '{"modo":"escritura","invitacion":"Ponle un título corto al momento que estás viviendo ahora.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Ponle un título corto al momento que estás viviendo ahora.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6956,7 +6956,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003108',
     'Lo que no voy a resolver',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una cosa que puedes dejar sin resolver durante este minuto.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una cosa que puedes dejar sin resolver durante este minuto.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6972,7 +6972,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003109',
     'La palabra más cercana',
     1,
-    '{"modo":"escritura","invitacion":"Anota una palabra que se acerque a tu estado, aunque no lo describa del todo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una palabra que se acerque a tu estado, aunque no lo describa del todo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -6988,7 +6988,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003110',
     'Una frase de permiso',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Hoy puedo permitirme…». La respuesta puede ser «nada por ahora».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Hoy puedo permitirme…». La respuesta puede ser «nada por ahora».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7004,7 +7004,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003111',
     'Un borde claro',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase que te ayude a expresar un límite sin explicar más de lo que quieres.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase que te ayude a expresar un límite sin explicar más de lo que quieres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7020,7 +7020,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003112',
     'Una emoción en tres palabras',
     1,
-    '{"modo":"escritura","invitacion":"Describe el momento usando hasta tres palabras, sin buscar que suene bonito.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe el momento usando hasta tres palabras, sin buscar que suene bonito.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7036,7 +7036,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003113',
     'Una respuesta que espero',
     1,
-    '{"modo":"escritura","invitacion":"Escribe qué te gustaría escuchar de alguien, sin obligación de pedirlo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe qué te gustaría escuchar de alguien, sin obligación de pedirlo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7052,7 +7052,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003114',
     'Lo que quiero conservar',
     1,
-    '{"modo":"escritura","invitacion":"Anota un detalle de hoy que quieras recordar, aunque sea pequeño o neutro.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota un detalle de hoy que quieras recordar, aunque sea pequeño o neutro.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7068,7 +7068,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003115',
     'Una frase para una pausa',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase breve que puedas usar para pedir un momento antes de responder.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase breve que puedas usar para pedir un momento antes de responder.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7084,7 +7084,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003116',
     'Algo que cambió',
     1,
-    '{"modo":"escritura","invitacion":"Cuenta en una línea qué cambió en tu ánimo desde la mañana, si lo sabes.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Cuenta en una línea qué cambió en tu ánimo desde la mañana, si lo sabes.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7100,7 +7100,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003117',
     'Algo que sigue igual',
     1,
-    '{"modo":"escritura","invitacion":"Nombra una sensación o idea que se ha mantenido hoy, sin calificarla.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra una sensación o idea que se ha mantenido hoy, sin calificarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7116,7 +7116,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003118',
     'La emoción y su volumen',
     1,
-    '{"modo":"escritura","invitacion":"Escribe si lo que sientes está bajo, medio, alto o sin volumen claro.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe si lo que sientes está bajo, medio, alto o sin volumen claro.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7132,7 +7132,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003119',
     'Un mensaje sin enviar',
     1,
-    '{"modo":"escritura","invitacion":"Redacta una frase que no tienes que enviarle a nadie. Decide luego si la guardas o la borras.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Redacta una frase que puedes dejar sin enviar. Decide luego si la guardas o la borras.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7148,7 +7148,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003120',
     'La parte que necesita tiempo',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Una parte de mí necesita tiempo para…». Puedes pasar.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Una parte de mí necesita tiempo para…». Puedes pasar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7164,7 +7164,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003121',
     'Lo que me gustaría preguntar',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una pregunta que te ayude a entender tu preferencia en una situación cotidiana.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una pregunta que te ayude a entender tu preferencia en una situación cotidiana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7180,7 +7180,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003122',
     'Una descripción sencilla',
     1,
-    '{"modo":"escritura","invitacion":"Describe tu estado como si contaras el color de una pared: con palabras simples y sin explicación.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe tu estado como si contaras el color de una pared: con palabras simples y sin explicación.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7196,7 +7196,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003123',
     'Una idea que puedo pausar',
     1,
-    '{"modo":"escritura","invitacion":"Anota un pensamiento que puedes dejar en espera mientras haces otra cosa.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota un pensamiento que puedes dejar en espera mientras haces otra cosa.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7212,7 +7212,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003124',
     'Mi espacio de hoy',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Para estar a gusto ahora, me serviría…». No tiene que ser posible hacerlo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Para estar a gusto ahora, me serviría…». La respuesta puede ser cualquier idea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7228,7 +7228,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003125',
     'El recuerdo sin juicio',
     1,
-    '{"modo":"escritura","invitacion":"Escribe un detalle de un momento reciente sin decir si fue bueno o malo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe un detalle de un momento reciente sin decir si fue bueno o malo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7244,7 +7244,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003126',
     'Una palabra que aprendí',
     1,
-    '{"modo":"escritura","invitacion":"Anota una palabra emocional nueva o una que hoy entiendas de otra manera.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una palabra emocional nueva o una que hoy entiendas de otra manera.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7260,7 +7260,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003127',
     'Una línea para mañana',
     1,
-    '{"modo":"escritura","invitacion":"Deja una frase neutral para leer mañana, sin pedirte cambiar nada.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Deja una frase neutral para leer mañana, sin pedirte cambiar nada.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7276,7 +7276,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003128',
     'El final de esta frase',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Puedo sentir esto y aun así…». Si no te nace, déjala así.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Puedo sentir esto y aun así…». Si no te nace, déjala así.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7292,7 +7292,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003129',
     'Una nota para mí',
     1,
-    '{"modo":"escritura","invitacion":"Escríbete una nota breve como hablarías con alguien a quien respetas.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escríbete una nota breve como hablarías con alguien a quien respetas.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7308,7 +7308,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003130',
     'Necesito espacio',
     1,
-    '{"modo":"escritura","invitacion":"En este momento, ¿te serviría más espacio, compañía, información o no decidir todavía?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"En este momento, ¿te serviría más espacio, compañía, información o no decidir todavía?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7324,7 +7324,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003131',
     'Necesito claridad',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué dato concreto te ayudaría a sentirte orientado en una situación cotidiana?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué dato concreto te ayudaría a sentirte orientado en una situación cotidiana?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7340,7 +7340,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003132',
     'Una preferencia pequeña',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué preferencia tuya podrías nombrar hoy, aunque sea sobre algo sencillo?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué preferencia tuya podrías nombrar hoy, aunque sea sobre algo sencillo?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7356,7 +7356,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003133',
     'Lo que puede esperar',
     1,
-    '{"modo":"escritura","invitacion":"¿Cuál de estas cosas puede esperar sin que tengas que resolverla ahora?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cuál de estas cosas puede esperar sin que tengas que resolverla ahora?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7372,7 +7372,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003134',
     'Necesito compañía',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué tipo de compañía te resulta más cómoda hoy: conversar, compartir silencio o escribir?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué tipo de compañía te resulta más cómoda hoy: conversar, compartir silencio o escribir?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7388,7 +7388,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003135',
     'Un ritmo posible',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué ritmo te gustaría probar en la próxima tarea: lento, habitual o con pausas?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué ritmo te gustaría probar en la próxima tarea: lento, habitual o con pausas?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7404,7 +7404,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003136',
     'Necesito información',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué pregunta concreta te falta responder antes de tomar una decisión?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué pregunta concreta te falta responder antes de tomar una decisión?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7420,7 +7420,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003137',
     'Una opción más cómoda',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué ajuste pequeño haría una actividad cotidiana más cómoda para ti?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué ajuste pequeño haría una actividad cotidiana más cómoda para ti?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7436,7 +7436,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003138',
     'Pedir una pausa',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué palabras podrías usar para pedir una pausa breve en una conversación?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué palabras podrías usar para pedir una pausa breve en una conversación?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7452,7 +7452,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003139',
     'Lo que quiero cuidar',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué aspecto de tu tiempo o energía te gustaría cuidar durante la próxima hora?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué aspecto de tu tiempo o energía te gustaría cuidar durante la próxima hora?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7468,7 +7468,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003140',
     'Necesito silencio',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué señal podrías dar para pedir un momento de silencio sin explicar el motivo?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué señal podrías dar para pedir un momento de silencio sin explicar el motivo?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7484,7 +7484,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003141',
     'Una decisión sin prisa',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué elección podrías dejar abierta hasta tener más información o ganas?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué elección podrías dejar abierta hasta tener más información o ganas?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7500,7 +7500,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003142',
     'Puedo elegir el cómo',
     1,
-    '{"modo":"escritura","invitacion":"En una tarea pendiente, ¿qué parte del modo de hacerla sí puedes escoger?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"En una tarea pendiente, ¿qué parte del modo de hacerla sí puedes escoger?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7516,7 +7516,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003143',
     'Una ayuda concreta',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué petición pequeña te resultaría clara y específica si decidieras hacerla?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué petición pequeña te resultaría clara y específica si decidieras hacerla?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7532,7 +7532,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003144',
     'Necesito un límite',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué límite de tiempo o espacio te gustaría tener presente hoy?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué límite de tiempo o espacio te gustaría tener presente hoy?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7548,7 +7548,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003145',
     'Elijo no responder',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase breve podrías usar si hoy no quieres responder una pregunta personal?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase breve podrías usar si hoy no quieres responder una pregunta personal?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7564,7 +7564,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003146',
     'La compañía adecuada',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué hace que una conversación se sienta cómoda para ti: escucha, humor, pausas u otra cosa?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué hace que una conversación se sienta cómoda para ti: escucha, humor, pausas u otra cosa?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7580,7 +7580,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003147',
     'Una actividad que sí quiero',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué actividad cotidiana te gustaría elegir por gusto, sin convertirla en tarea?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué actividad cotidiana te gustaría elegir por gusto, sin convertirla en tarea?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7596,7 +7596,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003148',
     'Necesito menos opciones',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué decisión sería más fácil si redujeras las alternativas a dos?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué decisión sería más fácil si redujeras las alternativas a dos?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7612,7 +7612,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003149',
     'Necesito más tiempo',
     1,
-    '{"modo":"escritura","invitacion":"¿En qué situación te vendría bien decir «lo pienso y te cuento»?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿En qué situación te vendría bien decir «lo pienso y te cuento»?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7628,7 +7628,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003150',
     'Mi forma de participar',
     1,
-    '{"modo":"escritura","invitacion":"¿Cómo te gusta participar cuando hay un plan grupal: proponiendo, escuchando o eligiendo después?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cómo te gusta participar cuando hay un plan grupal: proponiendo, escuchando o eligiendo después?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7644,7 +7644,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003151',
     'Una necesidad sin culpa',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué necesidad puedes reconocer sin tener que justificarla ante nadie?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué necesidad puedes reconocer sin tener que justificarla ante nadie?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7660,7 +7660,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003152',
     'Lo que sí puedo cambiar',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué detalle del entorno puedes ajustar para sentirte más cómodo?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué detalle del entorno puedes ajustar para sentirte más cómodo?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7676,7 +7676,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003153',
     'Una expectativa propia',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué expectativa sobre ti podrías volver más flexible durante este día?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué expectativa sobre ti podrías volver más flexible durante este día?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7692,7 +7692,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003154',
     'El tipo de apoyo',
     1,
-    '{"modo":"escritura","invitacion":"Si quisieras apoyo, ¿preferirías una idea, compañía, escucha o ayuda práctica?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Si quisieras apoyo, ¿preferirías una idea, compañía, escucha o ayuda práctica?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7708,7 +7708,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003155',
     'Un acuerdo conmigo',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué acuerdo pequeño y realista te gustaría hacer contigo para la próxima hora?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué acuerdo pequeño y realista te gustaría hacer contigo para la próxima hora?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7724,7 +7724,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003156',
     'Lo que me resulta suficiente',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué cantidad de conversación, silencio o actividad te parece suficiente hoy?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué cantidad de conversación, silencio o actividad te parece suficiente hoy?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7740,7 +7740,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003157',
     'Elegir con el cuerpo cómodo',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué postura o lugar te ayudaría a elegir con más comodidad?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué postura o lugar te ayudaría a elegir con más comodidad?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7756,7 +7756,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003158',
     'Un «no» posible',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué respuesta corta podrías dar cuando algo no te viene bien?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué respuesta corta podrías dar cuando algo no te viene bien?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -7772,7 +7772,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003159',
     'Un «sí» propio',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué actividad te gustaría aceptar porque sí quieres, no por compromiso?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué actividad te gustaría aceptar porque sí quieres, no por compromiso?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8268,7 +8268,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003190',
     'El límite del horario',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase usarías para cerrar una conversación cuando ya necesitas continuar con otra cosa?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase usarías para cerrar una conversación cuando ya necesitas continuar con otra cosa?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8284,7 +8284,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003191',
     'Una tarea compartida',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué parte de una tarea compartida te corresponde y qué parte conviene conversar?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué parte de una tarea compartida te corresponde y qué parte conviene conversar?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8300,7 +8300,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003192',
     'Una pregunta personal',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué podrías responder si no quieres hablar de un asunto personal ahora?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué podrías responder si no quieres hablar de un asunto personal ahora?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8316,7 +8316,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003193',
     'El espacio físico',
     1,
-    '{"modo":"escritura","invitacion":"¿Cómo expresarías que necesitas más espacio físico en una situación cotidiana?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cómo expresarías que necesitas más espacio físico en una situación cotidiana?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8332,7 +8332,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003194',
     'Cambiar de opinión',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué palabras te ayudarían a cambiar un plan que aceptaste antes?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué palabras te ayudarían a cambiar un plan que aceptaste antes?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8348,7 +8348,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003195',
     'Una petición incómoda',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué dato necesitas para decidir si aceptas una petición de alguien?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué dato necesitas para decidir si aceptas una petición de alguien?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8364,7 +8364,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003196',
     'El tiempo propio',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué actividad de tu día necesita un límite de tiempo para no ocuparlo todo?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué actividad de tu día necesita un límite de tiempo para no ocuparlo todo?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8380,7 +8380,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003197',
     'Un límite digital',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué aviso del teléfono puedes silenciar por un rato si así lo decides?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué aviso del teléfono puedes silenciar por un rato si así lo decides?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8396,7 +8396,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003198',
     'Un tema que pauso',
     1,
-    '{"modo":"escritura","invitacion":"¿Cómo podrías pedir que un tema se retome en otro momento?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cómo podrías pedir que un tema se retome en otro momento?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8412,7 +8412,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003199',
     'Decir «hasta aquí»',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué señal te indicaría que una actividad ya es suficiente por hoy?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué señal te indicaría que una actividad ya es suficiente por hoy?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8428,7 +8428,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003200',
     'No decidir por presión',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase podrías usar para pedir tiempo antes de aceptar una propuesta?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase podrías usar para pedir tiempo antes de aceptar una propuesta?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8444,7 +8444,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003201',
     'Una decisión compartida',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué opción te permitiría expresar tu preferencia y escuchar la de otra persona?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué opción te permitiría expresar tu preferencia y escuchar la de otra persona?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8460,7 +8460,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003202',
     'Mi espacio de trabajo',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué límite sencillo haría más claro el inicio o el cierre de tu jornada?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué límite sencillo haría más claro el inicio o el cierre de tu jornada?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8476,7 +8476,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003203',
     'Una expectativa ajena',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué parte de una expectativa de otra persona necesitas aclarar antes de responder?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué parte de una expectativa de otra persona necesitas aclarar antes de responder?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8492,7 +8492,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003204',
     'El límite de una broma',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase breve usarías si una broma no te resulta cómoda?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase breve usarías si una broma no te resulta cómoda?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8508,7 +8508,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003205',
     'Un favor posible',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué parte de una petición sí podrías hacer y qué parte no te corresponde?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué parte de una petición sí podrías hacer y qué parte no te corresponde?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8524,7 +8524,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003206',
     'Cuidar una conversación',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué acuerdo ayudaría a que una conversación difícil tenga un principio y un final claros?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué acuerdo ayudaría a que una conversación difícil tenga un principio y un final claros?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8540,7 +8540,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003207',
     'Elegir lo que cuento',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué detalle decides reservar para ti aunque otras personas pregunten?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué detalle decides reservar para ti aunque otras personas pregunten?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8556,7 +8556,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003208',
     'Mi respuesta auténtica',
     1,
-    '{"modo":"escritura","invitacion":"¿Cómo distinguirías entre aceptar por ganas y aceptar solo para evitar incomodidad?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cómo distinguirías entre aceptar por ganas y aceptar solo para evitar incomodidad?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8572,7 +8572,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003209',
     'Un cambio de plan',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué necesitas saber para decidir si un cambio de plan te viene bien?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué necesitas saber para decidir si un cambio de plan te viene bien?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8588,7 +8588,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003210',
     'Una pausa antes del sí',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué pregunta podrías hacerte antes de comprometer tiempo que todavía no tienes?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué pregunta podrías hacerte antes de comprometer tiempo que todavía no tienes?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8604,7 +8604,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003211',
     'Un límite con amabilidad',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase clara y respetuosa podría expresar un «no» en esta situación?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase clara y respetuosa podría expresar un «no» en esta situación?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8620,7 +8620,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003212',
     'Una tarea que no me toca',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué pregunta te ayudaría a aclarar quién se encarga de un pendiente compartido?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué pregunta te ayudaría a aclarar quién se encarga de un pendiente compartido?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8636,7 +8636,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003213',
     'El momento de retirarme',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué señal te indicaría que quieres dejar una reunión o cambiar de espacio?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué señal te indicaría que quieres dejar una reunión o cambiar de espacio?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8652,7 +8652,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003214',
     'Un acuerdo que revisar',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué acuerdo cotidiano podrías revisar si ya no te resulta práctico?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué acuerdo cotidiano podrías revisar si ya no te resulta práctico?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8668,7 +8668,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003215',
     'Lo que acepto hoy',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué compromiso de hoy eliges mantener, ajustar o conversar?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué compromiso de hoy eliges mantener, ajustar o conversar?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8684,7 +8684,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003216',
     'El límite del consejo',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué frase usarías para agradecer un consejo y explicar que quieres decidir por tu cuenta?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué frase usarías para agradecer un consejo y explicar que quieres decidir por tu cuenta?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8700,7 +8700,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003217',
     'La puerta entreabierta',
     1,
-    '{"modo":"escritura","invitacion":"¿Qué tema preferirías conversar solo con alguien de confianza?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Qué tema preferirías conversar solo con alguien de confianza?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8716,7 +8716,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003218',
     'Un espacio para pensar',
     1,
-    '{"modo":"escritura","invitacion":"¿Cómo pedirías un momento a solas antes de responder a una situación?","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"¿Cómo pedirías un momento a solas antes de responder a una situación?","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8732,7 +8732,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003219',
     'Mi decisión pequeña',
     1,
-    '{"modo":"escritura","invitacion":"Elige una decisión cotidiana que quieras tomar a tu ritmo y sin pedir permiso.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Elige una decisión cotidiana que quieras tomar a tu ritmo y sin pedir permiso.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8748,7 +8748,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003220',
     'Dos cosas verdaderas',
     1,
-    '{"modo":"escritura","invitacion":"Escribe dos emociones que puedan coexistir hoy sin tener que escoger una.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe dos emociones que puedan coexistir hoy sin tener que escoger una.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8764,7 +8764,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003221',
     'Agridulce',
     1,
-    '{"modo":"escritura","invitacion":"Describe un momento que tuvo una parte agradable y otra difícil, solo si quieres.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe un momento que tuvo una parte agradable y otra difícil, solo si quieres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8780,7 +8780,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003222',
     'Querer y dudar',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Me interesa… y todavía tengo dudas sobre…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Me interesa… y todavía tengo dudas sobre…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8796,7 +8796,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003223',
     'Alivio con cansancio',
     1,
-    '{"modo":"escritura","invitacion":"Anota cómo conviven el alivio y el cansancio después de terminar algo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota cómo conviven el alivio y el cansancio después de terminar algo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8812,7 +8812,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003224',
     'Alegría con nervios',
     1,
-    '{"modo":"escritura","invitacion":"Pon en palabras una situación donde puedan aparecer ilusión y nervios al mismo tiempo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Pon en palabras una situación donde puedan aparecer ilusión y nervios al mismo tiempo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8828,7 +8828,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003225',
     'Cariño y distancia',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase sobre querer a alguien y necesitar también tu espacio.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase sobre querer a alguien y necesitar también tu espacio.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8844,7 +8844,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003226',
     'Nostalgia y presente',
     1,
-    '{"modo":"escritura","invitacion":"Nombra un recuerdo que extrañas y un detalle que te acompaña ahora.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra un recuerdo que extrañas y un detalle que te acompaña ahora.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8860,7 +8860,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003227',
     'Orgullo y humildad',
     1,
-    '{"modo":"escritura","invitacion":"Describe un logro propio sin quitarle valor ni compararlo con nadie.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe un logro propio sin quitarle valor ni compararlo con nadie.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8876,7 +8876,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003228',
     'Tranquilidad e incertidumbre',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Puedo sentir calma sobre… y no saber todavía…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Puedo sentir calma sobre… y no saber todavía…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8892,7 +8892,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003229',
     'Curiosidad con cautela',
     1,
-    '{"modo":"escritura","invitacion":"Escribe qué te da curiosidad y qué prefieres observar antes de acercarte.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe qué te da curiosidad y qué prefieres observar antes de acercarte.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8908,7 +8908,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003230',
     'Fastidio y cuidado',
     1,
-    '{"modo":"escritura","invitacion":"Anota algo que te molesta y una manera de cuidar tu espacio mientras pasa.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota algo que te molesta y una manera de cuidar tu espacio mientras pasa.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8924,7 +8924,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003231',
     'Pena y compañía',
     1,
-    '{"modo":"escritura","invitacion":"Escribe qué tipo de compañía te gustaría tener cuando aparece la pena, si alguna.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe qué tipo de compañía te gustaría tener cuando aparece la pena, si alguna.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8940,7 +8940,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003232',
     'Confianza con preguntas',
     1,
-    '{"modo":"escritura","invitacion":"Nombra algo en lo que confías y una pregunta que todavía mantienes abierta.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra algo en lo que confías y una pregunta que todavía mantienes abierta.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8956,7 +8956,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003233',
     'Emoción sin conclusión',
     1,
-    '{"modo":"escritura","invitacion":"Describe dos sensaciones distintas sin explicar qué significan.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe dos sensaciones distintas sin explicar qué significan.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8972,7 +8972,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003234',
     'Un sí y un no',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Una parte de mí dice sí a… y otra parte pide…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Una parte de mí dice sí a… y otra parte pide…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -8988,7 +8988,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003235',
     'Recuerdo que cambia',
     1,
-    '{"modo":"escritura","invitacion":"Escribe cómo puede sentirse distinto un mismo recuerdo según el día, sin decidir cuál versión vale.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe cómo puede sentirse distinto un mismo recuerdo según el día, sin decidir cuál versión vale.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9004,7 +9004,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003236',
     'Esperanza con paciencia',
     1,
-    '{"modo":"escritura","invitacion":"Anota algo que esperas y cuánto espacio quieres darte mientras llega.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota algo que esperas y cuánto espacio quieres darte mientras llega.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9020,7 +9020,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003237',
     'Duda con interés',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una pregunta que conserve tu interés sin obligarte a resolver la duda.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una pregunta que conserve tu interés sin obligarte a resolver la duda.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9036,7 +9036,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003238',
     'Energía irregular',
     1,
-    '{"modo":"escritura","invitacion":"Describe cómo es tener ganas para una cosa y poca energía para otra.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe cómo es tener ganas para una cosa y poca energía para otra.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9052,7 +9052,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003239',
     'Una mezcla sin nombre',
     1,
-    '{"modo":"escritura","invitacion":"Pon una imagen o palabra a una combinación emocional que aún no sabes nombrar.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Pon una imagen o palabra a una combinación emocional que aún no sabes nombrar.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9068,7 +9068,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003240',
     'Risa y preocupación',
     1,
-    '{"modo":"escritura","invitacion":"Nombra si hoy hubo un momento divertido junto a algo que todavía te ocupa.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra si hoy hubo un momento divertido junto a algo que todavía te ocupa.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9084,7 +9084,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003241',
     'Despedida y comienzo',
     1,
-    '{"modo":"escritura","invitacion":"Escribe dos palabras para algo que termina y algo que empieza.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe dos palabras para algo que termina y algo que empieza.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9100,7 +9100,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003242',
     'Deseo y realidad',
     1,
-    '{"modo":"escritura","invitacion":"Describe algo que deseas y una condición real que necesitas considerar, sin juzgarla.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe algo que deseas y una condición real que necesitas considerar, sin juzgarla.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9116,7 +9116,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003243',
     'Satisfacción con cansancio',
     1,
-    '{"modo":"escritura","invitacion":"Nombra una tarea que te dejó satisfecho y también te agotó.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra una tarea que te dejó satisfecho y también te agotó.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9132,7 +9132,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003244',
     'Confusión con una pista',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una pequeña pista que sí tienes aunque el panorama siga confuso.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una pequeña pista que sí tienes aunque el panorama siga confuso.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9148,7 +9148,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003245',
     'Entusiasmo y pausa',
     1,
-    '{"modo":"escritura","invitacion":"Anota qué te entusiasma y qué pausa te ayudaría a disfrutarlo a tu ritmo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota qué te entusiasma y qué pausa te ayudaría a disfrutarlo a tu ritmo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9164,7 +9164,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003246',
     'Afecto y desacuerdo',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Puedo querer a alguien y pensar distinto sobre…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Puedo querer a alguien y pensar distinto sobre…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9180,7 +9180,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003247',
     'Cambio y familiaridad',
     1,
-    '{"modo":"escritura","invitacion":"Nombra algo que está cambiando y algo conocido que permanece.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra algo que está cambiando y algo conocido que permanece.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9196,7 +9196,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003248',
     'Lo que convive hoy',
     1,
-    '{"modo":"escritura","invitacion":"Haz una lista de dos emociones presentes y deja ambas sin explicación.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Haz una lista de dos emociones presentes y deja ambas sin explicación.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9212,7 +9212,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003249',
     'Un final abierto',
     1,
-    '{"modo":"escritura","invitacion":"Termina esta frase: «No tengo que elegir entre… y…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Termina esta frase: «No tengo que elegir entre… y…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9228,7 +9228,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003250',
     'Un paisaje interior',
     1,
-    '{"modo":"tarjeta","indicacion":"No hay una respuesta que debas elegir.","titulo":"Un paisaje interior","texto":"Arma un paisaje emocional eligiendo elementos, sin darles una interpretación fija.","opciones":[{"clave":"primera","texto":"Una imagen o color"},{"clave":"segunda","texto":"Un sonido o ritmo"},{"clave":"paso","texto":"Prefiero no elegir"}],"cierre":"Gracias por elegir a tu manera."}'::jsonb,
+    '{"modo":"tarjeta","indicacion":"No hay una respuesta que debas elegir.","titulo":"Un paisaje interior","texto":"Elige elementos para imaginar un paisaje emocional, sin darles una interpretación fija.","opciones":[{"clave":"primera","texto":"Una imagen o color"},{"clave":"segunda","texto":"Un sonido o ritmo"},{"clave":"paso","texto":"Prefiero no elegir"}],"cierre":"Gracias por elegir a tu manera."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9836,7 +9836,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003288',
     'Sonido que se aleja',
     1,
-    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Escoge un sonido","texto":"Elige un sonido que ya esté ocurriendo. No tienes que buscarlo ni acercarte."},{"titulo":"Nota el cambio","texto":"Escucha si se vuelve más suave, cambia o termina. Si sigue igual, también está bien."},{"titulo":"Suelta la escucha","texto":"Deja de seguir ese sonido y vuelve a escuchar el ambiente completo."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
+    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Escoge un sonido","texto":"Escucha un sonido que ya esté ocurriendo desde donde estás."},{"titulo":"Nota el cambio","texto":"Escucha si se vuelve más suave, cambia o termina. Si sigue igual, también está bien."},{"titulo":"Suelta la escucha","texto":"Deja de seguir ese sonido y vuelve a escuchar el ambiente completo."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -9948,7 +9948,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003295',
     'Un punto de apoyo',
     1,
-    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Escoge un apoyo","texto":"Puede ser el asiento, el respaldo, los pies o cualquier contacto cómodo. No tienes que cambiar de postura."},{"titulo":"Percibe el contacto","texto":"Nota durante unos segundos dónde sientes ese apoyo, o elige otro si este no te resulta cómodo."},{"titulo":"Sigue a tu ritmo","texto":"Vuelve a la actividad que prefieras; no hay una sensación que debas encontrar."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
+    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Escoge un apoyo","texto":"Puede ser el asiento, el respaldo, los pies o cualquier contacto cómodo. Conserva la postura que prefieras."},{"titulo":"Percibe el contacto","texto":"Nota durante unos segundos dónde sientes ese apoyo, o elige otro si este no te resulta cómodo."},{"titulo":"Sigue a tu ritmo","texto":"Vuelve a la actividad que prefieras; no hay una sensación que debas encontrar."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10028,7 +10028,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003300',
     'Un minuto sin tarea',
     1,
-    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Deja la tarea en pausa","texto":"Durante unos segundos, no intentes resolver ni completar nada. Puedes dejar las manos como están."},{"titulo":"Permite un momento libre","texto":"Mira el entorno o descansa la atención. No tienes que respirar de una forma especial."},{"titulo":"Retoma o termina","texto":"Cuando quieras, elige si vuelves a tu tarea o cierras esta pausa."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
+    '{"modo":"pasos","intro":"Esta pausa es breve y puedes terminarla cuando quieras.","avance":"manual","pasos":[{"titulo":"Deja la tarea en pausa","texto":"Durante unos segundos, no intentes resolver ni completar nada. Puedes dejar las manos como están."},{"titulo":"Permite un momento libre","texto":"Mira el entorno o descansa la atención. Respira como te resulte natural."},{"titulo":"Retoma o termina","texto":"Cuando quieras, elige si vuelves a tu tarea o cierras esta pausa."}],"cierre":"Gracias por darte este momento.","avisoSiempre":"Puedes saltarte un paso o parar cuando quieras."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10620,7 +10620,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003337',
     'Decir lo que prefiero',
     1,
-    '{"modo":"tarjeta","indicacion":"No hay una respuesta que debas elegir.","titulo":"Decir lo que prefiero","texto":"Escoge una frase que exprese tu preferencia sin pedir disculpas por tenerla.","opciones":[{"clave":"primera","texto":"Lo intento ahora"},{"clave":"segunda","texto":"Lo adapto a mi manera"},{"clave":"paso","texto":"Lo dejo para otro momento"}],"cierre":"Gracias por elegir a tu manera."}'::jsonb,
+    '{"modo":"tarjeta","indicacion":"No hay una respuesta que debas elegir.","titulo":"Decir lo que prefiero","texto":"Escoge una frase que exprese tu preferencia con naturalidad.","opciones":[{"clave":"primera","texto":"Lo intento ahora"},{"clave":"segunda","texto":"Lo adapto a mi manera"},{"clave":"paso","texto":"Lo dejo para otro momento"}],"cierre":"Gracias por elegir a tu manera."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10668,7 +10668,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003340',
     'Mi forma de recibir apoyo',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Cuando quiero apoyo, me ayuda más…». Puedes escribir una opción o dejarlo vacío.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Cuando quiero apoyo, me ayuda más…». Puedes escribir una opción o dejarlo vacío.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10684,7 +10684,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003341',
     'Una conversación cómoda',
     1,
-    '{"modo":"escritura","invitacion":"Describe una condición que hace más cómoda para ti una conversación importante.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe una condición que hace más cómoda para ti una conversación importante.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10700,7 +10700,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003342',
     'Una invitación ideal',
     1,
-    '{"modo":"escritura","invitacion":"Escribe cómo sería una invitación que te permitiera responder con libertad.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe cómo sería una invitación que te permitiera responder con libertad.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10716,7 +10716,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003343',
     'Mi señal de pausa',
     1,
-    '{"modo":"escritura","invitacion":"Inventa una palabra o gesto que puedas usar para pedir una pausa.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Inventa una palabra o gesto que puedas usar para pedir una pausa.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10732,7 +10732,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003344',
     'Una forma de celebrar',
     1,
-    '{"modo":"escritura","invitacion":"Anota cómo te gusta celebrar algo pequeño, incluso si prefieres no celebrarlo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota cómo te gusta celebrar algo pequeño, incluso si prefieres no celebrarlo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10748,7 +10748,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003345',
     'Una preferencia que cambia',
     1,
-    '{"modo":"escritura","invitacion":"Nombra una preferencia que puede variar según el día y está bien que cambie.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra una preferencia que puede variar según el día y está bien que cambie.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10764,7 +10764,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003346',
     'Mi espacio para decidir',
     1,
-    '{"modo":"escritura","invitacion":"Escribe qué necesitas para sentir que una decisión es realmente tuya.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe qué necesitas para sentir que una decisión es realmente tuya.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10780,7 +10780,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003347',
     'Una pregunta que me sirve',
     1,
-    '{"modo":"escritura","invitacion":"Anota una pregunta que te ayude a reconocer lo que prefieres en un momento social.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una pregunta que te ayude a reconocer lo que prefieres en un momento social.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10796,7 +10796,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003348',
     'Un límite que quiero cuidar',
     1,
-    '{"modo":"escritura","invitacion":"Escribe un límite cotidiano que te gustaría recordar, sin tener que aplicarlo ahora.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe un límite cotidiano que te gustaría recordar, sin tener que aplicarlo ahora.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10812,7 +10812,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003349',
     'La palabra para pedir tiempo',
     1,
-    '{"modo":"escritura","invitacion":"Elige una palabra que te ayude a no responder con prisa y escribe una frase con ella.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Elige una palabra que te ayude a no responder con prisa y escribe una frase con ella.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10828,7 +10828,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003350',
     'Mi manera de decir gracias',
     1,
-    '{"modo":"escritura","invitacion":"Describe qué forma de agradecimiento se siente más natural para ti.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe qué forma de agradecimiento se siente más natural para ti.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10844,7 +10844,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003351',
     'Una conversación que puedo posponer',
     1,
-    '{"modo":"escritura","invitacion":"Nombra un tema que no necesitas hablar hoy y una fecha o señal para retomarlo, si quieres.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra un tema que no necesitas hablar hoy y una fecha o señal para retomarlo, si quieres.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10860,7 +10860,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003352',
     'Cómo me gusta escuchar',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Cuando cuento algo, prefiero que la otra persona…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Cuando cuento algo, prefiero que la otra persona…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10876,7 +10876,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003353',
     'Una frase que me representa',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase breve que exprese una opinión propia sin compararte con nadie.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase breve que exprese una opinión propia sin compararte con nadie.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10892,7 +10892,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003354',
     'Lo que prefiero reservar',
     1,
-    '{"modo":"escritura","invitacion":"Nombra un tema personal que eliges guardar para ti por ahora.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra un tema personal que eliges guardar para ti por ahora.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10908,7 +10908,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003355',
     'Una forma de pedir claridad',
     1,
-    '{"modo":"escritura","invitacion":"Redacta una pregunta sencilla que podrías hacer cuando algo no queda claro.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Redacta una pregunta sencilla que podrías hacer cuando algo no queda claro.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10924,7 +10924,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003356',
     'Mi ritmo al responder',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Para responder con calma, me sirve…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Para responder con calma, me sirve…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10940,7 +10940,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003357',
     'Un plan con alternativas',
     1,
-    '{"modo":"escritura","invitacion":"Escribe dos maneras distintas de participar en un plan sin tener que elegir todavía.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe dos maneras distintas de participar en un plan sin tener que elegir todavía.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10956,7 +10956,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003358',
     'La compañía que prefiero',
     1,
-    '{"modo":"escritura","invitacion":"Describe qué tipo de compañía te apetece en una tarde tranquila.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe qué tipo de compañía te apetece en una tarde tranquila.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10972,7 +10972,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003359',
     'Una voz que escucho',
     1,
-    '{"modo":"escritura","invitacion":"Anota una frase que te gustaría escuchar cuando compartes una duda.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una frase que te gustaría escuchar cuando compartes una duda.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -10988,7 +10988,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003360',
     'Lo que sí quiero compartir',
     1,
-    '{"modo":"escritura","invitacion":"Elige algo que sí te gusta contar de ti y escríbelo en una línea.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Elige algo que sí te gusta contar de ti y escríbelo en una línea.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11004,7 +11004,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003361',
     'Mi manera de cambiar de opinión',
     1,
-    '{"modo":"escritura","invitacion":"Escribe una frase para explicar que cambiaste de parecer.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Escribe una frase para explicar que cambiaste de parecer.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11020,7 +11020,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003362',
     'Un espacio propio',
     1,
-    '{"modo":"escritura","invitacion":"Nombra un lugar o momento del día en el que te gusta tener espacio propio.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Nombra un lugar o momento del día en el que te gusta tener espacio propio.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11036,7 +11036,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003363',
     'Una petición sencilla',
     1,
-    '{"modo":"escritura","invitacion":"Redacta una petición concreta que te haría más fácil una tarea cotidiana.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Redacta una petición concreta que te haría más fácil una tarea cotidiana.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11052,7 +11052,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003364',
     'Un acuerdo flexible',
     1,
-    '{"modo":"escritura","invitacion":"Completa: «Un acuerdo me funciona mejor cuando…».","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Completa: «Un acuerdo me funciona mejor cuando…».","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11068,7 +11068,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003365',
     'Mi señal de comodidad',
     1,
-    '{"modo":"escritura","invitacion":"Describe un detalle que te hace sentir cómodo al conocer un lugar nuevo.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Describe un detalle que te hace sentir cómodo al conocer un lugar nuevo.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )
@@ -11084,7 +11084,7 @@ VALUES
     '0acd0000-0000-4000-8000-000000003366',
     'Una elección sin testigos',
     1,
-    '{"modo":"escritura","invitacion":"Anota una decisión pequeña que prefieres tomar sin que nadie la califique.","campos":1,"minimo":0,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
+    '{"invitacion":"Anota una decisión pequeña que prefieres tomar sin que nadie la califique.","campos":1,"minimo":1,"largoMaximo":240,"permiteNingunaHoy":true,"cierre":"Puedes guardar, borrar o dejarlo en blanco."}'::jsonb,
     FALSE,
     'pendiente'
   )

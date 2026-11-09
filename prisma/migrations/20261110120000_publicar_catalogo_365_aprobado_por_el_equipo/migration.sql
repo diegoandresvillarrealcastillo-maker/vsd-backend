@@ -4970,7 +4970,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000000218'
     '5e510218-0000-4000-8000-000000000001'
   );
 
--- BIE-19 · Juego y disfrute: Arma un rompecabezas: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-19 · Juego y disfrute: Resuelve una sección: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',
@@ -5570,7 +5570,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000000268'
     '5e510268-0000-4000-8000-000000000001'
   );
 
--- BIE-69 · Comer con flexibilidad: Arma un plato: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-69 · Comer con flexibilidad: Combina dos texturas: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',
@@ -6530,7 +6530,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000002148'
     '5e502148-0000-4000-8000-000000000001'
   );
 
--- BIE-149 · Juego y disfrute: Arma una lista: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-149 · Juego y disfrute: Escoge tres canciones: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',
@@ -6638,7 +6638,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000002157'
     '5e502157-0000-4000-8000-000000000001'
   );
 
--- BIE-158 · Regulación emocional: Piensa para ti: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-158 · Regulación emocional: Prioriza una decisión: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',
@@ -6818,7 +6818,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000002172'
     '5e502172-0000-4000-8000-000000000001'
   );
 
--- BIE-173 · Comer con flexibilidad: Arma una merienda: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-173 · Comer con flexibilidad: Prepara una merienda: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',
@@ -7082,7 +7082,7 @@ WHERE "id_actividad" = '0acd0000-0000-4000-8000-000000002194'
     '5e502194-0000-4000-8000-000000000001'
   );
 
--- BIE-195 · Vínculos: Pide que te: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
+-- BIE-195 · Vínculos: Solicita una explicación: 1 sesion(es), revision de Diego y Samuel (equipo VSD Health)
 UPDATE "sesion_de_actividad"
 SET "revision" = 'revisada',
     "revisada_por" = 'Diego y Samuel (equipo VSD Health)',

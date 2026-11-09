@@ -62,6 +62,65 @@ const diferencia = (): ParametrosDeMotor => ({
   lados: [3, 4, 5],
 });
 
+const deduccionEspacial = (): ParametrosDeMotor => ({
+  modo: 'deduccion_espacial',
+  filas: 2,
+  columnas: 2,
+  celdas: [
+    { clave: 'a', etiqueta: 'Círculo azul', fila: 1, columna: 1 },
+    { clave: 'b', etiqueta: 'Cuadrado verde', fila: 1, columna: 2 },
+    { clave: 'c', etiqueta: 'Triángulo amarillo', fila: 2, columna: 1 },
+    { clave: 'd', etiqueta: 'Estrella violeta', fila: 2, columna: 2 },
+  ],
+  pistas: ['Tiene cuatro lados.', 'Está en la fila superior.'],
+  solucion: 'b',
+  explicacion: 'La respuesta cumple ambas pistas.',
+  puntosMaximos: 1,
+});
+
+const deduccionLogica = (): ParametrosDeMotor => ({
+  modo: 'deduccion_logica',
+  premisas: ['Todas las aves del parque tienen plumas.', 'Lina es un ave del parque.'],
+  opciones: [
+    { clave: 'plumas', texto: 'Lina tiene plumas.', correcta: true },
+    { clave: 'vuela', texto: 'Lina puede volar.', correcta: false },
+    { clave: 'duena', texto: 'Todas las aves son de Lina.', correcta: false },
+  ],
+  explicacion: 'Lina pertenece al grupo descrito en la primera premisa.',
+  puntosMaximos: 1,
+});
+
+const retoCompuestoCognitivo = (): ParametrosDeMotor => ({
+  modo: 'reto_compuesto_cognitivo',
+  fases: [
+    {
+      codigo: 'COG-02',
+      idSesion: '5e510200-0000-4000-8000-000000000001',
+      titulo: 'Intruso evidente, 1',
+      nivel: 1,
+      maximo: 6,
+      parametros: { modo: 'intruso', rondas: [], puntosMaximos: 6 },
+    },
+    {
+      codigo: 'COG-04',
+      idSesion: '5e510400-0000-4000-8000-000000000001',
+      titulo: 'Sumas del mercado',
+      nivel: 1,
+      maximo: 8,
+      parametros: { modo: 'calculo', rondas: [], puntosMaximos: 8 },
+    },
+    {
+      codigo: 'COG-09',
+      idSesion: '5e510900-0000-4000-8000-000000000001',
+      titulo: 'Escena de la casa',
+      nivel: 1,
+      maximo: 5,
+      parametros: { modo: 'escena', rondas: [], puntosMaximos: 5 },
+    },
+  ],
+  puntosMaximos: 19,
+});
+
 const momentoBueno = (): ParametrosDeMotor => ({
   invitacion: '¿Qué estuvo bien hoy?',
   ideas: [
@@ -143,6 +202,13 @@ describe('las sesiones de referencia son validas', () => {
     ['secuencia de numeros (sin destello)', Motor.SECUENCIA, secuenciaDeNumeros()],
     ['secuencia de colores (con forma y nombre)', Motor.SECUENCIA, secuenciaDeColores()],
     ['tocar_el_objetivo con tiempo', Motor.TOCAR_EL_OBJETIVO, diferencia()],
+    ['deduccion espacial en cuadrícula', Motor.DEDUCCION_ESPACIAL, deduccionEspacial()],
+    ['deduccion logica desde premisas', Motor.DEDUCCION_LOGICA, deduccionLogica()],
+    [
+      'combinacion de tres mecanicas diferentes',
+      Motor.RETO_COMPUESTO_COGNITIVO,
+      retoCompuestoCognitivo(),
+    ],
     [
       'tocar_el_objetivo sin tiempo',
       Motor.TOCAR_EL_OBJETIVO,

@@ -1,6 +1,9 @@
 import { CALCULO } from './contratos/calculo.js';
 import { CLASIFICAR } from './contratos/clasificar.js';
 import { CUESTIONARIO_CORTO } from './contratos/cuestionarioCorto.js';
+import { DEDUCCION_ESPACIAL } from './contratos/deduccionEspacial.js';
+import { DEDUCCION_LOGICA } from './contratos/deduccionLogica.js';
+import { RETO_COMPUESTO_COGNITIVO } from './contratos/retoCompuestoCognitivo.js';
 import { ESCRITURA_BREVE } from './contratos/escrituraBreve.js';
 import { GUIA_PASO_A_PASO } from './contratos/guiaPasoAPaso.js';
 import { PALABRAS } from './contratos/palabras.js';
@@ -29,7 +32,7 @@ import { Motor } from './Motor.js';
  * - Un motor que sirve a varias mecanicas tiene un contrato **por `modo`**. Las sesiones sembradas antes de
  *   que existieran los modos no traen `modo` y siguen siendo validas (`porModo`).
  *
- * Los nueve motores tienen contrato desde SCRUM-220. Una actividad sin motor (las cuatro pantallas propias
+ * Los motores registrados tienen contrato. Una actividad sin motor (las cuatro pantallas propias
  * de antes de la Fase 0) tampoco se valida.
  *
  * Lo que NO se comprueba aqui: el filtro de lenguaje clinico (R6) y la lista de exclusion (R14).
@@ -47,9 +50,12 @@ const CONTRATOS: ReadonlyMap<Motor, Validador> = new Map<Motor, Validador>([
   [Motor.GUIA_PASO_A_PASO, GUIA_PASO_A_PASO],
   [Motor.CUESTIONARIO_CORTO, CUESTIONARIO_CORTO],
   [Motor.ESCRITURA_BREVE, ESCRITURA_BREVE],
+  [Motor.DEDUCCION_ESPACIAL, DEDUCCION_ESPACIAL],
+  [Motor.DEDUCCION_LOGICA, DEDUCCION_LOGICA],
+  [Motor.RETO_COMPUESTO_COGNITIVO, RETO_COMPUESTO_COGNITIVO],
 ]);
 
-/** Los motores cuyo contrato ya esta fijado: los nueve. */
+/** Los motores cuyo contrato esta fijado. */
 export const MOTORES_CON_CONTRATO: readonly Motor[] = [...CONTRATOS.keys()];
 
 /**

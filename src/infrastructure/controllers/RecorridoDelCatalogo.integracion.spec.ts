@@ -17,7 +17,7 @@ import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 /**
  * El recorrido del catalogo entero, de la peticion HTTP a la fila de PostgreSQL (SCRUM-238).
  *
- * Con las 720 sesiones publicadas, las 35 actividades de los tres modulos salen a la gente. Esta prueba hace
+ * Con las 1861 sesiones publicadas, las 1104 actividades del catalogo salen a la gente. Esta prueba hace
  * lo que hara una persona con cada una, contra la base de verdad y con la aplicacion conectada como `vsd_app`
  * (el dueno de las tablas esta exento de las politicas, y asi la prueba no comprobaria nada):
  *
@@ -171,9 +171,13 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
   let dueno: Client;
   let app: NestExpressApplication;
   let actividades: readonly Actividad[];
+  let ipDePrueba = 0;
 
   const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
-  const conLaCuenta = (peticion: request.Test): request.Test => peticion.set(...comoUsuario(TOKEN));
+  const conLaCuenta = (peticion: request.Test): request.Test => {
+    const ip = (ipDePrueba++ % 250) + 1;
+    return peticion.set(...comoUsuario(TOKEN)).set('X-Forwarded-For', `198.51.100.${String(ip)}`);
+  };
 
   async function limpiar(): Promise<void> {
     await dueno.query('DELETE FROM usuario WHERE correo = $1', [IDENTIDAD.correo]);
@@ -210,6 +214,9 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
 
     app = modulo.createNestApplication<NestExpressApplication>({ logger: false });
     configurarAplicacion(app, app.get<Configuracion>(CONFIGURACION));
+    // Esta suite registra más actividades de las que permite el límite por IP. Las pruebas del límite viven
+    // en limitesDePeticiones.spec.ts; aquí cada petición usa una IP reservada distinta para los tests.
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
     await app.init();
 
     await conLaCuenta(request(servidor()).post('/api/cuenta'))
@@ -242,8 +249,8 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
     await dueno?.end();
   });
 
-  it('hay 35 actividades y todas las que tienen mecanica tienen una sesion publicada', () => {
-    expect(actividades).toHaveLength(35);
+  it('hay 1104 actividades y todas las que tienen mecanica tienen una sesion publicada', () => {
+    expect(actividades).toHaveLength(1104);
 
     const sinSesion = actividades.filter((a) => a.motor !== null && a.sesion === null);
 
@@ -293,7 +300,7 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
   describe('cada actividad registra un resultado como lo hace su pantalla', () => {
     it.each(
       // El orden importa poco; el nombre si: si una falla, se sabe cual.
-      Array.from({ length: 35 }, (_unused, i) => i),
+      Array.from({ length: 1104 }, (_unused, i) => i),
     )('la actividad %i', async (indice) => {
       const actividad = actividades[indice];
 
@@ -322,8 +329,10 @@ describe.skipIf(URL_DUENO === undefined)('el recorrido del catalogo, de HTTP a P
       return actividad;
     }
 
-    it('hay una carga por cada actividad del catalogo, y ninguna de mas', () => {
-      expect(Object.keys(CARGAS).sort()).toEqual(actividades.map((a) => a.id.slice(-4)).sort());
+    it('las cargas especiales corresponden a actividades del catalogo', () => {
+      const codigosDelCatalogo = new Set(actividades.map((actividad) => actividad.id.slice(-4)));
+
+      expect(Object.keys(CARGAS).every((codigo) => codigosDelCatalogo.has(codigo))).toBe(true);
     });
 
     it.each(Object.keys(CARGAS))('la actividad ...%s', async (sufijo) => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MOTORES, Motor, esMotor } from './Motor.js';
 
 describe('Motor', () => {
-  it('son los nueve motores de las fichas, de M1 a M9', () => {
+  it('incluye los motores registrados y las mecanicas nuevas de Cognicion 365', () => {
     // El orden es el de CATALOGO-FICHAS-DE-MECANICAS.md §0.3 y el del CHECK de la base: si uno
     // cambia sin el otro, una mecanica valida en el dominio la rechaza la base (o al reves).
     expect(MOTORES).toEqual([
@@ -15,11 +15,14 @@ describe('Motor', () => {
       'guia_paso_a_paso',
       'cuestionario_corto',
       'escritura_breve',
+      'deduccion_espacial',
+      'deduccion_logica',
+      'reto_compuesto_cognitivo',
     ]);
   });
 
   it('cada constante nombrada apunta a un motor distinto', () => {
-    expect(new Set(Object.values(Motor)).size).toBe(9);
+    expect(new Set(Object.values(Motor)).size).toBe(12);
   });
 
   it.each(MOTORES)('reconoce %s', (motor) => {

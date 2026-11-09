@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Param } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import type { ConsultarCatalogoUseCase } from '../../domain/ports/in/ConsultarCatalogoUseCase.js';
+import type { Frecuencia } from '../../domain/model/Activity.js';
 import { Publico } from '../auth/Publico.js';
 import { CONSULTAR_CATALOGO } from '../config/tokens.js';
 import { PRISMA } from '../config/tokens.js';
@@ -47,7 +48,7 @@ export class CatalogoController {
         idActividad: true,
         titulo: true,
         nivel: true,
-        actividad: { select: { nombre: true } },
+        actividad: { select: { nombre: true, frecuencia: true, diasSemana: true } },
       },
       orderBy: [
         { actividad: { nombre: 'asc' } },
@@ -57,13 +58,21 @@ export class CatalogoController {
       ],
     });
 
-    return sesiones.map((sesion) => ({
-      id: sesion.id,
-      idActividad: sesion.idActividad,
-      titulo: sesion.titulo,
-      nivel: sesion.nivel,
-      actividad: sesion.actividad.nombre,
-    }));
+    return sesiones.map((sesion) => {
+      const frecuencia: Frecuencia =
+        sesion.actividad.frecuencia === 'semanal'
+          ? { tipo: 'semanal', dias: sesion.actividad.diasSemana }
+          : { tipo: sesion.actividad.frecuencia };
+
+      return {
+        id: sesion.id,
+        idActividad: sesion.idActividad,
+        titulo: sesion.titulo,
+        nivel: sesion.nivel,
+        actividad: sesion.actividad.nombre,
+        frecuencia,
+      };
+    });
   }
 
   @Get('sesion/:id')

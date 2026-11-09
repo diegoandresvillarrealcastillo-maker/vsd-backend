@@ -28,14 +28,20 @@ export const Motor = {
   CUESTIONARIO_CORTO: 'cuestionario_corto',
   /** M9: texto libre corto, con una idea de arranque. */
   ESCRITURA_BREVE: 'escritura_breve',
+  /** Deduce una casilla a partir de pistas espaciales interdependientes. */
+  DEDUCCION_ESPACIAL: 'deduccion_espacial',
+  /** Deriva una conclusion a partir de premisas y relaciones logicas. */
+  DEDUCCION_LOGICA: 'deduccion_logica',
+  /** Combina tres mecanicas distintas en una actividad encadenada y unica. */
+  RETO_COMPUESTO_COGNITIVO: 'reto_compuesto_cognitivo',
 } as const;
 
 export type Motor = (typeof Motor)[keyof typeof Motor];
 
-/** Los nueve, en el orden de las fichas (M1 a M9). */
+/** Los motores admitidos por el dominio. */
 export const MOTORES: readonly Motor[] = Object.values(Motor);
 
-/** Indica si un valor, venga de donde venga, es uno de los nueve motores. */
+/** Indica si un valor, venga de donde venga, es uno de los motores registrados. */
 export function esMotor(valor: unknown): valor is Motor {
   return typeof valor === 'string' && (MOTORES as readonly string[]).includes(valor);
 }

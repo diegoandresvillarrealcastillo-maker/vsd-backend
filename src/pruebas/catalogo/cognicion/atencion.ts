@@ -56,23 +56,32 @@ const simbolo = (clave: string) => {
  * Los lugares se sacan de `ESTIMULOS - (OBJETIVOS - 1)` y se separan sumando la posicion: asi ningun par queda
  * pegado y todos los reparto posibles tienen la misma probabilidad.
  */
-function secuenciaDe(azar: Azar, objetivos: readonly string[], otros: readonly string[]): string[] {
-  const libres = ESTIMULOS - (OBJETIVOS - 1);
+function secuenciaDe(
+  azar: Azar,
+  objetivos: readonly string[],
+  otros: readonly string[],
+  estimulos = ESTIMULOS,
+  cantidadDeObjetivos = OBJETIVOS,
+): string[] {
+  const libres = estimulos - (cantidadDeObjetivos - 1);
   const elegidos = revolver(
     azar,
     Array.from({ length: libres }, (_, i) => i),
   )
-    .slice(0, OBJETIVOS)
+    .slice(0, cantidadDeObjetivos)
     .sort((una, otra) => una - otra);
   const lugares = new Set(elegidos.map((lugar, posicion) => lugar + posicion));
   const quienes = revolver(
     azar,
-    Array.from({ length: OBJETIVOS }, (_, i) => objetivos[i % objetivos.length] as string),
+    Array.from(
+      { length: cantidadDeObjetivos },
+      (_, i) => objetivos[i % objetivos.length] as string,
+    ),
   );
   const secuencia: string[] = [];
   let siguienteObjetivo = 0;
 
-  for (let lugar = 0; lugar < ESTIMULOS; lugar++) {
+  for (let lugar = 0; lugar < estimulos; lugar++) {
     if (lugares.has(lugar)) {
       secuencia.push(quienes[siguienteObjetivo] as string);
       siguienteObjetivo += 1;
@@ -153,4 +162,47 @@ export function sesionesDeAtencion(): SesionDeContenido[] {
   });
 
   return sesiones;
+}
+
+/** Genera otra secuencia válida de atención para un nuevo recorrido compuesto. */
+export function variarSesionDeAtencion(
+  sesionBase: SesionDeContenido,
+  variante: number,
+): SesionDeContenido {
+  const parametros = sesionBase.parametros;
+  const objetivos = parametros.objetivos;
+  const otros = parametros.otros;
+
+  if (
+    !Array.isArray(objetivos) ||
+    !Array.isArray(otros) ||
+    typeof parametros.msPorEstimulo !== 'number'
+  ) {
+    throw new Error(`La sesión ${sesionBase.id} no tiene parámetros de atención válidos`);
+  }
+
+  const claves = (elementos: readonly unknown[]) =>
+    elementos.flatMap((elemento) =>
+      typeof elemento === 'object' &&
+      elemento !== null &&
+      'clave' in elemento &&
+      typeof elemento.clave === 'string'
+        ? [elemento.clave]
+        : [],
+    );
+  const clavesObjetivo = claves(objetivos);
+  const clavesOtros = claves(otros);
+  const sufijo = Number(sesionBase.id.slice(-12));
+  const azar = generadorDe((0x5e5e0000 + sufijo * 104729 + variante * 2654435) >>> 0);
+  const secuencia = secuenciaDe(azar, clavesObjetivo, clavesOtros, 21, 7);
+
+  return {
+    ...sesionBase,
+    titulo: `${sesionBase.titulo} · recorrido ${String(variante + 1)}`,
+    parametros: {
+      ...parametros,
+      secuencia,
+      puntosMaximos: secuencia.filter((estimulo) => clavesObjetivo.includes(estimulo)).length,
+    },
+  };
 }

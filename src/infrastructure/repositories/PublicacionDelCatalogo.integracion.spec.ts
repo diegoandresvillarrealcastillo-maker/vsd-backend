@@ -81,11 +81,11 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
         [catalogo.flatMap((m) => m.sesiones.map((s) => s.id))],
       );
 
-      expect(Number(rows[0]?.n)).toBe(714);
+      expect(Number(rows[0]?.n)).toBe(1861);
     });
   });
 
-  it('aprobar todo publica las 714 sesiones, cada una con su revisor y su fecha', async () => {
+  it('aprobar todo publica las 1861 sesiones, cada una con su revisor y su fecha', async () => {
     const { sql, publicadas } = generarLaPublicacion([
       hoja('Fisioterapeuta', '2026-10-22', ['BIE-02']),
       hoja(
@@ -95,10 +95,10 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
       ),
     ]);
 
-    expect(publicadas).toBe(714);
+    expect(publicadas).toBe(1861);
 
     await enUnaTransaccion(async () => {
-      expect(filasCambiadas(await dueno.query(sql))).toBe(714);
+      expect(filasCambiadas(await dueno.query(sql))).toBe(1861);
 
       const { rows } = await dueno.query<{ revisada_por: string; dia: string; publicadas: string }>(
         `SELECT revisada_por, to_char(revisada_el AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS dia,
@@ -111,7 +111,7 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
 
       expect(rows.map((r) => [r.revisada_por, r.dia, Number(r.publicadas)])).toEqual([
         ['Fisioterapeuta', '2026-10-22', 40],
-        ['Psicóloga', '2026-10-24', 674],
+        ['Psicóloga', '2026-10-24', 1821],
       ]);
     });
   });
@@ -126,7 +126,11 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
   });
 
   it('las sesiones que la hoja deja fuera, y las mecanicas que no aprueba, se quedan pendientes y sin publicar', async () => {
-    const fuera = catalogo[2]?.sesiones.slice(0, 3).map((s) => s.referencia) ?? [];
+    const fuera =
+      catalogo
+        .find((mecanica) => mecanica.codigo === 'BIE-02')
+        ?.sesiones.slice(0, 3)
+        .map((sesion) => sesion.referencia) ?? [];
     const { sql, publicadas } = generarLaPublicacion([
       hoja('Ana', '2026-10-23', ['BIE-02'], fuera),
     ]);
@@ -143,7 +147,7 @@ describe.skipIf(URL_DUENO === undefined)('publicar lo revisado, contra PostgreSQ
       );
 
       expect(rows.map((r) => [r.revision, r.publicado, Number(r.n)])).toEqual([
-        ['pendiente', false, 714 - 37],
+        ['pendiente', false, 1861 - 37],
         ['revisada', true, 37],
       ]);
 

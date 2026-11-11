@@ -48,6 +48,7 @@ export class CatalogoController {
         idActividad: true,
         titulo: true,
         nivel: true,
+        parametros: true,
         actividad: { select: { nombre: true, frecuencia: true, diasSemana: true } },
       },
       orderBy: [
@@ -69,6 +70,7 @@ export class CatalogoController {
         idActividad: sesion.idActividad,
         titulo: sesion.titulo,
         nivel: sesion.nivel,
+        parametros: sesion.parametros,
         actividad: sesion.actividad.nombre,
         frecuencia,
       };

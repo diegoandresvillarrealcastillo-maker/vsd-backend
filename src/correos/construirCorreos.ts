@@ -175,7 +175,41 @@ function selectorDeOutlook(propiedad: string): string {
 
 /** Los comentarios de mantenimiento no se envian; los condicionales de Outlook (`<!--[if ...`) si. */
 function sinComentariosDeMantenimiento(html: string): string {
-  return html.replace(/<!--(?!\[if)[\s\S]*?-->/g, '');
+  let salida = '';
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const inicio = html.indexOf('<!--', cursor);
+
+    if (inicio === -1) {
+      salida += html.slice(cursor);
+      break;
+    }
+
+    salida += html.slice(cursor, inicio);
+    const esCondicionalDeOutlook = html.startsWith('<!--[if', inicio);
+    const cierreNormal = html.indexOf('-->', inicio + 4);
+    const cierreAlternativo = html.indexOf('--!>', inicio + 4);
+    const cierre =
+      cierreNormal === -1
+        ? cierreAlternativo
+        : cierreAlternativo === -1
+          ? cierreNormal
+          : Math.min(cierreNormal, cierreAlternativo);
+
+    // Un comentario sin cierre consume el resto del documento en HTML; se
+    // descarta para que contenido posterior no pueda reabrir el marcado.
+    if (cierre === -1) {
+      if (esCondicionalDeOutlook) salida += html.slice(inicio);
+      break;
+    }
+
+    const fin = cierre + (html.startsWith('--!>', cierre) ? 4 : 3);
+    if (esCondicionalDeOutlook) salida += html.slice(inicio, fin);
+    cursor = fin;
+  }
+
+  return salida;
 }
 
 function valoresDeLaPlantilla(contenido: ContenidoDelCorreo): Record<string, string> {

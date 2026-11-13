@@ -5,20 +5,23 @@ PROD, no lee `.env` y no cambia el arranque ni los límites del servicio despleg
 
 ## Qué hace
 
-- `servidor-local.spec.ts` levanta PostgreSQL temporal (`embedded-postgres`, puerto **55440**) y la
-  API (puerto **3000**) con la aplicación, la persistencia y RLS reales (rol `vsd_app`). Crea 100
+- `servidor-local.spec.ts` levanta PostgreSQL temporal (`embedded-postgres`, puerto local libre
+  asignado al inicio) y la API (puerto **3000**) con la aplicación, la persistencia y RLS reales
+  (rol `vsd_app`). Crea 100
   cuentas ficticias con 201 entradas de diario cada una y mide la memoria del proceso Node cada
   segundo (`ram-local.csv`). Se detiene con `POST /__qa/stop` o a los 12 minutos.
 - Solo dentro de ese proceso de prueba se sustituyen la verificación externa de identidad
   (`qa-user-N`, nada que ver con tokens de Supabase) y los límites de peticiones: 100 usuarios desde
   la misma IP recibirían 429 y no medirían capacidad.
+- El laboratorio usa `DATABASE_POOL_MAX=32` para comprobar concurrencia sin tocar la configuración
+  de despliegue; ese número no representa el pooler ni los límites de PRE/PROD.
 - `pico-local.k6.js` hace dos picos de 100 usuarios, alterna guardados, reintentos idempotentes y
   exportaciones, y observa la recuperación durante 30 s.
 
 ## Requisitos
 
-Node y las dependencias del backend (`npm ci`), **k6** y **PowerShell 7** (`pwsh`). Los puertos 3000
-y 55440 tienen que estar libres.
+Node y las dependencias del backend (`npm ci`), **k6** y **PowerShell 7** (`pwsh`). El puerto 3000
+tiene que estar libre.
 
 ```powershell
 winget install k6 --source winget
@@ -46,8 +49,11 @@ temporal del sistema (`vsd-k6-*`) por si se quiere inspeccionar; se puede borrar
 ## Umbrales iniciales (ajustables)
 
 Fallos HTTP < 1 %, cero fallos funcionales, p95 de escritura < 3 s, p95 de exportación < 10 s, RSS
-< 1.024 MB y crecimiento final < 256 MB. Son presupuestos de prueba, no garantías: una sola
-ejecución no demuestra ausencia de fugas, hay que mirar la curva de varios picos.
+< 1.024 MB y crecimiento final de `heapUsed` < 256 MB después de 30 s de reposo. El RSS final se
+conserva como dato informativo: Node puede retener páginas del heap ya liberado y el crecimiento
+de RSS desde el arranque frío no demuestra por sí solo una fuga. Son presupuestos de prueba, no
+garantías: una sola ejecución no demuestra ausencia de fugas; hay que mirar la curva de varios
+picos.
 
 ## Qué mide y qué no
 

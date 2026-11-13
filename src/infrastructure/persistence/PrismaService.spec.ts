@@ -3,6 +3,7 @@ import {
   AislamientoInactivoError,
   PrismaService,
   TRANSACCION_DE_BORRADO,
+  TRANSACCION_DE_USUARIO,
 } from './PrismaService.js';
 
 /**
@@ -146,12 +147,20 @@ describe('PrismaService', () => {
       expect(tiempos[0]).toBe(TRANSACCION_DE_BORRADO);
     });
 
-    it('lo demas conserva los tiempos por omision de Prisma', async () => {
+    it('las operaciones normales tienen un margen acotado para esperar el pool', async () => {
       const { servicio, tiempos } = servicioQueAnotaLosTiempos();
 
       await servicio.comoUsuario(PERSONA, () => Promise.resolve(null));
 
-      expect(tiempos).toEqual([undefined]);
+      expect(tiempos).toEqual([TRANSACCION_DE_USUARIO]);
+    });
+
+    it('la búsqueda de cuenta por proveedor usa el mismo margen de transacción', async () => {
+      const { servicio, tiempos } = servicioQueAnotaLosTiempos();
+
+      await servicio.comoProveedor('identidad-verificada', () => Promise.resolve(null));
+
+      expect(tiempos).toEqual([TRANSACCION_DE_USUARIO]);
     });
   });
 

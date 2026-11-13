@@ -138,6 +138,10 @@ const esquema = z
     // adaptador en memoria alcanza y es mucho mas rapido.
     DATABASE_URL: z.string().optional(),
 
+    // Conexiones del pool local del adaptador `pg`. PrismaPg no aplica
+    // `connection_limit` de la URL, asi que se dimensiona por instancia.
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+
     // URL del proyecto de Supabase. De ella sale la direccion donde estan
     // publicadas las claves con las que se comprueba la firma de cada token.
     //
@@ -284,6 +288,8 @@ export interface Configuracion {
    * servicio usa el adaptador en memoria.
    */
   readonly urlBaseDeDatos: string | undefined;
+  /** Maximo de conexiones cliente por instancia de la API. */
+  readonly conexionesMaximasDeBaseDeDatos: number;
   /**
    * URL base del proyecto de Supabase, sin barra final.
    *
@@ -357,6 +363,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     CORS_ORIGIN,
     TRUST_PROXY_HOPS,
     DATABASE_URL,
+    DATABASE_POOL_MAX,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
     VAPID_PUBLIC_KEY,
@@ -378,6 +385,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     saltosDeProxyDeConfianza: TRUST_PROXY_HOPS,
     esProduccion: NODE_ENV === Ambiente.PRODUCCION,
     urlBaseDeDatos: (DATABASE_URL ?? '').trim() === '' ? undefined : DATABASE_URL,
+    conexionesMaximasDeBaseDeDatos: DATABASE_POOL_MAX,
     // La barra final se quita aqui y no en cada sitio que use el valor: si un
     // .env la trae, la URL del JWKS acabaria con una barra doble.
     urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),

@@ -57,10 +57,13 @@ export type RolDeSesion = (typeof RolDeSesion)[keyof typeof RolDeSesion];
  * espera a la red: lo de fuera (archivos e identidad) se borra antes y fuera de toda transaccion.
  *
  * `maxWait` es lo que se espera por una conexion libre del pool, y `timeout` lo que dura la
- * transaccion. Solo valen para borrar: el resto de lo que se hace con la base sigue con el
- * tiempo corto, que es lo que corta una consulta colgada.
+ * transaccion. Los valores de borrado son mayores porque abarcan cascadas; las operaciones
+ * normales tienen un limite de 15 s para tolerar picos sin dejar consultas indefinidamente colgadas.
  */
 export const TRANSACCION_DE_BORRADO = { maxWait: 2_000, timeout: 20_000 } as const;
+
+/** Margen para que las transacciones de personas esperen su turno con carga sostenida. */
+export const TRANSACCION_DE_USUARIO = { maxWait: 10_000, timeout: 15_000 } as const;
 
 /**
  * Se lanza cuando la conexion no esta sujeta a las politicas de la base.
@@ -108,11 +111,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
      * negocia.
      */
     private readonly exigirAislamiento: boolean = false,
+    conexionesMaximas = 10,
   ) {
     // Desde Prisma 7 la URL no viaja en el esquema: la recibe el cliente a
     // traves de un adaptador. Quien la lee del entorno es la capa de
     // configuracion, no esta clase.
-    super({ adapter: new PrismaPg({ connectionString }) });
+    super({
+      adapter: new PrismaPg({
+        connectionString,
+        max: conexionesMaximas,
+        connectionTimeoutMillis: 5_000,
+      }),
+    });
   }
 
   async onModuleInit(): Promise<void> {
@@ -158,7 +168,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
-    }, tiempos);
+    }, tiempos ?? TRANSACCION_DE_USUARIO);
   }
 
   /**
@@ -258,7 +268,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
-    });
+    }, TRANSACCION_DE_USUARIO);
   }
 
   /**

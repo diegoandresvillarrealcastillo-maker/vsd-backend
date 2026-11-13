@@ -59,6 +59,8 @@ export class ExportarDatosUseCaseImpl implements ExportarDatosUseCase {
       throw new AccountNotProvisionedError();
     }
 
+    // Las lecturas son independientes: ejecutarlas en paralelo reduce la latencia de exportación.
+    // El pool se dimensiona en PrismaService y mantiene acotado el total entre exportaciones.
     const [consentimientos, preferencias, navegadores, foto, mascotaPropia, datoCurioso] =
       await Promise.all([
         this.cuentas.consentimientosDe(id),

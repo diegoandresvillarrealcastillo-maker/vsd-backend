@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 import { appendFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -41,6 +42,30 @@ import { ContadorPorVentana } from '../../src/infrastructure/limites/LimitePorCu
 import { REGISTRO_DE_PRUEBA } from '../../src/pruebas/sesionDePrueba.js';
 import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../src/pruebas/rolDeLaAplicacion.js';
 
+/** Evita chocar con un PostgreSQL local o un proceso huérfano de una corrida anterior. */
+async function puertoLocalDisponible(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const servidor = createServer();
+
+    servidor.once('error', reject);
+    servidor.listen(0, '127.0.0.1', () => {
+      const direccion = servidor.address();
+
+      if (direccion === null || typeof direccion === 'string') {
+        servidor.close();
+        reject(new Error('No se pudo reservar un puerto local para PostgreSQL.'));
+
+        return;
+      }
+
+      servidor.close((error) => {
+        if (error) reject(error);
+        else resolvePort(direccion.port);
+      });
+    });
+  });
+}
+
 it('runs the isolated local load-test server', async () => {
   vi.stubGlobal('fetch', () =>
     Promise.reject(new Error('External fetch is disabled in this test process')),
@@ -53,12 +78,13 @@ it('runs the isolated local load-test server', async () => {
   });
 
   const directory = mkdtempSync(join(tmpdir(), 'vsd-k6-'));
+  const port = await puertoLocalDisponible();
 
   const postgres = new EmbeddedPostgres({
     databaseDir: join(directory, 'postgres'),
     user: 'qa_owner',
     password: 'qa_local_only',
-    port: 55440,
+    port,
     persistent: true,
     postgresFlags: ['-c', 'listen_addresses=127.0.0.1'],
     onLog: () => {},
@@ -67,7 +93,7 @@ it('runs the isolated local load-test server', async () => {
 
   const owner = new Client({
     host: '127.0.0.1',
-    port: 55440,
+    port,
     database: 'vsd_qa_k6',
     user: 'qa_owner',
     password: 'qa_local_only',
@@ -87,6 +113,7 @@ it('runs the isolated local load-test server', async () => {
     // No se pasan a Prisma URLs de base de datos, tokens de servicio ni opciones de PG.
     const migrationEnvironment: NodeJS.ProcessEnv = {
       NODE_ENV: 'test',
+      VSD_QA_PG_PORT: String(port),
     };
 
     for (const key of [
@@ -128,7 +155,8 @@ it('runs the isolated local load-test server', async () => {
 
     const configuration = validarConfiguracion({
       NODE_ENV: 'test',
-      DATABASE_URL: 'postgresql://vsd_app:' + CLAVE_LOCAL + '@127.0.0.1:55440/vsd_qa_k6',
+      DATABASE_URL: 'postgresql://vsd_app:' + CLAVE_LOCAL + '@127.0.0.1:' + port + '/vsd_qa_k6',
+      DATABASE_POOL_MAX: '32',
       SUPABASE_URL: 'http://127.0.0.1:1',
       CORS_ORIGIN: 'http://localhost:5173',
       TRUST_PROXY_HOPS: '0',
@@ -158,8 +186,11 @@ it('runs the isolated local load-test server', async () => {
       })
       .compile();
 
+    // Conserva los errores de la API durante el perfil de carga. Silenciar el logger hace que un
+    // 500 solo aparezca como un numero en k6 y no permite distinguir agotamiento del pool, timeout
+    // o un fallo funcional. El servidor sigue limitado a loopback y usa datos sinteticos.
     app = testingModule.createNestApplication<NestExpressApplication>({
-      logger: false,
+      logger: ['error'],
     });
 
     configurarAplicacion(app, configuration);

@@ -18,8 +18,9 @@ todo se deshace. La auditoría de código del backend (hallazgo 7) encontró dos
 1. **La transacción retiene una conexión de la base mientras espera a la red.** Con los dos
    almacenes de 5 s de tope y la identidad de 4 s caben 14 s. SCRUM-260 subió el tiempo de la
    transacción a 20 s para que no venciera con lo irreversible ya hecho, pero no cambió que una
-   conexión queda ocupada todo ese rato. Con el pooler de Supabase en `connection_limit=1` (es lo que
-   trae `.env.example`), una baja lenta puede bloquear a todo el servicio.
+   conexión queda ocupada todo ese rato. El tamaño del pool cliente se configura por instancia con
+   `DATABASE_POOL_MAX` y debe ajustarse al límite agregado del pooler de Supabase y al número máximo
+   de instancias de Render; una baja lenta podía bloquear otras operaciones al retener esa conexión.
 2. **El hueco que el propio código documentaba no se cierra:** que la base falle al confirmar
    **después** de que el proveedor ya borró la identidad. La persona ya no puede entrar, sus filas
    quedan sin dueño y el único remedio era «limpiarlas a mano».

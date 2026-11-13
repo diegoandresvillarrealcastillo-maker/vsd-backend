@@ -32,6 +32,7 @@ if (!Number.isFinite(rssLimitMB) || rssLimitMB <= 0) {
 const serverRss = new Trend('server_rss_mb');
 const serverHeap = new Trend('server_heap_mb');
 const finalRssGrowth = new Trend('final_rss_growth_mb');
+const finalHeapGrowth = new Trend('final_heap_growth_mb');
 const functionalErrors = new Rate('functional_errors');
 
 export const options = {
@@ -67,7 +68,7 @@ export const options = {
     'http_req_duration{operation:write}': ['p(95)<3000'],
     'http_req_duration{operation:export}': ['p(95)<10000'],
     server_rss_mb: ['max<' + rssLimitMB],
-    final_rss_growth_mb: ['max<256'],
+    final_heap_growth_mb: ['max<256'],
   },
 };
 
@@ -101,9 +102,10 @@ function measureMemory() {
   const rssMB = memory.rss / 1048576;
 
   serverRss.add(rssMB);
-  serverHeap.add(memory.heapUsed / 1048576);
+  const heapMB = memory.heapUsed / 1048576;
+  serverHeap.add(heapMB);
 
-  return rssMB;
+  return { rssMB, heapMB };
 }
 
 function uuid() {
@@ -136,8 +138,11 @@ export function setup() {
     exec.test.abort('Start the isolated local test server first');
   }
 
+  const initialMemory = measureMemory();
+
   return {
-    initialRssMB: measureMemory(),
+    initialRssMB: initialMemory.rssMB,
+    initialHeapMB: initialMemory.heapMB,
   };
 }
 
@@ -231,20 +236,25 @@ export default function () {
 
 export function teardown(data) {
   try {
-    let finalRssMB = data.initialRssMB;
+    let finalMemory = { rssMB: data.initialRssMB, heapMB: data.initialHeapMB };
 
-    // Se observa la recuperacion sin forzar el recolector de basura.
+    // Se observa la recuperacion sin forzar el recolector de basura. Node puede conservar las
+    // paginas del heap en RSS despues de liberar objetos; por eso la fuga se aproxima con heapUsed
+    // al final del reposo y RSS se mantiene como limite absoluto e indicador informativo.
     for (let second = 0; second < 30; second++) {
       sleep(1);
-      finalRssMB = measureMemory();
+      finalMemory = measureMemory();
     }
 
-    finalRssGrowth.add(Math.max(0, finalRssMB - data.initialRssMB));
+    finalRssGrowth.add(Math.max(0, finalMemory.rssMB - data.initialRssMB));
+    finalHeapGrowth.add(Math.max(0, finalMemory.heapMB - data.initialHeapMB));
 
     console.log(
       JSON.stringify({
         initialRssMB: data.initialRssMB,
-        finalRssMB,
+        finalRssMB: finalMemory.rssMB,
+        initialHeapMB: data.initialHeapMB,
+        finalHeapMB: finalMemory.heapMB,
       }),
     );
   } finally {

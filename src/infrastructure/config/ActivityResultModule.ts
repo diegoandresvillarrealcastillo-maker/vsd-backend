@@ -63,6 +63,7 @@ import {
               // de aislamiento impide arrancar. Es preferible un servicio
               // caido y evidente a uno en pie que ya no protege nada.
               configuracion.ambiente !== Ambiente.DESARROLLO,
+              configuracion.conexionesMaximasDeBaseDeDatos,
             ),
       inject: [CONFIGURACION],
     },

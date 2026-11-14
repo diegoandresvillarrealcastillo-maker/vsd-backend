@@ -5,13 +5,13 @@ import { Intencion } from '../../domain/ports/in/AsistentePort.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
 import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
 import { AsistentePorReglas } from './AsistentePorReglas.js';
-import { AsistenteGeminiEnPre } from './AsistenteGeminiEnPre.js';
+import { AsistenteGemini } from './AsistenteGeminiEnPre.js';
 
 const USUARIO = '11111111-1111-4111-8111-111111111111';
 const OTRO = '22222222-2222-4222-8222-222222222222';
 
 function crear(http: typeof fetch) {
-  return new AsistenteGeminiEnPre(
+  return new AsistenteGemini(
     new AsistentePorReglas(
       new InMemoryRecursoApoyoRepository(),
       new InMemoryActivityResultRepository(),
@@ -27,12 +27,12 @@ function cuerpoDe(tipo: string, mensaje: string): Response {
   });
 }
 
-describe('AsistenteGeminiEnPre', () => {
+describe('AsistenteGemini', () => {
   it('nunca envia una senal de crisis a Gemini', async () => {
     let llamadas = 0;
     const http: typeof fetch = () => {
       llamadas++;
-      return Promise.resolve(cuerpoDe('bienestar', 'No debe mostrarse.'));
+      return Promise.resolve(cuerpoDe('salud', 'No debe mostrarse.'));
     };
     const respuesta = await crear(http).responder({
       userId: USUARIO,
@@ -53,9 +53,7 @@ describe('AsistenteGeminiEnPre', () => {
   ])(
     'una senal de crisis con invisibles (%s) tampoco llega a Gemini (SCRUM-318)',
     async (_caso, texto) => {
-      const http = vi.fn<typeof fetch>(() =>
-        Promise.resolve(cuerpoDe('bienestar', 'No debe verse.')),
-      );
+      const http = vi.fn<typeof fetch>(() => Promise.resolve(cuerpoDe('salud', 'No debe verse.')));
       const respuesta = await crear(http).responder({
         userId: USUARIO,
         zonaHoraria: 'America/Bogota',
@@ -72,7 +70,7 @@ describe('AsistenteGeminiEnPre', () => {
     let llamadas = 0;
     const http: typeof fetch = () => {
       llamadas++;
-      return Promise.resolve(cuerpoDe('bienestar', 'Prueba.'));
+      return Promise.resolve(cuerpoDe('salud', 'Prueba.'));
     };
     const asistente = crear(http);
 
@@ -91,9 +89,9 @@ describe('AsistenteGeminiEnPre', () => {
     const http: typeof fetch = (url) => {
       llamadas++;
       expect(url).toBe(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
       );
-      return Promise.resolve(cuerpoDe('bienestar', 'Haz una pausa breve.'));
+      return Promise.resolve(cuerpoDe('salud', 'Haz una pausa breve.'));
     };
     const respuesta = await crear(http).responder({
       userId: OTRO,
@@ -114,7 +112,7 @@ describe('AsistenteGeminiEnPre', () => {
       return Promise.resolve(
         urls.length === 1
           ? new Response('', { status: 404 })
-          : cuerpoDe('bienestar', 'Prueba con una tarea a la vez.'),
+          : cuerpoDe('salud', 'Prueba con una tarea a la vez.'),
       );
     };
 
@@ -125,7 +123,7 @@ describe('AsistenteGeminiEnPre', () => {
     });
 
     expect(urls).toEqual([
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
     ]);
     expect(cuerpos[0]).toBe(cuerpos[1]);
@@ -147,14 +145,15 @@ describe('AsistenteGeminiEnPre', () => {
     });
 
     expect(llamadas).toBe(2);
-    expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-404');
+    expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+    expect(respuesta.sugerencias.length).toBeGreaterThan(0);
   });
 
   it('no consulta a Gemini si solo se escribio la marca de prueba', async () => {
     let llamadas = 0;
     const http: typeof fetch = () => {
       llamadas++;
-      return Promise.resolve(cuerpoDe('bienestar', 'No debe mostrarse.'));
+      return Promise.resolve(cuerpoDe('salud', 'No debe mostrarse.'));
     };
 
     await crear(http).responder({
@@ -171,7 +170,7 @@ describe('AsistenteGeminiEnPre', () => {
     const http: typeof fetch = (_url, opciones) => {
       cuerpo = typeof opciones?.body === 'string' ? opciones.body : '';
       return Promise.resolve(
-        cuerpoDe('bienestar', 'Prueba con una pausa breve y vuelve a una tarea a la vez.'),
+        cuerpoDe('salud', 'Prueba con una pausa breve y vuelve a una tarea a la vez.'),
       );
     };
     const respuesta = await crear(http).responder({
@@ -196,7 +195,7 @@ describe('AsistenteGeminiEnPre', () => {
               content: {
                 parts: [
                   { thought: true, text: 'Razonamiento interno.' },
-                  { text: JSON.stringify({ tipo: 'bienestar', mensaje: 'Haz una pausa breve.' }) },
+                  { text: JSON.stringify({ tipo: 'salud', mensaje: 'Haz una pausa breve.' }) },
                 ],
               },
             },
@@ -213,7 +212,7 @@ describe('AsistenteGeminiEnPre', () => {
     expect(respuesta.mensaje).toBe('Haz una pausa breve.');
   });
 
-  it('registra solo el estado HTTP cuando Gemini rechaza la solicitud', async () => {
+  it('registra solo el estado HTTP y vuelve a las reglas cuando Gemini rechaza la solicitud', async () => {
     const advertencia = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     try {
       let llamadas = 0;
@@ -227,12 +226,12 @@ describe('AsistenteGeminiEnPre', () => {
         texto: '[PRUEBA] Un personaje ficticio se distrae al estudiar.',
       });
 
-      expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
-      expect(respuesta.mensaje).toContain('PRE-GEMINI-HTTP-403');
+      expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+      expect(respuesta.sugerencias.length).toBeGreaterThan(0);
       expect(respuesta.mensaje).not.toContain('clave-de-prueba');
       expect(respuesta.mensaje).not.toContain('Un personaje ficticio');
       expect(llamadas).toBe(1);
-      expect(advertencia).toHaveBeenCalledWith('Gemini PRE: respuesta_http (403)');
+      expect(advertencia).toHaveBeenCalledWith('Gemini: respuesta_http (403)');
     } finally {
       advertencia.mockRestore();
     }
@@ -250,7 +249,8 @@ describe('AsistenteGeminiEnPre', () => {
     });
 
     expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
-    expect(respuesta.mensaje).toContain('bienestar, emociones y cognición');
+    expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+    expect(respuesta.sugerencias.length).toBeGreaterThan(0);
     expect(respuesta.mensaje).not.toContain('instrucciones');
     expect(respuesta.recursos).toEqual([]);
   });
@@ -273,9 +273,9 @@ describe('AsistenteGeminiEnPre', () => {
     Response.json({
       candidates: [{ content: { parts: [{ text: '{"tipo":"desconocido","mensaje":"x"}' }] } }],
     }),
-    cuerpoDe('bienestar', ''),
-    cuerpoDe('bienestar', 'Llama al +57 123 456 7890'),
-    cuerpoDe('bienestar', 'Visita https://ejemplo.test'),
+    cuerpoDe('salud', ''),
+    cuerpoDe('salud', 'Llama al +57 123 456 7890'),
+    cuerpoDe('salud', 'Visita https://ejemplo.test'),
   ])('descarta una salida vacia, invalida o con contactos inventados', async (salida) => {
     const http: typeof fetch = () => Promise.resolve(salida.clone());
     const respuesta = await crear(http).responder({
@@ -284,7 +284,8 @@ describe('AsistenteGeminiEnPre', () => {
       texto: '[PRUEBA] Pregunta ficticia sobre bienestar',
     });
 
-    expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+    expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+    expect(respuesta.sugerencias.length).toBeGreaterThan(0);
   });
 
   it('falla de forma visible si la API no esta disponible', async () => {
@@ -295,7 +296,8 @@ describe('AsistenteGeminiEnPre', () => {
       texto: 'Un personaje ficticio se distrae al estudiar. ¿Qué hábito puede probar?',
     });
 
-    expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+    expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+    expect(respuesta.sugerencias.length).toBeGreaterThan(0);
   });
 
   it('falla de forma visible si la conexion se interrumpe', async () => {
@@ -306,6 +308,7 @@ describe('AsistenteGeminiEnPre', () => {
       texto: '[PRUEBA] Pregunta ficticia sobre bienestar',
     });
 
-    expect(respuesta.mensaje).toContain('No pude generar una respuesta de prueba');
+    expect(respuesta.intencion).toBe(Intencion.NO_RECONOCIDA);
+    expect(respuesta.sugerencias.length).toBeGreaterThan(0);
   });
 });

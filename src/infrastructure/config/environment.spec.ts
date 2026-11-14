@@ -9,15 +9,14 @@ const VALIDA = {
 };
 
 describe('validarConfiguracion', () => {
-  describe('Gemini en PRE', () => {
-    it.each(['development', 'production'])('rechaza la clave de prueba en %s', (ambiente) => {
+  describe('Gemini', () => {
+    it('rechaza la clave productiva en desarrollo', () => {
       expect(() =>
         validarConfiguracion({
           ...VALIDA,
-          NODE_ENV: ambiente,
-          GEMINI_PRE_API_KEY: 'de-prueba',
+          GEMINI_API_KEY: 'de-prueba',
         }),
-      ).toThrow(/preproduction/);
+      ).toThrow(/preproduction o production/);
     });
 
     it('habilita Gemini para las cuentas autenticadas de PRE con la clave', () => {
@@ -29,7 +28,33 @@ describe('validarConfiguracion', () => {
         GEMINI_PRE_API_KEY: 'clave-de-prueba',
       });
 
-      expect(configuracion.geminiEnPre?.clave).toBe('clave-de-prueba');
+      expect(configuracion.gemini?.clave).toBe('clave-de-prueba');
+    });
+
+    it('habilita Gemini en produccion y conserva las reglas como respaldo', () => {
+      const configuracion = validarConfiguracion({
+        ...VALIDA,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://health.vsdc.app',
+        DATABASE_URL: 'postgresql://x:y@z:5432/db',
+        SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
+        GEMINI_API_KEY: 'clave-productiva-de-prueba',
+      });
+
+      expect(configuracion.gemini?.clave).toBe('clave-productiva-de-prueba');
+    });
+
+    it('no permite configurar a la vez la clave nueva y la anterior', () => {
+      expect(() =>
+        validarConfiguracion({
+          ...VALIDA,
+          NODE_ENV: 'preproduction',
+          DATABASE_URL: 'postgresql://x:y@z:5432/db',
+          SUPABASE_SERVICE_ROLE_KEY: 'clave-de-servicio-de-prueba',
+          GEMINI_API_KEY: 'nueva',
+          GEMINI_PRE_API_KEY: 'anterior',
+        }),
+      ).toThrow(/no las dos/);
     });
   });
 

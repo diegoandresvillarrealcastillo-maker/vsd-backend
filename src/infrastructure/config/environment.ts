@@ -195,7 +195,9 @@ const esquema = z
     // ella se usa una clave al azar por arranque, y las huellas no se pueden
     // comparar entre un despliegue y otro.
     REGISTRO_SEGURIDAD_CLAVE_IP: z.string().trim().optional(),
-    // Solo PRE: una clave gratuita para las cuentas autenticadas del ambiente.
+    // Clave del asistente generativo. Vive solo en el backend.
+    GEMINI_API_KEY: z.string().trim().optional(),
+    // Nombre anterior, conservado para que PRE no se rompa durante la migracion.
     GEMINI_PRE_API_KEY: z.string().trim().optional(),
   })
   .superRefine((valores, ctx) => {
@@ -252,15 +254,28 @@ const esquema = z
 
     validarElRegistroDeSeguridad(valores, ctx);
 
-    const claveGemini = valores.GEMINI_PRE_API_KEY ?? '';
-    if (claveGemini !== '') {
-      if (valores.NODE_ENV !== Ambiente.PREPRODUCCION) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['GEMINI_PRE_API_KEY'],
-          message: 'La prueba de Gemini solo se permite en preproduction.',
-        });
-      }
+    const claveGemini = valores.GEMINI_API_KEY ?? '';
+    const claveGeminiEnPre = valores.GEMINI_PRE_API_KEY ?? '';
+    if (claveGemini !== '' && claveGeminiEnPre !== '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GEMINI_API_KEY'],
+        message: 'Configura GEMINI_API_KEY o GEMINI_PRE_API_KEY, no las dos.',
+      });
+    }
+    if (claveGeminiEnPre !== '' && valores.NODE_ENV !== Ambiente.PREPRODUCCION) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GEMINI_PRE_API_KEY'],
+        message: 'GEMINI_PRE_API_KEY solo se permite en preproduction; usa GEMINI_API_KEY.',
+      });
+    }
+    if (claveGemini !== '' && valores.NODE_ENV === Ambiente.DESARROLLO) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GEMINI_API_KEY'],
+        message: 'GEMINI_API_KEY solo se permite en preproduction o production.',
+      });
     }
 
     if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
@@ -306,11 +321,11 @@ export interface Configuracion {
   readonly vapid: ClavesVapid | undefined;
   /** Registro de eventos de seguridad (SCRUM-163). */
   readonly registroDeSeguridad: AjustesDelRegistroDeSeguridad;
-  /** Gemini gratis solo para sesiones autenticadas en PRE. */
-  readonly geminiEnPre: AjustesGeminiEnPre | undefined;
+  /** Gemini para preguntas de salud no reconocidas; las reglas son el respaldo. */
+  readonly gemini: AjustesGemini | undefined;
 }
 
-export interface AjustesGeminiEnPre {
+export interface AjustesGemini {
   readonly clave: string;
 }
 
@@ -373,6 +388,7 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     REGISTRO_SEGURIDAD_TOKEN,
     REGISTRO_SEGURIDAD_CABECERA,
     REGISTRO_SEGURIDAD_CLAVE_IP,
+    GEMINI_API_KEY,
     GEMINI_PRE_API_KEY,
   } = resultado.data;
 
@@ -414,7 +430,9 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
       claveDeIp:
         (REGISTRO_SEGURIDAD_CLAVE_IP ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_CLAVE_IP,
     },
-    geminiEnPre:
-      (GEMINI_PRE_API_KEY ?? '') === '' ? undefined : { clave: GEMINI_PRE_API_KEY ?? '' },
+    gemini:
+      (GEMINI_API_KEY ?? GEMINI_PRE_API_KEY ?? '') === ''
+        ? undefined
+        : { clave: GEMINI_API_KEY ?? GEMINI_PRE_API_KEY ?? '' },
   };
 }

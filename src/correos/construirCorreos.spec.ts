@@ -41,7 +41,32 @@ const VARIABLES_PROPIAS: Readonly<Record<string, readonly string[]>> = {
 
 /** Sin los comentarios condicionales de Outlook, que son otro documento para otro motor. */
 function sinCondicionales(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, '');
+  let visible = '';
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const inicio = html.indexOf('<!--', cursor);
+
+    if (inicio === -1) {
+      visible += html.slice(cursor);
+      break;
+    }
+
+    visible += html.slice(cursor, inicio);
+    const cierreNormal = html.indexOf('-->', inicio + 4);
+    const cierreAlternativo = html.indexOf('--!>', inicio + 4);
+    const cierre =
+      cierreNormal === -1
+        ? cierreAlternativo
+        : cierreAlternativo === -1
+          ? cierreNormal
+          : Math.min(cierreNormal, cierreAlternativo);
+
+    if (cierre === -1) break;
+    cursor = cierre + (html.startsWith('--!>', cierre) ? 4 : 3);
+  }
+
+  return visible;
 }
 
 /** Las variables de Supabase que usa un correo, sin los espacios. */
@@ -112,7 +137,7 @@ describe('los correos generados', () => {
     it('no deja marcadores sin reemplazar ni comentarios de mantenimiento', () => {
       expect(html).not.toContain('%%');
       expect(html).not.toContain('plantilla maestra');
-      expect(html).not.toMatch(/<!--(?!\[if)/);
+      expect(sinCondicionales(html)).not.toContain('<!--');
     });
 
     it('lleva el asunto como titulo del documento, en espanol y con su doctype', () => {

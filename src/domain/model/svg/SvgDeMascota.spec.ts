@@ -679,6 +679,12 @@ describe('SvgDeMascota (SCRUM-122)', () => {
   });
 
   describe('lo demasiado complejo', () => {
+    it('rechaza una transformacion larga antes de recorrerla', () => {
+      const repetida = 'scale(+) '.repeat(300);
+
+      expect(rechazo(svg(`<g transform="${repetida}"/>`))).toBe('no-admitido');
+    });
+
     it('anidado mas alla del limite', () => {
       const abiertos = '<g>'.repeat(PROFUNDIDAD_MAXIMA);
 
@@ -757,7 +763,10 @@ describe('SvgDeMascota (SCRUM-122)', () => {
           svg('<!-- y --><g/>'),
       );
 
-      expect(resultado).not.toMatch(/<\?|<!|-->/);
+      expect(resultado).not.toContain('<?');
+      expect(resultado).not.toContain('<!DOCTYPE');
+      expect(resultado).not.toContain('<!--');
+      expect(resultado).not.toContain('-->');
     });
 
     it('lo escapa todo lo que escribe', () => {

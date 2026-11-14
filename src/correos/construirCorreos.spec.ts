@@ -75,12 +75,54 @@ function variablesDe(html: string): string[] {
 }
 
 function textoVisible(html: string): string {
-  return sinCondicionales(html)
-    .replace(/<style[\s\S]*?<\/style>/g, '')
-    .replace(/<title>[\s\S]*?<\/title>/g, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&[a-z#0-9]+;/g, ' ')
-    .replace(/\s+/g, ' ');
+  const fuente = sinCondicionales(html);
+  const normalizado = fuente.toLowerCase();
+  const fragmentos: string[] = [];
+  let cursor = 0;
+
+  while (cursor < fuente.length) {
+    if (fuente[cursor] === '<') {
+      const finDeEtiqueta = fuente.indexOf('>', cursor + 1);
+
+      if (finDeEtiqueta === -1) break;
+
+      const despuesDelNombre = normalizado[finDeEtiqueta - 1];
+      const ignorable = ['style', 'title'].find((nombre) => {
+        const prefijo = `<${nombre}`;
+        const siguiente = normalizado[cursor + prefijo.length];
+
+        return (
+          normalizado.startsWith(prefijo, cursor) &&
+          (siguiente === '>' || siguiente === '/' || /\s/.test(siguiente ?? ''))
+        );
+      });
+
+      if (ignorable && despuesDelNombre !== '/') {
+        const cierre = normalizado.indexOf(`</${ignorable}`, finDeEtiqueta + 1);
+        const finDeCierre = cierre === -1 ? -1 : fuente.indexOf('>', cierre + ignorable.length + 2);
+        cursor = finDeCierre === -1 ? fuente.length : finDeCierre + 1;
+      } else {
+        cursor = finDeEtiqueta + 1;
+      }
+
+      continue;
+    }
+
+    if (fuente[cursor] === '&') {
+      const finDeEntidad = fuente.indexOf(';', cursor + 1);
+
+      if (finDeEntidad !== -1 && finDeEntidad - cursor <= 32) {
+        fragmentos.push(' ');
+        cursor = finDeEntidad + 1;
+        continue;
+      }
+    }
+
+    fragmentos.push(fuente[cursor]!);
+    cursor += 1;
+  }
+
+  return fragmentos.join('').replace(/\s+/g, ' ');
 }
 
 describe('los correos generados', () => {

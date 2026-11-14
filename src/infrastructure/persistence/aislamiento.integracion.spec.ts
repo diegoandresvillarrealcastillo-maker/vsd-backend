@@ -1,11 +1,7 @@
-// Vitest no lee `.env` por su cuenta, y estas pruebas necesitan saber si hay
-// una base local a la que conectarse. Se carga aqui y no en una configuracion
-// global a proposito: el resto de la suite debe seguir corriendo con el
-// entorno que cada archivo se prepara, sin heredar la maquina de quien ejecuta.
-import 'dotenv/config';
-
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * Aislamiento entre personas, comprobado contra PostgreSQL de verdad.
@@ -25,7 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  *
  * ## Cuando se ejecutan
  *
- * Solo si hay `DATABASE_URL`. En una maquina sin base local la suite pasa sin
+ * Solo si hay `TEST_DATABASE_URL`. En una maquina sin base local la suite pasa sin
  * estas pruebas, y eso es deliberado: obligar a levantar PostgreSQL para
  * cambiar una linea de dominio acabaria con alguien comentando la suite.
  *
@@ -33,8 +29,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * cualquier otro ambiente, `vsd_app` recibe la suya a mano y nunca pasa por
  * Git: la migracion crea el rol sin contrasena justamente para eso.
  */
-const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 // Donde estas pruebas son obligatorias no se permite saltarlas. Una prueba de
 // seguridad que se ignora sola es peor que no tenerla: el trabajo sale en verde
@@ -45,7 +40,7 @@ const CLAVE_LOCAL = 'clave_de_pruebas_locales';
 // justo lo correcto.
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_DUENO === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }
@@ -152,7 +147,7 @@ describe.skipIf(URL_DUENO === undefined)('Aislamiento impuesto por PostgreSQL', 
     // La migracion crea `vsd_app` sin poder conectarse, a proposito: una
     // contrasena versionada en Git es una contrasena publicada. Aqui se le da
     // una que solo vale para esta base local.
-    await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+    await prepararRolDeLaAplicacion(dueno);
 
     await limpiar(dueno);
     await sembrar(dueno);
@@ -372,22 +367,64 @@ describe.skipIf(URL_DUENO === undefined)('Aislamiento impuesto por PostgreSQL', 
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
          AND c.relkind = 'r'
-         AND c.relname NOT LIKE '\\_prisma%'
          AND c.relrowsecurity = false`,
     );
 
+    // Tampoco se salva `_prisma_migrations`: la crea Prisma, pero queda en
+    // `public`, y con la API REST de Supabase activa quien tenga la clave
+    // publica podria leerla o alterarla (aviso del asesor de seguridad).
     expect(rows.map((fila) => fila.tablename)).toEqual([]);
+  });
+
+  it('las funciones vsd_* fijan su search_path', async () => {
+    // Sin `search_path` fijo, una funcion resuelve los nombres con el de quien
+    // la llama, y alguien con permiso para crear objetos podria ponerse delante
+    // de lo que ella cree estar usando. Una funcion nueva sin esto falla aqui.
+    const { rows } = await dueno.query<{ proname: string }>(
+      `SELECT p.proname
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
+         AND p.proname LIKE 'vsd\\_%'
+         AND NOT COALESCE(p.proconfig::text LIKE '%search_path=%', false)`,
+    );
+
+    expect(rows.map((fila) => fila.proname)).toEqual([]);
+  });
+
+  it('los roles publicos de Supabase no tocan la tabla de migraciones', async () => {
+    // `anon` y `authenticated` solo existen en Supabase: en una base local no
+    // hay nada que comprobar, y eso es correcto.
+    const { rows } = await dueno.query<{ rolname: string }>(
+      `SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')`,
+    );
+
+    for (const { rolname } of rows) {
+      const { rows: permisos } = await dueno.query<{ puede: boolean }>(
+        `SELECT has_table_privilege($1, 'public._prisma_migrations', 'SELECT, INSERT, UPDATE, DELETE') AS puede`,
+        [rolname],
+      );
+
+      expect(permisos[0]?.puede, rolname).toBe(false);
+    }
   });
 
   it('las tablas con datos personales ademas fuerzan las politicas al dueno', async () => {
     // Sin FORCE, bastaria con conectar la aplicacion con el usuario de las
     // migraciones para que el aislamiento desapareciera sin dar ningun error.
     const { rows } = await dueno.query<{ relname: string }>(
+      // Toda tabla con `id_usuario` guarda algo de una persona. No se usa una
+      // lista escrita a mano: asi una tabla nueva sin FORCE, como la de
+      // pendientes antes de su migracion (SCRUM-97), falla aqui sola.
       `SELECT c.relname
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public'
-         AND c.relname IN ('usuario', 'resultado', 'entrada_diario')
+         AND c.relkind = 'r'
+         AND EXISTS (SELECT 1 FROM information_schema.columns col
+                      WHERE col.table_schema = 'public'
+                        AND col.table_name = c.relname
+                        AND col.column_name = 'id_usuario')
          AND c.relforcerowsecurity = false`,
     );
 

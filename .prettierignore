@@ -1,8 +1,18 @@
 dist/
 coverage/
+coverage-integracion/
 node_modules/
 package-lock.json
 
 # Prettier no sabe interpretar los archivos de peticiones HTTP.
 *.http
 openapi.json
+
+# Los correos van con los estilos dentro de cada etiqueta y los espacios que Outlook
+# necesita; Prettier los reescribiria. Los generados se comparan byte a byte con
+# lo que produce `npm run correos`.
+correos/**/*.html
+
+# El contrato de las reglas locales del asistente (SCRUM-141) es un archivo generado:
+# se compara byte a byte con lo que produce la prueba, y Prettier lo reescribiria.
+docs/contratos/*.json

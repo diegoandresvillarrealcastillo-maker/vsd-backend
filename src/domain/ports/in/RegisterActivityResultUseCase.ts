@@ -1,4 +1,5 @@
 import type { ActivityResult, Metadata } from '../../model/ActivityResult.js';
+import type { RecursoApoyo } from '../../model/RecursoApoyo.js';
 
 /**
  * Orden de registrar el resultado de una actividad.
@@ -21,8 +22,43 @@ export interface RegistrarResultadoCommand {
    */
   readonly score?: number | undefined;
   readonly completedAt: Date;
+  /**
+   * La zona horaria de la persona, de su cuenta (SCRUM-123). Decide a que dia
+   * pertenece el resultado, que queda guardado y no se recalcula.
+   */
+  readonly zonaHoraria: string;
   /** Informacion propia del tipo de actividad. Ver ADR 0008. */
   readonly metadata?: Metadata | undefined;
+  /**
+   * La sesion (el contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Tiene que ser una
+   * sesion de esa actividad; una retirada despues de servirse se acepta, porque quien la tenia abierta
+   * puede terminarla.
+   */
+  readonly sessionId?: string | undefined;
+}
+
+/**
+ * Lo que devuelve registrar un resultado: el resultado y, si sugiere
+ * acompanamiento, con que acompanarlo (SCRUM-94).
+ *
+ * Las lineas viajan en la misma respuesta a proposito. Quien recibe la senal
+ * de que conviene apoyo recibe tambien los telefonos, sin depender de una
+ * segunda peticion que podria fallar justo en ese momento.
+ */
+export interface RegistroDeResultado {
+  readonly resultado: ActivityResult;
+  /**
+   * Si conviene acompanar a la persona con recursos de apoyo (SCRUM-200). Es cierto en dos casos:
+   *
+   * - **Una senal de riesgo en lo escrito**: en el momento, sin esperar a nada.
+   * - **Un patron de la semana**: el resultado de ahora requiere atencion **y** en los 7 dias que
+   *   terminan en su dia hay al menos 4 dias con atencion (`PatronDeLaSemana`).
+   *
+   * Un solo resultado que requiere atencion **no** lo es: se registra, pero no se acompana.
+   */
+  readonly sugiereAcompanamiento: boolean;
+  /** Vacia cuando `sugiereAcompanamiento` es falso. */
+  readonly lineasDeAtencion: readonly RecursoApoyo[];
 }
 
 /**
@@ -35,11 +71,12 @@ export interface RegistrarResultadoCommand {
  */
 export interface RegisterActivityResultUseCase {
   /**
-   * Registra el resultado y lo devuelve.
+   * Registra el resultado y lo devuelve, con las lineas de atencion si
+   * sugiere acompanamiento.
    *
    * La operacion es idempotente: si la misma operacion del cliente ya se
    * registro, devuelve el resultado existente en lugar de crear otro. Un
    * reintento tras una caida de red es seguro.
    */
-  execute(command: RegistrarResultadoCommand): Promise<ActivityResult>;
+  execute(command: RegistrarResultadoCommand): Promise<RegistroDeResultado>;
 }

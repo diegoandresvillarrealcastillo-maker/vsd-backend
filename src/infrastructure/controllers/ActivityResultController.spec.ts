@@ -1,18 +1,22 @@
+import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   SESIONES,
   VerificadorFalso,
   comoUsuario,
   darDeAlta,
 } from '../../pruebas/sesionDePrueba.js';
+import { ActivityId, SesionId } from '../../domain/model/Identifier.js';
+import { Revision, SesionDeActividad } from '../../domain/model/SesionDeActividad.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
-import { CONFIGURACION } from '../config/tokens.js';
+import { CONFIGURACION, SESIONES_REPOSITORY } from '../config/tokens.js';
 
 /**
  * Las dos personas con las que se prueba.
@@ -26,6 +30,10 @@ const B = 'token-de-B';
 const ACTIVIDAD = '33333333-3333-4333-a333-333333333333';
 /** Bitacora de sueno: es la actividad del catalogo que no puntua. */
 const BITACORA = '88888888-8888-4888-a888-888888888888';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /** Cada prueba usa su propia operacion para no interferir con las demas. */
 let contador = 0;
@@ -61,7 +69,9 @@ function cuerpo(extra: Record<string, unknown> = {}): Record<string, unknown> {
  * Si la prueba la configurara de otra forma, no demostraria nada sobre el
  * comportamiento real del servicio.
  */
-async function levantarAplicacion(): Promise<NestExpressApplication> {
+async function levantarAplicacion(
+  sesiones?: SesionesRepositoryPort,
+): Promise<NestExpressApplication> {
   process.env.NODE_ENV = 'test';
   process.env.CORS_ORIGIN = 'http://localhost:5173';
   // No se llega a consultar: el verificador de verdad esta sustituido. Hace
@@ -74,11 +84,13 @@ async function levantarAplicacion(): Promise<NestExpressApplication> {
   // son las de SCRUM-61 y viven aparte.
   delete process.env.DATABASE_URL;
 
-  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+  const base = Test.createTestingModule({ imports: [AppModule] })
     // Se sustituye la criptografia, no el guardia. Ver src/pruebas.
     .overrideProvider(VerificadorDeIdentidad)
-    .useClass(VerificadorFalso)
-    .compile();
+    .useClass(VerificadorFalso);
+  const modulo = await (
+    sesiones === undefined ? base : base.overrideProvider(SESIONES_REPOSITORY).useValue(sesiones)
+  ).compile();
 
   const app = modulo.createNestApplication<NestExpressApplication>({ logger: false });
 
@@ -147,13 +159,51 @@ describe('POST /api/resultados', () => {
     expect(respuesta.body).not.toHaveProperty('userId');
   });
 
-  it('sugiere acompanamiento cuando el puntaje es bajo', async () => {
+  it('un solo puntaje bajo se registra con su nivel, pero no sugiere acompanamiento ni trae lineas (SCRUM-200)', async () => {
     const respuesta = await registrarComo(app, A).send(cuerpo({ score: 2 }));
 
     expect(respuesta.body).toMatchObject({
       nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: false,
+      lineasDeAtencion: [],
+    });
+  });
+
+  it('sugiere acompanamiento con un patron de la semana (4 de 7 dias) y trae las lineas de atencion', async () => {
+    // Cuatro dias distintos, todos con un puntaje bajo, de una misma semana: del 5 al 8.
+    const dias = ['2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08'];
+    const respuestas = [];
+
+    for (const dia of dias) {
+      respuestas.push(
+        await registrarComo(app, A).send(cuerpo({ score: 2, completedAt: `${dia}T11:00:00.000Z` })),
+      );
+    }
+
+    // Los tres primeros son 1, 2 y 3 dias: no hay patron todavia.
+    expect(
+      respuestas.slice(0, 3).map((respuesta) => respuestaDe(respuesta).sugiereAcompanamiento),
+    ).toEqual([false, false, false]);
+
+    const cuarta = respuestas[3];
+    const lineas = (cuarta?.body as { lineasDeAtencion: { tipo: string; cobertura?: string }[] })
+      .lineasDeAtencion;
+
+    expect(cuarta?.body).toMatchObject({
+      nivelOrientativo: 'requiere_atencion',
       sugiereAcompanamiento: true,
     });
+    // SCRUM-94: los telefonos viajan en la misma respuesta, ordenados por
+    // alcance, sin depender de una segunda peticion.
+    expect(lineas.length).toBeGreaterThan(0);
+    expect(lineas.every((linea) => linea.tipo === 'contacto')).toBe(true);
+    expect(lineas[0]?.cobertura).toBe('nacional');
+  });
+
+  it('sin sugerencia, la lista de lineas va vacia', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 9 }));
+
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: false, lineasDeAtencion: [] });
   });
 
   it('es idempotente: el reintento devuelve el mismo resultado', async () => {
@@ -432,5 +482,201 @@ describe('POST /api/resultados de una actividad sin puntaje', () => {
     await registrarComo(app, A)
       .send(sinValorar({ metadata: { puntaje: 99 } }))
       .expect(400);
+  });
+
+  it('una senal de riesgo en el texto libre trae las lineas, y el texto no queda en ningun registro', async () => {
+    // SCRUM-94. Es "Un momento bueno del dia": no puntua, y aun asi lo escrito
+    // pasa por la misma deteccion de riesgo que el asistente.
+    const texto = 'Hoy no hubo nada bueno, ya no puedo mas con todo';
+    const anotado: string[] = [];
+
+    for (const nivel of ['log', 'warn', 'error', 'debug', 'verbose'] as const) {
+      vi.spyOn(Logger.prototype, nivel).mockImplementation((...partes: unknown[]) => {
+        anotado.push(partes.map(String).join(' '));
+      });
+    }
+
+    const respuesta = await registrarComo(app, A)
+      .send(sinValorar({ metadata: { texto } }))
+      .expect(201);
+
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: true });
+    expect(
+      (respuesta.body as { lineasDeAtencion: unknown[] }).lineasDeAtencion.length,
+    ).toBeGreaterThan(0);
+    // El registro si anoto la peticion: la prueba escucha donde de verdad se
+    // escribe, y aun asi el texto no aparece.
+    await vi.waitFor(() => expect(anotado.join('\n')).toContain('POST /api/resultados 201'));
+    expect(anotado.join('\n')).not.toContain('ya no puedo');
+    expect(anotado.join('\n')).not.toContain('nada bueno');
+  });
+});
+
+describe('POST /api/resultados con la sesion que se hizo (ADR 0030)', () => {
+  let app: NestExpressApplication;
+
+  const SESION_DE_LA_ACTIVIDAD = '77777777-7777-4777-a777-777777777777';
+  const SESION_DE_OTRA = '88888888-8888-4888-a888-777777777777';
+  const RETIRADA = '99999999-9999-4999-a999-777777777777';
+
+  function sesion(id: string, deLaActividad: string, publicado = true): SesionDeActividad {
+    return SesionDeActividad.create({
+      id: new SesionId(id),
+      idActividad: new ActivityId(deLaActividad),
+      titulo: 'Una sesión',
+      nivel: 1,
+      parametros: {},
+      publicado,
+      revision: Revision.NO_REQUIERE,
+    });
+  }
+
+  /** Un doble con tres sesiones: lo unico que usa registrar un resultado es `porId`. */
+  const sesiones: SesionesRepositoryPort = {
+    porId: (id) =>
+      Promise.resolve(
+        [
+          sesion(SESION_DE_LA_ACTIVIDAD, ACTIVIDAD),
+          sesion(SESION_DE_OTRA, BITACORA),
+          sesion(RETIRADA, ACTIVIDAD, false),
+        ].find((una) => una.id.value === id.value) ?? null,
+      ),
+    mecanicasConSesion: () => Promise.resolve(new Set()),
+    sesionesDeHoy: () => Promise.resolve(new Map()),
+    titulosDe: () => Promise.resolve(new Map()),
+  };
+
+  beforeAll(async () => {
+    app = await levantarAplicacion(sesiones);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('registra el resultado de una sesion de esa actividad y devuelve 201', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: SESION_DE_LA_ACTIVIDAD }),
+    );
+
+    expect(respuesta.status).toBe(201);
+    expect(respuesta.body).toMatchObject({ activityId: ACTIVIDAD });
+  });
+
+  it('una sesion retirada despues de servirse tambien se acepta', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: RETIRADA }));
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('una sesion de otra actividad es 400, con el codigo del dominio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: SESION_DE_OTRA }));
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD' });
+  });
+
+  it('una sesion que no existe es 400 con el mismo codigo: no revela cual de las dos cosas pasa', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa' }),
+    );
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD' });
+  });
+
+  it('un identificador de sesion que no es un UUID es 400 por la validacion del cuerpo', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ idSesion: 'no-es-un-uuid' }));
+
+    expect(respuesta.status).toBe(400);
+    expect(JSON.stringify(respuesta.body)).toContain('idSesion');
+  });
+
+  it('sin idSesion todo sigue como antes: un cliente anterior no se entera', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo());
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('la respuesta no devuelve el identificador de la sesion', async () => {
+    const respuesta = await registrarComo(app, A).send(
+      cuerpo({ idSesion: SESION_DE_LA_ACTIVIDAD }),
+    );
+
+    expect(JSON.stringify(respuesta.body)).not.toContain(SESION_DE_LA_ACTIVIDAD);
+  });
+});
+
+describe('POST /api/resultados con el puntaje de una partida a medias (SCRUM-240)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // «Une los puntos en orden» y «Recuerda la lista» escalan lo logrado al maximo de la actividad y redondean
+  // a dos decimales (la escala de la columna): 3 puntos tocados de 8, en una escala de 10, son 3,75. Una
+  // partida completa da siempre un entero; una a medias, o la de quien para antes, casi nunca.
+  it.each([3.75, 5.33, 0.5, 9.99, 10])(
+    'acepta el puntaje %s, con sus decimales, y lo trae con su nivel',
+    async (puntaje) => {
+      const respuesta = await registrarComo(app, A).send(cuerpo({ score: puntaje }));
+
+      expect(respuesta.status).toBe(201);
+      expect(['favorable', 'en_seguimiento', 'requiere_atencion']).toContain(
+        respuestaDe(respuesta).nivelOrientativo,
+      );
+    },
+  );
+
+  it('el nivel de un puntaje con decimales es el que le toca por su valor, no por redondearlo', async () => {
+    // En una escala de 10 donde mas es mejor, 9,99 es lo mismo que casi 10 y 0,5 lo mismo que casi 0.
+    const alto = await registrarComo(app, A).send(cuerpo({ score: 9.99 }));
+    const bajo = await registrarComo(app, A).send(cuerpo({ score: 0.5 }));
+
+    expect(respuestaDe(alto).nivelOrientativo).toBe('favorable');
+    expect(respuestaDe(bajo).nivelOrientativo).toBe('requiere_atencion');
+  });
+
+  it('rechaza mas de dos decimales: la columna guarda dos y no se redondea en silencio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 3.751 }));
+
+    expect(respuesta.status).toBe(400);
+    expect(JSON.stringify(respuesta.body)).toContain('score');
+  });
+
+  it('sigue rechazando un puntaje negativo', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: -0.5 }));
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('sigue rechazando lo que no es un numero', async () => {
+    for (const score of ['3.75', null, true, [3], { valor: 3 }]) {
+      const respuesta = await registrarComo(app, A).send(cuerpo({ score }));
+
+      expect(respuesta.status, JSON.stringify(score)).toBe(400);
+    }
+  });
+
+  it('un puntaje con decimales por encima del maximo se rechaza con el codigo del dominio', async () => {
+    const respuesta = await registrarComo(app, A).send(cuerpo({ score: 10.01 }));
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toMatchObject({ codigo: 'PUNTAJE_FUERA_DE_RANGO' });
+  });
+
+  it('reintentar la misma operacion con decimales no duplica el resultado', async () => {
+    const fijo = cuerpo({ score: 3.75 });
+
+    const primera = await registrarComo(app, A).send(fijo);
+    const segunda = await registrarComo(app, A).send(fijo);
+
+    expect(segunda.status).toBe(201);
+    expect((segunda.body as { id: string }).id).toBe((primera.body as { id: string }).id);
   });
 });

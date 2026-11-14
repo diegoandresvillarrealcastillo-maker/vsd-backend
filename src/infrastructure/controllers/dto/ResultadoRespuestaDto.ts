@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { ActivityResult, Metadata } from '../../../domain/model/ActivityResult.js';
+import type { RecursoApoyo } from '../../../domain/model/RecursoApoyo.js';
+import { RecursoDto } from './RecursoDto.js';
 
 /**
  * Forma del resultado tal y como sale por HTTP.
@@ -24,9 +26,17 @@ export class ResultadoRespuestaDto {
   nivelOrientativo?: string;
 
   @ApiProperty({
-    description: 'Indica si conviene mostrar recursos de apoyo profesional junto al resultado.',
+    description:
+      'Indica si conviene mostrar recursos de apoyo profesional junto al resultado: porque lo escrito trae una señal de riesgo (en el momento), o porque el resultado requiere atención y la semana tiene un patrón (al menos 4 de los últimos 7 días con atención). Un solo resultado que requiere atención no lo es: nivelOrientativo lo dice y esto es falso.',
   })
   sugiereAcompanamiento!: boolean;
+
+  @ApiProperty({
+    description:
+      'Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.',
+    type: [RecursoDto],
+  })
+  lineasDeAtencion!: RecursoDto[];
 
   @ApiProperty({
     description:
@@ -50,7 +60,15 @@ export class ResultadoRespuestaDto {
    * calificacion sobre uno mismo, y esta aplicacion existe para acompanar y no
    * para calificar. Ver docs/modelo-de-datos.md.
    */
-  static desde(resultado: ActivityResult): ResultadoRespuestaDto {
+  static desde(
+    resultado: ActivityResult,
+    lineasDeAtencion: readonly RecursoApoyo[] = [],
+    /**
+     * Lo que decidio el caso de uso (SCRUM-200). Sin el, es lo que el resultado sugiere por si
+     * solo: asi lo usa la exportacion de datos, que es un registro y no un mensaje.
+     */
+    sugiereAcompanamiento: boolean = resultado.sugiereAcompanamientoPorSiSolo(),
+  ): ResultadoRespuestaDto {
     const dto = new ResultadoRespuestaDto();
 
     dto.id = resultado.id.value;
@@ -60,7 +78,8 @@ export class ResultadoRespuestaDto {
       dto.nivelOrientativo = resultado.score.level;
     }
 
-    dto.sugiereAcompanamiento = resultado.sugiereAcompanamiento();
+    dto.sugiereAcompanamiento = sugiereAcompanamiento;
+    dto.lineasDeAtencion = lineasDeAtencion.map((linea) => RecursoDto.desde(linea));
     dto.metadata = resultado.metadata;
     dto.completedAt = resultado.completedAt.toISOString();
 

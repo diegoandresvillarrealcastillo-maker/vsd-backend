@@ -71,7 +71,7 @@ async function arrancar(): Promise<void> {
   registro.log(`VSD Health API escuchando en el puerto ${configuracion.puerto}`);
   registro.log(`Ambiente: ${configuracion.ambiente}`);
 
-  if (!configuracion.esProduccion) {
+  if (configuracion.ambiente === Ambiente.DESARROLLO) {
     registro.log(`Documentacion disponible en http://localhost:${configuracion.puerto}/api/docs`);
   }
 }

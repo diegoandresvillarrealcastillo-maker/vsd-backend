@@ -6,7 +6,7 @@ momento.
 
 | Archivo                               | Que es                                     |
 | ------------------------------------- | ------------------------------------------ |
-| `vsd-health.postman_collection.json`  | Las 16 peticiones, con sus comprobaciones. |
+| `vsd-health.postman_collection.json`  | Las 21 peticiones, con sus comprobaciones. |
 | `vsd-health.postman_environment.json` | Las variables. Se versiona con marcadores. |
 
 ## Que hace distinto
@@ -20,7 +20,17 @@ sintoma de que caduco es que todo empieza a responder 401 de golpe sin que
 nadie haya tocado nada. Con este esquema, se vuelve a lanzar la peticion 0 y
 listo.
 
-**Cada peticion comprueba su propio resultado.** Son 44 comprobaciones
+**Las versiones del aviso y de los terminos tampoco se escriben a mano.** Las
+dos peticiones de alta las piden antes a `GET /api/aviso` y las guardan en
+`versionAviso` y `versionTerminos`. La API es la unica fuente de esos valores:
+el dia que un texto cambie, la coleccion sigue valiendo sin tocarla.
+
+**El alta manda una fecha de adulto, a proposito.** La plataforma es solo para
+mayores de 18 anos, y un menor no solo es rechazado: se borra su identidad en
+Supabase (ADR 0021). Por eso no hay una peticion de ejemplo con una fecha de
+menor. Mandarla desde aqui borraria la cuenta con la que se inicio sesion.
+
+**Cada peticion comprueba su propio resultado.** Son 56 comprobaciones
 automaticas, asi que la coleccion se puede ejecutar entera y mostrar el
 resultado en lugar de ir pulsando botones uno por uno.
 

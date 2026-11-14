@@ -36,6 +36,7 @@ function unResultado(
     clientOperationId: new ClientOperationId(operacion),
     score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    dia: '2026-09-14',
   });
 }
 
@@ -86,8 +87,268 @@ describe('InMemoryActivityResultRepository', () => {
     expect(repositorio.cantidad).toBe(2);
   });
 
+  it('guardar dos veces la misma operacion de la misma persona devuelve la primera y no la pisa', async () => {
+    const primera = unResultado();
+    const repetida = unResultado(OPERACION, USUARIO, OTRO_RESULTADO);
+
+    expect(await repositorio.save(primera)).toBe(primera);
+    expect(await repositorio.save(repetida)).toBe(primera);
+
+    expect(repositorio.cantidad).toBe(1);
+
+    const guardada = await repositorio.findByClientOperationId(
+      new ClientOperationId(OPERACION),
+      new UserId(USUARIO),
+    );
+
+    expect(guardada?.id.value).toBe(RESULTADO);
+  });
+
   it('empieza vacio', () => {
     expect(repositorio.cantidad).toBe(0);
+  });
+
+  describe('hayActividadDesde (SCRUM-160)', () => {
+    const HECHO = new Date('2026-09-14T11:00:00.000Z');
+
+    it('dice que si cuando hay un resultado desde esa fecha', async () => {
+      await repositorio.save(unResultado());
+
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), HECHO)).toBe(true);
+      expect(
+        await repositorio.hayActividadDesde(new UserId(USUARIO), new Date('2026-09-14T00:00:00Z')),
+      ).toBe(true);
+    });
+
+    it('dice que no si el resultado es anterior a la fecha', async () => {
+      await repositorio.save(unResultado());
+
+      expect(
+        await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(HECHO.getTime() + 1)),
+      ).toBe(false);
+    });
+
+    it('dice que no si la persona no hizo nada', async () => {
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(0))).toBe(false);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await repositorio.save(unResultado(OPERACION, OTRO_USUARIO, OTRO_RESULTADO));
+
+      expect(await repositorio.hayActividadDesde(new UserId(USUARIO), new Date(0))).toBe(false);
+    });
+
+    it('coincide con lo que dice ultimosDe', async () => {
+      await repositorio.save(unResultado());
+
+      for (const desde of [new Date(0), HECHO, new Date(HECHO.getTime() + 1)]) {
+        const lista = await repositorio.ultimosDe(new UserId(USUARIO), desde);
+
+        expect(await repositorio.hayActividadDesde(new UserId(USUARIO), desde)).toBe(
+          lista.length > 0,
+        );
+      }
+    });
+  });
+
+  describe('diasConActividad (SCRUM-186)', () => {
+    /** Un resultado de otro dia: cambia la operacion, el resultado y el dia guardado. */
+    function enElDia(dia: string, operacion: string, resultado: string, usuario = USUARIO) {
+      return ActivityResult.create({
+        id: new ResultId(resultado),
+        userId: new UserId(usuario),
+        activityId: new ActivityId(ACTIVIDAD),
+        clientOperationId: new ClientOperationId(operacion),
+        score: OrientativeScore.create(8, actividad()),
+        completedAt: new Date(`${dia}T15:00:00.000Z`),
+        dia,
+      });
+    }
+
+    const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+
+    it('devuelve los dias sin repetir y del mas antiguo al mas reciente', async () => {
+      await repositorio.save(enElDia('2026-09-16', OP(1), RES(1)));
+      await repositorio.save(enElDia('2026-09-14', OP(2), RES(2)));
+      // Dos resultados el mismo dia son un solo dia.
+      await repositorio.save(enElDia('2026-09-16', OP(3), RES(3)));
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([
+        '2026-09-14',
+        '2026-09-16',
+      ]);
+    });
+
+    it('sin actividad devuelve una lista vacia', async () => {
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([]);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await repositorio.save(enElDia('2026-09-14', OP(4), RES(4), OTRO_USUARIO));
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual([]);
+      expect(await repositorio.diasConActividad(new UserId(OTRO_USUARIO))).toEqual(['2026-09-14']);
+    });
+
+    it('usa el dia guardado, no el instante: un resultado de las 8 p. m. es de ese dia', async () => {
+      // 01:00 UTC del 15 es la noche del 14 en Colombia: el dia guardado manda.
+      await repositorio.save(
+        ActivityResult.create({
+          id: new ResultId(RES(5)),
+          userId: new UserId(USUARIO),
+          activityId: new ActivityId(ACTIVIDAD),
+          clientOperationId: new ClientOperationId(OP(5)),
+          score: OrientativeScore.create(8, actividad()),
+          completedAt: new Date('2026-09-15T01:00:00.000Z'),
+          dia: '2026-09-14',
+        }),
+      );
+
+      expect(await repositorio.diasConActividad(new UserId(USUARIO))).toEqual(['2026-09-14']);
+    });
+  });
+  describe('diasConAtencion (SCRUM-177)', () => {
+    const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+    /** Las actividades que cuentan para el acompanamiento (las de «mayor requiere atencion»). */
+    const CUENTAN = [new ActivityId(ACTIVIDAD)];
+    /** Una ventana que no recorta nada: para las pruebas que no hablan de ella. */
+    const DESDE_SIEMPRE = '1970-01-01';
+
+    /** Un resultado de ese dia con ese puntaje crudo (de 0 a 10: 1 requiere atencion, 8 es favorable). */
+    function conPuntaje(dia: string, crudo: number, n: number, usuario = USUARIO) {
+      return ActivityResult.create({
+        id: new ResultId(RES(n)),
+        userId: new UserId(usuario),
+        activityId: new ActivityId(ACTIVIDAD),
+        clientOperationId: new ClientOperationId(OP(n)),
+        score: OrientativeScore.create(crudo, actividad()),
+        completedAt: new Date(`${dia}T15:00:00.000Z`),
+        dia,
+      });
+    }
+
+    it('devuelve solo los dias con un resultado que requiere atencion, sin repetir y en orden', async () => {
+      expect(OrientativeScore.create(1, actividad()).level).toBe('requiere_atencion');
+      expect(OrientativeScore.create(8, actividad()).level).toBe('favorable');
+
+      await repositorio.save(conPuntaje('2026-09-16', 1, 1));
+      await repositorio.save(conPuntaje('2026-09-14', 1, 2));
+      // Dos el mismo dia son un solo dia.
+      await repositorio.save(conPuntaje('2026-09-16', 1, 3));
+      // Un dia solo favorable no cuenta.
+      await repositorio.save(conPuntaje('2026-09-15', 8, 4));
+
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14', '2026-09-16']);
+    });
+
+    it('un dia con uno bueno y uno que requiere atencion cuenta como dia con atencion', async () => {
+      await repositorio.save(conPuntaje('2026-09-14', 8, 5));
+      await repositorio.save(conPuntaje('2026-09-14', 1, 6));
+
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14']);
+    });
+
+    it('lo que no puntua no cuenta: no suma a favor ni en contra', async () => {
+      await repositorio.save(
+        ActivityResult.create({
+          id: new ResultId(RES(7)),
+          userId: new UserId(USUARIO),
+          activityId: new ActivityId(ACTIVIDAD),
+          clientOperationId: new ClientOperationId(OP(7)),
+          completedAt: new Date('2026-09-14T15:00:00.000Z'),
+          dia: '2026-09-14',
+        }),
+      );
+
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual([]);
+    });
+
+    it('lo de una actividad que no esta en la lista no cuenta, aunque requiera atencion', async () => {
+      await repositorio.save(conPuntaje('2026-09-14', 1, 9));
+
+      const OTRA_ACTIVIDAD = new ActivityId('33333333-3333-4333-a333-333333333399');
+
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), [OTRA_ACTIVIDAD], DESDE_SIEMPRE),
+      ).toEqual([]);
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), [], DESDE_SIEMPRE)).toEqual([]);
+    });
+
+    it('lo de otra persona no cuenta', async () => {
+      await repositorio.save(conPuntaje('2026-09-14', 1, 8, OTRO_USUARIO));
+
+      expect(
+        await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual([]);
+      expect(
+        await repositorio.diasConAtencion(new UserId(OTRO_USUARIO), CUENTAN, DESDE_SIEMPRE),
+      ).toEqual(['2026-09-14']);
+    });
+
+    it('solo mira desde la fecha que se pide, y ese dia cuenta (SCRUM-264)', async () => {
+      await repositorio.save(conPuntaje('2026-09-13', 1, 10));
+      await repositorio.save(conPuntaje('2026-09-14', 1, 11));
+      await repositorio.save(conPuntaje('2026-09-16', 1, 12));
+
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-14')).toEqual(
+        ['2026-09-14', '2026-09-16'],
+      );
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-15')).toEqual(
+        ['2026-09-16'],
+      );
+      expect(await repositorio.diasConAtencion(new UserId(USUARIO), CUENTAN, '2026-09-17')).toEqual(
+        [],
+      );
+    });
+  });
+
+  describe('hechosDe (SCRUM-264)', () => {
+    const OP = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const RES = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+    const OTRA_ACTIVIDAD = '33333333-3333-4333-a333-333333333399';
+
+    function hecho(dia: string, n: number, actividadId = ACTIVIDAD, usuario = USUARIO) {
+      return ActivityResult.create({
+        id: new ResultId(RES(n)),
+        userId: new UserId(usuario),
+        activityId: new ActivityId(actividadId),
+        clientOperationId: new ClientOperationId(OP(n)),
+        completedAt: new Date(`${dia}T15:00:00.000Z`),
+        dia,
+      });
+    }
+
+    it('una fila por pareja actividad y dia, sin repetir, del dia mas antiguo al mas reciente', async () => {
+      await repositorio.save(hecho('2026-09-16', 1));
+      await repositorio.save(hecho('2026-09-14', 2));
+      // La misma actividad el mismo dia: una sola pareja.
+      await repositorio.save(hecho('2026-09-16', 3));
+      // Otra actividad el mismo dia: otra pareja.
+      await repositorio.save(hecho('2026-09-16', 4, OTRA_ACTIVIDAD));
+
+      expect(await repositorio.hechosDe(new UserId(USUARIO))).toEqual([
+        { actividad: ACTIVIDAD, dia: '2026-09-14' },
+        { actividad: ACTIVIDAD, dia: '2026-09-16' },
+        { actividad: OTRA_ACTIVIDAD, dia: '2026-09-16' },
+      ]);
+    });
+
+    it('solo trae lo de esa persona, y sin nada que hacer devuelve una lista vacia', async () => {
+      await repositorio.save(hecho('2026-09-14', 5, ACTIVIDAD, OTRO_USUARIO));
+
+      expect(await repositorio.hechosDe(new UserId(USUARIO))).toEqual([]);
+      expect(await repositorio.hechosDe(new UserId(OTRO_USUARIO))).toEqual([
+        { actividad: ACTIVIDAD, dia: '2026-09-14' },
+      ]);
+    });
   });
 });
 
@@ -97,16 +358,19 @@ describe('Cableado completo', () => {
   it('el servicio registra un resultado usando el adaptador real', async () => {
     const servicio = construirActivityResultService();
 
-    const resultado = await servicio.registrar({
+    const { resultado, lineasDeAtencion } = await servicio.registrar({
       userId: USUARIO,
       activityId: ACTIVIDAD,
       clientOperationId: OPERACION,
       score: 8,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
+      zonaHoraria: 'America/Bogota',
     });
 
     expect(resultado.userId.value).toBe(USUARIO);
     expect(resultado.score?.level).toBe('favorable');
+    // Favorable no sugiere acompanamiento: no se adjunta ninguna linea.
+    expect(lineasDeAtencion).toEqual([]);
   });
 
   it('el mismo caso de uso sigue siendo idempotente contra el adaptador real', async () => {
@@ -117,11 +381,12 @@ describe('Cableado completo', () => {
       clientOperationId: OPERACION,
       score: 8,
       completedAt: new Date('2026-09-14T11:00:00.000Z'),
+      zonaHoraria: 'America/Bogota',
     };
 
     const primero = await servicio.registrar(comando);
     const segundo = await servicio.registrar(comando);
 
-    expect(segundo.id.value).toBe(primero.id.value);
+    expect(segundo.resultado.id.value).toBe(primero.resultado.id.value);
   });
 });

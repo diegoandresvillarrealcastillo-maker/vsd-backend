@@ -37,7 +37,8 @@ export class ActivityResultController {
   @ApiResponse({ status: 201, description: 'Resultado registrado.', type: ResultadoRespuestaDto })
   @ApiResponse({
     status: 400,
-    description: 'El cuerpo de la peticion no es valido o incumple una regla del dominio.',
+    description:
+      'El cuerpo de la peticion no es valido o incumple una regla del dominio, por ejemplo una sesion que no es de esa actividad (LA_SESION_NO_ES_DE_LA_ACTIVIDAD).',
   })
   @ApiResponse({
     status: 404,
@@ -55,7 +56,7 @@ export class ActivityResultController {
     @Body() dto: RegistrarResultadoDto,
     @CuentaActual() cuenta: User,
   ): Promise<ResultadoRespuestaDto> {
-    const resultado = await this.resultados.registrar({
+    const { resultado, sugiereAcompanamiento, lineasDeAtencion } = await this.resultados.registrar({
       // Del token, no del cuerpo: es la diferencia entre "de quien dice el
       // cliente que es este resultado" y "de quien es".
       //
@@ -65,13 +66,15 @@ export class ActivityResultController {
       // rechace la fila en cuanto existe una persona real, que es un fallo que
       // ninguna prueba unitaria puede ver.
       userId: cuenta.id.value,
+      zonaHoraria: cuenta.zonaHoraria,
       activityId: dto.activityId,
       clientOperationId: dto.clientOperationId,
       score: dto.score,
       completedAt: dto.completedAt,
       metadata: dto.metadata as Metadata | undefined,
+      sessionId: dto.idSesion,
     });
 
-    return ResultadoRespuestaDto.desde(resultado);
+    return ResultadoRespuestaDto.desde(resultado, lineasDeAtencion, sugiereAcompanamiento);
   }
 }

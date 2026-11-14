@@ -64,6 +64,18 @@ export class ActivityId extends Identifier {
 }
 
 /**
+ * Identifica una sesion de actividad: el contenido de una vez de una mecanica (ADR 0030).
+ *
+ * No es una actividad ni un dia del sendero. Es la clave estable que viaja al dispositivo y la que
+ * queda en el resultado, para que el historial de una persona apunte siempre a lo que de verdad vio.
+ */
+export class SesionId extends Identifier {
+  constructor(value: string) {
+    super(value, 'sesion de la actividad');
+  }
+}
+
+/**
  * Identificador de la operacion, generado por el dispositivo del usuario.
  *
  * Es la pieza que hace segura la sincronizacion: el dispositivo lo crea una
@@ -75,6 +87,20 @@ export class ActivityId extends Identifier {
 export class ClientOperationId extends Identifier {
   constructor(value: string) {
     super(value, 'operacion del cliente');
+  }
+}
+
+/** Identifica una anotacion del diario. */
+export class EntradaId extends Identifier {
+  constructor(value: string) {
+    super(value, 'anotacion del diario');
+  }
+}
+
+/** Identifica un pendiente del semaforo. */
+export class PendienteId extends Identifier {
+  constructor(value: string) {
+    super(value, 'pendiente');
   }
 }
 

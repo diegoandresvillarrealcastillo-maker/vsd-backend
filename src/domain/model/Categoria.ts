@@ -1,6 +1,7 @@
 import type { Activity } from './Activity.js';
 import { InvalidActivityConfigurationError } from './DomainError.js';
 import type { CategoryId } from './Identifier.js';
+import type { Modulo } from './Preferencias.js';
 
 /** Datos necesarios para describir una categoria del catalogo. */
 export interface DatosDeCategoria {
@@ -8,6 +9,11 @@ export interface DatosDeCategoria {
   readonly nombre: string;
   readonly descripcion?: string | undefined;
   readonly actividades: readonly Activity[];
+  /**
+   * El modulo al que corresponde. Ausente en una categoria que no es de
+   * ningun modulo, como las que siembran las pruebas.
+   */
+  readonly modulo?: Modulo | undefined;
 }
 
 /**
@@ -23,12 +29,14 @@ export class Categoria {
   readonly nombre: string;
   readonly descripcion: string | undefined;
   readonly actividades: readonly Activity[];
+  readonly modulo: Modulo | undefined;
 
   private constructor(datos: DatosDeCategoria) {
     this.id = datos.id;
     this.nombre = datos.nombre;
     this.descripcion = datos.descripcion;
     this.actividades = datos.actividades;
+    this.modulo = datos.modulo;
   }
 
   static create(datos: DatosDeCategoria): Categoria {

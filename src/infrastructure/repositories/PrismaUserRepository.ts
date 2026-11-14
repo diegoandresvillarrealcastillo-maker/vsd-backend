@@ -1,7 +1,18 @@
-import type { Usuario } from '@prisma/client';
-import { EmailAlreadyRegisteredError } from '../../domain/model/DomainError.js';
+import { Prisma, type Usuario } from '@prisma/client';
+import type { BajaPendiente } from '../../domain/model/BajaPendiente.js';
+import {
+  AccountInactiveError,
+  EmailAlreadyRegisteredError,
+} from '../../domain/model/DomainError.js';
+import { FechaDeNacimiento } from '../../domain/model/FechaDeNacimiento.js';
 import { UserId } from '../../domain/model/Identifier.js';
-import { User } from '../../domain/model/User.js';
+import type { Mascota } from '../../domain/model/Preferencias.js';
+import {
+  TipoDeConsentimiento,
+  User,
+  type CampoModificable,
+  type ConsentimientoAceptado,
+} from '../../domain/model/User.js';
 import type { UserRepositoryPort } from '../../domain/ports/out/UserRepositoryPort.js';
 import type { PrismaService } from '../persistence/PrismaService.js';
 
@@ -12,23 +23,112 @@ import type { PrismaService } from '../persistence/PrismaService.js';
  * del mensaje, que cambia entre versiones de Prisma. No se importa el tipo de
  * error del cliente generado: esos tipos cambian sin avisar y este archivo es
  * justo el que no debe dejarlos salir hacia el dominio.
+ *
+ * Con el adaptador de PostgreSQL de Prisma 7 no llega `meta.target`: el
+ * nombre del indice (`usuario_correo_key`) viene dentro de
+ * `meta.driverAdapterError`. Se busca en toda la `meta` para que valga con las
+ * dos formas (SCRUM-105). Sin esto, un correo repetido salia como un 500.
  */
 function esCorreoDuplicado(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {
     return false;
   }
 
-  const posible = error as { code?: unknown; meta?: { target?: unknown } };
+  const posible = error as { code?: unknown; meta?: unknown };
 
-  if (posible.code !== 'P2002') {
-    return false;
+  return posible.code === 'P2002' && /correo/i.test(JSON.stringify(posible.meta ?? {}));
+}
+
+/**
+ * Lee la mascota guardada en JSONB.
+ *
+ * Solo copia los campos que el dominio conoce, como texto. Si a la columna
+ * llegara otra cosa, `User.create` la rechaza con un error que dice que esta
+ * mal, en lugar de que salga por la API algo a medias. Color y accesorio son
+ * opcionales: solo se copian si estan guardados.
+ */
+function mascotaDesde(valor: Prisma.JsonValue): Mascota {
+  const objeto =
+    typeof valor === 'object' && valor !== null && !Array.isArray(valor)
+      ? (valor as Record<string, unknown>)
+      : {};
+  const texto = (clave: string): string => {
+    const campo = objeto[clave];
+
+    return typeof campo === 'string' ? campo : '';
+  };
+  const opcional = (clave: 'color' | 'accesorio') =>
+    objeto[clave] === undefined ? {} : { [clave]: texto(clave) };
+
+  return {
+    forma: texto('forma'),
+    nombre: texto('nombre'),
+    ...opcional('color'),
+    ...opcional('accesorio'),
+  };
+}
+
+/**
+ * Las columnas de **solo los campos que se piden** (SCRUM-258), para `guardarCambios`.
+ *
+ * Es la contraparte de lo que arma `save` para la cuenta entera, campo por campo. Un campo que no
+ * esta en `campos` no aparece en el resultado: el UPDATE no lo nombra y la columna no se toca.
+ */
+function columnasDe(
+  user: User,
+  campos: ReadonlySet<CampoModificable>,
+): Prisma.UsuarioUpdateManyMutationInput {
+  if (campos.has('consentimiento') && user.consentimiento === undefined) {
+    // Las columnas del consentimiento son NOT NULL, como dice `save`.
+    throw new Error(
+      'No se puede guardar una cuenta sin consentimiento registrado. ' +
+        'Ver User.exigirConsentimiento() y la Ley 1581 de 2012.',
+    );
   }
 
-  const campos = posible.meta?.target;
-
-  return Array.isArray(campos)
-    ? campos.includes('correo')
-    : typeof campos === 'string' && campos.includes('correo');
+  return {
+    ...(campos.has('consentimiento') && user.consentimiento !== undefined
+      ? {
+          versionPoliticaAceptada: user.consentimiento.versionPolitica,
+          fechaAceptacionPolitica: user.consentimiento.aceptadoEn,
+        }
+      : {}),
+    ...(campos.has('terminos')
+      ? {
+          versionTerminosAceptada: user.terminos?.versionPolitica ?? null,
+          fechaAceptacionTerminos: user.terminos?.aceptadoEn ?? null,
+        }
+      : {}),
+    // Un dia y no un instante: medianoche UTC, como en `save`.
+    ...(campos.has('fechaDeNacimiento')
+      ? {
+          fechaNacimiento:
+            user.fechaDeNacimiento === undefined
+              ? null
+              : new Date(`${user.fechaDeNacimiento.valor}T00:00:00.000Z`),
+        }
+      : {}),
+    ...(campos.has('nombre') ? { nombre: user.nombre ?? null } : {}),
+    ...(campos.has('modulosActivos') ? { modulosActivos: [...user.modulosActivos] } : {}),
+    // DbNull y no undefined: undefined le diria a Prisma "no toques la columna".
+    ...(campos.has('mascota')
+      ? { mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota } }
+      : {}),
+    ...(campos.has('diarioConRecomendaciones')
+      ? { diarioConRecomendaciones: user.diarioConRecomendaciones }
+      : {}),
+    ...(campos.has('acompanamientoPorDias')
+      ? { acompanamientoPorDias: user.acompanamientoPorDias }
+      : {}),
+    ...(campos.has('zonaHoraria') ? { zonaHoraria: user.zonaHoraria } : {}),
+    // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la columna vacia.
+    ...(campos.has('fotoActualizadaEl')
+      ? { fotoActualizadaEl: user.fotoActualizadaEl ?? null }
+      : {}),
+    ...(campos.has('mascotaPropiaActualizadaEl')
+      ? { mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null }
+      : {}),
+  };
 }
 
 /**
@@ -94,22 +194,83 @@ export class PrismaUserRepository implements UserRepositoryPort {
       rol: user.rol,
       versionPoliticaAceptada: consentimiento.versionPolitica,
       fechaAceptacionPolitica: consentimiento.aceptadoEn,
+      // Null y no omitidas: igual que la foto, guardar la cuenta tiene que dejar
+      // estas columnas como la entidad las trae. La fecha es un dia y no un
+      // instante: se escribe a medianoche UTC para que la columna DATE guarde
+      // el mismo dia en cualquier zona del servidor.
+      fechaNacimiento:
+        user.fechaDeNacimiento === undefined
+          ? null
+          : new Date(`${user.fechaDeNacimiento.valor}T00:00:00.000Z`),
+      versionTerminosAceptada: user.terminos?.versionPolitica ?? null,
+      fechaAceptacionTerminos: user.terminos?.aceptadoEn ?? null,
       // Se omite en lugar de mandar undefined: el modo estricto del proyecto
       // no acepta lo segundo, y omitirla deja la columna en NULL.
       ...(user.nombre === undefined ? {} : { nombre: user.nombre }),
+      modulosActivos: [...user.modulosActivos],
+      // DbNull y no undefined: undefined le diria a Prisma "no toques la
+      // columna", y quien no tiene mascota guardada debe quedar en NULL.
+      mascota: user.mascota === undefined ? Prisma.DbNull : { ...user.mascota },
+      diarioConRecomendaciones: user.diarioConRecomendaciones,
+      acompanamientoPorDias: user.acompanamientoPorDias,
+      zonaHoraria: user.zonaHoraria,
+      // Null y no omitida: al quitar la foto, el UPDATE tiene que dejar la
+      // columna vacia y no como estaba.
+      fotoActualizadaEl: user.fotoActualizadaEl ?? null,
+      mascotaPropiaActualizadaEl: user.mascotaPropiaActualizadaEl ?? null,
     };
 
     // Guardar dos veces la misma cuenta la actualiza en lugar de fallar, que
     // es lo que promete el puerto. `fechaRegistro` no se toca al actualizar:
     // es cuando aparecio la cuenta, y eso ocurrio una sola vez.
     try {
-      await this.prisma.comoUsuario(user.id.value, (cliente) =>
-        cliente.usuario.upsert({
+      await this.prisma.comoUsuario(user.id.value, async (cliente) => {
+        // Primero se intenta actualizar, que es lo normal. Solo si no hay fila se piensa en
+        // crear, y ahi se comprueba que la cuenta no se haya dado de baja: este metodo era un
+        // `upsert`, y una orden que cargo la cuenta antes de la baja y llega despues la habria
+        // vuelto a crear con sus datos personales (SCRUM-190, ADR 0026).
+        const { count } = await cliente.usuario.updateMany({
           where: { id: user.id.value },
-          create: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
-          update: datos,
-        }),
-      );
+          data: datos,
+        });
+
+        if (count === 0) {
+          const dadaDeBaja = await cliente.cuentaInactiva.findUnique({
+            where: { id: user.id.value },
+            select: { id: true },
+          });
+
+          if (dadaDeBaja !== null) {
+            throw new AccountInactiveError();
+          }
+
+          await cliente.usuario.create({
+            data: { id: user.id.value, fechaRegistro: user.registradoEn, ...datos },
+          });
+        }
+
+        // Lo aceptado pasa al historial en la misma transaccion que la cuenta:
+        // o quedan las dos cosas o ninguna. `skipDuplicates` hace que guardar la
+        // cuenta por otro motivo (cambiar el nombre, la zona) no repita lo que ya
+        // esta; solo entra la version que todavia no estaba. Nunca se actualiza
+        // ni se borra una fila: la aplicacion ni siquiera tiene permiso.
+        const aceptados = [
+          { tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD, aceptado: consentimiento },
+          ...(user.terminos === undefined
+            ? []
+            : [{ tipo: TipoDeConsentimiento.TERMINOS, aceptado: user.terminos }]),
+        ];
+
+        await cliente.consentimiento.createMany({
+          data: aceptados.map(({ tipo, aceptado }) => ({
+            idUsuario: user.id.value,
+            tipo,
+            version: aceptado.versionPolitica,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+          skipDuplicates: true,
+        });
+      });
     } catch (error) {
       if (esCorreoDuplicado(error)) {
         // Alguien se registro con correo y ahora entra con Google, o al reves,
@@ -126,6 +287,208 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
       throw error;
     }
+  }
+
+  async guardarCambios(antes: User, despues: User): Promise<User | null> {
+    const campos = despues.camposCambiadosDesde(antes);
+    const datos = columnasDe(despues, campos);
+    const id = despues.id.value;
+
+    const fila = await this.prisma.comoUsuario(id, async (cliente) => {
+      // Solo las columnas de lo que cambio: el resto no se nombra en el UPDATE, asi que lo que otra
+      // peticion haya escrito entretanto se queda como esta. `updateMany` y no `update`: una cuenta
+      // que ya no existe da cero filas y no un error, y **no se crea** (a diferencia de `save`).
+      if (Object.keys(datos).length > 0) {
+        const { count } = await cliente.usuario.updateMany({ where: { id }, data: datos });
+
+        if (count === 0) {
+          return null;
+        }
+
+        // Lo aceptado pasa al historial en la misma transaccion, como en `save`.
+        const aceptados = [
+          ...(campos.has('consentimiento') && despues.consentimiento !== undefined
+            ? [
+                {
+                  tipo: TipoDeConsentimiento.AVISO_DE_PRIVACIDAD,
+                  aceptado: despues.consentimiento,
+                },
+              ]
+            : []),
+          ...(campos.has('terminos') && despues.terminos !== undefined
+            ? [{ tipo: TipoDeConsentimiento.TERMINOS, aceptado: despues.terminos }]
+            : []),
+        ];
+
+        await cliente.consentimiento.createMany({
+          data: aceptados.map(({ tipo, aceptado }) => ({
+            idUsuario: id,
+            tipo,
+            version: aceptado.versionPolitica,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Lo que quedo guardado, ya con el cambio y con lo que otras peticiones hayan escrito.
+      return cliente.usuario.findUnique({ where: { id } });
+    });
+
+    return fila === null ? null : this.aDominio(fila);
+  }
+
+  async consentimientosDe(id: UserId): Promise<readonly ConsentimientoAceptado[]> {
+    const filas = await this.prisma.comoUsuario(id.value, (cliente) =>
+      cliente.consentimiento.findMany({
+        where: { idUsuario: id.value },
+        orderBy: [{ aceptadoEn: 'asc' }, { tipo: 'asc' }],
+      }),
+    );
+
+    return filas.map((fila) => ({
+      // La base solo admite los dos tipos (CHECK), asi que la conversion no
+      // oculta nada.
+      tipo: fila.tipo as TipoDeConsentimiento,
+      version: fila.version,
+      aceptadoEn: fila.aceptadoEn,
+    }));
+  }
+
+  /**
+   * Deja la marca de la baja (SCRUM-267, ADR 0040): una fila en `baja_pendiente`, en una
+   * transaccion corta y **antes** de borrar nada de lo de fuera de la base.
+   *
+   * `createMany` con `skipDuplicates` (`ON CONFLICT DO NOTHING`): marcar otra vez no cambia la
+   * primera marca ni falla. La clave foranea impide marcar una cuenta que no existe, pero se mira
+   * antes para devolver `false` en lugar de un error.
+   */
+  async marcarBaja(id: UserId, conConstancia: boolean, pedidaEl: Date): Promise<boolean> {
+    return this.prisma.comoUsuario(id.value, async (cliente) => {
+      const fila = await cliente.usuario.findUnique({
+        where: { id: id.value },
+        select: { id: true },
+      });
+
+      if (fila === null) {
+        return false;
+      }
+
+      await cliente.bajaPendiente.createMany({
+        data: [{ idUsuario: id.value, conConstancia, pedidaEl }],
+        skipDuplicates: true,
+      });
+
+      return true;
+    });
+  }
+
+  /**
+   * Las marcas de baja con mas de un rato, las mas antiguas primero. Las lee la tarea que termina
+   * las bajas, con `comoTareaDeBajas`: ve las marcas de todos y nada mas.
+   */
+  async bajasPendientes(pedidasAntes: Date, limite: number): Promise<readonly BajaPendiente[]> {
+    const filas = await this.prisma.comoTareaDeBajas((cliente) =>
+      cliente.bajaPendiente.findMany({
+        where: { pedidaEl: { lt: pedidasAntes } },
+        orderBy: [{ pedidaEl: 'asc' }, { idUsuario: 'asc' }],
+        take: limite,
+      }),
+    );
+
+    return filas.map((fila) => ({
+      id: new UserId(fila.idUsuario),
+      conConstancia: fila.conConstancia,
+      pedidaEl: fila.pedidaEl,
+    }));
+  }
+
+  /**
+   * Termina la baja con constancia (SCRUM-190, ADR 0026): anota la constancia minima y borra todo
+   * lo vivo, en una sola transaccion **corta**: lo de fuera ya se borro antes (ADR 0040).
+   *
+   * La constancia se arma **con lo que hay en la base**, no con un objeto que alguien traiga: el
+   * identificador del proveedor, cuando se creo la cuenta y lo aceptado salen de las filas. Y no
+   * lleva nada mas: ni nombre, ni correo, ni fecha de nacimiento.
+   *
+   * Despues se borra la fila de `usuario` y las claves foraneas con `ON DELETE CASCADE` se llevan
+   * el resto, la marca de la baja incluida. Toda tabla nueva que guarde algo de una persona se
+   * limpia sola: no hay una lista de campos que alguien tenga que acordarse de anonimizar.
+   *
+   * Si algo falla, PostgreSQL deshace la constancia y el borrado. Dar de baja una cuenta que no
+   * existe no hace nada. La transaccion tiene los tiempos de `TRANSACCION_DE_BORRADO`: el borrado
+   * en cascada de una cuenta con mucho historial puede pasar de los 5 s de Prisma (SCRUM-260).
+   */
+  async inactivarConTodo(id: UserId, inactivadaEl: Date): Promise<void> {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
+      const fila = await cliente.usuario.findUnique({ where: { id: id.value } });
+
+      if (fila === null) {
+        return;
+      }
+
+      const aceptados = await cliente.consentimiento.findMany({ where: { idUsuario: id.value } });
+
+      // `createMany` y no `create`: `create` pide la fila de vuelta (RETURNING), y para leerla
+      // haria falta una politica de lectura que esta tabla no da a quien la escribe. Solo se
+      // puede anadir; encontrarla es cosa de `estaInactivadaPorProveedor`, con el token.
+      await cliente.cuentaInactiva.createMany({
+        data: [
+          {
+            id: fila.id,
+            idProveedorAuth: fila.idProveedorAuth,
+            fechaRegistro: fila.fechaRegistro,
+            inactivadaEl,
+            versionPoliticaAceptada: fila.versionPoliticaAceptada,
+            fechaAceptacionPolitica: fila.fechaAceptacionPolitica,
+            versionTerminosAceptada: fila.versionTerminosAceptada,
+            fechaAceptacionTerminos: fila.fechaAceptacionTerminos,
+          },
+        ],
+      });
+
+      if (aceptados.length > 0) {
+        await cliente.consentimientoDeCuentaInactiva.createMany({
+          data: aceptados.map((aceptado) => ({
+            idCuenta: fila.id,
+            tipo: aceptado.tipo,
+            version: aceptado.version,
+            aceptadoEn: aceptado.aceptadoEn,
+          })),
+        });
+      }
+
+      await cliente.usuario.deleteMany({ where: { id: id.value } });
+    });
+  }
+
+  /**
+   * Si ese identificador del proveedor es de una cuenta dada de baja. Usa `comoProveedor`, como
+   * `findByIdProveedorAuth`: lo unico que se puede leer es la fila cuyo identificador coincide con
+   * el del token verificado.
+   */
+  async estaInactivadaPorProveedor(idProveedorAuth: string): Promise<boolean> {
+    const fila = await this.prisma.comoProveedor(idProveedorAuth, (cliente) =>
+      cliente.cuentaInactiva.findUnique({ where: { idProveedorAuth }, select: { id: true } }),
+    );
+
+    return fila !== null;
+  }
+
+  /**
+   * Borra la fila de `usuario` dentro de una transaccion y deja que las claves foraneas con
+   * `ON DELETE CASCADE` se lleven el resto: resultados, entradas de diario y la marca de la baja.
+   * Toda tabla nueva que guarde algo de una persona tiene que declarar su clave igual; la prueba de
+   * integracion lo comprueba recorriendo cada tabla con columna `id_usuario`, no una lista escrita
+   * a mano.
+   *
+   * Es corta y no espera a la red (ADR 0040), pero lleva los tiempos de `TRANSACCION_DE_BORRADO`
+   * y no los cortos de siempre: la cascada de una cuenta con mucho historial puede pasar de 5 s.
+   */
+  async borrarConTodo(id: UserId): Promise<void> {
+    await this.prisma.comoUsuarioParaBorrar(id.value, async (cliente) => {
+      await cliente.usuario.deleteMany({ where: { id: id.value } });
+    });
   }
 
   /**
@@ -152,8 +515,34 @@ export class PrismaUserRepository implements UserRepositoryPort {
           versionPolitica: fila.versionPoliticaAceptada,
           aceptadoEn: fila.fechaAceptacionPolitica,
         },
+        ...(fila.versionTerminosAceptada === null || fila.fechaAceptacionTerminos === null
+          ? {}
+          : {
+              terminos: {
+                versionPolitica: fila.versionTerminosAceptada,
+                aceptadoEn: fila.fechaAceptacionTerminos,
+              },
+            }),
+        // `restaurar` y no `crear`: es una fecha que ya paso la prueba de la
+        // mayoria de edad al entrar, y no se vuelve a juzgar al leerla.
+        ...(fila.fechaNacimiento === null
+          ? {}
+          : {
+              fechaDeNacimiento: FechaDeNacimiento.restaurar(
+                fila.fechaNacimiento.toISOString().slice(0, 10),
+              ),
+            }),
         registradoEn: fila.fechaRegistro,
         ...(fila.nombre === null ? {} : { nombre: fila.nombre }),
+        modulosActivos: fila.modulosActivos,
+        ...(fila.mascota === null ? {} : { mascota: mascotaDesde(fila.mascota) }),
+        diarioConRecomendaciones: fila.diarioConRecomendaciones,
+        acompanamientoPorDias: fila.acompanamientoPorDias,
+        zonaHoraria: fila.zonaHoraria,
+        ...(fila.fotoActualizadaEl === null ? {} : { fotoActualizadaEl: fila.fotoActualizadaEl }),
+        ...(fila.mascotaPropiaActualizadaEl === null
+          ? {}
+          : { mascotaPropiaActualizadaEl: fila.mascotaPropiaActualizadaEl }),
       },
       fila.fechaAceptacionPolitica,
     );

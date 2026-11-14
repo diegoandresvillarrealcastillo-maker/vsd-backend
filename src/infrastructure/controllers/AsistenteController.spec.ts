@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  REGISTRO_DE_PRUEBA,
   SESIONES,
   VerificadorFalso,
   comoUsuario,
@@ -68,6 +69,13 @@ describe('POST /api/asistente', () => {
     await app.close();
   });
 
+  it('rechaza una pregunta sin sesion antes de llegar al asistente', async () => {
+    await request(app.getHttpServer())
+      .post('/api/asistente')
+      .send({ texto: 'Una pregunta ficticia sobre bienestar' })
+      .expect(401);
+  });
+
   it('responde a una pregunta reconocida con recursos', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
@@ -77,6 +85,52 @@ describe('POST /api/asistente', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toMatchObject({ intencion: 'como_duermo_mejor', senalDeRiesgo: false });
     expect((cuerpoDe(respuesta).recursos as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('responde a un saludo con calidez y sin lineas de atencion (SCRUM-128)', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'Hola' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toMatchObject({
+      intencion: 'saludo',
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      recursos: [],
+    });
+  });
+
+  it('lee el nombre de la mascota de la cuenta como parte de un saludo', async () => {
+    // El nombre sale de la cuenta del token, no del cuerpo: el cuerpo no puede
+    // declararlo, y la validacion lo rechaza.
+    const antes = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma' });
+
+    expect(antes.body).toMatchObject({ intencion: 'no_reconocida' });
+
+    await request(app.getHttpServer())
+      .patch('/api/cuenta/preferencias')
+      .set(...comoUsuario('token-de-B'))
+      .send({ mascota: { forma: 'fungito', nombre: 'Luma' } })
+      .expect(200);
+
+    const despues = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma' });
+
+    expect(despues.body).toMatchObject({ intencion: 'saludo', recursos: [] });
+
+    const intento = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'hola, Luma', nombreDeLaMascota: 'Luma' });
+
+    expect(intento.status).toBe(400);
   });
 
   it('ante una senal de riesgo devuelve lineas de atencion', async () => {
@@ -114,15 +168,35 @@ describe('POST /api/asistente', () => {
     expect(JSON.stringify(respuesta.body)).not.toContain('discuti');
   });
 
-  it('responde algo util cuando no entiende', async () => {
+  it('responde algo util cuando no entiende: el catalogo de temas, sin lineas de atencion (SCRUM-176)', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/api/asistente')
       .set(...comoUsuario('token-de-A'))
       .send({ texto: 'a que hora abre la biblioteca' });
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body).toMatchObject({ intencion: 'no_reconocida' });
-    expect((cuerpoDe(respuesta).recursos as unknown[]).length).toBeGreaterThan(0);
+    expect(respuesta.body).toMatchObject({
+      intencion: 'no_reconocida',
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      recursos: [],
+    });
+    expect((cuerpoDe(respuesta).sugerencias as string[]).length).toBeGreaterThan(0);
+    expect(cuerpoDe(respuesta).sugerencias).toContain('¿Dónde busco ayuda?');
+  });
+
+  it('una errata no deja sin respuesta ni sin lineas a quien escribe de prisa', async () => {
+    const saludo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'ola' });
+    const riesgo = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'kiero morirme' });
+
+    expect(saludo.body).toMatchObject({ intencion: 'saludo' });
+    expect(riesgo.body).toMatchObject({ senalDeRiesgo: true, incluyeLineasDeAtencion: true });
   });
 
   it.each([
@@ -145,6 +219,156 @@ describe('POST /api/asistente', () => {
       .send({ texto: 'hola', modelo: 'gpt' });
 
     expect(respuesta.status).toBe(400);
+  });
+});
+
+/**
+ * Las lineas de atencion segun el pais de la cuenta (SCRUM-124), por HTTP.
+ *
+ * Lo importante es el cableado: que la zona de la cuenta que firma el token
+ * llegue a cada camino que ensena telefonos (el asistente y los resultados) y
+ * que nadie pueda elegir el pais desde el cuerpo. El diario ya no ensena
+ * telefonos (SCRUM-194): ofrece ir a Recursos, que si los pide por pais.
+ */
+describe('Las lineas de atencion segun el pais de la cuenta', () => {
+  let app: NestExpressApplication;
+
+  const titulosDe = (respuesta: request.Response, campo?: string): string[] => {
+    const cuerpo = respuesta.body as Record<string, unknown>;
+    const recursos = (campo === undefined ? cuerpo['recursos'] : cuerpo[campo]) as {
+      titulo: string;
+    }[];
+
+    return recursos.map((recurso) => recurso.titulo);
+  };
+
+  function enZona(token: string, zonaHoraria: string): request.Test {
+    return request(app.getHttpServer())
+      .post('/api/cuenta')
+      .set(...comoUsuario(token))
+      .send({ ...REGISTRO_DE_PRUEBA, zonaHoraria });
+  }
+
+  beforeAll(async () => {
+    app = await levantarAplicacion();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('una cuenta en Bogota recibe las lineas de Colombia', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-A'))
+      .send({ texto: 'quiero morirme' })
+      .expect(200);
+
+    expect(titulosDe(respuesta)).toEqual([
+      'Línea 192, opción 4',
+      'Línea 123',
+      'Línea 106, el poder de ser escuchado',
+    ]);
+  });
+
+  it('la misma frase, desde una cuenta en Madrid, trae las lineas de Espana', async () => {
+    await enZona('token-de-B', 'Europe/Madrid').expect(200);
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'quiero morirme' })
+      .expect(200);
+
+    expect(titulosDe(respuesta)).toEqual(['Línea 024, llama a la vida', 'Línea 112']);
+    expect(JSON.stringify(respuesta.body)).not.toMatch(/192|\b106\b/u);
+  });
+
+  it('una cuenta en un pais sin lineas verificadas recibe el directorio y ningun telefono', async () => {
+    await enZona('token-de-B', 'America/Lima').expect(200);
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/asistente')
+      .set(...comoUsuario('token-de-B'))
+      .send({ texto: 'quiero morirme' })
+      .expect(200);
+
+    expect(titulosDe(respuesta)).toEqual(['Directorio internacional de líneas de ayuda']);
+    expect(respuesta.body).toMatchObject({ senalDeRiesgo: true, incluyeLineasDeAtencion: true });
+  });
+
+  it('el pais no se puede elegir desde el cuerpo: sale de la cuenta', async () => {
+    for (const campo of [{ zonaHoraria: 'Europe/Madrid' }, { pais: 'ES' }]) {
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/asistente')
+        .set(...comoUsuario('token-de-A'))
+        .send({ texto: 'quiero morirme', ...campo });
+
+      expect(respuesta.status).toBe(400);
+    }
+  });
+
+  it('los resultados que sugieren acompanamiento traen las lineas del pais de la cuenta', async () => {
+    await enZona('token-de-B', 'America/Mexico_City').expect(200);
+
+    // Desde SCRUM-200 un puntaje bajo solo acompana con un patron: cuatro dias de una semana.
+    let respuesta: request.Response | undefined;
+
+    for (const [indice, dia] of [
+      '2026-09-10',
+      '2026-09-11',
+      '2026-09-12',
+      '2026-09-13',
+    ].entries()) {
+      respuesta = await request(app.getHttpServer())
+        .post('/api/resultados')
+        .set(...comoUsuario('token-de-B'))
+        .send({
+          activityId: '33333333-3333-4333-a333-333333333333',
+          clientOperationId: `44444444-4444-4444-b444-0000000124b${String(indice)}`,
+          score: 1,
+          completedAt: `${dia}T11:00:00.000Z`,
+        })
+        .expect(201);
+    }
+
+    if (respuesta === undefined) {
+      throw new Error('No se registro ningun resultado');
+    }
+
+    expect(titulosDe(respuesta, 'lineasDeAtencion')).toEqual([
+      'Línea de la Vida, 800 911 2000',
+      'Línea 911',
+    ]);
+  });
+
+  it('el diario, con permiso, sugiere acompanar y no trae lineas, sea cual sea el pais (SCRUM-194)', async () => {
+    await enZona('token-de-B', 'America/New_York').expect(200);
+    await request(app.getHttpServer())
+      .patch('/api/cuenta/preferencias')
+      .set(...comoUsuario('token-de-B'))
+      .send({ diarioConRecomendaciones: true })
+      .expect(200);
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/diario')
+      .set(...comoUsuario('token-de-B'))
+      .send({
+        clientOperationId: '44444444-4444-4444-b444-0000000124a2',
+        contenido: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Hoy pense que ya no puedo mas' }],
+            },
+          ],
+        },
+      })
+      .expect(201);
+
+    expect(respuesta.body).toMatchObject({ sugiereAcompanamiento: true });
+    expect(respuesta.body).not.toHaveProperty('lineasDeAtencion');
   });
 });
 

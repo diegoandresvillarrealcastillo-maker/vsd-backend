@@ -1,6 +1,11 @@
 import type { ActivityResult } from '../../domain/model/ActivityResult.js';
-import type { ClientOperationId, UserId } from '../../domain/model/Identifier.js';
+import type { Dia } from '../../domain/model/Calendario.js';
+import type { FilaDelHistorial, PuntoDeLaPagina } from '../../domain/model/HistorialDelModulo.js';
+import type { ActivityId, ClientOperationId, UserId } from '../../domain/model/Identifier.js';
+import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
+import type { Hecho } from '../../domain/model/Sendero.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import { FILAS_POR_PAGINA } from '../../domain/ports/out/LecturaPorPaginas.js';
 
 /**
  * Adaptador de persistencia en memoria.
@@ -39,18 +44,144 @@ export class InMemoryActivityResultRepository implements ActivityResultRepositor
     return Promise.resolve(this.porOperacion.get(this.clave(clientOperationId, userId)) ?? null);
   }
 
-  save(result: ActivityResult): Promise<void> {
-    this.porOperacion.set(this.clave(result.clientOperationId, result.userId), result);
+  save(result: ActivityResult): Promise<ActivityResult> {
+    const clave = this.clave(result.clientOperationId, result.userId);
+    const ganadora = this.porOperacion.get(clave);
 
-    return Promise.resolve();
+    // Como la clave unica de la base: si la operacion de esa persona ya estaba, gana la que estaba.
+    if (ganadora !== undefined) {
+      return Promise.resolve(ganadora);
+    }
+
+    this.porOperacion.set(clave, result);
+
+    return Promise.resolve(result);
   }
 
   ultimosDe(userId: UserId, desde: Date): Promise<readonly ActivityResult[]> {
     const suyos = [...this.porOperacion.values()]
       .filter((resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde)
-      .sort((uno, otro) => otro.completedAt.getTime() - uno.completedAt.getTime());
+      // Del mas reciente al mas antiguo y, a igual hora, por identificador: el orden de PostgreSQL.
+      .sort(
+        (uno, otro) =>
+          otro.completedAt.getTime() - uno.completedAt.getTime() ||
+          Number(otro.id.value > uno.id.value) - Number(otro.id.value < uno.id.value),
+      );
 
     return Promise.resolve(suyos);
+  }
+
+  async *paginasDeResultados(
+    userId: UserId,
+    desde: Date,
+  ): AsyncGenerator<readonly ActivityResult[], void, undefined> {
+    const todos = await this.ultimosDe(userId, desde);
+
+    for (let inicio = 0; inicio < todos.length; inicio += FILAS_POR_PAGINA) {
+      yield todos.slice(inicio, inicio + FILAS_POR_PAGINA);
+    }
+  }
+
+  hayActividadDesde(userId: UserId, desde: Date): Promise<boolean> {
+    return Promise.resolve(
+      [...this.porOperacion.values()].some(
+        (resultado) => resultado.perteneceA(userId) && resultado.completedAt >= desde,
+      ),
+    );
+  }
+
+  diasConActividad(userId: UserId): Promise<readonly Dia[]> {
+    const dias = new Set(
+      [...this.porOperacion.values()]
+        .filter((resultado) => resultado.perteneceA(userId))
+        .map((resultado) => resultado.dia),
+    );
+
+    // AAAA-MM-DD: el orden de texto es el del calendario.
+    return Promise.resolve([...dias].sort());
+  }
+
+  hechosDe(userId: UserId): Promise<readonly Hecho[]> {
+    const distintos = new Map<string, Hecho>();
+
+    for (const resultado of this.porOperacion.values()) {
+      if (resultado.perteneceA(userId)) {
+        // Un separador que no esta en un UUID ni en un dia: la pareja no se confunde con otra.
+        distintos.set(`${resultado.dia}|${resultado.activityId.value}`, {
+          actividad: resultado.activityId.value,
+          dia: resultado.dia,
+        });
+      }
+    }
+
+    // Del dia mas antiguo al mas reciente y, a igual dia, por actividad: el orden de la base.
+    return Promise.resolve(
+      [...distintos.values()].sort(
+        (uno, otro) =>
+          uno.dia.localeCompare(otro.dia) || uno.actividad.localeCompare(otro.actividad),
+      ),
+    );
+  }
+
+  diasConAtencion(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    desde: Dia,
+  ): Promise<readonly Dia[]> {
+    const cuentan = new Set(actividades.map((actividad) => actividad.value));
+    const dias = new Set(
+      [...this.porOperacion.values()]
+        .filter(
+          (resultado) =>
+            resultado.perteneceA(userId) &&
+            // AAAA-MM-DD: el orden de texto es el del calendario.
+            resultado.dia >= desde &&
+            cuentan.has(resultado.activityId.value) &&
+            resultado.score?.level === NivelOrientativo.REQUIERE_ATENCION,
+        )
+        .map((resultado) => resultado.dia),
+    );
+
+    return Promise.resolve([...dias].sort());
+  }
+
+  historialDe(
+    userId: UserId,
+    actividades: readonly ActivityId[],
+    pagina: { readonly limite: number; readonly despuesDe?: PuntoDeLaPagina | undefined },
+  ): Promise<readonly FilaDelHistorial[]> {
+    const pedidas = new Set(actividades.map((actividad) => actividad.value));
+    const { despuesDe } = pagina;
+
+    const filas = [...this.porOperacion.values()]
+      .filter(
+        (resultado) => resultado.perteneceA(userId) && pedidas.has(resultado.activityId.value),
+      )
+      .map((resultado): FilaDelHistorial => ({
+        id: resultado.id.value,
+        idActividad: resultado.activityId.value,
+        dia: resultado.dia,
+        hechaEn: resultado.completedAt,
+      }))
+      // Del mas reciente al mas antiguo y, a igual hora, por identificador: el mismo orden
+      // total que usa la base, para que el cursor no repita ni salte nada.
+      .sort(
+        (uno, otro) =>
+          otro.hechaEn.getTime() - uno.hechaEn.getTime() ||
+          (otro.id < uno.id ? -1 : otro.id > uno.id ? 1 : 0),
+      )
+      .filter((fila) => {
+        if (despuesDe === undefined) {
+          return true;
+        }
+
+        const lugar = fila.hechaEn.getTime() - despuesDe.hechaEn.getTime();
+
+        return lugar < 0 || (lugar === 0 && fila.id < despuesDe.id);
+      })
+      .slice(0, pagina.limite);
+
+    return Promise.resolve(filas);
   }
 
   private clave(clientOperationId: ClientOperationId, userId: UserId): string {

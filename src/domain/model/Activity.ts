@@ -1,5 +1,7 @@
 import { InvalidActivityConfigurationError, InvalidScoreRangeError } from './DomainError.js';
+import { type Franja, esFranja } from './Franja.js';
 import { ActivityId } from './Identifier.js';
+import { type Motor, esMotor } from './Motor.js';
 import { NivelOrientativo } from './OrientativeScore.js';
 
 /**
@@ -56,6 +58,32 @@ export type TextosNivel = Readonly<Record<NivelOrientativo, string>>;
 
 const UMBRALES_POR_DEFECTO: Umbrales = { primero: 1 / 3, segundo: 2 / 3 };
 
+/**
+ * Cada cuanto le toca a alguien una actividad (SCRUM-91).
+ *
+ * - `diaria`: todos los dias.
+ * - `semanal`: los dias de la semana indicados, de 1 (lunes) a 7 (domingo).
+ * - `unica`: una vez; hecha, no vuelve a aparecer.
+ * - `rotativa`: una mecanica con muchas sesiones (ADR 0030). No toca todos los dias: la rotacion
+ *   elige cuales de las rotativas de un modulo se ofrecen hoy, hasta
+ *   `MECANICAS_ROTATIVAS_POR_DIA`.
+ */
+export type Frecuencia =
+  | { readonly tipo: 'diaria' }
+  | { readonly tipo: 'semanal'; readonly dias: readonly number[] }
+  | { readonly tipo: 'unica' }
+  | { readonly tipo: 'rotativa' };
+
+export const DIARIA: Frecuencia = { tipo: 'diaria' };
+
+/**
+ * Cuantas mecanicas rotativas de un modulo se ofrecen en un dia (ADR 0030, punto 7).
+ *
+ * No limita lo que la persona puede hacer: las demas siguen en el catalogo y hacerlas no tiene tope
+ * (SCRUM-184). Solo reparte lo que el sendero muestra como «lo de hoy».
+ */
+export const MECANICAS_ROTATIVAS_POR_DIA = 3;
+
 /** Datos necesarios para describir una actividad. */
 export interface DatosDeActividad {
   readonly id: ActivityId;
@@ -68,6 +96,23 @@ export interface DatosDeActividad {
   readonly puntajeMaximo?: number | undefined;
   readonly umbrales?: Umbrales | undefined;
   readonly textosNivel?: TextosNivel | undefined;
+  /** Por defecto, diaria. */
+  readonly frecuencia?: Frecuencia | undefined;
+  /**
+   * Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030). De
+   * las nueve que ya existen lo tienen cinco desde la Fase 0; las otras cuatro son pantallas propias.
+   */
+  readonly motor?: Motor | undefined;
+  /**
+   * La franja del dia en que el sendero la ofrece (ADR 0030, punto 8). Vacia: a cualquier hora. No limita lo
+   * que la persona puede hacer, solo lo que se le ensena como «lo de hoy».
+   */
+  readonly franja?: Franja | undefined;
+  /**
+   * Desde que sesion del modulo aparece, empezando en 1. Es lo que hace que el
+   * sendero se abra poco a poco en lugar de ensenarlo todo el primer dia.
+   */
+  readonly desdeSesion?: number | undefined;
 }
 
 /**
@@ -86,6 +131,10 @@ export class Activity {
   readonly puntajeMaximo: number | undefined;
   readonly umbrales: Umbrales;
   readonly textosNivel: TextosNivel | undefined;
+  readonly frecuencia: Frecuencia;
+  readonly motor: Motor | undefined;
+  readonly franja: Franja | undefined;
+  readonly desdeSesion: number;
 
   private constructor(datos: DatosDeActividad, umbrales: Umbrales) {
     this.id = datos.id;
@@ -96,6 +145,10 @@ export class Activity {
     this.puntajeMaximo = datos.puntajeMaximo;
     this.umbrales = umbrales;
     this.textosNivel = datos.textosNivel;
+    this.frecuencia = datos.frecuencia ?? DIARIA;
+    this.motor = datos.motor;
+    this.franja = datos.franja;
+    this.desdeSesion = datos.desdeSesion ?? 1;
   }
 
   static create(datos: DatosDeActividad): Activity {
@@ -134,6 +187,47 @@ export class Activity {
       throw new InvalidActivityConfigurationError(
         datos.nombre,
         'tiene umbrales que no separan tres bandas dentro del rango',
+      );
+    }
+
+    const desdeSesion = datos.desdeSesion ?? 1;
+
+    if (!Number.isInteger(desdeSesion) || desdeSesion < 1) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        'debe aparecer desde la sesión 1 o una posterior',
+      );
+    }
+
+    const frecuencia = datos.frecuencia ?? DIARIA;
+
+    // Una actividad semanal sin dias no aparece nunca, y con un dia fuera de
+    // 1 a 7 tampoco. Las dos son descuidos que conviene ver al cargar el
+    // catalogo, no cuando alguien se pregunta por que no le sale.
+    if (
+      frecuencia.tipo === 'semanal' &&
+      (frecuencia.dias.length === 0 ||
+        frecuencia.dias.some((dia) => !Number.isInteger(dia) || dia < 1 || dia > 7))
+    ) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        'es semanal pero no indica días válidos (1 = lunes, 7 = domingo)',
+      );
+    }
+
+    // El tipo ya impide un motor desconocido al escribir codigo; esto cubre una fila de la base.
+    if (datos.motor !== undefined && !esMotor(datos.motor)) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        `tiene un motor que las fichas no conocen: "${String(datos.motor)}"`,
+      );
+    }
+
+    // Igual que el motor: el tipo impide una franja desconocida al escribir codigo; esto cubre una fila.
+    if (datos.franja !== undefined && !esFranja(datos.franja)) {
+      throw new InvalidActivityConfigurationError(
+        datos.nombre,
+        `tiene una franja que el día no tiene: "${String(datos.franja)}"`,
       );
     }
 

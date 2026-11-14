@@ -21,6 +21,87 @@ export const Ambiente = {
 
 export type Ambiente = (typeof Ambiente)[keyof typeof Ambiente];
 
+/** Direcciones que cuentan como la propia maquina, las unicas donde se tolera `http`. */
+const MAQUINA_LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * Las variables del registro de seguridad van juntas o no van, y la direccion
+ * tiene que ser segura: lo que se manda ahi son hechos de seguridad con
+ * identificadores de personas, y una clave de autorizacion.
+ */
+function validarElRegistroDeSeguridad(
+  valores: {
+    NODE_ENV: string;
+    REGISTRO_SEGURIDAD_URL?: string | undefined;
+    REGISTRO_SEGURIDAD_TOKEN?: string | undefined;
+    REGISTRO_SEGURIDAD_CABECERA?: string | undefined;
+    REGISTRO_SEGURIDAD_CLAVE_IP?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const url = valores.REGISTRO_SEGURIDAD_URL ?? '';
+
+  if (url === '') {
+    for (const nombre of ['REGISTRO_SEGURIDAD_TOKEN', 'REGISTRO_SEGURIDAD_CABECERA'] as const) {
+      if ((valores[nombre] ?? '') !== '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: [nombre],
+          message: 'Solo tiene sentido junto con REGISTRO_SEGURIDAD_URL.',
+        });
+      }
+    }
+  } else if (!URL.canParse(url)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_URL'],
+      message: 'Debe ser una URL completa, como https://registros.ejemplo.co/ingesta',
+    });
+  } else {
+    const direccion = new URL(url);
+    const esLocal = MAQUINA_LOCAL.has(direccion.hostname);
+    const aceptaHttp = esLocal && valores.NODE_ENV !== Ambiente.PRODUCCION;
+
+    if (direccion.protocol !== 'https:' && !(direccion.protocol === 'http:' && aceptaHttp)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REGISTRO_SEGURIDAD_URL'],
+        message:
+          'Debe empezar por https://. Los hechos de seguridad no viajan sin cifrar (solo se tolera http en la propia maquina, fuera de produccion).',
+      });
+    }
+
+    if (direccion.username !== '' || direccion.password !== '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REGISTRO_SEGURIDAD_URL'],
+        message:
+          'No debe llevar usuario ni contrasena dentro de la direccion: usa REGISTRO_SEGURIDAD_TOKEN.',
+      });
+    }
+  }
+
+  const cabecera = valores.REGISTRO_SEGURIDAD_CABECERA ?? '';
+
+  if (cabecera !== '' && !/^[A-Za-z0-9-]+$/.test(cabecera)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_CABECERA'],
+      message: 'Solo letras, numeros y guiones, como Authorization o DD-API-KEY.',
+    });
+  }
+
+  const claveDeIp = valores.REGISTRO_SEGURIDAD_CLAVE_IP ?? '';
+
+  if (claveDeIp !== '' && claveDeIp.length < 16) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REGISTRO_SEGURIDAD_CLAVE_IP'],
+      message: 'Debe tener al menos 16 caracteres; una clave corta se adivina.',
+    });
+  }
+}
+
 const esquema = z
   .object({
     NODE_ENV: z
@@ -32,9 +113,34 @@ const esquema = z
     // Origenes autorizados para CORS, separados por coma.
     CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN es obligatoria'),
 
+    // Cuantos proxies de confianza hay entre quien llama y la API (S-03 de la
+    // auditoria 360). Con 0, que es lo de siempre, Express toma como direccion de
+    // quien llama la del ultimo salto, y detras de un proxy esa es la del propio
+    // proxy: el limite de peticiones por IP pasa a ser uno solo para todo el mundo.
+    //
+    // Es un numero y no `true`, a proposito. Con `true` se confia en lo que diga
+    // la cabecera X-Forwarded-For, y Render no la reescribe: anade la direccion que
+    // ve al final de la que traiga quien llama. Contando saltos desde la derecha
+    // se toma la que anadio el proxy; con `true`, la que escribio quien llama.
+    //
+    // Contar de menos es seguro (el limite sigue siendo compartido); contar de mas
+    // no: se tomaria una direccion que escribio quien llama y el limite se podria
+    // esquivar cambiando una cabecera. Ver docs/ambientes.md para comprobar el
+    // numero en cada ambiente.
+    TRUST_PROXY_HOPS: z.coerce
+      .number()
+      .int('TRUST_PROXY_HOPS tiene que ser un numero entero')
+      .min(0, 'TRUST_PROXY_HOPS no puede ser negativo')
+      .max(5, 'TRUST_PROXY_HOPS no puede ser mayor que 5: ningun despliegue tiene tantos proxies')
+      .default(0),
+
     // Conexion a PostgreSQL. Opcional en desarrollo y pruebas, donde el
     // adaptador en memoria alcanza y es mucho mas rapido.
     DATABASE_URL: z.string().optional(),
+
+    // Conexiones del pool local del adaptador `pg`. PrismaPg no aplica
+    // `connection_limit` de la URL, asi que se dimensiona por instancia.
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
 
     // URL del proyecto de Supabase. De ella sale la direccion donde estan
     // publicadas las claves con las que se comprueba la firma de cada token.
@@ -53,6 +159,44 @@ const esquema = z
       .refine((valor) => URL.canParse(valor), {
         message: 'Debe ser una URL completa, como https://abcdefgh.supabase.co',
       }),
+
+    // Clave de servicio de Supabase. Se usa para una sola cosa: borrar la
+    // identidad de quien borra su cuenta (SCRUM-75). Salta todas las
+    // politicas, asi que nunca se usa para leer ni escribir datos.
+    //
+    // Obligatoria en preproduccion y produccion: sin ella, borrar una cuenta
+    // dejaria el correo de esa persona en Supabase, y el derecho de supresion
+    // quedaria a medias sin que nadie se enterara. En local es opcional.
+    SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional(),
+
+    // Claves VAPID para los avisos por Web Push (SCRUM-102). Las tres juntas o
+    // ninguna. Sin ellas no hay avisos y todo lo demas funciona igual, por eso
+    // no son obligatorias en ningun ambiente: se pueden poner despues de
+    // desplegar. La privada es un secreto: vive en el panel del servicio,
+    // nunca en el repositorio. Se generan con `npm run vapid:generar`.
+    VAPID_PUBLIC_KEY: z.string().trim().optional(),
+    VAPID_PRIVATE_KEY: z.string().trim().optional(),
+    // Un contacto para los servicios de push: mailto: o https:.
+    VAPID_SUBJECT: z.string().trim().optional(),
+
+    // Registro de seguridad (SCRUM-163, decision D8). Los hechos de seguridad
+    // siempre salen por la salida estandar, que es lo que Render conserva. Si
+    // ademas se quiere una copia en un servicio externo de registros con
+    // retencion de 90 dias, una persona pone aqui su direccion y su clave. Todo
+    // opcional: sin esto, el servicio funciona igual.
+    REGISTRO_SEGURIDAD_URL: z.string().trim().optional(),
+    // El valor completo de la cabecera de autorizacion, como lo pide el
+    // servicio (por ejemplo `Bearer abc123`). Es un secreto.
+    REGISTRO_SEGURIDAD_TOKEN: z.string().trim().optional(),
+    // El nombre de esa cabecera si no es `Authorization`.
+    REGISTRO_SEGURIDAD_CABECERA: z.string().trim().optional(),
+    // La clave con la que se calcula la huella de las IP. Un secreto: con ella
+    // alguien podria comprobar si una IP concreta aparece en el registro. Sin
+    // ella se usa una clave al azar por arranque, y las huellas no se pueden
+    // comparar entre un despliegue y otro.
+    REGISTRO_SEGURIDAD_CLAVE_IP: z.string().trim().optional(),
+    // Solo PRE: una clave gratuita para las cuentas autenticadas del ambiente.
+    GEMINI_PRE_API_KEY: z.string().trim().optional(),
   })
   .superRefine((valores, ctx) => {
     // El comodin solo se tolera mientras se desarrolla en local. Dejarlo en
@@ -73,6 +217,52 @@ const esquema = z
     const necesitaBase =
       valores.NODE_ENV === Ambiente.PREPRODUCCION || valores.NODE_ENV === Ambiente.PRODUCCION;
 
+    if (necesitaBase && (valores.SUPABASE_SERVICE_ROLE_KEY ?? '') === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SUPABASE_SERVICE_ROLE_KEY'],
+        message: `Es obligatoria con NODE_ENV=${valores.NODE_ENV}. Sin ella, borrar una cuenta dejaria la identidad de esa persona en Supabase.`,
+      });
+    }
+
+    // Una clave VAPID suelta es un error de configuracion, no "sin avisos":
+    // quien la puso queria avisos y no los tendria sin enterarse.
+    const vapid = [valores.VAPID_PUBLIC_KEY, valores.VAPID_PRIVATE_KEY, valores.VAPID_SUBJECT];
+    const vapidPuestas = vapid.filter((valor) => (valor ?? '') !== '').length;
+
+    if (vapidPuestas > 0 && vapidPuestas < vapid.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_PUBLIC_KEY'],
+        message:
+          'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY y VAPID_SUBJECT van las tres juntas o ninguna.',
+      });
+    }
+
+    if (
+      (valores.VAPID_SUBJECT ?? '') !== '' &&
+      !/^(mailto:|https:\/\/)/.test(valores.VAPID_SUBJECT ?? '')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_SUBJECT'],
+        message: 'Debe empezar por mailto: o https://, como mailto:soporte@ejemplo.co',
+      });
+    }
+
+    validarElRegistroDeSeguridad(valores, ctx);
+
+    const claveGemini = valores.GEMINI_PRE_API_KEY ?? '';
+    if (claveGemini !== '') {
+      if (valores.NODE_ENV !== Ambiente.PREPRODUCCION) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GEMINI_PRE_API_KEY'],
+          message: 'La prueba de Gemini solo se permite en preproduction.',
+        });
+      }
+    }
+
     if (necesitaBase && (valores.DATABASE_URL ?? '').trim() === '') {
       ctx.addIssue({
         code: 'custom',
@@ -86,12 +276,20 @@ export interface Configuracion {
   readonly ambiente: Ambiente;
   readonly puerto: number;
   readonly origenesAutorizados: readonly string[];
+  /**
+   * Cuantos proxies de confianza hay delante de la API. 0, sin proxy. Decide de
+   * donde se saca la direccion IP de quien llama, y con ella el limite de
+   * peticiones.
+   */
+  readonly saltosDeProxyDeConfianza: number;
   readonly esProduccion: boolean;
   /**
    * Conexion a PostgreSQL. Ausente solo en desarrollo y pruebas, donde el
    * servicio usa el adaptador en memoria.
    */
   readonly urlBaseDeDatos: string | undefined;
+  /** Maximo de conexiones cliente por instancia de la API. */
+  readonly conexionesMaximasDeBaseDeDatos: number;
   /**
    * URL base del proyecto de Supabase, sin barra final.
    *
@@ -99,6 +297,43 @@ export interface Configuracion {
    * JWKS. Ver `VerificadorDeIdentidad`.
    */
   readonly urlDeSupabase: string;
+  /**
+   * Clave de servicio de Supabase, solo para borrar identidades. Ausente en
+   * local, donde el borrado no toca Supabase.
+   */
+  readonly claveDeServicioDeSupabase: string | undefined;
+  /** Claves para los avisos por Web Push. Ausentes, no hay avisos (SCRUM-102). */
+  readonly vapid: ClavesVapid | undefined;
+  /** Registro de eventos de seguridad (SCRUM-163). */
+  readonly registroDeSeguridad: AjustesDelRegistroDeSeguridad;
+  /** Gemini gratis solo para sesiones autenticadas en PRE. */
+  readonly geminiEnPre: AjustesGeminiEnPre | undefined;
+}
+
+export interface AjustesGeminiEnPre {
+  readonly clave: string;
+}
+
+export interface AjustesDelRegistroDeSeguridad {
+  /**
+   * La copia por HTTP en un servicio externo de registros. Ausente, los eventos
+   * solo salen por la salida estandar.
+   */
+  readonly envio:
+    | {
+        readonly url: string;
+        readonly token: string | undefined;
+        readonly cabecera: string | undefined;
+      }
+    | undefined;
+  /** La clave de la huella de las IP. Ausente, se usa una al azar por arranque. */
+  readonly claveDeIp: string | undefined;
+}
+
+export interface ClavesVapid {
+  readonly publica: string;
+  readonly privada: string;
+  readonly contacto: string;
 }
 
 /**
@@ -122,7 +357,24 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     );
   }
 
-  const { NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL, SUPABASE_URL } = resultado.data;
+  const {
+    NODE_ENV,
+    PORT,
+    CORS_ORIGIN,
+    TRUST_PROXY_HOPS,
+    DATABASE_URL,
+    DATABASE_POOL_MAX,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT,
+    REGISTRO_SEGURIDAD_URL,
+    REGISTRO_SEGURIDAD_TOKEN,
+    REGISTRO_SEGURIDAD_CABECERA,
+    REGISTRO_SEGURIDAD_CLAVE_IP,
+    GEMINI_PRE_API_KEY,
+  } = resultado.data;
 
   return {
     ambiente: NODE_ENV,
@@ -130,10 +382,39 @@ export function validarConfiguracion(variables: Record<string, unknown>): Config
     origenesAutorizados: CORS_ORIGIN.split(',')
       .map((origen) => origen.trim())
       .filter((origen) => origen.length > 0),
+    saltosDeProxyDeConfianza: TRUST_PROXY_HOPS,
     esProduccion: NODE_ENV === Ambiente.PRODUCCION,
     urlBaseDeDatos: (DATABASE_URL ?? '').trim() === '' ? undefined : DATABASE_URL,
+    conexionesMaximasDeBaseDeDatos: DATABASE_POOL_MAX,
     // La barra final se quita aqui y no en cada sitio que use el valor: si un
     // .env la trae, la URL del JWKS acabaria con una barra doble.
     urlDeSupabase: SUPABASE_URL.trim().replace(/\/+$/, ''),
+    claveDeServicioDeSupabase:
+      (SUPABASE_SERVICE_ROLE_KEY ?? '') === '' ? undefined : SUPABASE_SERVICE_ROLE_KEY,
+    vapid:
+      (VAPID_PUBLIC_KEY ?? '') === ''
+        ? undefined
+        : {
+            publica: VAPID_PUBLIC_KEY ?? '',
+            privada: VAPID_PRIVATE_KEY ?? '',
+            contacto: VAPID_SUBJECT ?? '',
+          },
+    registroDeSeguridad: {
+      envio:
+        (REGISTRO_SEGURIDAD_URL ?? '') === ''
+          ? undefined
+          : {
+              url: REGISTRO_SEGURIDAD_URL ?? '',
+              token: (REGISTRO_SEGURIDAD_TOKEN ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_TOKEN,
+              cabecera:
+                (REGISTRO_SEGURIDAD_CABECERA ?? '') === ''
+                  ? undefined
+                  : REGISTRO_SEGURIDAD_CABECERA,
+            },
+      claveDeIp:
+        (REGISTRO_SEGURIDAD_CLAVE_IP ?? '') === '' ? undefined : REGISTRO_SEGURIDAD_CLAVE_IP,
+    },
+    geminiEnPre:
+      (GEMINI_PRE_API_KEY ?? '') === '' ? undefined : { clave: GEMINI_PRE_API_KEY ?? '' },
   };
 }

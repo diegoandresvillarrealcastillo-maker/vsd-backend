@@ -1,0 +1,20 @@
+# Se ignora todo y se permite solo lo que la imagen necesita (ver Dockerfile).
+#
+# Es la forma que no se rompe sola: con una lista de "lo que no entra", el dia
+# que alguien cree `.env.produccion` o `secretos/`, entra a la imagen sin que
+# nadie lo decida. Con una lista de "lo que entra", un archivo nuevo se queda
+# fuera hasta que alguien lo pida.
+*
+
+!package.json
+!package-lock.json
+!prisma.config.ts
+!tsconfig.json
+!nest-cli.json
+!prisma/
+!src/
+
+# Las pruebas no se compilan (tsconfig.json las excluye) y no hace falta
+# llevarlas al contexto. `src/pruebas` si se queda: sus tipos los revisa otro
+# tsconfig, pero el codigo compilado no debe depender de el.
+**/*.spec.ts

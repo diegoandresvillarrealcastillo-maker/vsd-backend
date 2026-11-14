@@ -45,6 +45,8 @@ CATEGORIA ──< ACTIVIDAD ──< RESULTADO >── USUARIO
 | Categoría → recursos de apoyo | una a muchas                    |
 | Usuario → resultados          | una a muchas                    |
 | Actividad → resultados        | una a muchas, uno por ejecución |
+| Actividad → sesiones          | una a muchas (ADR 0030)         |
+| Sesión → resultados           | una a muchas, opcional          |
 | Usuario → entradas de diario  | una a muchas                    |
 
 **`ENTRADA_DIARIO` no se relaciona con categoría ni con actividad, y es
@@ -60,14 +62,17 @@ caché y pendientes de sincronización, no parte del modelo del servidor.
 
 ## Trazabilidad
 
-| Tabla            | Requerimientos que sostiene |
-| ---------------- | --------------------------- |
-| `USUARIO`        | RF1, RF2, RF3, RF12         |
-| `CATEGORIA`      | RF4, RF11                   |
-| `ACTIVIDAD`      | RF4, RF5, RF11              |
-| `RESULTADO`      | RF6, RF7, RF9, RF10         |
-| `RECURSO_APOYO`  | RF8, RF11                   |
-| `ENTRADA_DIARIO` | RF14, RF9, RF10             |
+| Tabla                                                  | Requerimientos que sostiene     |
+| ------------------------------------------------------ | ------------------------------- |
+| `USUARIO`                                              | RF1, RF2, RF3, RF12             |
+| `CUENTA_INACTIVA`, `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | RF12 (con constancia), Ley 1581 |
+| `CATEGORIA`                                            | RF4, RF11                       |
+| `ACTIVIDAD`                                            | RF4, RF5, RF11                  |
+| `RESULTADO`                                            | RF6, RF7, RF9, RF10             |
+| `RECURSO_APOYO`                                        | RF8, RF11                       |
+| `ENTRADA_DIARIO`                                       | RF14, RF9, RF10                 |
+| `PENDIENTE`                                            | SCRUM-97 (semáforo)             |
+| `SUSCRIPCION_PUSH`, `PREFERENCIA_AVISO`                | SCRUM-102 (avisos)              |
 
 ## USUARIO
 
@@ -76,16 +81,22 @@ el sistema sí las use: quien la almacena y la verifica es Supabase, y aquí sol
 queda su identificador. Ver
 [ADR 0012](adr/0012-contrasena-y-google-en-lugar-del-enlace-magico.md).
 
-| Campo                       | Tipo         | Nulo | Descripción                                                           |
-| --------------------------- | ------------ | ---- | --------------------------------------------------------------------- |
-| `id_usuario`                | UUID         | no   | Clave primaria.                                                       |
-| `nombre`                    | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                    |
-| `correo`                    | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                |
-| `id_proveedor_auth`         | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único. |
-| `rol`                       | VARCHAR(20)  | no   | `usuario` o `administrador`.                                          |
-| `version_politica_aceptada` | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.            |
-| `fecha_aceptacion_politica` | TIMESTAMP    | no   | Cuándo la aceptó.                                                     |
-| `fecha_registro`            | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                             |
+| Campo                           | Tipo         | Nulo | Descripción                                                                                        |
+| ------------------------------- | ------------ | ---- | -------------------------------------------------------------------------------------------------- |
+| `id_usuario`                    | UUID         | no   | Clave primaria.                                                                                    |
+| `nombre`                        | VARCHAR(100) | sí   | Nombre con el que la persona quiere que la llamen.                                                 |
+| `correo`                        | VARCHAR(120) | no   | Único. Es la vía de acceso al sistema.                                                             |
+| `id_proveedor_auth`             | VARCHAR(255) | no   | Identificador que entrega el proveedor al verificar el correo. Único.                              |
+| `rol`                           | VARCHAR(20)  | no   | `usuario` o `administrador`.                                                                       |
+| `version_politica_aceptada`     | VARCHAR(20)  | no   | Versión de la política de tratamiento de datos que aceptó.                                         |
+| `fecha_aceptacion_politica`     | TIMESTAMP    | no   | Cuándo la aceptó.                                                                                  |
+| `fecha_registro`                | TIMESTAMP    | no   | Cuándo se creó la cuenta.                                                                          |
+| `modulos_activos`               | TEXT[]       | no   | `cognicion`, `bienestar`, `emociones`. Vacío hasta que elige.                                      |
+| `mascota`                       | JSONB        | sí   | Personaje y nombre (color y accesorio opcionales). NULL: por defecto.                              |
+| `diario_con_recomendaciones`    | BOOLEAN      | no   | Si permite que el diario se lea para recomendarle. `false` por defecto (SCRUM-108).                |
+| `acompanamiento_por_dias`       | BOOLEAN      | no   | Si permite mirar sus resultados día tras día para acompañarla. `false` por defecto (SCRUM-177).    |
+| `foto_actualizada_el`           | TIMESTAMPTZ  | sí   | Cuándo se guardó la foto de perfil. NULL: no tiene. La foto vive en Storage (ADR 0016).            |
+| `mascota_propia_actualizada_el` | TIMESTAMPTZ  | sí   | Cuándo se guardó la mascota propia, un SVG. NULL: no tiene. El archivo vive en Storage (ADR 0017). |
 
 **El consentimiento es obligatorio, no opcional.** VSD Health trata datos
 relacionados con salud, que la Ley 1581 de 2012 clasifica como sensibles. Una
@@ -104,11 +115,12 @@ El administrador **no** puede leer filas de `USUARIO` ajenas.
 
 Las tres áreas del sistema: cognición, bienestar y emociones.
 
-| Campo          | Tipo        | Nulo | Descripción                       |
-| -------------- | ----------- | ---- | --------------------------------- |
-| `id_categoria` | UUID        | no   | Clave primaria.                   |
-| `nombre`       | VARCHAR(50) | no   | Cognición, Bienestar o Emociones. |
-| `descripcion`  | TEXT        | sí   | Descripción corta del área.       |
+| Campo          | Tipo        | Nulo | Descripción                                    |
+| -------------- | ----------- | ---- | ---------------------------------------------- |
+| `id_categoria` | UUID        | no   | Clave primaria.                                |
+| `nombre`       | VARCHAR(50) | no   | Cognición, Bienestar o Emociones.              |
+| `descripcion`  | TEXT        | sí   | Descripción corta del área.                    |
+| `modulo`       | VARCHAR(20) | sí   | `cognicion`, `bienestar` o `emociones`. Único. |
 
 **Política de acceso:** catálogo. Cualquier sesión autenticada lee; solo el
 administrador escribe.
@@ -118,18 +130,42 @@ administrador escribe.
 Lo que la persona hace: un juego, unas preguntas orientativas o un registro.
 Además de describirse a sí misma, **declara cómo se interpreta su puntaje**.
 
-| Campo              | Tipo         | Nulo | Descripción                                                  |
-| ------------------ | ------------ | ---- | ------------------------------------------------------------ |
-| `id_actividad`     | UUID         | no   | Clave primaria.                                              |
-| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                |
-| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                              |
-| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                           |
-| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                 |
-| `estado`           | BOOLEAN      | no   | Si está disponible.                                          |
-| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`. |
-| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                 |
-| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                   |
-| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                    |
+| Campo              | Tipo         | Nulo | Descripción                                                        |
+| ------------------ | ------------ | ---- | ------------------------------------------------------------------ |
+| `id_actividad`     | UUID         | no   | Clave primaria.                                                    |
+| `id_categoria`     | UUID         | no   | Categoría a la que pertenece.                                      |
+| `nombre`           | VARCHAR(100) | no   | Nombre visible.                                                    |
+| `tipo`             | VARCHAR(30)  | no   | `juego`, `preguntas` o `registro`.                                 |
+| `descripcion`      | TEXT         | sí   | Explicación de la actividad.                                       |
+| `estado`           | BOOLEAN      | no   | Si está disponible.                                                |
+| `direccion_escala` | VARCHAR(30)  | no   | `mayor_es_mejor`, `mayor_requiere_atencion` o `sin_puntaje`.       |
+| `puntaje_maximo`   | DECIMAL(5,2) | sí   | Máximo posible. Vacío cuando no hay puntaje.                       |
+| `umbrales`         | JSONB        | sí   | Cortes de nivel propios de esta actividad.                         |
+| `textos_nivel`     | JSONB        | sí   | Textos que ve la persona para cada nivel.                          |
+| `frecuencia`       | ENUM         | no   | `diaria`, `semanal`, `unica` o `rotativa`.                         |
+| `dias_semana`      | SMALLINT[]   | no   | Para las semanales: 1 es lunes y 7 domingo.                        |
+| `desde_sesion`     | INTEGER      | no   | Desde qué sesión del módulo aparece. Por defecto 1.                |
+| `motor`            | VARCHAR(30)  | sí   | Componente que pinta la mecánica (uno de nueve). Vacío hoy.        |
+| `franja`           | VARCHAR(10)  | sí   | `manana`, `tarde` o `noche`; vacía = a cualquier hora (SCRUM-221). |
+
+### Una actividad es una mecánica (SCRUM-204, ADR 0030)
+
+Una fila de `ACTIVIDAD` es una **mecánica**; lo que cambia cada día es su **sesión**
+(`SESION_DE_ACTIVIDAD`). Una sesión no es una actividad: no sale en el catálogo ni en el
+sendero como un elemento propio, así que el catálogo no crece a mil filas.
+
+- **`motor`** dice qué componente pinta la mecánica y cómo se leen los parámetros de sus
+  sesiones. Son nueve, M1 a M9 de las fichas: `secuencia`, `tocar_el_objetivo`,
+  `ver_ocultar_recordar`, `clasificar`, `palabras`, `calculo`, `guia_paso_a_paso`,
+  `cuestionario_corto` y `escritura_breve`. Un `CHECK` los impone y `Motor` en el dominio es la
+  misma lista. Sumar una mecánica que reutiliza un motor no pide código de pantalla nuevo.
+- **`rotativa`** es una frecuencia nueva: la mecánica no toca todos los días, y la rotación elige
+  hasta tres por módulo y por día (SCRUM-205). Las usan las tres mecánicas del piloto (SCRUM-212), con sus
+  diez sesiones. Mientras una mecánica no tenga una sesión publicada, no se ofrece: hoy solo «Recuerda los
+  colores» (SCRUM-217) tiene las suyas publicadas, y las seis de BIE-01 y EMO-02 siguen `pendiente`.
+- Las nueve actividades actuales quedan con `motor` vacío. La migración de datos de la Fase 0
+  (`20261019120000_fase_0_las_actividades_pasan_al_modelo`, SCRUM-207) se lo pone a cinco y les siembra su
+  sesión; ver más abajo.
 
 ### Por qué la actividad declara la dirección de su escala
 
@@ -177,6 +213,7 @@ Una ejecución de una actividad. Se crea una vez y no se edita nunca.
 | `nivel_orientativo`    | VARCHAR(50)  | sí     | `favorable`, `en_seguimiento` o `requiere_atencion`. Vacío si no hay puntaje. |
 | `metadata`             | JSONB        | sí     | Información propia del tipo de actividad.                                     |
 | `id_operacion_cliente` | UUID         | no     | **UNIQUE.** Generado en el dispositivo.                                       |
+| `id_sesion`            | UUID         | sí     | La sesión (contenido) que se hizo, si la mecánica las tiene.                  |
 | `fecha`                | TIMESTAMP    | no     | Cuándo se realizó.                                                            |
 
 ### Por qué el puntaje admite nulo
@@ -229,6 +266,70 @@ operación, y eso siempre ocurre dentro de una misma cuenta. Ver
 **Política de acceso:** cada persona lee y escribe únicamente sus propios
 resultados. El administrador **no** tiene acceso a ninguno.
 
+## SESION_DE_ACTIVIDAD
+
+El contenido de una vez de una mecánica (SCRUM-204, [ADR 0030](adr/0030-una-actividad-es-una-mecanica-y-lo-que-cambia-cada-dia-es-su-sesion.md)).
+
+| Campo          | Tipo         | Nulo | Descripción                                                                 |
+| -------------- | ------------ | ---- | --------------------------------------------------------------------------- |
+| `id_sesion`    | UUID         | no   | Clave primaria. Es la que viaja al dispositivo y queda en `resultado`.      |
+| `id_actividad` | UUID         | no   | La mecánica. `ON DELETE RESTRICT`: una mecánica con sesiones no se borra.   |
+| `titulo`       | VARCHAR(100) | no   | Nombre corto, para la exportación y la revisión.                            |
+| `nivel`        | SMALLINT     | no   | De 1 a 3. 1 por defecto, para las mecánicas que no tienen niveles.          |
+| `parametros`   | JSONB        | no   | Lo que el motor necesita (ADR 0008). Debe ser un objeto JSON.               |
+| `publicado`    | BOOLEAN      | no   | Solo se sirven las publicadas. Retirar no borra (ADR 0025). Por defecto no. |
+| `revision`     | VARCHAR(20)  | no   | `no_requiere`, `pendiente` o `revisada`. Nace `pendiente`.                  |
+| `revisada_por` | VARCHAR(100) | sí   | Rol o nombre de quien revisó. Sin datos de contacto.                        |
+| `revisada_el`  | TIMESTAMPTZ  | sí   | Cuándo.                                                                     |
+| `creada_en`    | TIMESTAMPTZ  | no   | Auditoría.                                                                  |
+
+**Lo que la base garantiza, y no solo el código.** Un contenido se agrega con SQL y el código puede
+fallar, así que la regla de Samuel (15/10/2026) vive en la tabla:
+
+- **Lo que pide revisión y no la tiene no se publica** (`CHECK`: `NOT publicado OR revision IN
+('no_requiere','revisada')`). Nace `pendiente`: publicar exige decirlo, no olvidarlo.
+- **Una revisada dice quién y cuándo** y las demás no inventan una constancia (`CHECK`).
+- **Una revisada no se edita** (disparador `vsd_sesion_revisada_no_se_edita`). Sobre ella solo cambia
+  `publicado`: retirarla o volver a publicarla es el mismo contenido. Si el texto cambia, se retira y se
+  agrega otra con otro identificador, que queda pendiente. Tampoco se puede «des-revisar» una para
+  editarla después. _Este disparador y el `CHECK` de la constancia no están escritos en el ADR: son la
+  misma garantía llevada a `UPDATE`, y pueden quitarse sin tocar el resto._
+- `nivel` de 1 a 3, `titulo` no vacío y `parametros` un objeto (no una lista, un texto ni `null`).
+
+**Lo que la base no valida:** el contenido de `parametros`. Lo valida el dominio
+(`SesionDeActividad.create`): que sea JSON de verdad, sin `undefined`, `NaN`, fechas ni referencias
+circulares, y que cumpla el **contrato de su motor** (`ParametrosDelMotor.ts`, SCRUM-206; ver `dominio.md`).
+Los nueve motores tienen contrato desde SCRUM-220 (uno por `modo` cuando sirven a varias mecánicas).
+
+**Contenido sembrado: la Fase 0 (SCRUM-207).** La migración
+`20261019120000_fase_0_las_actividades_pasan_al_modelo` es solo de datos, aditiva e idempotente (el
+`UPDATE` solo toca el motor vacío y los `INSERT` ignoran un identificador ya sembrado). Pone `motor` a
+cinco actividades (`secuencia`, `tocar_el_objetivo`, dos `cuestionario_corto` y `escritura_breve`) y
+siembra su sesión única, con los números y los textos que hasta ahora estaban escritos en el código del
+frontend: identificadores fijos (`5e510000-…`), nivel 1, `no_requiere` y publicada. La frecuencia no
+cambia. Las cuatro pantallas propias (Parejas de cartas, Cómo dormiste anoche, Movimiento del día y Qué te
+está pesando) siguen sin motor. Las cinco sesiones pesan unos 2,7 KB en el sendero.
+`SesionesSembradas.integracion.spec.ts` lo comprueba contra PostgreSQL y vale para todo lo que se siembre
+después: cada sesión de las categorías del catálogo pasa por el contrato de su motor y por las pruebas del
+contenido (lenguaje clínico R6 y lista de exclusión R14, en `src/pruebas/contenidoDeSesiones.ts`).
+
+**Resultado.** `resultado.id_sesion` es opcional y `ON DELETE RESTRICT`: una sesión que alguien ya hizo no
+se borra, se retira. Dos índices nuevos en `resultado`: `(id_usuario, id_actividad, dia)`, para elegir la
+sesión de hoy (lo que una persona hizo en una mecánica durante el último año), e `(id_sesion)`, para la
+clave foránea.
+
+**Qué sesión toca (SCRUM-205).** No se guarda: sale de lo que la persona hizo (`resultado.id_sesion`) y de una
+clave `hashtextextended(id_sesion || ':' || id_usuario, 0)` propia de cada persona. `PrismaSesionesRepository` la
+calcula con una consulta por mecánica que se queda con la primera; la regla está en el dominio
+(`elegirSesionDeHoy`, ver [dominio.md](dominio.md)). Medido en la base local con 27 mecánicas × 40 sesiones y
+121 mil resultados de 201 personas, usa `resultado_id_usuario_id_actividad_dia_idx` y `resultado_id_sesion_idx`
+(no recorre los resultados de todas las personas): unos 7 ms en la base y 16 ms de punta a punta para 9
+mecánicas.
+
+**Política de acceso:** catálogo, como `RECURSO_APOYO` y `DATO_CURIOSO`. Lectura abierta y escritura de
+administrador; la aplicación (`vsd_app`) solo tiene `SELECT`. No es un dato personal. La migración es
+`20261018120000_mecanica_por_sesion`, aditiva, y la aplica una persona.
+
 ## RECURSO_APOYO
 
 Información de orientación y contactos de ayuda. Es también la base de
@@ -254,19 +355,55 @@ administrador escribe.
 
 Lo que la persona escribe por su cuenta. Corresponde al RF14.
 
-| Campo                  | Tipo         | Nulo | Descripción                                |
-| ---------------------- | ------------ | ---- | ------------------------------------------ |
-| `id_entrada`           | UUID         | no   | Clave primaria.                            |
-| `id_usuario`           | UUID         | no   | A quién pertenece.                         |
-| `titulo`               | VARCHAR(120) | sí   | Título opcional.                           |
-| `contenido`            | TEXT         | no   | Lo que escribió.                           |
-| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`.             |
-| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión.     |
-| `adjuntos`             | JSONB        | sí   | Referencias a imágenes. Solo con conexión. |
-| `id_operacion_cliente` | UUID         | no   | **UNIQUE.** Generado en el dispositivo.    |
-| `version`              | INTEGER      | no   | Aumenta con cada edición.                  |
-| `fecha_creacion`       | TIMESTAMP    | no   | Cuándo se creó.                            |
-| `fecha_edicion`        | TIMESTAMP    | no   | Última edición.                            |
+| Campo                  | Tipo         | Nulo | Descripción                                                                         |
+| ---------------------- | ------------ | ---- | ----------------------------------------------------------------------------------- |
+| `id_entrada`           | UUID         | no   | Clave primaria.                                                                     |
+| `id_usuario`           | UUID         | no   | A quién pertenece.                                                                  |
+| `dia`                  | DATE         | no   | Día del calendario de la persona al que pertenece. Desde SCRUM-95.                  |
+| `titulo`               | VARCHAR(120) | sí   | Título opcional.                                                                    |
+| `contenido`            | TEXT         | no   | Con `enriquecido`, el documento del editor en JSON. Nunca HTML.                     |
+| `formato`              | VARCHAR(20)  | no   | `texto_plano` o `enriquecido`. La API escribe siempre `enriquecido`.                |
+| `etiquetas`            | JSONB        | sí   | Etiquetas de ánimo. Solo con conexión. Ninguna ruta las escribe todavía.            |
+| `adjuntos`             | JSONB        | sí   | Los diagramas: `{ id, tipo: "diagrama", datos }`. Solo con conexión.                |
+| `id_operacion_cliente` | UUID         | no   | **UNIQUE** por persona. Generado en el dispositivo.                                 |
+| `version`              | INTEGER      | no   | Aumenta con cada edición.                                                           |
+| `fecha_creacion`       | TIMESTAMPTZ  | no   | Cuándo se escribió, según el dispositivo y acotada por la base. No se puede editar. |
+| `fecha_edicion`        | TIMESTAMPTZ  | no   | Última edición, según el dispositivo y acotada por la base.                         |
+
+### Un registro por día, con una hora para editar (SCRUM-95)
+
+El diario de un día es el conjunto de sus anotaciones, y cada anotación es una
+fila. Escribir algo por la tarde no reescribe lo de la mañana: se añade debajo.
+
+- **`dia` no se deriva de `fecha_creacion`.** Se puede añadir a un día pasado,
+  y la anotación conserva la hora real en que se escribió. En un día futuro, no.
+- **Una hora para editar, impuesta por la base.** Un disparador `BEFORE UPDATE`
+  (`entrada_diario_hora_de_edicion`) comprueba que la hora de la edición caiga
+  antes de `fecha_creacion + 60 minutos`. Fuera de esa hora, un UPDATE directo con
+  el rol de la aplicación no encuentra la fila: el disparador devuelve `NULL` y
+  no cambia nada, sin error. La API responde `409 EDICION_FUERA_DE_PLAZO`, y el
+  cliente guarda lo suyo como una anotación nueva.
+- **La hora es la del dispositivo, acotada** (SCRUM-144, ADR 0020). Una anotación
+  escrita a las 9:00 sin conexión y recibida a las 14:00 es de las 9:00, y una
+  corrección hecha a las 9:30 cae dentro de la hora aunque llegue a las 14:00.
+  La base acota esa hora sin fiarse de ella:
+  - **Nunca en el futuro**: como mucho `now() + 5 minutos` (un reloj adelantado).
+  - **Nunca de hace más de 30 días.**
+  - **La de una edición, nunca antes de haberse escrito la anotación ni de su
+    última edición.**
+  - Un UPDATE que **no cambia** `fecha_edicion` se mide con `now()`, como siempre.
+    Sin esto, dejarla como estaba bastaría para editar «en el momento en que se
+    escribió».
+- **Lo que esto cuesta.** Quien tenga acceso directo a la conexión de la aplicación
+  puede declarar una hora de edición dentro de la hora y corregir una anotación de
+  hasta 30 días atrás. Antes, ni eso. Es una regla de producto y no un límite de
+  seguridad: nadie puede demostrar a qué hora escribió algo. Ver el ADR 0020.
+- **Nadie puede cambiar `fecha_creacion` después.** `vsd_app` solo tiene permiso
+  de UPDATE sobre las columnas que se editan: `fecha_creacion`, `dia`,
+  `id_usuario` e `id_operacion_cliente` no se pueden cambiar.
+
+Ver las migraciones `20261003180000_diario_por_dia` y
+`20261014120000_hora_del_dispositivo_en_el_diario`.
 
 ### El contenido del diario no se evalúa
 
@@ -308,7 +445,8 @@ puntaje. Cifrado en reposo. Ningún administrador puede leerlo. El RF12 debe
 descargarlo y eliminarlo junto con el resto de la cuenta.
 
 **Política de acceso:** cada persona lee y escribe únicamente sus propias
-entradas. El administrador **no** tiene acceso a ninguna.
+entradas, y solo las edita durante su primera hora. El administrador **no**
+tiene acceso a ninguna.
 
 ### RECURSO_APOYO dejó de ser un catálogo
 
@@ -330,20 +468,213 @@ fuera de Bogotá es dar un teléfono que no contesta, y en una situación de rie
 eso no es un detalle. Por eso el asistente ordena por cobertura y lo nacional va
 primero.
 
+Tres columnas más desde SCRUM-124 (ver el [ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md)):
+
+`pais` es el código ISO de dos letras donde sirve la fila (`CO`, `MX`, `ES`,
+`US`). Se deduce de la zona horaria de la cuenta, nunca de la ubicación. Vacío
+cuando sirve en cualquier parte: las lecturas, y el **directorio internacional**,
+que es lo único que recibe quien está en un lugar sin líneas verificadas.
+Una restricción de la base impone que sean dos letras mayúsculas.
+
+`fuente` y `verificado_el` son la página oficial donde se confirmó el dato y el
+día en que una persona lo confirmó. **Son obligatorias en los contactos**: la
+restricción `recurso_apoyo_contacto_con_fuente` no deja guardar un teléfono sin
+ellas. Es la forma de que «cada línea tiene fuente» no dependa de acordarse.
+
+`telefono` (SCRUM-257, [ADR 0037](adr/0037-llamar-ahora-solo-con-telefonos-verificados.md))
+es lo que marca el botón «Llamar ahora»: solo cifras, con un `+` delante si lleva
+prefijo de país (`192`, `8009112000`). Dos restricciones: el formato
+(`recurso_apoyo_telefono_formato`) y que solo lo tenga un contacto
+(`recurso_apoyo_telefono_solo_en_contactos`). Como un contacto no entra sin fuente
+y fecha, **un número que se marca con un botón siempre viene de una línea
+verificada**. Vacío en el directorio internacional, a propósito. Si la línea pide
+elegir una opción al contestar (el 192, opción 4), la opción va en la descripción
+y no aquí: no se marca sola.
+
 Las líneas de atención se siembran con la migración, no se cargan a mano: si
 faltaran, el asistente devolvería una lista vacía en el único momento en el que
 no puede fallar. Hay una prueba de integración que comprueba que están.
 
+## PENDIENTE
+
+Los pendientes del semáforo (SCRUM-97). Lo que la persona tiene por hacer, con
+su color.
+
+| Campo                  | Tipo            | Nulo | Descripción                                                                                   |
+| ---------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `id_pendiente`         | UUID            | no   | Clave primaria.                                                                               |
+| `id_usuario`           | UUID            | no   | A quién pertenece. Se borra con la cuenta.                                                    |
+| `texto`                | VARCHAR(280)    | no   | Una línea. Un `CHECK` impide guardarlo vacío.                                                 |
+| `nivel`                | nivel_pendiente | no   | `urgente`, `prioridad` o `aplazable`.                                                         |
+| `hecho`                | BOOLEAN         | no   | Si ya se hizo.                                                                                |
+| `posponer_hasta`       | TIMESTAMPTZ     | sí   | Mientras no llegue, no recuerda nada.                                                         |
+| `fecha_limite`         | DATE            | sí   | Día límite, en el calendario de la persona. Sin él no vence un día concreto. Desde SCRUM-119. |
+| `id_operacion_cliente` | UUID            | no   | **UNIQUE** por persona. Generado en el dispositivo.                                           |
+| `version`              | INTEGER         | no   | Empieza en 1 y sube con cada edición. Detecta que otro dispositivo lo cambió. SCRUM-134.      |
+| `fecha_creacion`       | TIMESTAMPTZ     | no   | Desde cuándo se cuentan los días para recordar.                                               |
+| `fecha_edicion`        | TIMESTAMPTZ     | no   | Última edición.                                                                               |
+
+**Los recordatorios no se guardan**: se calculan al consultar.
+
+- **Umbrales:** cada color es un plazo (urgente, esta semana; prioridad, de 7
+  a 21 días; aplazable, 21 o más). Un pendiente sin hacer recuerda cuando se le
+  acaba: a los 7 días si es urgente, a los 21 si es prioridad y a los 30 si es
+  aplazable, este con tono suave. Salvo que esté pospuesto. **Con fecha límite**
+  (SCRUM-119) recuerda desde ese día, en lugar de esperar los días de su color.
+- **Uno por visita:** se elige el de mayor color y, a igual color, el más
+  antiguo.
+- **Solo sugiere:** propone subir un nivel, y el nivel lo cambia la persona.
+
+**La versión** (SCRUM-134, migración `20261013120000_version_del_pendiente`) es
+aditiva: una columna con valor por defecto 1, así que los pendientes que ya
+existían quedan en 1. La comparación se hace **dentro del propio `UPDATE`**
+(`WHERE version = <la que se leyó>`), no en el código: leer, comparar y escribir
+por separado dejaría pasar al cambio que llega justo en medio. Las reglas de
+conflicto están en `dominio.md` ("Editar un pendiente desde dos dispositivos").
+
+**Política de acceso:** la misma que `RESULTADO`. RLS forzado; cada persona lee
+y escribe solo los suyos, y el administrador no tiene acceso. Ver la migración
+`20261004120000_semaforo_de_pendientes`.
+
+## DATO_CURIOSO y DATO_CURIOSO_CURSOR
+
+Los datos curiosos del día (SCRUM-185, [ADR 0025](adr/0025-los-datos-curiosos-recorren-su-ciclo-sin-repetirse.md)).
+
+**`DATO_CURIOSO`** es el catálogo, igual para todas las personas: `id_dato`, `texto` (hasta 280),
+`tema` (para revisar, no para mostrar), `publicado` y `creado_en`. Solo se sirven los publicados; retirar
+uno no lo borra. Lectura abierta y escritura de administrador, como `RECURSO_APOYO`.
+
+**`DATO_CURIOSO_CURSOR`** es una fila por persona (`id_usuario` es la clave primaria): el último dato que
+se le dio (`id_dato`, `NULL` si se borró del catálogo), `clave` (dónde cayó en el orden de esa persona) y
+`dia` (en su calendario). Es un dato personal: RLS forzado, sale en la exportación y se borra con la
+cuenta (`ON DELETE CASCADE`).
+
+El orden en que cada persona ve los datos **no se guarda**: sale de `hashtextextended(id_dato || ':' ||
+id_usuario, 0)` en cada consulta. El siguiente es el de clave mayor más cercana a la del cursor.
+
+## CUENTA_INACTIVA y CONSENTIMIENTO_DE_CUENTA_INACTIVA
+
+La constancia de una cuenta que se dio de baja (SCRUM-190, [ADR 0026](adr/0026-la-baja-de-la-cuenta-borra-todo-y-deja-una-constancia-minima.md)).
+Dar de baja la cuenta **borra todo lo vivo** (la fila de `USUARIO` y, en cascada, todo lo que
+cuelga de ella) y deja esto, para poder demostrar la autorización que exige la Ley 1581 de 2012.
+
+**`CUENTA_INACTIVA`**: `id_cuenta` (el identificador que tuvo la cuenta, ya sin significado fuera de
+aquí), `id_proveedor_auth` (el que el proveedor le dio a la identidad, que ya no existe; es lo que
+permite rechazar un token que todavía no caducó), `fecha_registro`, `inactivada_el` y lo último que
+aceptó (versión y fecha del aviso y de los términos).
+
+**`CONSENTIMIENTO_DE_CUENTA_INACTIVA`**: lo que aceptó, versión por versión: `tipo`, `version` y
+`aceptado_en`. Sin clave foránea: su razón de ser es sobrevivir a la fila de `USUARIO`.
+
+**Ninguna lleva nombre, correo, fecha de nacimiento, foto, mascota, diario ni respuestas.** La clave se
+llama `id_cuenta` y no `id_usuario` a propósito: la prueba de borrado recorre toda tabla con
+`id_usuario` y exige que quede vacía para la persona, y esto no es un dato vivo suyo.
+
+Solo admiten altas: `vsd_app` no tiene `UPDATE` ni `DELETE`, del historial no lee nada y de
+`CUENTA_INACTIVA` solo lee la fila de su propio token. No hay plazo de retención definido todavía.
+
+## BAJA_PENDIENTE
+
+La marca de una baja de cuenta que se pidió y todavía no terminó (SCRUM-267, [ADR 0040](adr/0040-baja-pendiente-y-lo-externo-fuera-de-la-transaccion.md)).
+Se deja **antes** de borrar lo de fuera de la base (archivos e identidad) y se va sola cuando se
+borra la fila de `USUARIO`: si queda una, la baja se cortó a mitad y la tarea del API la termina.
+
+**Columnas:** `id_usuario` (clave primaria y clave foránea con `ON DELETE CASCADE` a `USUARIO`),
+`con_constancia` (si al terminar se deja la constancia de arriba: sí en la baja que pide la persona,
+no en el rechazo de un menor) y `pedida_el` (con índice: la tarea pide las más antiguas primero y
+solo las que llevan más de 2 minutos). La primera marca manda: pedir la baja otra vez no la cambia.
+
+**No guarda nada personal**, solo de quién es, si lleva constancia y cuándo se pidió. Como lleva
+`id_usuario`, la prueba de borrado la recorre sola.
+
+**Política de acceso:** cada persona **añade y ve su** marca, y nada más (sin `UPDATE` ni `DELETE`:
+se va con la cuenta, y una cascada no pasa por las políticas). La tarea que termina las bajas declara
+`vsd.tarea_actual = 'bajas'` y puede **leer** las marcas de todas las personas, y nada más: ni
+escribirlas ni ninguna otra tabla. Para actuar sobre una baja pasa a ser, una por una, la persona de
+esa marca. Ver la migración `20261025200000_baja_pendiente` y `borradoDeCuenta.integracion.spec.ts`.
+
+## SUSCRIPCION_PUSH y PREFERENCIA_AVISO
+
+Los avisos por Web Push (SCRUM-102): el del semáforo, con los pendientes; el de
+la racha, si ese día no se hizo ninguna actividad; y los recordatorios de las
+8:00 (siempre) y las 20:00 (solo si ese día no hubo actividad) de SCRUM-126.
+Ninguna de las dos tablas guarda datos de salud.
+
+`SUSCRIPCION_PUSH` es cada navegador donde la persona aceptó los avisos. La
+aplicación guarda hasta diez por cuenta (si llega otra, sale la más antigua) y
+solo de servicios de push conocidos: Google, Mozilla, Apple y Windows. Ver
+[seguridad](seguridad.md) (SCRUM-153).
+
+| Campo            | Tipo        | Nulo | Descripción                                                          |
+| ---------------- | ----------- | ---- | -------------------------------------------------------------------- |
+| `id_suscripcion` | UUID        | no   | Clave primaria.                                                      |
+| `id_usuario`     | UUID        | no   | A quién pertenece. Se borra con la cuenta.                           |
+| `endpoint`       | TEXT        | no   | Dirección del servicio de push. **UNIQUE** en toda la tabla y https. |
+| `clave_p256dh`   | TEXT        | no   | Clave para cifrar cada aviso para ese navegador.                     |
+| `clave_auth`     | TEXT        | no   | Secreto de autenticación de ese navegador.                           |
+| `fecha_creacion` | TIMESTAMPTZ | no   | Cuándo se suscribió.                                                 |
+
+`PREFERENCIA_AVISO` es a qué hora quiere cada aviso. Una fila por persona.
+
+| Campo                         | Tipo        | Nulo | Descripción                                                                                                          |
+| ----------------------------- | ----------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| `id_usuario`                  | UUID        | no   | Clave primaria. Se borra con la cuenta.                                                                              |
+| `minuto_semaforo`             | SMALLINT    | sí   | La **hora base** del semáforo, en minutos desde la medianoche (480 = 8:00). NULL: apagado, con cualquier frecuencia. |
+| `frecuencia_semaforo`         | ENUM        | no   | `manana` (por omisión), `noche` o `dos_veces` (SCRUM-146, ADR 0036). Las cuentas que ya existían quedan en `manana`. |
+| `minuto_racha`                | SMALLINT    | sí   | Igual, para el de la racha. Cada aviso se apaga por separado.                                                        |
+| `minuto_manana`               | SMALLINT    | sí   | Recordatorio de las 8:00: 480 o NULL. La hora no se mueve (SCRUM-126).                                               |
+| `minuto_noche`                | SMALLINT    | sí   | Recordatorio de las 20:00: 1200 o NULL. La hora no se mueve (SCRUM-126).                                             |
+| `ultimo_aviso_semaforo`       | DATE        | sí   | Último día, en la zona de la persona, en que se revisó. Sale una vez al día.                                         |
+| `ultimo_aviso_semaforo_noche` | DATE        | sí   | Igual, para el **segundo** aviso del semáforo (SCRUM-146): cada uno sale una vez al día.                             |
+| `ultimo_aviso_racha`          | DATE        | sí   | Igual, para el de la racha.                                                                                          |
+| `ultimo_aviso_manana`         | DATE        | sí   | Igual, para el de las 8:00.                                                                                          |
+| `ultimo_aviso_noche`          | DATE        | sí   | Igual, para el de las 20:00. Con la racha, solo sale una de las dos al día.                                          |
+| `fecha_edicion`               | TIMESTAMPTZ | no   | Último cambio.                                                                                                       |
+
+Las horas van en minutos y no en `TIME` porque el adaptador de Prisma convierte
+`TIME` en una fecha completa, y con ella vuelven los problemas de zona.
+
+**Los dos avisos del semáforo no se guardan: salen de la hora base y la
+frecuencia** (`FrecuenciaDelSemaforo.ts`, ADR 0036). Así no hay dos valores que
+puedan quedar distintos. Para encontrar a quién le toca sin traer a todos, la
+base pregunta por las **horas base** cuyo aviso cae en la ventana de la revisión
+(columna con índice); una prueba comprueba que coincide con la regla del dominio
+para todas las horas y ventanas del día.
+
+**Política de acceso:** cada persona lee y escribe solo lo suyo, con RLS
+forzado. Hay dos excepciones, y las dos son estrechas:
+
+- **La tarea de avisos** declara `vsd.tarea_actual = 'avisos'`. Así puede
+  **leer** `PREFERENCIA_AVISO` de todas las personas, para saber a quién le
+  toca, y nada más: ni escribirla ni ninguna otra tabla. Lo demás lo lee en
+  nombre de cada persona.
+- **Soltar un navegador:** quien presenta la dirección de un navegador
+  (`vsd.endpoint_actual`) puede **borrar** la suscripción de ese navegador
+  aunque sea de otra persona. Pasa cuando alguien cerró sesión sin apagar los
+  avisos y otra persona entró en el mismo equipo. PostgreSQL exige que un
+  `DELETE` con `WHERE` también pase una política de lectura, así que hay una
+  para esa misma fila.
+
+Ver la migración `20261005120000_avisos_push` y
+`PrismaAvisosRepository.integracion.spec.ts`, que prueba que no se ensanchan.
+
 ## Resumen de políticas de acceso
 
-| Tabla            | Persona dueña           | Otra persona | Administrador |
-| ---------------- | ----------------------- | ------------ | ------------- |
-| `USUARIO`        | lee y escribe su fila   | nada         | nada          |
-| `CATEGORIA`      | lee                     | lee          | lee y escribe |
-| `ACTIVIDAD`      | lee                     | lee          | lee y escribe |
-| `RESULTADO`      | lee y escribe los suyos | nada         | **nada**      |
-| `RECURSO_APOYO`  | lee                     | lee          | lee y escribe |
-| `ENTRADA_DIARIO` | lee y escribe las suyas | nada         | **nada**      |
+| Tabla                               | Persona dueña                                       | Otra persona | Administrador |
+| ----------------------------------- | --------------------------------------------------- | ------------ | ------------- |
+| `USUARIO`                           | lee y escribe su fila                               | nada         | nada          |
+| `CATEGORIA`                         | lee                                                 | lee          | lee y escribe |
+| `ACTIVIDAD`                         | lee                                                 | lee          | lee y escribe |
+| `RESULTADO`                         | lee y escribe los suyos                             | nada         | **nada**      |
+| `RECURSO_APOYO`                     | lee                                                 | lee          | lee y escribe |
+| `ENTRADA_DIARIO`                    | lee y escribe las suyas; edita solo la primera hora | nada         | **nada**      |
+| `PENDIENTE`                         | lee y escribe los suyos                             | nada         | **nada**      |
+| `DATO_CURIOSO`                      | lee                                                 | lee          | lee y escribe |
+| `SESION_DE_ACTIVIDAD`               | lee                                                 | lee          | lee y escribe |
+| `DATO_CURIOSO_CURSOR`               | lee y escribe el suyo                               | nada         | **nada**      |
+| `CUENTA_INACTIVA`                   | **solo añade**; lee la de su propio token           | nada         | **nada**      |
+| `CONSENTIMIENTO_DE_CUENTA_INACTIVA` | **solo añade**; no lee                              | nada         | **nada**      |
+| `BAJA_PENDIENTE`                    | **solo añade** y lee la suya                        | nada         | **nada**      |
 
 El administrador gestiona contenidos, no personas. Es lo que declara el
 entregable y lo que imponen las políticas.

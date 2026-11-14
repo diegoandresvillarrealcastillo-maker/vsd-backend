@@ -1,0 +1,277 @@
+import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import type {
+  PaisConLineas,
+  ReglaLocalDeCharla,
+  ReglaLocalDeIntencion,
+  ReglasLocalesDelAsistente,
+} from '../../../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
+import { RecursoDto } from './RecursoDto.js';
+
+/** Otra respuesta para la misma intencion, segun lo que diga el mensaje. */
+export class VarianteDeCharlaDto {
+  @ApiProperty({ type: [String], example: ['buenas noches'] })
+  patrones!: string[];
+
+  @ApiProperty({ example: '¡Buenas noches! Aquí estoy si quieres preguntarme algo.' })
+  mensaje!: string;
+}
+
+export class ReglaDeCharlaDto {
+  @ApiProperty({ example: 'saludo' })
+  intencion!: string;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Palabras completas, sin tildes y en minusculas. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz que admite terminaciones.',
+    example: ['hola', 'buenas tardes', 'saludo*'],
+  })
+  patrones!: string[];
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Lo que se responde sin conexion, o null si esa intencion no se puede responder sin conexion. Una regla sin mensaje se publica igual: su sitio en el orden es lo que decide que "hola, como estas" no sea un saludo.',
+  })
+  mensaje!: string | null;
+
+  @ApiProperty({
+    type: [VarianteDeCharlaDto],
+    description: 'Respuestas distintas segun el mensaje. La primera cuyo patron aparezca gana.',
+  })
+  variantes!: VarianteDeCharlaDto[];
+
+  static desde(regla: ReglaLocalDeCharla): ReglaDeCharlaDto {
+    const dto = new ReglaDeCharlaDto();
+
+    dto.intencion = regla.intencion;
+    dto.patrones = [...regla.patrones];
+    dto.mensaje = regla.mensaje;
+    dto.variantes = regla.variantes.map((variante) => ({
+      patrones: [...variante.patrones],
+      mensaje: variante.mensaje,
+    }));
+
+    return dto;
+  }
+}
+
+export class ReglaDeIntencionDto {
+  @ApiProperty({ example: 'donde_busco_ayuda' })
+  intencion!: string;
+
+  @ApiProperty({ type: [String], example: ['ayud*', 'psicolog*'] })
+  patrones!: string[];
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Lo que se responde sin conexion, o null si esa intencion exige conexion.',
+  })
+  mensaje!: string | null;
+
+  @ApiProperty({
+    description: 'Cierto si la respuesta lleva las lineas de atencion del pais de la persona.',
+  })
+  conLineas!: boolean;
+
+  static desde(regla: ReglaLocalDeIntencion): ReglaDeIntencionDto {
+    const dto = new ReglaDeIntencionDto();
+
+    dto.intencion = regla.intencion;
+    dto.patrones = [...regla.patrones];
+    dto.mensaje = regla.mensaje;
+    dto.conLineas = regla.conLineas;
+
+    return dto;
+  }
+}
+
+export class PaisConLineasDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Las zonas horarias de ese pais. El pais de una persona sale de la zona de su cuenta: nunca se pide ubicacion.',
+    example: ['America/Bogota'],
+  })
+  zonas!: string[];
+
+  @ApiProperty({
+    type: [RecursoDto],
+    description: 'Ordenadas por alcance: lo nacional va primero.',
+  })
+  lineas!: RecursoDto[];
+
+  static desde(pais: PaisConLineas): PaisConLineasDto {
+    const dto = new PaisConLineasDto();
+
+    dto.zonas = [...pais.zonas];
+    dto.lineas = pais.lineas.map((linea) => RecursoDto.desde(linea));
+
+    return dto;
+  }
+}
+
+export class RiesgoLocalDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Las expresiones que obligan a mostrar las lineas de atencion, ya normalizadas. Se buscan dentro del texto normalizado (sin tildes, en minusculas, espacios colapsados).',
+  })
+  expresiones!: string[];
+
+  @ApiProperty({ description: 'El mensaje que acompana a las lineas. Es el mismo con conexion.' })
+  mensaje!: string;
+}
+
+export class CharlaLocalDto {
+  @ApiProperty({
+    type: [ReglaDeCharlaDto],
+    description: 'En el orden en que se evaluan: la primera que coincide gana.',
+  })
+  reglas!: ReglaDeCharlaDto[];
+
+  @ApiProperty({
+    type: [String],
+    description: 'Palabras que pueden acompanar a la charla sin dejar de serlo.',
+  })
+  relleno!: string[];
+}
+
+export class OfensivoLocalDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Lo que cuenta como insulto o como orden de callar, ya normalizado. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz.',
+  })
+  terminos!: string[];
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Si el mensaje lleva alguna, habla de quien lo escribe y no cuenta como insulto aunque lleve un termino: «soy un idiota», «me siento una mierda».',
+  })
+  desahogo!: string[];
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. El servidor no cuenta: la ventana de chat lleva la cuenta.',
+  })
+  umbral!: number;
+
+  @ApiProperty({ description: 'Lo que se responde a un insulto, sin lineas de atencion.' })
+  mensaje!: string;
+
+  @ApiProperty({ description: 'Lo que se dice al cerrar la conversacion.' })
+  mensajeAlCerrar!: string;
+}
+
+export class FallbackLocalDto {
+  @ApiProperty({
+    description:
+      'Lo que se responde cuando no se reconoce lo que se escribio. Sin lineas de atencion: solo hay lineas ante una senal de riesgo.',
+  })
+  mensaje!: string;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que si se atienden, como frases que la persona puede tocar y enviar tal cual.',
+  })
+  sugerencias!: string[];
+}
+
+/**
+ * Lo que hace falta para que VSD IA responda lo basico sin conexion (SCRUM-141).
+ *
+ * Es publico y es el mismo para todo el mundo: no lleva nada de nadie. Lo que
+ * escribe una persona no viaja ni se guarda aqui: este paquete solo baja.
+ */
+export class ReglasLocalesDelAsistenteDto {
+  @ApiProperty({
+    example: 1,
+    description:
+      'La version de la forma de este paquete. Una aplicacion que no conozca el esquema que llega debe seguir con lo que ya tenia.',
+  })
+  esquema!: number;
+
+  @ApiProperty({ type: RiesgoLocalDto })
+  riesgo!: RiesgoLocalDto;
+
+  @ApiProperty({ type: CharlaLocalDto })
+  charla!: CharlaLocalDto;
+
+  @ApiProperty({
+    type: OfensivoLocalDto,
+    description:
+      'El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la charla. Una aplicacion que no lo conozca lo ignora.',
+  })
+  ofensivo!: OfensivoLocalDto;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    description:
+      'Erratas frecuentes, ya normalizadas, hacia la palabra que se quiso escribir (SCRUM-193): «ola» es «hola», «bamos» es «vamos». Con esta tabla y las palabras de las reglas el dispositivo corrige igual que el servidor. Una aplicacion que no la conozca la ignora.',
+  })
+  erratas!: Record<string, string>;
+
+  @ApiProperty({
+    type: FallbackLocalDto,
+    description:
+      'Lo que se responde cuando no se reconoce nada (SCRUM-176, SCRUM-193): sin lineas de atencion y con el catalogo de temas. Una aplicacion que no lo conozca lo ignora.',
+  })
+  fallback!: FallbackLocalDto;
+
+  @ApiProperty({
+    type: [ReglaDeIntencionDto],
+    description: 'Lo demas que el servidor reconoce, en su orden.',
+  })
+  intenciones!: ReglaDeIntencionDto[];
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { $ref: getSchemaPath(PaisConLineasDto) },
+    description: 'Los paises con lineas verificadas, por su codigo ISO de dos letras.',
+  })
+  paises!: Record<string, PaisConLineasDto>;
+
+  @ApiProperty({
+    type: [RecursoDto],
+    description:
+      'Lo que recibe quien esta en una zona de un pais sin lineas verificadas: el directorio internacional, y ningun telefono.',
+  })
+  internacional!: RecursoDto[];
+
+  static desde(reglas: ReglasLocalesDelAsistente): ReglasLocalesDelAsistenteDto {
+    const dto = new ReglasLocalesDelAsistenteDto();
+
+    dto.esquema = reglas.esquema;
+    dto.riesgo = { expresiones: [...reglas.riesgo.expresiones], mensaje: reglas.riesgo.mensaje };
+    dto.charla = {
+      reglas: reglas.charla.reglas.map((regla) => ReglaDeCharlaDto.desde(regla)),
+      relleno: [...reglas.charla.relleno],
+    };
+    dto.ofensivo = {
+      terminos: [...reglas.ofensivo.terminos],
+      desahogo: [...reglas.ofensivo.desahogo],
+      umbral: reglas.ofensivo.umbral,
+      mensaje: reglas.ofensivo.mensaje,
+      mensajeAlCerrar: reglas.ofensivo.mensajeAlCerrar,
+    };
+    dto.erratas = { ...reglas.erratas };
+    dto.fallback = {
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
+    };
+    dto.intenciones = reglas.intenciones.map((regla) => ReglaDeIntencionDto.desde(regla));
+    dto.paises = Object.fromEntries(
+      Object.entries(reglas.paises).map(([codigo, pais]) => [codigo, PaisConLineasDto.desde(pais)]),
+    );
+    dto.internacional = reglas.internacional.map((linea) => RecursoDto.desde(linea));
+
+    return dto;
+  }
+}

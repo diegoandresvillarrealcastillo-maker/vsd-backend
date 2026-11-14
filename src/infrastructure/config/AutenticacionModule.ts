@@ -1,9 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
+import type { RegistroDeSeguridadPort } from '../../domain/ports/out/RegistroDeSeguridadPort.js';
 import { GuardiaDeSesion } from '../auth/GuardiaDeSesion.js';
 import { VerificadorDeIdentidad } from '../auth/VerificadorDeIdentidad.js';
 import type { Configuracion } from './environment.js';
-import { CONFIGURACION } from './tokens.js';
+import { CONFIGURACION, REGISTRO_DE_SEGURIDAD } from './tokens.js';
 
 /**
  * Quien es quien: verificacion del token en cada peticion.
@@ -27,9 +28,12 @@ import { CONFIGURACION } from './tokens.js';
     },
     {
       provide: APP_GUARD,
-      useFactory: (verificador: VerificadorDeIdentidad, reflector: Reflector) =>
-        new GuardiaDeSesion(verificador, reflector),
-      inject: [VerificadorDeIdentidad, Reflector],
+      useFactory: (
+        verificador: VerificadorDeIdentidad,
+        reflector: Reflector,
+        seguridad: RegistroDeSeguridadPort,
+      ) => new GuardiaDeSesion(verificador, reflector, seguridad),
+      inject: [VerificadorDeIdentidad, Reflector, REGISTRO_DE_SEGURIDAD],
     },
   ],
   exports: [VerificadorDeIdentidad],

@@ -2,8 +2,12 @@ import { ActivityResultService } from '../../application/services/ActivityResult
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
+import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
+import { InMemorySesionesRepository } from '../repositories/InMemorySesionesRepository.js';
 
 /**
  * Cableado de dependencias.
@@ -19,17 +23,26 @@ import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivi
 export interface Dependencias {
   readonly activityResultRepository: ActivityResultRepositoryPort;
   readonly activityRepository: ActivityRepositoryPort;
+  readonly recursoApoyoRepository: RecursoApoyoRepositoryPort;
+  /** Por omision, las sesiones en memoria (sin contenido), que leen los resultados de arriba. */
+  readonly sesionesRepository?: SesionesRepositoryPort;
 }
 
+const dependenciasEnMemoria = (): Dependencias => ({
+  activityResultRepository: new InMemoryActivityResultRepository(),
+  activityRepository: new InMemoryActivityRepository(),
+  recursoApoyoRepository: new InMemoryRecursoApoyoRepository(),
+});
+
 export function construirActivityResultService(
-  dependencias: Dependencias = {
-    activityResultRepository: new InMemoryActivityResultRepository(),
-    activityRepository: new InMemoryActivityRepository(),
-  },
+  dependencias: Dependencias = dependenciasEnMemoria(),
 ): ActivityResultService {
   const casoDeUso = new RegisterActivityResultUseCaseImpl(
     dependencias.activityResultRepository,
     dependencias.activityRepository,
+    dependencias.recursoApoyoRepository,
+    dependencias.sesionesRepository ??
+      new InMemorySesionesRepository(dependencias.activityResultRepository),
   );
 
   return new ActivityResultService(casoDeUso);

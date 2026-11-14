@@ -12,8 +12,34 @@ import { PrismaClient } from '@prisma/client';
  */
 export type ClienteConSesion = Pick<
   PrismaClient,
-  'usuario' | 'categoria' | 'actividad' | 'resultado' | 'recursoApoyo' | 'entradaDiario'
+  | 'usuario'
+  | 'categoria'
+  | 'actividad'
+  | 'resultado'
+  | 'recursoApoyo'
+  | 'entradaDiario'
+  | 'pendiente'
+  | 'suscripcionPush'
+  | 'preferenciaAviso'
+  | 'consentimiento'
+  | 'datoCuriosoCursor'
+  | 'cuentaInactiva'
+  | 'consentimientoDeCuentaInactiva'
+  | 'bajaPendiente'
+  | '$queryRaw'
 >;
+
+/**
+ * Lo unico que alcanza la tarea de avisos cuando mira a todos a la vez: las
+ * horas, y solo para leerlas. Ver `comoTareaDeAvisos`.
+ */
+export type ClienteDeLaTareaDeAvisos = Pick<PrismaClient, 'preferenciaAviso'>;
+
+/**
+ * Lo unico que alcanza la tarea que termina las bajas de cuenta (SCRUM-267): las marcas, y solo
+ * para leerlas. Ver `comoTareaDeBajas`.
+ */
+export type ClienteDeLaTareaDeBajas = Pick<PrismaClient, 'bajaPendiente'>;
 
 /** Rol con el que se declara una sesion. Coincide con el enum `rol` de la base. */
 export const RolDeSesion = {
@@ -22,6 +48,22 @@ export const RolDeSesion = {
 } as const;
 
 export type RolDeSesion = (typeof RolDeSesion)[keyof typeof RolDeSesion];
+
+/**
+ * Los tiempos de la transaccion que borra la fila de `usuario` (SCRUM-260, ADR 0040).
+ *
+ * Prisma da 5 s a una transaccion interactiva si nadie dice otra cosa. Borrar la cuenta se lleva
+ * por cascada todo lo suyo, y con mucho historial puede pasar de esos 5 s. Desde ADR 0040 ya no
+ * espera a la red: lo de fuera (archivos e identidad) se borra antes y fuera de toda transaccion.
+ *
+ * `maxWait` es lo que se espera por una conexion libre del pool, y `timeout` lo que dura la
+ * transaccion. Los valores de borrado son mayores porque abarcan cascadas; las operaciones
+ * normales tienen un limite de 15 s para tolerar picos sin dejar consultas indefinidamente colgadas.
+ */
+export const TRANSACCION_DE_BORRADO = { maxWait: 2_000, timeout: 20_000 } as const;
+
+/** Margen para que las transacciones de personas esperen su turno con carga sostenida. */
+export const TRANSACCION_DE_USUARIO = { maxWait: 10_000, timeout: 15_000 } as const;
 
 /**
  * Se lanza cuando la conexion no esta sujeta a las politicas de la base.
@@ -69,11 +111,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
      * negocia.
      */
     private readonly exigirAislamiento: boolean = false,
+    conexionesMaximas = 10,
   ) {
     // Desde Prisma 7 la URL no viaja en el esquema: la recibe el cliente a
     // traves de un adaptador. Quien la lee del entorno es la capa de
     // configuracion, no esta clase.
-    super({ adapter: new PrismaPg({ connectionString }) });
+    super({
+      adapter: new PrismaPg({
+        connectionString,
+        max: conexionesMaximas,
+        connectionTimeoutMillis: 5_000,
+      }),
+    });
   }
 
   async onModuleInit(): Promise<void> {
@@ -100,14 +149,93 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * transaccion como el de Supabase la siguiente peticion heredaria la
    * identidad de la anterior. Ese fallo es de los que no se notan hasta que
    * alguien ve datos ajenos.
+   *
+   * La zona horaria de la sesion se fija en UTC por un fallo del adaptador de
+   * Prisma 7: al leer un `timestamptz` descarta el desfase y lo toma como UTC.
+   * Con la base en otra zona, como la local en `America/Bogota`, una fecha
+   * guardada a las 7 p. m. se leia como las 2 p. m., y la hora para editar el
+   * diario (SCRUM-95) aparecia vencida al momento de escribir. En UTC el
+   * desfase es cero y no hay nada que descartar. Supabase ya esta en UTC: esto
+   * hace que no dependa de que siga asi.
    */
   async comoUsuario<T>(
     userId: string,
     tarea: (cliente: ClienteConSesion) => Promise<T>,
     rol: RolDeSesion = RolDeSesion.USUARIO,
+    tiempos?: { readonly maxWait: number; readonly timeout: number },
   ): Promise<T> {
     return this.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true)`;
+      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${rol}, true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    }, tiempos ?? TRANSACCION_DE_USUARIO);
+  }
+
+  /**
+   * Como `comoUsuario`, con los tiempos de un borrado (`TRANSACCION_DE_BORRADO`).
+   *
+   * Es la unica via con tiempos largos: asi se ve en cada sitio que la llama que lo que hay
+   * dentro es un borrado en cascada que puede tardar, y el resto de las transacciones no hereda
+   * esa espera.
+   */
+  async comoUsuarioParaBorrar<T>(
+    userId: string,
+    tarea: (cliente: ClienteConSesion) => Promise<T>,
+  ): Promise<T> {
+    return this.comoUsuario(userId, tarea, RolDeSesion.USUARIO, TRANSACCION_DE_BORRADO);
+  }
+
+  /**
+   * Como `comoUsuario`, declarando ademas en que navegador esta la persona
+   * (SCRUM-102).
+   *
+   * Con eso la base le deja borrar la suscripcion de ese navegador aunque sea
+   * de otra persona: es lo que pasa cuando alguien cerro sesion sin apagar
+   * los avisos y otra entro en el mismo equipo. Solo borrar, y solo esa fila:
+   * ver la politica `suscripcion_push_soltar_el_navegador`.
+   *
+   * La direccion tiene que ser la que el navegador acaba de entregar en esta
+   * peticion. Tenerla es estar en ese navegador.
+   */
+  async comoUsuarioEnSuNavegador<T>(
+    userId: string,
+    endpoint: string,
+    tarea: (cliente: ClienteConSesion) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.usuario_actual', ${userId}, true), set_config('vsd.rol_actual', ${RolDeSesion.USUARIO}, true), set_config('vsd.endpoint_actual', ${endpoint}, true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
+   * La tarea que revisa cada minuto a quien le toca un aviso (SCRUM-102).
+   *
+   * Es la unica forma de mirar algo de todas las personas a la vez, y es
+   * deliberadamente pobre: el cliente que recibe solo tiene la tabla de horas,
+   * y la politica `preferencia_aviso_leer_para_avisar` solo deja leerla. Ni
+   * pendientes, ni resultados, ni suscripciones: para eso se actua en nombre
+   * de cada persona con `comoUsuario`.
+   */
+  async comoTareaDeAvisos<T>(tarea: (cliente: ClienteDeLaTareaDeAvisos) => Promise<T>): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.tarea_actual', 'avisos', true), set_config('TimeZone', 'UTC', true)`;
+
+      return tarea(tx);
+    });
+  }
+
+  /**
+   * La tarea que termina las bajas de cuenta que se cortaron a mitad (SCRUM-267, ADR 0040).
+   *
+   * Como `comoTareaDeAvisos`, es deliberadamente pobre: el cliente que recibe solo tiene la tabla
+   * de marcas y la politica `baja_pendiente_leer_para_terminar` solo deja leerla. Para actuar sobre
+   * una baja se pasa a ser esa persona con `comoUsuario`.
+   */
+  async comoTareaDeBajas<T>(tarea: (cliente: ClienteDeLaTareaDeBajas) => Promise<T>): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('vsd.tarea_actual', 'bajas', true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
     });
@@ -137,10 +265,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     tarea: (cliente: ClienteConSesion) => Promise<T>,
   ): Promise<T> {
     return this.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true)`;
+      await tx.$queryRaw`SELECT set_config('vsd.proveedor_actual', ${idProveedorAuth}, true), set_config('TimeZone', 'UTC', true)`;
 
       return tarea(tx);
-    });
+    }, TRANSACCION_DE_USUARIO);
   }
 
   /**

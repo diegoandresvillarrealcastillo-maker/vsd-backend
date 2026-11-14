@@ -1,9 +1,12 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get, Inject, Param } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import type { ConsultarCatalogoUseCase } from '../../domain/ports/in/ConsultarCatalogoUseCase.js';
+import type { Frecuencia } from '../../domain/model/Activity.js';
 import { Publico } from '../auth/Publico.js';
 import { CONSULTAR_CATALOGO } from '../config/tokens.js';
+import { PRISMA } from '../config/tokens.js';
+import type { PrismaService } from '../persistence/PrismaService.js';
 import { CategoriaDelCatalogoDto } from './dto/CatalogoRespuestaDto.js';
 
 /**
@@ -27,7 +30,70 @@ export class CatalogoController {
   constructor(
     @Inject(CONSULTAR_CATALOGO)
     private readonly catalogo: ConsultarCatalogoUseCase,
+    @Inject(PRISMA)
+    private readonly prisma: PrismaService | null,
   ) {}
+
+  @Get('sesiones/:modulo')
+  @ApiOperation({ summary: 'Sesiones publicadas de un modulo, para elegir libremente' })
+  async sesionesPublicadas(@Param('modulo') modulo: string) {
+    if (!['bienestar', 'cognicion', 'emociones'].includes(modulo) || this.prisma === null) {
+      return [];
+    }
+
+    const sesiones = await this.prisma.sesionDeActividad.findMany({
+      where: { publicado: true, actividad: { estado: true, categoria: { modulo } } },
+      select: {
+        id: true,
+        idActividad: true,
+        titulo: true,
+        nivel: true,
+        parametros: true,
+        actividad: { select: { nombre: true, frecuencia: true, diasSemana: true } },
+      },
+      orderBy: [
+        { actividad: { nombre: 'asc' } },
+        { nivel: 'asc' },
+        { titulo: 'asc' },
+        { id: 'asc' },
+      ],
+    });
+
+    return sesiones.map((sesion) => {
+      const frecuencia: Frecuencia =
+        sesion.actividad.frecuencia === 'semanal'
+          ? { tipo: 'semanal', dias: sesion.actividad.diasSemana }
+          : { tipo: sesion.actividad.frecuencia };
+
+      return {
+        id: sesion.id,
+        idActividad: sesion.idActividad,
+        titulo: sesion.titulo,
+        nivel: sesion.nivel,
+        parametros: sesion.parametros,
+        actividad: sesion.actividad.nombre,
+        frecuencia,
+      };
+    });
+  }
+
+  @Get('sesion/:id')
+  @ApiOperation({ summary: 'Contenido de una sesion publicada seleccionada' })
+  async sesionPublicada(@Param('id') id: string) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) ||
+      this.prisma === null
+    ) {
+      return null;
+    }
+
+    const sesion = await this.prisma.sesionDeActividad.findFirst({
+      where: { id, publicado: true, actividad: { estado: true } },
+      select: { id: true, idActividad: true, titulo: true, nivel: true, parametros: true },
+    });
+
+    return sesion;
+  }
 
   @Get()
   @ApiOperation({

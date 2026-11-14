@@ -28,17 +28,19 @@
  * esta capa no lo vio.
  */
 
-/**
- * Deja el texto comparable: sin tildes, en minusculas y con los espacios
- * colapsados.
- *
- * La forma NFD separa cada letra de su tilde, y el rango de marcas
- * diacriticas las borra. Sin esto, "quiero morír" no coincidiria con
- * "quiero morir" por un acento.
- */
-export function normalizar(texto: string): string {
-  return texto.normalize('NFD').replace(/[̀-ͯ]/gu, '').toLowerCase().replace(/\s+/gu, ' ').trim();
-}
+import {
+  conInvisiblesComoEspacio,
+  contieneLaExpresion,
+  corregirPalabras,
+  leerConInvisibles,
+  normalizar,
+  palabrasDe,
+  vocabularioDe,
+} from './LecturaDelTexto.js';
+
+// `normalizar` vive en `LecturaDelTexto` (SCRUM-193) y se sigue ofreciendo desde aqui: es de donde
+// lo importa casi todo el sistema.
+export { normalizar };
 
 /**
  * Expresiones que obligan a mostrar las lineas de atencion.
@@ -73,7 +75,24 @@ export const EXPRESIONES_DE_RIESGO: readonly string[] = [
   'nadie me va a extranar',
   'ya no puedo mas',
   'no aguanto mas',
+  // Despedidas que no dejan duda (SCRUM-176, SCRUM-193). Hasta entonces las protegia la red de
+  // seguridad de «no reconocida», que ensenaba las lineas de atencion ante todo lo que no
+  // entendia. Al quitarsela (con una pregunta fuera de dominio no hay crisis), estas frases
+  // pasan a la lista: sin ello se quedaban sin telefono las mas peligrosas.
+  'quiero desaparecer',
+  'no quiero despertar',
+  'adios a todo',
+  'adios para siempre',
+  'hasta nunca',
+  'que nadie me busque',
+  'me despido de este mundo',
 ];
+
+/**
+ * Las palabras que aparecen en las expresiones de riesgo: contra ellas se corrigen las erratas
+ * (SCRUM-193). Solo estas: una errata nunca puede acercar una palabra a algo que no sea riesgo.
+ */
+const VOCABULARIO_DE_RIESGO = vocabularioDe([EXPRESIONES_DE_RIESGO]);
 
 /**
  * Dice si el texto contiene alguna expresion de riesgo.
@@ -81,9 +100,64 @@ export const EXPRESIONES_DE_RIESGO: readonly string[] = [
  * Devuelve un booleano y no la expresion encontrada a proposito: nada de lo
  * que se registre despues debe permitir reconstruir lo que escribio la
  * persona.
+ *
+ * ## Tolera erratas, y solo en un sentido (SCRUM-193)
+ *
+ * Primero se busca el texto tal cual, como siempre. Despues se vuelve a buscar con las erratas
+ * leidas como se quisieron escribir («kiero morirme», «suisidarme», «quiero morirne»). **La
+ * segunda busqueda solo suma**: lo que se detectaba antes se sigue detectando, y la tolerancia
+ * amplia la lista en lugar de debilitarla. Las reglas de la correccion (que no cambie quien
+ * habla, que no corrija lo ambiguo) estan en `LecturaDelTexto.ts`.
  */
 export function hayRiesgo(texto: string): boolean {
-  const limpio = normalizar(texto);
+  // Un invisible puede esconder una letra (mo + U+200B + rir) o hacer de espacio (quiero + U+200B +
+  // morir), y una misma frase puede llevar los dos a la vez. Por eso la busqueda directa decide en
+  // cada sitio que es cada uno, y no por adelantado para todo el texto (SCRUM-258, SCRUM-318).
+  const leido = leerConInvisibles(texto);
 
-  return EXPRESIONES_DE_RIESGO.some((expresion) => limpio.includes(expresion));
+  if (EXPRESIONES_DE_RIESGO.some((expresion) => contieneLaExpresion(leido, expresion))) {
+    return true;
+  }
+
+  // Con erratas, en cambio, las palabras se leen enteras y no hay donde marcar: se mira con los
+  // invisibles quitados y con los invisibles como espacio. Una errata junto con los dos usos de un
+  // invisible a la vez queda fuera: es una combinacion que la lista, que es un suelo, no cubre.
+  if (hayRiesgoConErratas(texto)) {
+    return true;
+  }
+
+  const comoSeparador = conInvisiblesComoEspacio(texto);
+
+  return comoSeparador !== texto && hayRiesgoConErratas(comoSeparador);
+}
+
+function hayRiesgoConErratas(texto: string): boolean {
+  const corregido = corregirPalabras(palabrasDe(texto), VOCABULARIO_DE_RIESGO).join(' ');
+
+  return EXPRESIONES_DE_RIESGO.some((expresion) => corregido.includes(expresion));
+}
+
+/**
+ * Todo el texto de un valor JSON, a cualquier profundidad.
+ *
+ * Sirve para pasar por `hayRiesgo` lo que alguien escribio dentro de una
+ * estructura: la metadata de un resultado, los diagramas del diario. Un campo
+ * nuevo de texto libre queda cubierto sin acordarse de anadirlo. Los numeros y
+ * los booleanos no cuentan, y las claves tampoco: las pone el programa, no la
+ * persona.
+ */
+export function textosDe(valor: unknown): string[] {
+  if (typeof valor === 'string') {
+    return [valor];
+  }
+
+  if (Array.isArray(valor)) {
+    return (valor as readonly unknown[]).flatMap(textosDe);
+  }
+
+  if (valor !== null && typeof valor === 'object') {
+    return Object.values(valor).flatMap(textosDe);
+  }
+
+  return [];
 }

@@ -25,19 +25,203 @@ primero.
 lo único que hace falta y poner los teléfonos delante. No usa la palabra
 "crisis", no nombra ninguna condición y no pide que la persona explique nada.
 
-**Origen:** `MENSAJE_DE_RIESGO` en `src/infrastructure/asistente/AsistentePorReglas.ts`
+**Origen:** `MENSAJE_DE_RIESGO` en `src/domain/model/ReglasDelAsistente.ts` (hasta SCRUM-141 estaba en
+`src/infrastructure/asistente/AsistentePorReglas.ts`; se movió para que lo compartan el asistente y la
+ruta que lo publica para responder sin conexión).
 
 ## 2. Respuestas por intención
 
-| Cuando la persona pregunta | El asistente responde                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------- |
-| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.         |
-| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                  |
-| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.    |
-| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                      |
-| Algo que no se reconoce    | No estoy seguro de haberte entendido, pero esto suele servir. Si quieres, escríbelo de otra forma. |
+| Cuando la persona pregunta | El asistente responde                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qué significa su resultado | Tu nivel resume cómo te fue en esa actividad, ese día. No dice nada sobre ti como persona.                                                                          |
+| Cómo dormir mejor          | Descansar mejor casi siempre empieza por la rutina, no por la fuerza de voluntad.                                                                                   |
+| Que se siente mal          | Gracias por escribirlo. Sentirte así no necesita justificación, y no tienes que resolverlo hoy.                                                                     |
+| Dónde buscar ayuda         | Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.                                                                                       |
+| Algo que no se reconoce    | No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte: _(y el catálogo de abajo, sin líneas de atención)_ |
 
-**Origen:** `MENSAJES` en el mismo archivo.
+**Origen:** `MENSAJES` en `src/domain/model/ReglasDelAsistente.ts`.
+
+### La charla de todos los días (SCRUM-128)
+
+Cinco intenciones nuevas. **Ninguna lleva líneas de atención ni la frase del
+historial**: quien dice «gracias» no necesita un teléfono, y enseñarlo en cada
+saludo lo convertiría en decorado. Ninguna hace una pregunta: el asistente no
+sabría contestar un «bien» o un «más o menos».
+
+| Cuando la persona escribe                                    | El asistente responde                                                                                                                                                                                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Un saludo («hola», «buenos días», «buenas tardes»)           | ¡Hola! Qué bueno tenerte por aquí. Puedes preguntarme por tu descanso, por lo que significa un resultado o por dónde buscar ayuda.                                                                                                         |
+| Un agradecimiento («gracias», «mil gracias», «te agradezco») | ¡Con gusto! Si te surge otra duda, aquí estoy.                                                                                                                                                                                             |
+| Una despedida («adiós», «hasta mañana», «nos vemos»)         | Hasta pronto. Aquí estaré cuando quieras volver.                                                                                                                                                                                           |
+| «Buenas noches»                                              | ¡Buenas noches! Aquí estoy si quieres preguntarme algo. Y si ya vas a descansar, que sea una noche tranquila.                                                                                                                              |
+| «¿Cómo estás?», «¿qué tal?»                                  | Gracias por preguntar. Por aquí todo en orden, listo para acompañarte. Si quieres contarme cómo vas tú, te leo.                                                                                                                            |
+| «¿Qué puedes hacer?», «¿quién eres?»                         | Soy VSD IA. Te puedo explicar qué significa tu nivel en una actividad, darte ideas para descansar mejor y decirte dónde buscar ayuda cuando la necesites. No reemplazo a un profesional: si quieres hablar con alguien, te digo con quién. |
+
+«Buenas noches» va con las despedidas porque es lo que más se escribe al cerrar
+el día; su respuesta está escrita para servir también a quien lo escribe al
+llegar.
+
+**Origen:** `MENSAJES` y la variante de «buenas noches» (dentro de la despedida de
+`REGLAS_DE_CHARLA`), en `src/domain/model/ReglasDelAsistente.ts`. Las palabras que
+las disparan están en `REGLAS_DE_CHARLA`.
+
+#### Cuándo cuenta como charla, y cuándo no
+
+**Solo cuando el mensaje entero es charla.** Cada palabra tiene que ser de un
+patrón de la lista o una de las pocas palabras de relleno que la acompañan
+(«muchas», «por favor», «de nuevo», «solo quería»). También vale el nombre que la
+persona le puso a su mascota: «hola, Luma».
+
+Una sola palabra de más y ya no es charla, y sigue el camino de siempre. Eso es
+a propósito: la lista de riesgo (punto 5) es un suelo, no un techo, y un saludo
+delante no puede dejar sin teléfonos a una frase seria que la lista no tiene.
+
+| Mensaje                             | Qué pasa                                                            |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| «hola»                              | Saludo, sin líneas                                                  |
+| «hola, ¿cómo estás hoy?»            | «Cómo estás», sin líneas                                            |
+| «hola, quiero desaparecer»          | **No es charla**: respuesta genérica **con** las líneas de atención |
+| «adiós a todo»                      | **No es charla**: respuesta genérica **con** las líneas de atención |
+| «adiós, y gracias por todo»         | **No es charla**: respuesta genérica **con** las líneas de atención |
+| «gracias por todo»                  | **No es charla**, por la misma razón; es el precio de la cautela    |
+| «gracias, ¿qué significa mi nivel?» | La pregunta gana: responde lo del resultado                         |
+| «hola, me siento triste»            | Gana lo que importa: responde a «me siento mal»                     |
+
+Y la señal de riesgo se sigue mirando **antes y aparte** de todo esto, sin
+cambios: hay una prueba que pone cada una de las 23 frases con saludos,
+despedidas y agradecimientos alrededor.
+
+### El lenguaje ofensivo (SCRUM-192, decisión D5)
+
+Cuando alguien le escribe un insulto o una orden de callar al asistente, se responde con
+asertividad, **sin juicio y sin líneas de atención** (no hay una señal de riesgo), y no se añade
+nada del historial.
+
+> Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando.
+> Aquí estoy cuando quieras retomar.
+
+**Si insiste tres veces seguidas** en la misma ventana de chat, la conversación se cierra:
+
+> Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a
+> estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva.
+
+Cerrarla **no bloquea a nadie**: se abre otra cuando quiera. Cualquier mensaje que no sea ofensivo
+reinicia la cuenta (son tres **seguidos**, como pedía el requisito). La cuenta la lleva la ventana
+de chat, en memoria: el servidor no guarda conversaciones, así que solo dice que ese mensaje fue
+ofensivo.
+
+**Lo más importante: insulto no es desahogo.** «Me siento una mierda», «odio mi vida» o «soy un
+inútil» no son insultos al asistente: son alguien contando cómo se siente, y es a quien más hay
+que seguir escuchando. Por eso:
+
+- **El riesgo se evalúa antes.** «Eres un idiota, quiero morirme» recibe las líneas de atención,
+  no una advertencia.
+- **Si el mensaje habla de quien lo escribe** («soy», «me siento», «estoy», «fui», «me odio»,
+  «odio mi», «mi vida», «mi culpa»…), no cuenta, aunque lleve un término de la lista.
+- La lista es **corta y conservadora**. Un falso negativo (no ver un insulto) cuesta una respuesta
+  más amable; un falso positivo le cierra la puerta a quien más la necesita. Ante la duda, no
+  cuenta.
+
+**Lista que revisa Diego** (`TERMINOS_OFENSIVOS`, una palabra completa por término; `*` es una
+raíz): idiota\*, imbécil\*, estúpid\*, inútil, tonto, tonta, pendej\*, gilipollas, cabrón\*,
+malparid\*, hijueputa\*, hdp; «eres una mierda», «eres basura», «eres un asco»; «cállate», «cierra
+la boca», «jódete», «lárgate», «vete a la mierda», «vete al carajo»; y en inglés «fuck you», «fuck
+off», «shut up». **No están** a propósito: «marica», «parce» y «gonorrea» (se dicen con cariño),
+ni «basura» o «mierda» sueltas («saca la basura» no es un insulto).
+
+**Origen:** `LenguajeOfensivo.ts` en `src/domain/model/` (la lista, las marcas de desahogo, el
+umbral y los dos mensajes), `esLenguajeOfensivo` en `Reconocimiento.ts` y el orden en
+`AsistentePorReglas.ts`. Se responde también **sin conexión**: sale en el paquete de reglas locales.
+
+### Lo que no se reconoce: el catálogo, sin líneas de atención (SCRUM-176, SCRUM-193)
+
+Antes, ante lo que no entendía, el asistente respondía con las líneas de atención, como si hubiera
+una crisis. Ahora **no las muestra**: sin una señal de riesgo no hay crisis, y enseñarlas por una
+pregunta cualquiera las vuelve decorado. Responde con el texto de arriba y un **catálogo de temas**
+que la persona toca (cada uno se envía como un mensaje):
+
+| Sugerencia                   | Lleva a                    |
+| ---------------------------- | -------------------------- |
+| ¿Cómo puedo dormir mejor?    | Cómo dormir mejor          |
+| ¿Qué significa mi resultado? | Qué significa su resultado |
+| Me siento mal                | Que se siente mal          |
+| ¿Qué puedes hacer?           | Qué puede hacer            |
+| ¿Dónde busco ayuda?          | Dónde buscar ayuda         |
+
+**«¿Dónde busco ayuda?» está siempre**: es la puerta de un toque para quien sí la necesita y no la
+dijo con las palabras de la lista. Una prueba comprueba que **cada sugerencia lleva a la intención
+que dice** (que el catálogo no ofrezca nada que el asistente no sepa responder).
+
+**El compromiso que se aceptó:** tres frases que la red de seguridad enseñaba y que son, casi
+siempre, una cortesía o un hecho cotidiano —«gracias por todo», «adiós, y gracias por todo» y «chao, ya
+no estoy»— **dejan de mostrar las líneas por sí solas**. Reciben el catálogo, con «¿Dónde busco
+ayuda?» a un toque. Las **siete** que no dejan duda pasaron a la lista de riesgo (ver el punto 5), y
+siguen mostrándolas. Si prefieren el falso positivo, basta con añadir esas tres a la lista.
+
+**Origen:** `MENSAJES` y `SUGERENCIAS_DEL_ASISTENTE` en `src/domain/model/ReglasDelAsistente.ts`.
+Ver el [ADR 0027](adr/0027-lo-que-el-asistente-no-entiende-no-muestra-lineas-de-atencion.md).
+
+### La invitación del diario (SCRUM-194, decisión D6)
+
+Es de la **mascota**, no del chat, y aparece al guardar o corregir una anotación del diario. Solo si
+la persona dio el permiso de su perfil (SCRUM-108) **y** lo escrito trae una frase de la lista de
+riesgo. Sin permiso no se lee nada y no aparece nada. No se va sola: espera a que se responda.
+
+**Nunca lleva líneas de atención.** Aceptarla abre VSD IA con «¿Dónde busco ayuda?» ya preguntado,
+que responde con las líneas del país de la persona, también sin conexión.
+
+| Dónde                                                   | Texto                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| La mascota dice                                         | «Gracias por escribirlo. Lo que sientes importa, y no tienes que pasarlo sin compañía. ¿Quieres ver algunos consejos o hablar con alguien?» |
+| Botón principal (abre VSD IA)                           | «Sí, ver opciones»                                                                                                                          |
+| Botón para dejarla                                      | «Ahora no»                                                                                                                                  |
+| Aviso al sincronizar una anotación escrita sin conexión | «Si te sirve hablarlo con alguien, toca a tu mascota y pregúntale a VSD IA dónde buscar ayuda.»                                             |
+
+**Alternativa del encargo original**, por si se prefiere un tono más sobrio:
+«Noté que escribiste algo en tu diario. ¿Quieres recibir algunos consejos o hablar con alguien sobre
+eso?». Se cambia en una sola constante del frontend.
+
+**Lo que no hace:** no diagnostica, no pone nombre a lo que se siente, no repite lo que la persona
+escribió, no lleva ningún teléfono y no vuelve por la misma anotación una vez respondida.
+
+**Una pregunta abierta para Diego:** el plan decía «abre Recursos», pero **hoy no existe una
+pantalla de Recursos** (ni ruta ni endpoint). Se llevó a VSD IA, que es lo que existe. Si se
+construye esa pantalla (SCRUM-26), basta con cambiar el destino del botón.
+
+**Origen:** `INVITACION_DEL_DIARIO` en `src/paginas/diario/invitacionDelDiario.ts` (frontend) y el
+aviso en `src/conexion/AvisoDeSincronizacion.tsx`. Ver el
+[ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md).
+
+### Las erratas (SCRUM-193)
+
+La gente escribe de prisa, desde el teléfono. «ola», «cómo bamos», «grasias» y «sicologo» se leen
+como se quisieron escribir. Hay dos mecanismos, y los dos son cortos:
+
+1. **Una tabla de erratas frecuentes** (`ERRATAS_FRECUENTES` en `src/domain/model/LecturaDelTexto.ts`):
+   «ola», «bamos», «kiero», «grasias», «sicologo»… Para las palabras cortas. Se amplía con una línea.
+2. **Distancia de edición de uno** hacia una palabra que el asistente ya conoce, y solo si la
+   palabra tiene cinco letras o más, empieza y termina con las mismas letras, y hay un único
+   candidato. Lo que cambia al final suele ser de quién se habla: «no aguanta más» (otra persona)
+   no se lee «no aguanto más».
+
+**La tolerancia amplía el riesgo y nunca lo debilita:** «kiero morirme», «quiero morirne» o
+«suisidarme» siguen siendo señales de riesgo. Lo que ya se detectaba, se sigue detectando.
+
+**El lenguaje ofensivo solo usa la tabla**, nunca la distancia: «tanto» no puede volverse «tonto».
+
+### Palabras completas, no pedazos (SCRUM-128)
+
+Antes, el asistente buscaba pedazos de texto: «mal» coincidía dentro de
+«normal», y «solo» dentro de «solo quería saludar». Ahora se comparan palabras
+completas. Las raíces que dan una familia (psicólogo, psicóloga, psicología)
+se escriben con `*` y siguen exigiendo que la palabra **empiece** así.
+
+Un cambio de comportamiento que conviene saber:
+
+- **«solo» y «sola» ya no bastan por sí solos** para entender que la persona se
+  siente mal. Se reconocen cuando dicen cómo está («estoy solo», «muy sola»,
+  «me siento solo»). Una palabra suelta sin contexto cae en la respuesta
+  genérica, que sí lleva las líneas de atención.
 
 ### La frase que se añade con el historial
 
@@ -61,21 +245,115 @@ Vive en la tabla `RECURSO_APOYO`, así que se puede corregir sin desplegar.
 
 ## 4. Líneas de atención
 
-| Línea             | Texto                                                                                                                                                                                                             | Cobertura   |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **192, opción 4** | Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.                                                           | Nacional    |
-| **123**           | Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                            | Nacional    |
-| **106**           | Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co. | Solo Bogotá |
+Se enseñan las del **país de la persona**, que sale de la zona horaria de su
+cuenta (SCRUM-124, [ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md)).
+Nunca se pide GPS ni ubicación.
 
-Datos verificados en fuentes oficiales el 2026-09-16.
+**Cada línea tiene fuente y fecha de verificación**, y la base no deja guardar un
+contacto sin ellas. La fecha es el día en que una persona abrió esa página
+oficial y comprobó el número, el horario y que fuera gratuita. **Un país entra al
+catálogo solo si sus líneas se leyeron en la fuente**: lo que no se pudo abrir no
+se añade.
 
-**Falta el recurso de la universidad.** Se retiró por no estar confirmado. Ver
-el final de esta página.
+Quien está en un lugar sin líneas verificadas recibe el **directorio
+internacional** y ningún teléfono, porque no se sabe cuál sería el suyo (ver más
+abajo).
+
+### Colombia (`America/Bogota`)
+
+| Línea             | Texto                                                                                                                                                                                                             | Cobertura   | Fuente                                                                                                                                                             | Verificada |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| **192, opción 4** | Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.                                                           | Nacional    | [Ministerio de Salud](https://www.minsalud.gov.co)                                                                                                                 | 2026-09-16 |
+| **123**           | Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                            | Nacional    | [Función Pública](https://www1.funcionpublica.gov.co/preguntas-frecuentes/-/asset_publisher/sqxafjubsrEu/content/linea-unica-de-emergencias-nacional-123/28585938) | 2026-10-06 |
+| **106**           | Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co. | Solo Bogotá | [Secretaría Distrital de Salud](https://literalmente.saludcapital.gov.co/salud-mental/que-tipo-de-ayuda-necesitas/lineas-de-atencion/)                             | 2026-10-06 |
+
+Las tres existían desde SCRUM-60 y no cambian. **Dos de ellas tienen una duda
+abierta**, que está más abajo en «Pendiente de verificación humana».
+
+### México (`America/Mexico_City` y las demás zonas de México)
+
+| Línea                | Texto                                                                                                                                                        | Cobertura | Fuente                                                                                                                                                      | Verificada |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **Línea de la Vida** | Orientación gratuita en salud mental de la Secretaría de Salud, las 24 horas, todos los días del año. Se marca 800 911 2000.                                 | Nacional  | [Secretaría de Salud](https://www.gob.mx/salud/prensa/239-linea-de-la-vida-celebra-25-anos-de-servicio-humano-para-poblacion-con-problemas-de-salud-mental) | 2026-10-06 |
+| **911**              | Línea única de emergencias, en todo el país, las 24 horas, todos los días del año. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien. | Nacional  | [Gobierno de México, 9-1-1](https://www.gob.mx/911/articulos/que-es-9-1-1-conoce-mas-de-911emergencias)                                                     | 2026-10-06 |
+
+### España (`Europe/Madrid`, `Atlantic/Canary`, `Africa/Ceuta`)
+
+| Línea   | Texto                                                                                                                                                                                     | Cobertura | Fuente                                                                | Verificada |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------- | ---------- |
+| **024** | Línea del Ministerio de Sanidad: gratuita, confidencial y las 24 horas, todos los días del año. Escucha a quien lo está pasando mal y también a su familia y sus allegados. Se marca 024. | Nacional  | [Ministerio de Sanidad](https://www.sanidad.gob.es/linea024/home.htm) | 2026-10-06 |
+| **112** | Teléfono de emergencias. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                        | Nacional  | [Ministerio de Sanidad](https://www.sanidad.gob.es/linea024/home.htm) | 2026-10-06 |
+
+### Estados Unidos (las zonas de EE. UU., incluidas Alaska y Hawái)
+
+| Línea   | Texto                                                                                                                                                                                                | Cobertura | Fuente                                                                                   | Verificada |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------- | ---------- |
+| **988** | Apoyo gratuito y confidencial por llamada, mensaje de texto o chat, las 24 horas, todos los días del año. Para hablar en español, marca 988 y presiona 2, o envía AYUDA por mensaje de texto al 988. | Nacional  | [988 Lifeline](https://988lifeline.org/get-help/)                                        | 2026-10-06 |
+| **911** | Número de emergencias, las 24 horas. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.                                                                                       | Nacional  | [USAGov](https://www.usa.gov/features/the-988-lifeline-and-other-mental-health-services) | 2026-10-06 |
+
+### Cualquier otro lugar: el directorio internacional
+
+> **Directorio internacional de líneas de ayuda.** Todavía no tenemos verificadas
+> las líneas del lugar donde estás, y preferimos no darte un número que podría no
+> ser el tuyo. Este directorio, que recomienda la Asociación Internacional para
+> la Prevención del Suicidio, reúne líneas gratuitas de muchos países, por
+> teléfono, chat o mensaje. Si hay riesgo inmediato para la vida de alguien,
+> llama al número de emergencias del lugar donde estás.
+
+Enlaza a [Find A Helpline](https://findahelpline.com/), de ThroughLine. La
+[página de la IASP](https://www.iasp.info/crisis-centres-helplines/) (fuente,
+2026-10-06) lo recomienda para encontrar líneas verificadas por país.
+
+**No lleva ningún número de teléfono, a propósito**, y una prueba lo comprueba:
+darle a alguien un número, cualquiera, es el error que SCRUM-124 existe para
+evitar. Tampoco dice cuál es el número de emergencias del lugar: no se sabe
+cuál es, y en las páginas de los dos directorios no se pudo confirmar que lo
+muestren.
+
+Es lo que reciben también quienes estén en Perú, Chile, Ecuador, Venezuela o
+cualquier otro país que no esté arriba. **Esto no es un hueco: es el
+comportamiento esperado**, hasta que un país tenga sus líneas verificadas.
+
+### Cómo se deduce el país
+
+De la zona horaria de la cuenta, con una lista escrita a mano
+(`src/domain/model/PaisDeAyuda.ts`). **Misma hora no es mismo país**: Perú,
+Ecuador y Panamá comparten la hora de Bogotá y reciben el directorio, no el 192.
+Una zona desconocida o mal escrita tampoco tiene país, y no falla.
+
+### Pendiente de verificación humana
+
+Esto es lo que **no se pudo comprobar** y alguien del equipo debería mirar. Se
+deja por escrito para que no se confunda lo que se verificó con lo que no.
+
+1. **Colombia, Línea 192 opción 4.** La única fuente oficial que se pudo leer
+   describe una estrategia de teleorientación de la pandemia (2020-2021). La
+   página «Línea 106» del Ministerio de Salud y una nota de Señal Colombia de
+   octubre de 2025 sobre dónde pedir ayuda gratis **no la mencionan**. No se
+   pudo confirmar que siga activa. Lo que haría falta: llamar al 192, elegir la
+   opción 4, y si no atiende, corregirla con una migración nueva.
+2. **Colombia, Línea 106.** La página de la Secretaría Distrital de Salud la
+   describe como servicio de Bogotá, pero la página «Línea 106» del Ministerio
+   de Salud la presenta **sin límite a Bogotá** («marca 106 desde un teléfono
+   fijo o celular»). Hoy se enseña con cobertura «Solo Bogotá». Si es nacional,
+   quien esté fuera de Bogotá se está perdiendo una línea buena, no recibiendo
+   un número equivocado. Lo que haría falta: confirmarlo con el Ministerio o
+   llamando desde fuera de Bogotá.
+3. **Perú (Línea 113, opción 5, del Ministerio de Salud) y Chile (\*4141, del
+   Ministerio de Salud).** Las búsquedas las muestran en páginas oficiales
+   (`gob.pe`, `minsal.cl`, `gob.cl`), pero esas páginas **no se pudieron abrir**
+   (el servidor rechazó la lectura), así que no entran al catálogo. Una persona
+   puede abrirlas, y agregar el país es una migración y tres líneas de código:
+   ver el ADR 0015.
+4. **Sin el recurso de la universidad.** Ver el final de esta página.
 
 ## 5. Las frases que disparan las líneas de atención
 
-Son 23 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
-tildes y en minúscula, porque nadie escribe con tildes cuando está mal.
+Son 30 y están en `src/domain/model/SenalesDeRiesgo.ts`, ya normalizadas: sin
+tildes y en minúscula, porque nadie escribe con tildes cuando está mal. Se buscan en el texto tal
+cual **y** con las erratas leídas como se quisieron escribir (la segunda búsqueda solo suma).
+Los caracteres invisibles (el espacio de ancho cero, el guion blando) no esconden una frase: se quitan, y
+también se busca leyéndolos como espacio (ADR 0038).
 
 ```
 quiero morir · quiero morirme · me quiero morir · quiero matarme
@@ -85,7 +363,12 @@ no quiero vivir · no vale la pena vivir · estaria mejor muerto
 estaria mejor muerta · seria mejor no estar · hacerme dano
 lastimarme · cortarme · nadie me va a extranar · ya no puedo mas
 no aguanto mas
+quiero desaparecer · no quiero despertar · adios a todo · adios para siempre
+hasta nunca · que nadie me busque · me despido de este mundo
 ```
+
+Las **siete últimas** (SCRUM-176) las protegía la red de «no reconocida», que ya no muestra líneas:
+pasaron aquí para no quedarse sin teléfono.
 
 **Se equivoca por exceso a propósito.** No interpreta negaciones: _"no quiero
 morirme"_ contiene _"quiero morirme"_ y dispara igual. Enseñar teléfonos a quien
@@ -95,6 +378,61 @@ tiene arreglo.
 **Y no es exhaustiva.** Es un suelo, no un techo. Alguien puede expresar un
 dolor serio sin usar ninguna de estas frases. Por eso el asistente nunca es la
 única vía de ayuda de la aplicación.
+
+---
+
+## 6. Sin conexión (SCRUM-141)
+
+La aplicación guarda en el dispositivo las reglas del asistente y las aplica cuando
+no hay conexión. Son **los mismos datos** que usa el servidor (la lista del punto 5,
+las reglas de la charla, los países y las líneas del punto 4): el servidor los
+publica en `GET /api/asistente/reglas-locales` y hay una prueba que falla si lo que
+se publica y lo que el asistente responde se separan. Ver el ADR 0011.
+
+**El asistente es mixto.** Sin conexión responde lo que no necesita nada del
+servidor, y todo lo demás exige conexión y lo dice. **Nunca inventa una respuesta.**
+
+| Sin conexión, la persona escribe                           | Qué pasa                                                                          |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Una frase del punto 5                                      | El mensaje del punto 1 y las líneas de su país, **sin esperar la red**            |
+| «¿Dónde busco ayuda?», «¿qué líneas de ayuda hay?»         | El mensaje de «dónde buscar ayuda» y las líneas de su país                        |
+| Un saludo                                                  | El saludo de abajo, que **no** invita a preguntar lo que sin conexión no se puede |
+| Un agradecimiento, una despedida o «buenas noches»         | Lo mismo que con conexión                                                         |
+| «¿Cómo estás?», «¿qué puedes hacer?»                       | «Esto lo puedo responder cuando tengas conexión.»                                 |
+| Cualquier otra cosa (descanso, resultado, cómo se siente…) | «Esto lo puedo responder cuando tengas conexión.»                                 |
+
+**El saludo sin conexión** (el de con conexión invita a preguntar por el descanso o
+por un resultado, y eso sin red no se puede responder; prometerlo sería engañar):
+
+> ¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde
+> buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión.
+
+**Lo que dice la pantalla** (son textos de la aplicación, no del servidor, y se revisan aquí):
+
+| Dónde                                                                      | Texto                                                                                                                    |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Aviso en la parte de arriba, mientras no hay conexión                      | Sin conexión. Puedo saludarte y decirte dónde buscar ayuda; lo demás lo respondo cuando vuelvas a tener conexión.        |
+| Bajo una respuesta dada sin conexión                                       | Respondido sin conexión                                                                                                  |
+| Cuando lo escrito exige conexión                                           | Esto lo puedo responder cuando tengas conexión. _(con el botón «Reintentar» y las líneas del país de la persona debajo)_ |
+| Sin conexión y sin haber guardado las reglas (nunca se abrió con conexión) | No tienes conexión, así que no pude responderte. _(con las líneas de respaldo, como antes)_                              |
+
+**Qué se buscó al decidirlo**
+
+- **La detección de riesgo es la misma**: la misma lista, la misma normalización, y
+  sigue yendo primero. Cambia dónde se aplica, no qué detecta. Con ella, sin red, la
+  persona recibe sus líneas sin esperar una respuesta que no va a llegar.
+- **Lo escrito sin conexión no se envía después.** No entra a la cola de lo que se
+  sincroniza: un mensaje a un asistente no tiene sentido horas más tarde, y es lo más
+  íntimo que escribe alguien. Se queda en la pantalla, y la persona decide si lo
+  reenvía. Al cerrar el asistente se olvida, como siempre.
+- **Una respuesta con líneas de otro país es el peor error posible**, igual que con
+  conexión: el país sale de la zona horaria de la cuenta y nunca se pide ubicación.
+- **Lo que se ve puede estar desactualizado.** Las líneas se guardan con la fecha de
+  su última verificación y se renuevan solas al volver la red.
+
+**Origen:** las reglas y los textos, en `src/domain/model/ReglasDelAsistente.ts`; el
+paquete que se publica, en `ConsultarLasReglasLocalesUseCaseImpl`; el contrato, en
+`docs/contratos/reglas-locales.json`.
 
 ---
 
@@ -109,6 +447,17 @@ dolor serio sin usar ninguna de estas frases. Por eso el asistente nunca es la
    mañana?
 4. **¿Falta alguna frase** en la lista del punto 5? Cada línea de esa lista es
    una persona que recibe un teléfono o no lo recibe.
+5. **¿Alguna palabra de la charla puede ir pegada a algo serio?** Las de
+   `RELLENO_DE_LA_CHARLA` son pocas a propósito: cada una que se añade es una
+   que puede acompañar a una frase difícil sin que el asistente lo note.
+6. **¿Cada número del punto 4 sigue siendo cierto?** Abrir la fuente de cada
+   línea y comprobar número, horario y que sea gratuita. La fecha de
+   verificación dice cuánto hace de la última vez; nada la hace envejecer sola.
+7. **¿El saludo sin conexión promete algo que sin conexión no se puede cumplir?**
+   Debe decir lo poco que se hace y nada más. Y **¿cambió algo de lo que se
+   responde sin conexión?** Entonces cambió el contrato
+   (`docs/contratos/reglas-locales.json`): la prueba falla hasta regenerarlo, y el
+   frontend tiene que copiarlo.
 
 ## Pendiente: el recurso de la universidad
 

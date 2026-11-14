@@ -1,6 +1,8 @@
+import type { Dia } from './Calendario.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, SesionId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
+import { hayRiesgo, textosDe } from './SenalesDeRiesgo.js';
 
 /**
  * Valores que admite `metadata`. Es lo que cabe en un JSONB de PostgreSQL.
@@ -53,7 +55,22 @@ export interface DatosDeResultado {
    */
   readonly score?: OrientativeScore | undefined;
   readonly completedAt: Date;
+  /**
+   * El dia, en la zona de la persona, en que se completo (SCRUM-123).
+   *
+   * Se guarda y no se recalcula al leer: si cada vez se derivara de
+   * `completedAt` con la zona de hoy, viajar moveria hacia atras o hacia
+   * adelante los resultados de otras epocas y romperia rachas ya ganadas. Un
+   * dia que ocurrio no cambia porque la persona cambie de lugar.
+   */
+  readonly dia: Dia;
   readonly metadata?: Metadata | undefined;
+  /**
+   * La sesion (el contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Lo que la persona
+   * hizo es lo que queda: de aqui sale que sesion le sigue, sin un cursor aparte. Ausente en las nueve
+   * actividades que ya existian.
+   */
+  readonly sessionId?: SesionId | undefined;
 }
 
 /**
@@ -74,7 +91,9 @@ export class ActivityResult {
   readonly clientOperationId: ClientOperationId;
   readonly score: OrientativeScore | undefined;
   readonly completedAt: Date;
+  readonly dia: Dia;
   readonly metadata: Metadata;
+  readonly sessionId: SesionId | undefined;
 
   private constructor(datos: DatosDeResultado) {
     this.id = datos.id;
@@ -84,7 +103,9 @@ export class ActivityResult {
     this.score = datos.score;
     // Se copia la fecha para que quien la paso no pueda mutarla despues.
     this.completedAt = new Date(datos.completedAt.getTime());
+    this.dia = datos.dia;
     this.metadata = Object.freeze({ ...datos.metadata });
+    this.sessionId = datos.sessionId;
   }
 
   /**
@@ -119,15 +140,36 @@ export class ActivityResult {
   }
 
   /**
-   * Indica si conviene acompanar el resultado con recursos de apoyo
-   * profesional. Delega en el puntaje: la regla vive donde vive el nivel.
+   * Si algo de lo que la persona escribio trae una senal de riesgo (SCRUM-94).
    *
-   * Un resultado sin puntaje no sugiere nada por si mismo. Anotar que hoy te
-   * moviste, o que hubo un momento bueno, cobra sentido en la tendencia y no
-   * en una anotacion suelta, y hacer que un registro aislado dispare una
-   * sugerencia seria leer de mas.
+   * Pasa por la misma comprobacion que el asistente, `hayRiesgo`, sobre todo el
+   * texto de la metadata y a cualquier profundidad: un campo nuevo de texto
+   * libre queda cubierto sin tener que acordarse de anadirlo aqui.
    */
-  sugiereAcompanamiento(): boolean {
-    return this.score?.sugiereAcompanamiento() ?? false;
+  contieneSenalDeRiesgo(): boolean {
+    return Object.values(this.metadata).flatMap(textosDe).some(hayRiesgo);
+  }
+
+  /**
+   * Indica si **este resultado, por si solo**, sugiere acompanarlo con recursos de apoyo.
+   *
+   * ## Ojo: no es lo que decide si se acompana (SCRUM-200)
+   *
+   * Es una propiedad del resultado, no la decision. Un nivel que requiere atencion en **un**
+   * resultado ya no basta para ensenar el apoyo: lo decide el caso de uso, mirando la semana
+   * (`PatronDeLaSemana`). Por eso el nombre dice "por si solo": quien lo llame esperando la
+   * decision se equivoca, y el nombre anterior lo permitia.
+   *
+   * Dos caminos, y basta con uno:
+   * - **Una senal de riesgo en lo escrito.** No espera a ninguna tendencia: si
+   *   alguien escribe algo preocupante en "Un momento bueno del dia", las
+   *   lineas de atencion aparecen esa misma vez, como en el asistente.
+   * - **El puntaje**, que delega en el nivel: la regla vive donde vive el
+   *   nivel. Este camino es el que ahora necesita un patron.
+   *
+   * Fuera de eso, un resultado sin puntaje no sugiere nada por si mismo.
+   */
+  sugiereAcompanamientoPorSiSolo(): boolean {
+    return this.contieneSenalDeRiesgo() || (this.score?.sugiereAcompanamiento() ?? false);
   }
 }

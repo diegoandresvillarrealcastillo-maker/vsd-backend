@@ -1,0 +1,411 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA,
+  MINUTO_DE_LA_MANANA,
+  MINUTO_DE_LA_NOCHE,
+  TipoDeAviso,
+} from '../../domain/model/Aviso.js';
+import { FrecuenciaDelSemaforo } from '../../domain/model/FrecuenciaDelSemaforo.js';
+import { UserId } from '../../domain/model/Identifier.js';
+import { InMemoryAvisosRepository } from './InMemoryAvisosRepository.js';
+
+const ANA = new UserId('11111111-1111-4111-8111-111111111111');
+const BETO = new UserId('22222222-2222-4222-9222-222222222222');
+const ZONA = 'America/Bogota';
+const HOY = '2026-10-05';
+const MANANA = '2026-10-06';
+
+function preferencias(userId: UserId, cambios: Record<string, number | null | string> = {}) {
+  return {
+    userId,
+    zonaHoraria: ZONA,
+    minutoSemaforo: null,
+    frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
+    minutoRacha: null,
+    minutoManana: null,
+    minutoNoche: null,
+    ...cambios,
+  };
+}
+
+/** A quien le toca ese aviso entre las 0:00 y las 23:59 de `dia`: la hora ya la prueban los de abajo. */
+async function aQuien(repositorio: InMemoryAvisosRepository, tipo: TipoDeAviso, dia = HOY) {
+  return (await repositorio.aQuienLeToca(tipo, ZONA, 0, 1439, dia)).map((id) => id.value);
+}
+
+describe('InMemoryAvisosRepository: los recordatorios (SCRUM-126)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  beforeEach(() => {
+    repositorio = new InMemoryAvisosRepository();
+  });
+
+  it('sin nada guardado, los cuatro avisos estan apagados', async () => {
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      minutoSemaforo: null,
+      minutoRacha: null,
+      minutoManana: null,
+      minutoNoche: null,
+    });
+    expect(await repositorio.zonasEnUso()).toEqual([]);
+  });
+
+  it('en memoria no hay cuentas: no hay mascota que leer (SCRUM-242)', async () => {
+    await expect(repositorio.mascotaDe(ANA)).resolves.toBeNull();
+  });
+
+  it('guarda y devuelve la manana y la noche', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA, minutoNoche: MINUTO_DE_LA_NOCHE }),
+    );
+
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      minutoManana: 480,
+      minutoNoche: 1200,
+    });
+  });
+
+  it('una zona esta en uso si la persona tiene encendido solo uno de los dos nuevos', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoNoche: MINUTO_DE_LA_NOCHE, zonaHoraria: 'Asia/Tokyo' }),
+    );
+
+    expect(await repositorio.zonasEnUso()).toEqual(['Asia/Tokyo']);
+  });
+
+  it('la manana y la noche le tocan a quien las tiene encendidas, y a nadie mas', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA }));
+    await repositorio.guardarPreferencias(preferencias(BETO, { minutoNoche: MINUTO_DE_LA_NOCHE }));
+
+    expect(await aQuien(repositorio, TipoDeAviso.MANANA)).toEqual([ANA.value]);
+    expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([BETO.value]);
+  });
+
+  it('le toca a su hora y no antes ni despues de la ventana', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA }));
+
+    const a = (desde: number, hasta: number) =>
+      repositorio.aQuienLeToca(TipoDeAviso.MANANA, ZONA, desde, hasta, HOY);
+
+    expect(await a(450, 480)).toHaveLength(1);
+    expect(await a(481, 510)).toHaveLength(0);
+    expect(await a(0, 479)).toHaveLength(0);
+  });
+
+  it('una vez revisada hoy, no vuelve a tocar hasta manana', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA }));
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY);
+
+    expect(await aQuien(repositorio, TipoDeAviso.MANANA, HOY)).toEqual([]);
+    expect(await aQuien(repositorio, TipoDeAviso.MANANA, MANANA)).toEqual([ANA.value]);
+  });
+
+  it('revisar la manana no cuenta como haber revisado la noche', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoManana: MINUTO_DE_LA_MANANA, minutoNoche: MINUTO_DE_LA_NOCHE }),
+    );
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY);
+
+    expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([ANA.value]);
+  });
+
+  it('cambiar las preferencias no borra lo que ya se reviso hoy', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoNoche: MINUTO_DE_LA_NOCHE }));
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY);
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoNoche: MINUTO_DE_LA_NOCHE, minutoSemaforo: 540 }),
+    );
+
+    expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([]);
+  });
+
+  describe('la racha y la noche invitan a lo mismo: una sola por dia', () => {
+    beforeEach(async () => {
+      await repositorio.guardarPreferencias(
+        preferencias(ANA, { minutoRacha: 1140, minutoNoche: MINUTO_DE_LA_NOCHE }),
+      );
+    });
+
+    it('con las dos encendidas, las dos le tocan antes de que salga alguna', async () => {
+      expect(await aQuien(repositorio, TipoDeAviso.RACHA)).toEqual([ANA.value]);
+      expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([ANA.value]);
+    });
+
+    it('si la racha ya se reviso hoy, la noche no le toca', async () => {
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY);
+
+      expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([]);
+    });
+
+    it('si la noche ya se reviso hoy (aunque la hora de la racha sea mas tarde), la racha no le toca', async () => {
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY);
+
+      expect(await aQuien(repositorio, TipoDeAviso.RACHA)).toEqual([]);
+    });
+
+    it('al dia siguiente vuelven a tocar las dos', async () => {
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY);
+
+      expect(await aQuien(repositorio, TipoDeAviso.NOCHE, MANANA)).toEqual([ANA.value]);
+      expect(await aQuien(repositorio, TipoDeAviso.RACHA, MANANA)).toEqual([ANA.value]);
+    });
+
+    it('no afecta al semaforo ni a la manana, que dicen otra cosa', async () => {
+      await repositorio.guardarPreferencias(
+        preferencias(ANA, {
+          minutoSemaforo: 480,
+          minutoManana: MINUTO_DE_LA_MANANA,
+          minutoRacha: 1140,
+          minutoNoche: MINUTO_DE_LA_NOCHE,
+        }),
+      );
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY);
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY);
+
+      expect(await aQuien(repositorio, TipoDeAviso.SEMAFORO)).toEqual([ANA.value]);
+      expect(await aQuien(repositorio, TipoDeAviso.MANANA)).toEqual([ANA.value]);
+    });
+
+    it('lo que se revisa para una persona no afecta a otra', async () => {
+      await repositorio.guardarPreferencias(
+        preferencias(BETO, { minutoNoche: MINUTO_DE_LA_NOCHE }),
+      );
+      await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY);
+
+      expect(await aQuien(repositorio, TipoDeAviso.NOCHE)).toEqual([BETO.value]);
+    });
+  });
+});
+
+describe('InMemoryAvisosRepository: reclamar el aviso del dia (SCRUM-160)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  beforeEach(async () => {
+    repositorio = new InMemoryAvisosRepository();
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        minutoManana: MINUTO_DE_LA_MANANA,
+        minutoRacha: 1140,
+        minutoNoche: MINUTO_DE_LA_NOCHE,
+      }),
+    );
+  });
+
+  it('la primera llamada lo reclama y la segunda no', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+  });
+
+  it('muchas llamadas a la vez: exactamente una lo reclama', async () => {
+    const resultados = await Promise.all(
+      Array.from({ length: 25 }, () => repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY)),
+    );
+
+    expect(resultados.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('al dia siguiente se puede volver a reclamar', async () => {
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY);
+
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, MANANA)).toBe(true);
+  });
+
+  it('reclamar uno no cierra el de otra clase', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.MANANA, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+  });
+
+  it('la racha y la noche son la misma invitacion: reclamar una cierra la otra', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY)).toBe(false);
+  });
+
+  it('y al reves: si se reclamo la noche, la racha ya no', async () => {
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY)).toBe(false);
+  });
+
+  it('racha y noche reclamadas a la vez: solo una sale', async () => {
+    const resultados = await Promise.all([
+      repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.RACHA, HOY),
+      repositorio.marcarRevisado(ANA, TipoDeAviso.NOCHE, HOY),
+    ]);
+
+    expect(resultados.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('quien no tiene nada guardado no tiene nada que reclamar', async () => {
+    expect(await repositorio.marcarRevisado(BETO, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+  });
+
+  it('lo reclamado por una persona no cierra el de otra', async () => {
+    await repositorio.guardarPreferencias(preferencias(BETO, { minutoSemaforo: 480 }));
+    await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY);
+
+    expect(await repositorio.marcarRevisado(BETO, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+  });
+});
+
+describe('InMemoryAvisosRepository: el tope de navegadores por cuenta (SCRUM-153)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  const navegador = (numero: number) => ({
+    endpoint: `https://fcm.googleapis.com/fcm/send/navegador-${numero}`,
+    p256dh: 'clave-p256dh',
+    auth: 'clave-auth',
+  });
+
+  async function suscribirVarios(persona: UserId, cuantos: number, desde = 1): Promise<void> {
+    for (let numero = desde; numero < desde + cuantos; numero += 1) {
+      await repositorio.suscribir(persona, navegador(numero));
+    }
+  }
+
+  beforeEach(() => {
+    repositorio = new InMemoryAvisosRepository();
+  });
+
+  it('guarda hasta el tope sin quitar ninguno', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+  });
+
+  it('al pasar el tope entra la nueva y sale la mas antigua, no se rechaza', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 1);
+
+    const quedan = (await repositorio.suscripcionesDe(ANA)).map((una) => una.endpoint);
+
+    expect(quedan).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+    expect(quedan).not.toContain(navegador(1).endpoint);
+    expect(quedan).toContain(navegador(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 1).endpoint);
+  });
+
+  it('renovar uno ya guardado lo vuelve el mas reciente y no hace salir a otro', async () => {
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+    await repositorio.suscribir(ANA, navegador(1));
+
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+
+    // Ahora el mas antiguo es el 2, no el 1.
+    await repositorio.suscribir(ANA, navegador(99));
+
+    const quedan = (await repositorio.suscripcionesDe(ANA)).map((una) => una.endpoint);
+
+    expect(quedan).toContain(navegador(1).endpoint);
+    expect(quedan).not.toContain(navegador(2).endpoint);
+  });
+
+  it('el tope es de cada cuenta: lo de una no saca lo de otra', async () => {
+    await suscribirVarios(BETO, 3);
+    await suscribirVarios(ANA, MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA + 5, 100);
+
+    expect(await repositorio.suscripcionesDe(BETO)).toHaveLength(3);
+    expect(await repositorio.suscripcionesDe(ANA)).toHaveLength(MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA);
+  });
+});
+
+describe('InMemoryAvisosRepository: los dos avisos del semaforo (SCRUM-146)', () => {
+  let repositorio: InMemoryAvisosRepository;
+
+  /** A quien le toca ese aviso en una ventana de minutos del dia. */
+  async function aQuienEntre(tipo: TipoDeAviso, desde: number, hasta: number, dia = HOY) {
+    return (await repositorio.aQuienLeToca(tipo, ZONA, desde, hasta, dia)).map((id) => id.value);
+  }
+
+  beforeEach(() => {
+    repositorio = new InMemoryAvisosRepository();
+  });
+
+  it('sin nada guardado la frecuencia es «manana»', async () => {
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      frecuenciaSemaforo: FrecuenciaDelSemaforo.MANANA,
+    });
+  });
+
+  it('guarda y devuelve la frecuencia', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await repositorio.preferenciasDe(ANA)).toMatchObject({
+      minutoSemaforo: 480,
+      frecuenciaSemaforo: 'dos_veces',
+    });
+  });
+
+  it('«manana» le toca solo el primer aviso, a la hora elegida', async () => {
+    await repositorio.guardarPreferencias(preferencias(ANA, { minutoSemaforo: 480 }));
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 480, 480)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 0, 1439)).toEqual([]);
+  });
+
+  it('«noche» le toca solo el segundo, doce horas despues', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, { minutoSemaforo: 480, frecuenciaSemaforo: FrecuenciaDelSemaforo.NOCHE }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 0, 1439)).toEqual([]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 480, 480)).toEqual([]);
+  });
+
+  it('«dos veces» le tocan los dos, cada uno a su hora', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 480, 480)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 1200, 1200)).toEqual([ANA.value]);
+  });
+
+  it('con una hora de la tarde, «dos veces» le toca doce horas antes y a esa hora', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 18 * 60,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 6 * 60, 6 * 60)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO_NOCHE, 18 * 60, 18 * 60)).toEqual([ANA.value]);
+    expect(await aQuienEntre(TipoDeAviso.SEMAFORO, 18 * 60, 18 * 60)).toEqual([]);
+  });
+
+  it('cada uno se reclama por separado: reclamar el primero no cierra el segundo', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.DOS_VECES,
+      }),
+    );
+
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO, HOY)).toBe(false);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, HOY)).toBe(true);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, HOY)).toBe(false);
+    expect(await repositorio.marcarRevisado(ANA, TipoDeAviso.SEMAFORO_NOCHE, MANANA)).toBe(true);
+  });
+
+  it('una zona esta en uso si la persona solo tiene el semaforo de la noche', async () => {
+    await repositorio.guardarPreferencias(
+      preferencias(ANA, {
+        minutoSemaforo: 480,
+        frecuenciaSemaforo: FrecuenciaDelSemaforo.NOCHE,
+        zonaHoraria: 'Asia/Tokyo',
+      }),
+    );
+
+    expect(await repositorio.zonasEnUso()).toEqual(['Asia/Tokyo']);
+  });
+});

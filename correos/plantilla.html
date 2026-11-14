@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<!--
+  La plantilla maestra de los correos de VSD Health (SCRUM-125).
+
+  No se pega tal cual en Supabase: `npm run correos` la combina con el texto de
+  cada correo (src/correos/contenidos.ts) y deja el resultado en
+  correos/generados/. Lo que se pega es eso.
+
+  Los %%marcadores%% los reemplaza ese guion. Los {{ .Variables }} son de
+  Supabase Auth y los reemplaza Supabase al enviar.
+
+  Por que esta hecha asi: los clientes de correo no son navegadores.
+  - Los estilos van dentro de cada etiqueta, porque Outlook y varias versiones
+    de Gmail ignoran o recortan las hojas de estilo. El bloque <style> de abajo
+    solo mejora (modo oscuro, pantallas pequenas): sin el, el correo se ve bien.
+  - La estructura es de tablas, porque Outlook de escritorio dibuja el correo
+    con el motor de Word y no entiende flex ni grid.
+  - Ninguna fuente web, ninguna imagen incrustada, ningun script. Los unicos
+    archivos externos son el logo y el GIF de la mascota (SCRUM-171), los dos
+    en el sitio de la propia aplicacion.
+  - El movimiento es una mejora, nunca lo esencial. Los GIF se animan donde el
+    cliente los anima (Outlook de escritorio muestra solo el primer cuadro), y
+    la transicion del boton solo la dibujan los clientes que entienden
+    `transition` y `:hover`. En los demas el boton queda quieto y funciona igual.
+-->
+<html
+  lang="es"
+  xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
+    <title>%%asunto%%</title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+    <style>
+      :root {
+        color-scheme: light dark;
+        supported-color-schemes: light dark;
+      }
+      @media (max-width: 620px) {
+        .contenedor {
+          width: 100% !important;
+        }
+        .relleno {
+          padding: 28px 22px !important;
+        }
+        .titulo {
+          font-size: 24px !important;
+          line-height: 30px !important;
+        }
+        .boton-tabla {
+          width: 100% !important;
+        }
+        .boton-texto {
+          display: block !important;
+          text-align: center !important;
+        }
+      }
+      .boton-texto {
+        transition:
+          background-color 0.25s ease,
+          box-shadow 0.25s ease,
+          transform 0.25s ease;
+      }
+      .boton-texto:hover {
+        background-color: %%claro.boton_hover%% !important;
+        box-shadow: 0 8px 20px rgba(29, 36, 32, 0.18);
+        transform: translateY(-2px);
+      }
+      .boton-texto:active {
+        box-shadow: none;
+        transform: translateY(0);
+      }
+      .boton-texto:focus-visible {
+        outline: 3px solid %%claro.enlace%%;
+        outline-offset: 3px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boton-texto {
+          transition: none !important;
+        }
+        .boton-texto:hover {
+          transform: none !important;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        %%reglas_oscuras%%
+        .boton-texto:hover {
+          background-color: %%oscuro.boton_hover%% !important;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+        }
+        .boton-texto:focus-visible {
+          outline-color: %%oscuro.enlace%%;
+        }
+      }
+      %%reglas_outlook_oscuras%%
+    </style>
+  </head>
+  <body
+    class="fondo"
+    style="margin: 0; padding: 0; width: 100%; background-color: %%claro.fondo%%; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%"
+  >
+    <!-- Lo que se lee en la lista de correos junto al asunto. Oculto en el correo. -->
+    <div
+      style="display: none; font-size: 1px; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all"
+    >
+      %%preencabezado%%%%relleno_del_preencabezado%%
+    </div>
+
+    <table
+      role="presentation"
+      class="fondo"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      bgcolor="%%claro.fondo%%"
+      style="width: 100%; background-color: %%claro.fondo%%"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px">
+          <!--[if mso]>
+            <table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+          <![endif]-->
+          <table
+            role="presentation"
+            class="contenedor"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="width: 100%; max-width: 600px"
+          >
+            <!-- La marca: el isotipo y el nombre. El nombre va en texto: si el cliente
+                 bloquea las imagenes, el correo sigue diciendo de quien es. -->
+            <tr>
+              <td align="left" style="padding: 0 4px 20px 4px">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px">
+                      <img
+                        src="{{ .SiteURL }}/icono-192.png"
+                        width="44"
+                        height="44"
+                        alt=""
+                        style="display: block; width: 44px; height: 44px; border: 0; border-radius: 11px; background-color: %%marca%%"
+                      />
+                    </td>
+                    <td
+                      class="texto"
+                      style="vertical-align: middle; font-family: %%fuente%%; font-size: 20px; line-height: 24px; font-weight: 700; color: %%claro.texto%%"
+                    >
+                      VSD Health
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- La cabecera de la tarjeta: la mascota de este correo. Es un GIF que pone el
+                 equipo en el sitio de la aplicacion; con width y height porque Outlook de
+                 escritorio los exige. Si no carga, se lee el nombre de la mascota. -->
+            <tr>
+              <td
+                class="halo"
+                align="center"
+                bgcolor="%%claro.halo%%"
+                style="background-color: %%claro.halo%%; border: 1px solid %%claro.borde%%; border-bottom: 0; border-radius: 16px 16px 0 0; padding: 28px 24px 20px 24px"
+              >
+                <img
+                  src="{{ .SiteURL }}/correo/%%mascota.archivo%%.gif"
+                  width="140"
+                  height="140"
+                  alt="%%mascota.nombre%%"
+                  class="texto"
+                  style="display: block; margin: 0 auto; width: 140px; height: 140px; border: 0; font-family: %%fuente%%; font-size: 16px; line-height: 20px; font-weight: 600; text-align: center; color: %%claro.texto%%"
+                />
+              </td>
+            </tr>
+
+            <!-- La tarjeta con lo que se dice -->
+            <tr>
+              <td
+                class="tarjeta relleno"
+                bgcolor="%%claro.tarjeta%%"
+                style="background-color: %%claro.tarjeta%%; border: 1px solid %%claro.borde%%; border-top: 0; border-radius: 0 0 16px 16px; padding: 32px 40px 40px 40px"
+              >
+                <h1
+                  class="texto titulo"
+                  style="margin: 0 0 16px 0; font-family: %%fuente_titulos%%; font-size: 28px; line-height: 34px; font-weight: 600; color: %%claro.texto%%"
+                >
+                  %%titulo%%
+                </h1>
+
+                %%cuerpo%%
+
+                %%accion%%
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td
+                      class="linea"
+                      style="border-top: 1px solid %%claro.borde%%; padding-top: 20px; font-size: 1px; line-height: 1px"
+                    >
+                      &nbsp;
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  class="suave"
+                  style="margin: 0; font-family: %%fuente%%; font-size: 14px; line-height: 22px; color: %%claro.suave%%"
+                >
+                  %%nota%%
+                </p>
+              </td>
+            </tr>
+
+            <!-- El pie -->
+            <tr>
+              <td align="center" style="padding: 24px 8px 0 8px">
+                <p
+                  class="suave"
+                  style="margin: 0 0 6px 0; font-family: %%fuente%%; font-size: 13px; line-height: 20px; color: %%claro.suave%%"
+                >
+                  VSD Health · Universidad de Cundinamarca
+                </p>
+                <p
+                  class="suave"
+                  style="margin: 0; font-family: %%fuente%%; font-size: 13px; line-height: 20px; color: %%claro.suave%%"
+                >
+                  Es un correo automático, no hace falta responderlo.
+                  <a href="{{ .SiteURL }}" target="_blank" class="enlace" style="color: %%claro.enlace%%; text-decoration: underline"
+                    >Ir a VSD Health</a
+                  >
+                </p>
+              </td>
+            </tr>
+          </table>
+          <!--[if mso]>
+                </td>
+              </tr>
+            </table>
+          <![endif]-->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

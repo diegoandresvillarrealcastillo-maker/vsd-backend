@@ -39,6 +39,16 @@ enum DireccionEscala {
   @@map("direccion_escala")
 }
 
+enum FrecuenciaActividad {
+  diaria
+  semanal
+  unica
+  /// Una mecanica con muchas sesiones (ADR 0030): la rotacion elige hasta tres por modulo y por dia.
+  rotativa
+
+  @@map("frecuencia_actividad")
+}
+
 /// Nivel orientativo. Descriptivo, nunca clinico: VSD Health no diagnostica.
 enum NivelOrientativo {
   favorable
@@ -59,6 +69,97 @@ enum FormatoEntrada {
   @@map("formato_entrada")
 }
 
+/// Cuantas veces al dia avisa el semaforo y cuando, respecto de la hora que la persona
+/// elige (SCRUM-146, ADR 0036). `manana` es lo que ya hacia, y lo que queda para las
+/// cuentas que existian.
+enum FrecuenciaDelSemaforo {
+  manana
+  noche
+  dos_veces
+
+  @@map("frecuencia_del_semaforo")
+}
+
+/// El color de un pendiente del semaforo (SCRUM-97).
+enum NivelPendiente {
+  urgente
+  prioridad
+  aplazable
+
+  @@map("nivel_pendiente")
+}
+
+/// Un pendiente del semaforo (SCRUM-97). Datos personales: aislado por
+/// persona con RLS forzado, igual que RESULTADO, y se borra con la cuenta.
+model Pendiente {
+  id        String         @id @default(uuid()) @map("id_pendiente") @db.Uuid
+  idUsuario String         @map("id_usuario") @db.Uuid
+  texto     String         @db.VarChar(280)
+  nivel     NivelPendiente
+  hecho     Boolean        @default(false)
+
+  /// Mientras no llegue, el pendiente no recuerda nada.
+  posponerHasta DateTime? @map("posponer_hasta") @db.Timestamptz(3)
+
+  /// Dia limite, en el calendario de la persona (SCRUM-119). Es un dia y no un
+  /// instante: "el 12" es el 12 donde ella esta. Sin el, no vence un dia
+  /// concreto.
+  fechaLimite DateTime? @map("fecha_limite") @db.Date
+
+  idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
+
+  /// Sube en uno con cada edicion (SCRUM-134). La API compara la que trae el
+  /// dispositivo con esta, dentro del propio UPDATE, para no pisar lo que otro
+  /// dispositivo cambio mientras uno estaba sin conexion.
+  version Int @default(1)
+
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@unique([idUsuario, idOperacionCliente])
+  @@index([idUsuario, hecho])
+  @@map("pendiente")
+}
+
+/// Un dato curioso del catalogo (SCRUM-185, ADR 0025). Es de todos, no de una persona:
+/// lectura abierta y escritura de administrador, como RecursoApoyo.
+model DatoCurioso {
+  id String @id @default(uuid()) @map("id_dato") @db.Uuid
+  texto String @db.VarChar(280)
+  /// De que trata. Para revisar y filtrar, no para mostrar.
+  tema String @db.VarChar(40)
+  /// Solo se sirven los publicados. Retirar uno no lo borra: quien ya lo tiene como el del dia
+  /// lo conserva hasta que termine el dia.
+  publicado Boolean @default(false)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cursores DatoCuriosoCursor[]
+
+  @@index([publicado])
+  @@map("dato_curioso")
+}
+
+/// Por donde va cada persona en el ciclo de datos curiosos: el ultimo que se le dio y el dia.
+/// Una fila por persona. Datos personales: RLS forzado, sale en la exportacion y se borra con la
+/// cuenta. El orden en que ve los datos no se guarda: sale de un hash de su identificador.
+model DatoCuriosoCursor {
+  idUsuario String @id @map("id_usuario") @db.Uuid
+  /// NULL si el dato se borro del catalogo: el cursor sigue sirviendo por su clave.
+  idDato String? @map("id_dato") @db.Uuid
+  /// Donde cayo ese dato en el orden de esta persona. El siguiente es el de clave mayor mas cercana.
+  clave BigInt
+  /// El dia, en el calendario de la persona, en que se le dio.
+  dia DateTime @db.Date
+  actualizadoEn DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  dato DatoCurioso? @relation(fields: [idDato], references: [id], onDelete: SetNull)
+
+  @@map("dato_curioso_cursor")
+}
+
 model Usuario {
   id                      String   @id @default(uuid()) @map("id_usuario") @db.Uuid
   nombre                  String?  @db.VarChar(100)
@@ -69,21 +170,182 @@ model Usuario {
   /// demostrar a que dio permiso cada quien. Ley 1581 de 2012.
   versionPoliticaAceptada String   @map("version_politica_aceptada") @db.VarChar(20)
   fechaAceptacionPolitica DateTime @map("fecha_aceptacion_politica") @db.Timestamptz(3)
+  /// La fecha de nacimiento que declaro la persona. NULL en las cuentas
+  /// anteriores a que se pidiera: no pueden usar la aplicacion hasta completarla.
+  /// Solo se escribe una vez que la API comprobo que es mayor de 18 anos.
+  fechaNacimiento         DateTime? @map("fecha_nacimiento") @db.Date
+  /// Los terminos que acepto con su casilla: version y fecha, como el aviso.
+  /// NULL en las cuentas anteriores.
+  versionTerminosAceptada String?  @map("version_terminos_aceptada") @db.VarChar(20)
+  fechaAceptacionTerminos DateTime? @map("fecha_aceptacion_terminos") @db.Timestamptz(3)
   fechaRegistro           DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(3)
+  /// Claves estables: cognicion, bienestar, emociones. Vacia mientras la
+  /// persona no ha elegido con cuales empezar. SCRUM-88.
+  modulosActivos          String[] @default([]) @map("modulos_activos")
+  /// Personaje (forma) y nombre; color y accesorio, opcionales. Sin valor se usa la mascota de siempre.
+  mascota                 Json?    @db.JsonB
+  /// Si permite que el diario se lea para recomendarle. Apagado por defecto (SCRUM-108).
+  diarioConRecomendaciones Boolean @default(false) @map("diario_con_recomendaciones")
+  /// Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177).
+  acompanamientoPorDias Boolean @default(false) @map("acompanamiento_por_dias")
+  /// Zona IANA de la persona, informada por su dispositivo (SCRUM-123). Decide
+  /// que dia es para ella. Las cuentas anteriores quedan en America/Bogota.
+  zonaHoraria String @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
+  /// Cuando se guardo la foto de perfil (SCRUM-120). NULL si no tiene. La foto en
+  /// si vive en Supabase Storage, no en la base.
+  fotoActualizadaEl DateTime? @map("foto_actualizada_el") @db.Timestamptz(3)
+  /// Cuando se guardo la mascota propia, un SVG (SCRUM-122). NULL si no tiene. El
+  /// archivo vive en Supabase Storage, no en la base.
+  mascotaPropiaActualizadaEl DateTime? @map("mascota_propia_actualizada_el") @db.Timestamptz(3)
 
   resultados       Resultado[]
   entradasDeDiario EntradaDiario[]
+  pendientes       Pendiente[]
+  suscripcionesPush SuscripcionPush[]
+  preferenciaAviso PreferenciaAviso?
+  consentimientos  Consentimiento[]
+  datoCuriosoCursor DatoCuriosoCursor?
+  bajaPendiente BajaPendiente?
 
   @@map("usuario")
+}
+
+/// La marca de una baja de cuenta que se pidio y todavia no termino (SCRUM-267, ADR 0040). Se deja
+/// antes de lo irreversible (archivos e identidad) y se va sola, por la clave foranea, cuando se
+/// borra la fila de `usuario`: si queda una, es que la baja se corto a mitad y la tarea del API la
+/// termina. La primera marca manda: pedir la baja otra vez no cambia `conConstancia` ni `pedidaEl`.
+model BajaPendiente {
+  idUsuario String @id @map("id_usuario") @db.Uuid
+  /// Si al terminar se deja la constancia minima (la baja que pide la persona) o no (el rechazo
+  /// de un menor).
+  conConstancia Boolean @map("con_constancia")
+  /// Cuando se pidio. La tarea solo toma las que llevan un rato, para no pisar una baja en curso.
+  pedidaEl DateTime @map("pedida_el") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([pedidaEl])
+  @@map("baja_pendiente")
+}
+
+/// Todo lo que una persona ha aceptado, version por version: el aviso de
+/// privacidad y los terminos. Solo admite altas (la aplicacion no tiene permiso
+/// de UPDATE ni de DELETE): cuando cambia un texto y la persona lo vuelve a
+/// aceptar, se anade una fila y la anterior queda como prueba de lo que acepto
+/// antes. Ley 1581 de 2012. Se borra con la cuenta, por la clave foranea.
+model Consentimiento {
+  id         String   @id @default(uuid()) @map("id_consentimiento") @db.Uuid
+  idUsuario  String   @map("id_usuario") @db.Uuid
+  /// `aviso_de_privacidad` o `terminos`.
+  tipo       String   @db.VarChar(30)
+  version    String   @db.VarChar(20)
+  aceptadoEn DateTime @map("aceptado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  /// Una fila por cada vez que la persona acepto. Guardar la cuenta otra vez con
+  /// el mismo consentimiento no duplica nada (misma version, misma fecha); aceptar
+  /// de nuevo la misma version —por ejemplo al completar el registro con las
+  /// casillas— anade una fila y deja la anterior.
+  @@unique([idUsuario, tipo, version, aceptadoEn])
+  @@index([idUsuario])
+  @@map("consentimiento")
+}
+
+/// Constancia minima de una cuenta dada de baja (SCRUM-190, ADR 0026): que existio, cuando y con
+/// que identificador del proveedor. Sin nombre, correo ni fecha de nacimiento. Sirve para dos cosas:
+/// demostrar la autorizacion que dio (Ley 1581 de 2012) y rechazar un token que todavia no caduco.
+/// La clave se llama `id_cuenta` y no `id_usuario` a proposito: la prueba de borrado recorre toda
+/// tabla con `id_usuario` y exige que quede vacia, y esto no es un dato vivo de la persona.
+model CuentaInactiva {
+  id                      String    @id @map("id_cuenta") @db.Uuid
+  /// El que el proveedor le dio a la identidad, que ya no existe.
+  idProveedorAuth         String    @unique @map("id_proveedor_auth") @db.VarChar(255)
+  fechaRegistro           DateTime  @map("fecha_registro") @db.Timestamptz(3)
+  inactivadaEl            DateTime  @map("inactivada_el") @db.Timestamptz(3)
+  versionPoliticaAceptada String    @map("version_politica_aceptada") @db.VarChar(20)
+  fechaAceptacionPolitica DateTime  @map("fecha_aceptacion_politica") @db.Timestamptz(3)
+  versionTerminosAceptada String?   @map("version_terminos_aceptada") @db.VarChar(20)
+  fechaAceptacionTerminos DateTime? @map("fecha_aceptacion_terminos") @db.Timestamptz(3)
+
+  @@map("cuenta_inactiva")
+}
+
+/// Lo que acepto una cuenta dada de baja, version por version (SCRUM-190, ADR 0026). Solo admite
+/// altas. Sin clave foranea: lo que hace esta tabla es sobrevivir a la fila de `usuario`.
+model ConsentimientoDeCuentaInactiva {
+  id         String   @id @default(uuid()) @map("id_consentimiento") @db.Uuid
+  idCuenta   String   @map("id_cuenta") @db.Uuid
+  tipo       String   @db.VarChar(30)
+  version    String   @db.VarChar(20)
+  aceptadoEn DateTime @map("aceptado_en") @db.Timestamptz(3)
+
+  @@index([idCuenta])
+  @@map("consentimiento_de_cuenta_inactiva")
+}
+
+/// Un navegador donde la persona acepto los avisos (SCRUM-102).
+model SuscripcionPush {
+  id            String   @id @default(uuid()) @map("id_suscripcion") @db.Uuid
+  idUsuario     String   @map("id_usuario") @db.Uuid
+  /// Unica en toda la tabla: un navegador entrega los avisos de una sola persona.
+  endpoint      String   @unique
+  claveP256dh   String   @map("clave_p256dh")
+  claveAuth     String   @map("clave_auth")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("suscripcion_push")
+}
+
+/// A que hora quiere cada aviso, en minutos desde la medianoche de Colombia (SCRUM-102).
+model PreferenciaAviso {
+  idUsuario           String    @id @map("id_usuario") @db.Uuid
+  /// La hora base del semaforo. Null es apagado, con cualquier frecuencia. Los minutos en que
+  /// sale cada aviso salen de ella y de `frecuenciaSemaforo` (SCRUM-146), no se guardan.
+  minutoSemaforo      Int?      @map("minuto_semaforo") @db.SmallInt
+  /// Cuantas veces al dia y cuando, respecto de la hora base (SCRUM-146).
+  frecuenciaSemaforo  FrecuenciaDelSemaforo @default(manana) @map("frecuencia_semaforo")
+  minutoRacha         Int?      @map("minuto_racha") @db.SmallInt
+  /// Los recordatorios de las 8:00 y las 20:00 (SCRUM-126). La hora no se
+  /// mueve: la aplicacion solo escribe 480 y 1200, o null para apagarlos.
+  minutoManana        Int?      @map("minuto_manana") @db.SmallInt
+  minutoNoche         Int?      @map("minuto_noche") @db.SmallInt
+  /// El ultimo dia, en la zona de la persona, en que se reviso cada aviso.
+  ultimoAvisoSemaforo DateTime? @map("ultimo_aviso_semaforo") @db.Date
+  /// El del segundo aviso del semaforo (SCRUM-146): cada uno sale una vez al dia.
+  ultimoAvisoSemaforoNoche DateTime? @map("ultimo_aviso_semaforo_noche") @db.Date
+  ultimoAvisoRacha    DateTime? @map("ultimo_aviso_racha") @db.Date
+  ultimoAvisoManana   DateTime? @map("ultimo_aviso_manana") @db.Date
+  ultimoAvisoNoche    DateTime? @map("ultimo_aviso_noche") @db.Date
+  /// La zona en que se leen los minutos de arriba. La copia la base desde
+  /// `usuario.zona_horaria` (disparadores de la migracion de SCRUM-123): la
+  /// tarea de avisos solo puede leer esta tabla y necesita saber en que zona
+  /// es cada hora. Nadie la escribe desde la aplicacion.
+  zonaHoraria         String    @default("America/Bogota") @map("zona_horaria") @db.VarChar(64)
+  fechaEdicion        DateTime  @default(now()) @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([minutoSemaforo])
+  @@index([minutoRacha])
+  @@index([minutoManana])
+  @@index([minutoNoche])
+  @@map("preferencia_aviso")
 }
 
 model Categoria {
   id          String  @id @default(uuid()) @map("id_categoria") @db.Uuid
   nombre      String  @unique @db.VarChar(50)
   descripcion String?
+  /// El modulo al que corresponde: cognicion, bienestar o emociones. Es la
+  /// clave estable; el nombre es texto visible y puede cambiar. SCRUM-91.
+  modulo      String? @unique @db.VarChar(20)
 
-  actividades      Actividad[]
-  recursosDeApoyo  RecursoApoyo[]
+  actividades     Actividad[]
+  recursosDeApoyo RecursoApoyo[]
 
   @@map("categoria")
 }
@@ -106,8 +368,24 @@ model Actividad {
   /// Textos que ve la persona, en el lenguaje de esta actividad.
   textosNivel     Json?           @map("textos_nivel")
 
-  categoria  Categoria   @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
+  /// Cada cuanto toca: diaria, ciertos dias de la semana o una sola vez.
+  frecuencia  FrecuenciaActividad @default(diaria)
+  /// Para las semanales: 1 es lunes y 7 domingo.
+  diasSemana  Int[]               @default([]) @map("dias_semana") @db.SmallInt
+  /// Desde que sesion del modulo aparece. SCRUM-91.
+  desdeSesion Int                 @default(1) @map("desde_sesion")
+
+  /// Que componente pinta la mecanica y como se leen los parametros de sus sesiones (ADR 0030).
+  /// Uno de nueve, comprobado por un CHECK. Vacio en las cuatro pantallas propias; la Fase 0 (SCRUM-207) se lo puso a cinco de las nueve.
+  motor String? @db.VarChar(30)
+
+  /// La franja del dia en que el sendero ofrece la mecanica: manana, tarde o noche (ADR 0030, punto 8). Vacia: a cualquier hora.
+  /// Comprobada por un CHECK. La usan «Antes de dormir» y «El cierre del dia».
+  franja String? @db.VarChar(10)
+
+  categoria  Categoria           @relation(fields: [idCategoria], references: [id], onDelete: Restrict)
   resultados Resultado[]
+  sesiones   SesionDeActividad[]
 
   @@index([idCategoria])
   @@map("actividad")
@@ -141,18 +419,64 @@ model Resultado {
   /// averiguar que operaciones ajenas existen.
   idOperacionCliente String @map("id_operacion_cliente") @db.Uuid
 
+  /// La sesion (contenido) que se hizo, cuando la mecanica las tiene (ADR 0030). Vacio en todo lo
+  /// anterior y en las nueve actividades actuales. Una sesion que alguien hizo no se borra: se retira.
+  idSesion String? @map("id_sesion") @db.Uuid
+
   fecha DateTime @default(now()) @db.Timestamptz(3)
+
+  /// El dia, en la zona de la persona, en que se completo (SCRUM-123). Se
+  /// guarda y no se deriva de `fecha` al leer: si cambiara con la zona de hoy,
+  /// viajar romperia las rachas ya ganadas.
+  dia DateTime @default(dbgenerated("((now() AT TIME ZONE 'America/Bogota'::text))::date")) @db.Date
 
   /// Al eliminar la cuenta se borran sus resultados. Es el RF12: la persona
   /// puede pedir que se elimine todo lo suyo.
-  usuario   Usuario   @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
-  actividad Actividad @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  usuario   Usuario            @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  actividad Actividad          @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  sesion    SesionDeActividad? @relation(fields: [idSesion], references: [id], onDelete: Restrict)
 
   @@unique([idUsuario, idOperacionCliente])
   /// El historial se consulta por persona y por fecha; de ahi el indice.
   @@index([idUsuario, fecha])
+  @@index([idUsuario, dia])
+  /// Para elegir la sesion de hoy: lo que una persona hizo en una mecanica durante el ultimo ano.
+  @@index([idUsuario, idActividad, dia])
   @@index([idActividad])
+  @@index([idSesion])
   @@map("resultado")
+}
+
+/// El contenido de una vez de una mecanica (SCRUM-204, ADR 0030). No es una actividad: no sale en el
+/// catalogo ni en el sendero como un elemento propio. Lectura abierta y escritura de administrador,
+/// como RecursoApoyo y DatoCurioso: no es un dato personal.
+///
+/// Lo que pide revision y no la tiene no se publica (un CHECK de la base), y una sesion revisada no
+/// se edita (un disparador): se retira y se agrega otra con otro identificador.
+model SesionDeActividad {
+  id          String    @id @default(uuid()) @map("id_sesion") @db.Uuid
+  idActividad String    @map("id_actividad") @db.Uuid
+  /// Nombre corto, para la exportacion y la revision.
+  titulo      String    @db.VarChar(100)
+  /// Dificultad o profundidad, de 1 a 3. 1 para las mecanicas que no tienen niveles.
+  nivel       Int       @default(1) @db.SmallInt
+  /// Lo que el motor necesita (tamano, simbolos, guion, pasos). La base no mira dentro; lo valida el
+  /// dominio (ADR 0008).
+  parametros  Json
+  /// Solo se sirven las publicadas. Retirar no borra (ADR 0025).
+  publicado   Boolean   @default(false)
+  /// no_requiere, pendiente o revisada. Nace pendiente: publicar exige decirlo, no olvidarlo.
+  revision    String    @default("pendiente") @db.VarChar(20)
+  /// Rol o nombre de quien reviso, y cuando. Sin datos de contacto.
+  revisadaPor String?   @map("revisada_por") @db.VarChar(100)
+  revisadaEl  DateTime? @map("revisada_el") @db.Timestamptz(3)
+  creadaEn    DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
+
+  actividad  Actividad   @relation(fields: [idActividad], references: [id], onDelete: Restrict)
+  resultados Resultado[]
+
+  @@index([idActividad, publicado])
+  @@map("sesion_de_actividad")
 }
 
 model RecursoApoyo {
@@ -180,10 +504,34 @@ model RecursoApoyo {
   /// contesta, y en una situacion de riesgo eso no es un detalle.
   cobertura String? @db.VarChar(30)
 
+  /// El pais donde sirve, como codigo ISO 3166-1 de dos letras (`CO`).
+  ///
+  /// Se deduce de la zona horaria de la persona, nunca de su ubicacion
+  /// (SCRUM-124). Vacio cuando sirve en cualquier parte: las lecturas y el
+  /// directorio internacional, que es lo unico que recibe quien esta en un pais
+  /// sin lineas verificadas.
+  pais String? @db.VarChar(2)
+
+  /// De donde sale el dato: la pagina oficial donde se confirmo. Obligatoria en
+  /// los contactos (restriccion `recurso_apoyo_contacto_con_fuente`).
+  fuente String? @db.VarChar(255)
+
+  /// El dia en que una persona lo confirmo en esa fuente. Obligatorio en los
+  /// contactos, junto a la fuente.
+  verificadoEl DateTime? @map("verificado_el") @db.Date
+
+  /// El numero que marca el boton «Llamar ahora» (SCRUM-257, ADR 0037): solo
+  /// cifras, con un `+` delante si lleva prefijo de pais. Solo en contactos, que
+  /// ya tienen fuente y fecha de verificacion; vacio en el directorio
+  /// internacional. Una opcion que se elige al contestar (el 192, opcion 4) va
+  /// en la descripcion: no se marca sola.
+  telefono String? @db.VarChar(16)
+
   categoria Categoria? @relation(fields: [idCategoria], references: [id], onDelete: SetNull)
 
   @@index([idCategoria])
   @@index([tipo, tema])
+  @@index([tipo, pais])
   @@map("recurso_apoyo")
 }
 
@@ -195,9 +543,17 @@ model RecursoApoyo {
 /// Su contenido **no se evalua**. Ninguna entrada produce puntaje ni nivel, y
 /// por eso no se relaciona con actividad ni con categoria.
 model EntradaDiario {
-  id        String  @id @default(uuid()) @map("id_entrada") @db.Uuid
-  idUsuario String  @map("id_usuario") @db.Uuid
-  titulo    String? @db.VarChar(120)
+  id        String @id @default(uuid()) @map("id_entrada") @db.Uuid
+  idUsuario String @map("id_usuario") @db.Uuid
+
+  /// El dia del calendario de Colombia al que pertenece la anotacion. No
+  /// siempre coincide con `fechaCreacion`: se puede anadir a un dia pasado.
+  dia DateTime @default(dbgenerated("((now() AT TIME ZONE 'America/Bogota'::text))::date")) @db.Date
+
+  titulo String? @db.VarChar(120)
+
+  /// Con formato `enriquecido`, el documento del editor serializado en JSON.
+  /// Nunca HTML. Los diagramas van aparte, en `adjuntos`.
   contenido String
 
   formato FormatoEntrada @default(texto_plano)
@@ -215,6 +571,10 @@ model EntradaDiario {
   /// la copia local se guarda aparte. Ver ADR 0009.
   version Int @default(1)
 
+  /// La hora en que, segun el dispositivo, se escribio la anotacion: de ella se
+  /// cuenta la hora para editar. La base la acota (nunca en el futuro, nunca de
+  /// hace mas de 30 dias) y no se puede editar despues. Ver las migraciones
+  /// 20261003180000_diario_por_dia y 20261014120000_hora_del_dispositivo_en_el_diario.
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaEdicion  DateTime @updatedAt @map("fecha_edicion") @db.Timestamptz(3)
 
@@ -222,5 +582,6 @@ model EntradaDiario {
 
   @@unique([idUsuario, idOperacionCliente])
   @@index([idUsuario, fechaCreacion])
+  @@index([idUsuario, dia])
   @@map("entrada_diario")
 }

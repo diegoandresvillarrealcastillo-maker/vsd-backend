@@ -13,6 +13,20 @@ export const Intencion = {
   COMO_DUERMO_MEJOR: 'como_duermo_mejor',
   ME_SIENTO_MAL: 'me_siento_mal',
   DONDE_BUSCO_AYUDA: 'donde_busco_ayuda',
+  /**
+   * La charla de todos los dias (SCRUM-128). Se reconocen solo cuando el
+   * mensaje entero es charla, y se responden sin lineas de atencion.
+   */
+  SALUDO: 'saludo',
+  AGRADECIMIENTO: 'agradecimiento',
+  DESPEDIDA: 'despedida',
+  COMO_ESTAS: 'como_estas',
+  QUE_PUEDES_HACER: 'que_puedes_hacer',
+  /**
+   * Un insulto dirigido al asistente (SCRUM-192). Se evalua despues del riesgo, nunca antes, y se
+   * responde sin lineas de atencion. El servidor no cuenta: la ventana de chat lleva la cuenta.
+   */
+  LENGUAJE_OFENSIVO: 'lenguaje_ofensivo',
   /** No se reconocio nada. Se responde igual, con algo util. */
   NO_RECONOCIDA: 'no_reconocida',
 } as const;
@@ -42,6 +56,12 @@ export interface RespuestaDelAsistente {
    * que lo comprueba una por una.
    */
   readonly incluyeLineasDeAtencion: boolean;
+  /**
+   * Los temas que el asistente si atiende, como frases que la persona puede tocar (SCRUM-176,
+   * SCRUM-193). Solo hay algo cuando **no se reconocio** lo que escribio: en lugar de un telefono
+   * de crisis que nadie pidio, un catalogo de lo que si se puede responder. Vacio en todo lo demas.
+   */
+  readonly sugerencias: readonly string[];
 }
 
 /** Lo que se le pregunta al asistente. */
@@ -50,6 +70,18 @@ export interface ConsultaAlAsistente {
   readonly userId: string;
   /** Lo que escribio, tal cual. */
   readonly texto: string;
+  /**
+   * La zona horaria de su cuenta. De ella sale el pais de las lineas de
+   * atencion que se ensenan (SCRUM-124): nunca se pide ubicacion.
+   */
+  readonly zonaHoraria: string;
+  /**
+   * El nombre que le puso a su mascota, si tiene.
+   *
+   * Sirve para una sola cosa: que "hola, Luma" se lea como un saludo y no como
+   * una frase que no se entiende. No se guarda ni se devuelve.
+   */
+  readonly nombreDeLaMascota?: string | undefined;
 }
 
 /**

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { User } from '../../../domain/model/User.js';
+import { VERSIONES_VIGENTES } from '../../../domain/model/AvisoDePrivacidad.js';
+import { TipoDeConsentimiento, type User } from '../../../domain/model/User.js';
+import { MascotaDto } from './ActualizarPreferenciasDto.js';
 
 /** El consentimiento tal como se devuelve. */
 export class ConsentimientoDto {
@@ -8,6 +10,28 @@ export class ConsentimientoDto {
 
   @ApiProperty({ description: 'Cuando se acepto.', type: String, format: 'date-time' })
   aceptadoEn!: Date;
+}
+
+/** La foto de perfil, tal como la ve la cuenta: que hay y desde cuando, no los bytes. */
+export class FotoDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
+}
+
+/** La mascota propia, vista desde la cuenta: que hay y desde cuando, no el dibujo. */
+export class MascotaPropiaDeLaCuentaDto {
+  @ApiProperty({
+    description:
+      'Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.',
+    type: String,
+    format: 'date-time',
+  })
+  actualizadaEl!: Date;
 }
 
 /**
@@ -33,8 +57,80 @@ export class CuentaRespuestaDto {
   @ApiProperty({ description: 'Consentimiento registrado.', type: ConsentimientoDto })
   consentimiento!: ConsentimientoDto;
 
+  @ApiProperty({
+    description:
+      'Los términos que aceptó con su casilla, o null en las cuentas anteriores a que se pidieran.',
+    type: ConsentimientoDto,
+    nullable: true,
+  })
+  terminos!: ConsentimientoDto | null;
+
+  @ApiProperty({
+    description:
+      'Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro».',
+  })
+  registroCompleto!: boolean;
+
+  @ApiProperty({
+    description:
+      'Los textos que hay que volver a aceptar porque cambiaron desde la última vez que la persona los aceptó (SCRUM-237): `aviso_de_privacidad`, `terminos`, ninguno o los dos. Si no está vacío, la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo menos a ver, exportar y borrar la cuenta y a `POST /api/cuenta/aceptacion`, y el frontend lleva a la pantalla «Actualizamos nuestros textos».',
+    enum: Object.values(TipoDeConsentimiento),
+    isArray: true,
+  })
+  textosPendientes!: TipoDeConsentimiento[];
+
   @ApiProperty({ description: 'Cuando se creo la cuenta.', type: String, format: 'date-time' })
   registradoEn!: Date;
+
+  @ApiProperty({
+    description:
+      'Modulos activos, en orden. Vacio mientras la persona no ha elegido: el frontend la lleva a la bienvenida.',
+    type: [String],
+    enum: ['cognicion', 'bienestar', 'emociones'],
+  })
+  modulosActivos!: string[];
+
+  @ApiProperty({
+    description: 'La mascota guardada, o null para usar la de siempre.',
+    type: MascotaDto,
+    nullable: true,
+  })
+  mascota!: MascotaDto | null;
+
+  @ApiProperty({
+    description:
+      'Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108).',
+  })
+  diarioConRecomendaciones!: boolean;
+
+  @ApiProperty({
+    description:
+      'Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177).',
+  })
+  acompanamientoPorDias!: boolean;
+
+  @ApiProperty({
+    description:
+      'Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).',
+    example: 'America/Bogota',
+  })
+  zonaHoraria!: string;
+
+  @ApiProperty({
+    description:
+      'La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.',
+    type: FotoDeLaCuentaDto,
+    nullable: true,
+  })
+  foto!: FotoDeLaCuentaDto | null;
+
+  @ApiProperty({
+    description:
+      'La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.',
+    type: MascotaPropiaDeLaCuentaDto,
+    nullable: true,
+  })
+  mascotaPropia!: MascotaPropiaDeLaCuentaDto | null;
 
   static desde(cuenta: User): CuentaRespuestaDto {
     const dto = new CuentaRespuestaDto();
@@ -43,6 +139,17 @@ export class CuentaRespuestaDto {
     dto.correo = cuenta.correo;
     dto.rol = cuenta.rol;
     dto.registradoEn = cuenta.registradoEn;
+    dto.modulosActivos = [...cuenta.modulosActivos];
+    dto.mascota = cuenta.mascota === undefined ? null : { ...cuenta.mascota };
+    dto.diarioConRecomendaciones = cuenta.diarioConRecomendaciones;
+    dto.acompanamientoPorDias = cuenta.acompanamientoPorDias;
+    dto.zonaHoraria = cuenta.zonaHoraria;
+    dto.foto =
+      cuenta.fotoActualizadaEl === undefined ? null : { actualizadaEl: cuenta.fotoActualizadaEl };
+    dto.mascotaPropia =
+      cuenta.mascotaPropiaActualizadaEl === undefined
+        ? null
+        : { actualizadaEl: cuenta.mascotaPropiaActualizadaEl };
 
     if (cuenta.nombre !== undefined) {
       dto.nombre = cuenta.nombre;
@@ -56,6 +163,15 @@ export class CuentaRespuestaDto {
     consentimiento.aceptadoEn = cuenta.consentimiento?.aceptadoEn ?? cuenta.registradoEn;
 
     dto.consentimiento = consentimiento;
+    dto.registroCompleto = cuenta.registroCompleto();
+    dto.textosPendientes = [...cuenta.textosPendientes(VERSIONES_VIGENTES)];
+    dto.terminos =
+      cuenta.terminos === undefined
+        ? null
+        : {
+            versionPolitica: cuenta.terminos.versionPolitica,
+            aceptadoEn: cuenta.terminos.aceptadoEn,
+          };
 
     return dto;
   }

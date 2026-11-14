@@ -133,3 +133,31 @@ describe('CategoriaDelCatalogoDto', () => {
     expect(dto.actividades.map((una) => una.nombre)).toEqual(['Primera', 'Segunda']);
   });
 });
+
+describe('ActividadDelCatalogoDto: el motor (ADR 0030)', () => {
+  it('una mecanica con motor lo dice, para que el cliente sepa que componente la pinta', () => {
+    const dto = ActividadDelCatalogoDto.desde(
+      Activity.create({
+        id: new ActivityId(crypto.randomUUID()),
+        nombre: 'Respiración guiada',
+        direccionEscala: DireccionEscala.SIN_PUNTAJE,
+        motor: 'guia_paso_a_paso',
+      }),
+    );
+
+    expect(dto.motor).toBe('guia_paso_a_paso');
+  });
+
+  it('una actividad sin motor sale sin el campo: asi son las nueve de hoy', () => {
+    const dto = ActividadDelCatalogoDto.desde(
+      Activity.create({
+        id: new ActivityId(crypto.randomUUID()),
+        nombre: 'Movimiento del día',
+        direccionEscala: DireccionEscala.SIN_PUNTAJE,
+      }),
+    );
+
+    // Lo que ve el cliente es el JSON: un campo sin valor no viaja.
+    expect(JSON.parse(JSON.stringify(dto))).not.toHaveProperty('motor');
+  });
+});

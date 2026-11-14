@@ -65,13 +65,18 @@ caso de uso como las politicas de la base; el cuerpo de la peticion ya no puede
 decir de quien es un dato.
 Ver [ADR 0013](docs/adr/0013-la-api-verifica-el-token-contra-el-jwks.md).
 
-| Ciclo | Que se incorporo                                      | Estado    |
-| ----- | ----------------------------------------------------- | --------- |
-| 1     | Repositorio, ramas, CI, documentacion                 | Terminado |
-| 2     | Dominio y aplicacion en TypeScript, sin framework     | Terminado |
-| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI | Terminado |
-| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS   | Terminado |
-| 5     | Usuarios y autenticacion                              | En curso  |
+La API **ya esta desplegada en PRE**, en Render, y la usa la PWA publicada en
+Vercel. PROD todavia no tiene despliegue. Lo que existe en cada ambiente y lo
+que falta para PROD esta en [docs/ambientes.md](docs/ambientes.md).
+
+| Ciclo | Que se incorporo                                                                | Estado                                         |
+| ----- | ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1     | Repositorio, ramas, CI, documentacion                                           | Terminado                                      |
+| 2     | Dominio y aplicacion en TypeScript, sin framework                               | Terminado                                      |
+| 3     | API NestJS: endpoints, validacion, seguridad, OpenAPI                           | Terminado                                      |
+| 4     | Prisma + PostgreSQL + Supabase, aislamiento por RLS                             | Terminado                                      |
+| 5     | Usuarios y autenticacion                                                        | Terminado, salvo Google y el rol administrador |
+| 6     | Actividades, sendero, diario, semaforo, avisos, VSD IA, derechos de datos y PRE | En curso                                       |
 
 ## Como ejecutarlo en local
 
@@ -102,7 +107,9 @@ npm run start:dev
 Ya puedes abrir:
 
 - **http://localhost:3000/health** — comprueba que responde
-- **http://localhost:3000/api/docs** — documentacion navegable de la API
+- **http://localhost:3000/api/docs** — documentacion navegable de la API. Solo
+  se publica con `NODE_ENV=development`; en PRE y PROD el contrato es el
+  archivo `openapi.json`
 
 Para probarla hay tres caminos, y los tres llaman a lo mismo: la pagina de
 Swagger de arriba, el archivo `peticiones.http` con la extension REST Client de
@@ -120,6 +127,11 @@ lineas de atencion, y esa decision se toma antes de mirar nada mas. No se delega
 a un modelo, ni ahora ni cuando exista el adaptador de Fase 2: ver
 [ADR 0011](docs/adr/0011-la-deteccion-de-riesgo-es-por-reglas.md).
 
+Entiende ademas la charla de todos los dias (saludos, gracias, despedidas, "como
+estas" y "que puedes hacer"), que se responde sin lineas de atencion, y solo
+cuando el mensaje entero es charla. Todo lo que puede decir esta en
+[docs/textos-del-asistente.md](docs/textos-del-asistente.md).
+
 ### Probar la API sin salir del editor
 
 El archivo [`peticiones.http`](peticiones.http) trae ocho ejemplos listos:
@@ -134,35 +146,87 @@ interrupcion funcionan sobre los archivos `.ts`.
 
 ### Comandos disponibles
 
-| Comando                    | Que hace                                       |
-| -------------------------- | ---------------------------------------------- |
-| `npm run start:dev`        | Arranca la API y recarga al guardar            |
-| `npm test`                 | Ejecuta las pruebas                            |
-| `npm run test:watch`       | Pruebas en modo continuo                       |
-| `npm run test:coverage`    | Pruebas con informe de cobertura               |
-| `npm run test:integracion` | Solo las pruebas contra PostgreSQL real        |
-| `npm run lint`             | Estilo y fronteras de la arquitectura          |
-| `npm run typecheck`        | Revisa los tipos sin compilar                  |
-| `npm run build`            | Compila a `dist/`                              |
-| `npm run openapi`          | Genera `openapi.json` sin levantar el servidor |
+| Comando                              | Que hace                                                       |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `npm run start:dev`                  | Arranca la API y recarga al guardar                            |
+| `npm test`                           | Ejecuta las pruebas                                            |
+| `npm run test:watch`                 | Pruebas en modo continuo                                       |
+| `npm run test:coverage`              | Pruebas con informe de cobertura                               |
+| `npm run test:integracion`           | Solo las pruebas contra PostgreSQL real                        |
+| `npm run test:integracion:cobertura` | Las mismas, en serie y con informe de cobertura para SonarQube |
+| `npm run lint`                       | Estilo y fronteras de la arquitectura                          |
+| `npm run typecheck`                  | Revisa los tipos sin compilar                                  |
+| `npm run build`                      | Compila a `dist/`                                              |
+| `npm run openapi`                    | Genera `openapi.json` sin levantar el servidor                 |
+
+### La imagen de Docker
+
+El backend tiene su `Dockerfile` (SCRUM-131): es la imagen que corre en el CI y
+la que Render va a desplegar. No hace falta para el desarrollo diario.
+
+```bash
+docker build -t vsd-api .
+docker run --rm -p 3000:3000 --env-file .env vsd-api
+```
+
+No lleva configuracion ni aplica migraciones, y por omision se niega a arrancar
+si falta algo. El detalle esta en [docs/ambientes.md](docs/ambientes.md) y en el
+[ADR 0018](docs/adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
+
+### El sistema completo con un solo comando
+
+Con Docker y las dos carpetas una al lado de la otra (`vsd-backend` y
+`vsd-frontend`) se levanta todo: la base de datos, las migraciones, la API y la
+web (SCRUM-132).
+
+```bash
+export SUPABASE_URL=https://TU-PROYECTO.supabase.co      # o ponerlo en el .env de esta carpeta
+export VITE_SUPABASE_ANON_KEY=la-clave-anonima-publica   # la misma del .env.local del frontend
+docker compose --profile completo up --build             # o: npm run completo:arriba
+```
+
+Cuando termina, la web queda en **http://localhost:8080** y la API en
+**http://localhost:3000**. Para parar: `npm run completo:abajo`.
+
+Lo que conviene saber:
+
+- **El inicio de sesion usa Supabase**, no una copia local: `SUPABASE_URL` es la
+  de un proyecto real (el de PRE sirve) porque la API comprueba cada token contra
+  sus claves publicas. Las dos variables de arriba son publicas, no secretos.
+- **Es el ambiente de desarrollo.** La API conecta como el dueno de las tablas,
+  igual que `npm run start:dev`; el aislamiento entre personas se prueba en las
+  pruebas de integracion.
+- Los puertos **5432**, **3000** y **8080** tienen que estar libres. Si tienes
+  `npm run db:local` encendido, apagalo: usa el mismo 5432.
+- `VSD_FRONTEND_DIR` indica donde esta `vsd-frontend` si no es la carpeta
+  hermana. `VITE_PROVEEDOR_GOOGLE=si` ofrece el inicio con Google.
+- Recuperar la contrasena y entrar con Google necesitan que
+  `http://localhost:8080` este en las URL de redireccion del proyecto de
+  Supabase; mientras no lo este, esos dos caminos no vuelven a la web local.
+  Entrar con correo y contrasena no depende de eso. (Es lo que dice la
+  documentacion de Supabase; no se probo con este compose.)
+- La web se compila **con** la direccion de la API dentro: si cambias el puerto o
+  las variables, hay que reconstruir (`--build`).
 
 ### Base de datos en local
 
 Hay dos formas de levantarla. Las dos dan el mismo PostgreSQL 17 en el mismo
 puerto; usa la que te funcione.
 
-| Comando                | Que hace                                       |
-| ---------------------- | ---------------------------------------------- |
-| `npm run db:arriba`    | Levanta las bases con Docker                   |
-| `npm run db:local`     | Levanta PostgreSQL **sin Docker ni admin**     |
-| `npm run db:aplicar`   | Aplica las migraciones                         |
-| `npm run db:estado`    | Dice si falta alguna migracion                 |
-| `npm run db:ver`       | Abre Prisma Studio para mirar los datos        |
-| `npm run db:revisar`   | Dice que hay **de verdad** en una base         |
-| `npm run db:rol`       | Le da contrasena a `vsd_app` en un ambiente    |
-| `npm run db:preparar`  | Deja un ambiente listo: migra, rol y comprueba |
-| `npm run db:abajo`     | Para los contenedores                          |
-| `npm run db:reiniciar` | Los para y **borra los datos**                 |
+| Comando                             | Que hace                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `npm run db:arriba`                 | Levanta las bases con Docker                                                      |
+| `npm run db:local`                  | Levanta PostgreSQL **sin Docker ni admin**                                        |
+| `npm run db:aplicar`                | Aplica las migraciones                                                            |
+| `npm run db:estado`                 | Dice si falta alguna migracion                                                    |
+| `npm run db:migrar`                 | `prisma migrate dev`, **solo contra una base de esta maquina**                    |
+| `npm run db:ver`                    | Abre Prisma Studio, **solo contra una base de esta maquina**                      |
+| `npm run db:revisar`                | Dice que hay **de verdad** en una base                                            |
+| `npm run db:rol`                    | Le da contrasena a `vsd_app` en un ambiente                                       |
+| `npm run db:preparar`               | Deja un ambiente listo: migra, rol y comprueba                                    |
+| `npm run mantenimiento:constancias` | Borra las constancias de baja de mas de 10 anos (simulacro; `-- --aplicar` borra) |
+| `npm run db:abajo`                  | Para los contenedores                                                             |
+| `npm run db:reiniciar`              | Los para y **borra los datos**                                                    |
 
 Con Docker se levantan dos bases: la de desarrollo en el **5432** y otra para
 pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
@@ -171,16 +235,49 @@ pruebas en el **5433**, esta sin volumen para que cada ejecucion parta de cero.
 administrador: descarga los binarios oficiales de PostgreSQL y los ejecuta como
 un proceso normal. Es PostgreSQL de verdad, no una simulacion.
 
+`npm run db:migrar` y `npm run db:ver` (SCRUM-265) **no leen el `.env`**: su
+`DIRECT_URL` en un equipo de trabajo apunta a PRE, y `migrate dev` puede proponer
+borrarlo todo. Toman la base local de siempre (`localhost:5432/vsd_health`) o la
+`DIRECT_URL` de un archivo aparte, `.env.desarrollo` (ignorado por Git, por ejemplo
+para usar la de pruebas de Docker en el 5433), y se niegan si no es de esta
+maquina. `db:aplicar` y `db:estado` si leen el `.env`: son las que una persona usa
+contra PRE y PROD.
+
+**El limite:** la regla compara el **nombre** del servidor, igual que la de las
+pruebas de integracion. Un tunel (`ssh -L 5432:...`) o un reenvio de puertos hacia
+una base remota se ve como `localhost` y pasa; desde aqui no se puede saber. Lo que
+lo cierra de verdad es que la cuenta de base de datos de quien desarrolla no tenga
+permisos en PRE.
+
 ### Las pruebas que necesitan la base
 
 Los archivos `*.integracion.spec.ts` hablan con PostgreSQL de verdad. **Si no
-hay `DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar a
-levantar una base para cambiar una linea de dominio termina con alguien
+hay `TEST_DATABASE_URL`, se saltan** y el resto de la suite corre igual: obligar
+a levantar una base para cambiar una linea de dominio termina con alguien
 comentando las pruebas.
 
-Con la base levantada corren solas, y el CI las ejecuta siempre contra un
-contenedor propio. Ahi no pueden saltarse: si faltara la base, fallan diciendolo
-en vez de pasar sin comprobar nada.
+Insertan, borran y hasta cambian la contrasena del rol `vsd_app`, asi que
+(SCRUM-261):
+
+- Leen **solo `TEST_DATABASE_URL`**, nunca `DATABASE_URL` (la de la aplicacion,
+  que en un `.env` puede apuntar a PRE) y tampoco cargan el `.env` por su cuenta.
+- La URL tiene que ser de **esta maquina** (`localhost`, `127.0.0.1` o `::1`).
+  Si no lo es, las pruebas se niegan a arrancar antes de abrir ninguna conexion,
+  y el mensaje no repite la URL. No hay variable que levante esta regla.
+
+La exportas en la terminal antes de correrlas. Con la base de pruebas de Docker:
+
+```bash
+TEST_DATABASE_URL=postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas npm run test:integracion
+```
+
+En PowerShell: `$env:TEST_DATABASE_URL='postgresql://vsd:vsd_local@localhost:5433/vsd_health_pruebas'`
+y despues `npm run test:integracion`. Con `npm run db:local` es el puerto 5432 y
+la base `vsd_health`.
+
+Con la base levantada y la variable puesta corren solas, y el CI las ejecuta
+siempre contra un contenedor propio. Ahi no pueden saltarse: si faltara la base,
+fallan diciendolo en vez de pasar sin comprobar nada.
 
 Estas pruebas se conectan con el rol `vsd_app`, no con el dueno de las tablas,
 porque el dueno esta exento de las politicas de aislamiento. La primera vez le
@@ -215,7 +312,7 @@ Start-Process "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
 
 No se pierde nada: los contenedores y sus datos viven en volumenes aparte.
 
-## Stack previsto
+## Stack
 
 - **NestJS** + **TypeScript**
 - **Prisma** como ORM

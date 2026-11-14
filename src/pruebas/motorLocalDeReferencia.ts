@@ -1,0 +1,200 @@
+import {
+  conInvisiblesComoEspacio,
+  contieneLaExpresion,
+  corregirPalabras,
+  leerConInvisibles,
+  vocabularioDe,
+} from '../domain/model/LecturaDelTexto.js';
+import type { ReglasLocalesDelAsistente } from '../domain/ports/in/ConsultarLasReglasLocalesUseCase.js';
+import {
+  contieneAlguno,
+  esLenguajeOfensivo,
+  palabrasDe,
+  reconocerCharla,
+} from '../infrastructure/asistente/Reconocimiento.js';
+
+/**
+ * Lo que responde el dispositivo sin conexion (SCRUM-141).
+ *
+ * Es la **especificacion ejecutable** de lo que tiene que hacer la aplicacion con
+ * el paquete que publica `GET /api/asistente/reglas-locales`, escrita solo con
+ * lo que hay en el paquete: no mira `PaisDeAyuda.ts`, ni la tabla de recursos, ni
+ * ninguna otra cosa del servidor. Si hiciera falta algo mas para reproducir la
+ * respuesta del servidor, el paquete esta incompleto, y la prueba de conformidad
+ * (`ReglasLocalesYAsistente.spec.ts`) lo dice.
+ *
+ * Los casos que salen de aqui se publican en `docs/contratos/reglas-locales.json`
+ * para que el frontend compruebe su motor contra los mismos casos.
+ *
+ * El orden es el del servidor y no se negocia:
+ *
+ * 1. **El riesgo**, primero y aparte, sobre el texto normalizado.
+ * 2. **El lenguaje ofensivo** (SCRUM-192), despues del riesgo y nunca antes.
+ * 3. **La charla**, solo si el mensaje entero es charla.
+ * 4. **Lo demas que se reconoce**, la primera regla que coincide.
+ * 5. **El fallback** (SCRUM-176), si nada se reconoce: sin lineas de atencion.
+ *
+ * Antes de todo, las erratas se leen como se quisieron escribir (SCRUM-193).
+ *
+ * Y lo que no se puede responder sin conexion **no se inventa**: `exige-conexion`.
+ */
+export type ResultadoSinConexion =
+  | { readonly tipo: 'riesgo'; readonly mensaje: string; readonly lineas: readonly string[] }
+  | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
+  | {
+      readonly tipo: 'fallback';
+      readonly intencion: string;
+      readonly mensaje: string;
+      readonly sugerencias: readonly string[];
+    }
+  | {
+      readonly tipo: 'charla';
+      readonly intencion: string;
+      readonly mensaje: string;
+    }
+  | {
+      readonly tipo: 'ayuda';
+      readonly intencion: string;
+      readonly mensaje: string;
+      readonly lineas: readonly string[];
+    }
+  | { readonly tipo: 'exige-conexion' };
+
+export interface ConsultaSinConexion {
+  readonly texto: string;
+  /** La zona horaria de la cuenta. De ella sale el pais; nunca se pide ubicacion. */
+  readonly zona: string;
+  /** El nombre de la mascota: para que "hola, Luma" se lea como un saludo. */
+  readonly mascota?: string | undefined;
+}
+
+/**
+ * El nombre de la zona como lo escribe IANA, igual que hace el servidor al deducir el
+ * pais (`Calendario.canonica`): `america/bogota` y `US/Eastern` son `America/Bogota` y
+ * `America/New_York`. Una zona que no se conoce se queda como esta y no tiene pais.
+ */
+function canonica(zona: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: zona }).resolvedOptions().timeZone;
+  } catch {
+    return zona;
+  }
+}
+
+/** Las lineas del pais de la zona, o el directorio si la zona no es de ningun pais. */
+function lineasDeLaZona(reglas: ReglasLocalesDelAsistente, zona: string): readonly string[] {
+  const buscada = canonica(zona);
+  const pais = Object.values(reglas.paises).find((una) => una.zonas.includes(buscada));
+  const lineas = pais?.lineas ?? reglas.internacional;
+
+  return lineas.map((linea) => linea.id);
+}
+
+/**
+ * El riesgo con las erratas leidas como se quisieron escribir. Esta busqueda solo suma (SCRUM-193),
+ * con el vocabulario del propio riesgo.
+ */
+function hayRiesgoConErratas(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
+  const vocabularioDelRiesgo = vocabularioDe([reglas.riesgo.expresiones]);
+  const corregidoDelRiesgo = corregirPalabras(
+    palabrasDe(texto),
+    vocabularioDelRiesgo,
+    reglas.erratas,
+  ).join(' ');
+
+  return reglas.riesgo.expresiones.some((expresion) => corregidoDelRiesgo.includes(expresion));
+}
+
+/**
+ * Lo mismo que `hayRiesgo` del servidor: tal cual, con los invisibles leidos en cada sitio como lo
+ * que sean (dentro de una palabra no cuentan, entre palabras separan; SCRUM-258 y SCRUM-318), y
+ * despues con las erratas, mirando los invisibles quitados y como espacio.
+ */
+function hayRiesgoLocal(reglas: ReglasLocalesDelAsistente, texto: string): boolean {
+  const leido = leerConInvisibles(texto);
+
+  if (reglas.riesgo.expresiones.some((expresion) => contieneLaExpresion(leido, expresion))) {
+    return true;
+  }
+
+  const comoSeparador = conInvisiblesComoEspacio(texto);
+
+  return (
+    hayRiesgoConErratas(reglas, texto) ||
+    (comoSeparador !== texto && hayRiesgoConErratas(reglas, comoSeparador))
+  );
+}
+
+export function responderSinConexion(
+  reglas: ReglasLocalesDelAsistente,
+  consulta: ConsultaSinConexion,
+): ResultadoSinConexion {
+  const dichas = palabrasDe(consulta.texto);
+  const erratas = reglas.erratas;
+
+  if (hayRiesgoLocal(reglas, consulta.texto)) {
+    return {
+      tipo: 'riesgo',
+      mensaje: reglas.riesgo.mensaje,
+      lineas: lineasDeLaZona(reglas, consulta.zona),
+    };
+  }
+
+  // Despues del riesgo y antes de la charla (SCRUM-192). Responde sin lineas ni conexion. Solo con
+  // la tabla de erratas: una palabra nunca se acerca por distancia a un insulto.
+  if (esLenguajeOfensivo(corregirPalabras(dichas, new Set(), erratas), reglas.ofensivo)) {
+    return { tipo: 'ofensivo', intencion: 'lenguaje_ofensivo', mensaje: reglas.ofensivo.mensaje };
+  }
+
+  // Lo demas se lee con las erratas corregidas, con el vocabulario que traen las propias reglas.
+  const vocabulario = vocabularioDe([
+    ...reglas.charla.reglas.flatMap((regla) => [
+      regla.patrones,
+      ...regla.variantes.map((variante) => variante.patrones),
+    ]),
+    ...reglas.intenciones.map((regla) => regla.patrones),
+    reglas.charla.relleno,
+  ]);
+  const palabras = corregirPalabras(dichas, vocabulario, erratas);
+
+  const relleno = new Set([...reglas.charla.relleno, ...palabrasDe(consulta.mascota ?? '')]);
+  const charla = reconocerCharla(palabras, reglas.charla.reglas, relleno);
+
+  if (charla !== undefined) {
+    if (charla.mensaje === null) {
+      return { tipo: 'exige-conexion' };
+    }
+
+    const variante = charla.variantes.find((una) => contieneAlguno(palabras, una.patrones));
+
+    return {
+      tipo: 'charla',
+      intencion: charla.intencion,
+      mensaje: variante?.mensaje ?? charla.mensaje,
+    };
+  }
+
+  const regla = reglas.intenciones.find((una) => contieneAlguno(palabras, una.patrones));
+
+  // Nada se reconoce: el fallback (SCRUM-176, SCRUM-193), sin lineas y con el catalogo de temas.
+  // Es una frase fija: se responde igual sin conexion.
+  if (regla === undefined) {
+    return {
+      tipo: 'fallback',
+      intencion: 'no_reconocida',
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
+    };
+  }
+
+  if (regla.mensaje === null) {
+    return { tipo: 'exige-conexion' };
+  }
+
+  return {
+    tipo: 'ayuda',
+    intencion: regla.intencion,
+    mensaje: regla.mensaje,
+    lineas: regla.conLineas ? lineasDeLaZona(reglas, consulta.zona) : [],
+  };
+}

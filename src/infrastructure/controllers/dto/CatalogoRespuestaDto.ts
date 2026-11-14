@@ -48,6 +48,14 @@ export class ActividadDelCatalogoDto {
   descripcion?: string;
 
   @ApiProperty({
+    required: false,
+    example: 'guia_paso_a_paso',
+    description:
+      'Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy.',
+  })
+  motor?: string;
+
+  @ApiProperty({
     example: true,
     description:
       'Si al terminar hay un nivel orientativo que mostrar. Lo decide la escala de la actividad, no su tipo: hay bitacoras que registran sin valorar y otras, como la del sueno, que si se valoran.',
@@ -67,6 +75,10 @@ export class ActividadDelCatalogoDto {
 
     if (actividad.descripcion !== undefined) {
       dto.descripcion = actividad.descripcion;
+    }
+
+    if (actividad.motor !== undefined) {
+      dto.motor = actividad.motor;
     }
 
     return dto;

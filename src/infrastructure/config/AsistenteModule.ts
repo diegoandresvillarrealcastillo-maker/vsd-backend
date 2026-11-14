@@ -1,16 +1,18 @@
-import { Logger, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { ConsultarLasReglasLocalesUseCaseImpl } from '../../application/usecases/ConsultarLasReglasLocalesUseCaseImpl.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { AsistentePorReglas } from '../asistente/AsistentePorReglas.js';
+import { AsistenteGeminiEnPre } from '../asistente/AsistenteGeminiEnPre.js';
 import { AsistenteController } from '../controllers/AsistenteController.js';
-import type { PrismaService } from '../persistence/PrismaService.js';
-import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
-import { PrismaRecursoApoyoRepository } from '../repositories/PrismaRecursoApoyoRepository.js';
+import { ReglasLocalesDelAsistenteController } from '../controllers/ReglasLocalesDelAsistenteController.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
+import type { Configuracion } from './environment.js';
 import {
   ACTIVITY_RESULT_REPOSITORY,
   ASISTENTE,
-  PRISMA,
+  CONSULTAR_REGLAS_LOCALES,
+  CONFIGURACION,
   RECURSO_APOYO_REPOSITORY,
 } from './tokens.js';
 
@@ -23,39 +25,39 @@ import {
  *
  * El de reglas no se retira ese dia: queda como respaldo. Un modelo necesita
  * conexion y el RF9 dice que la aplicacion funciona sin ella.
+ *
+ * Los recursos de apoyo los provee `ActivityResultModule` desde SCRUM-94: los
+ * resultados tambien devuelven las lineas de atencion, y asi las dos partes
+ * leen la misma base de conocimiento.
+ *
+ * Desde SCRUM-141 tambien publica esas reglas (`ReglasLocalesDelAsistente`),
+ * para que el dispositivo responda lo basico sin conexion. Se arman con los
+ * mismos datos y la misma tabla de recursos que lee el asistente.
  */
 @Module({
   imports: [ActivityResultModule],
-  controllers: [AsistenteController],
+  controllers: [AsistenteController, ReglasLocalesDelAsistenteController],
   providers: [
-    {
-      provide: RECURSO_APOYO_REPOSITORY,
-      useFactory: (prisma: PrismaService | null): RecursoApoyoRepositoryPort => {
-        const registro = new Logger('Asistente');
-
-        if (prisma === null) {
-          // No es un juego de datos falsos: el adaptador en memoria trae las
-          // mismas lineas de atencion que la base. Un asistente que en local
-          // responde con telefonos inventados no se puede revisar antes de
-          // publicarlo.
-          registro.warn('Sin DATABASE_URL: los recursos de apoyo salen del catalogo en memoria.');
-
-          return new InMemoryRecursoApoyoRepository();
-        }
-
-        registro.log('Recursos de apoyo sobre PostgreSQL.');
-
-        return new PrismaRecursoApoyoRepository(prisma);
-      },
-      inject: [PRISMA],
-    },
     {
       provide: ASISTENTE,
       useFactory: (
         recursos: RecursoApoyoRepositoryPort,
         resultados: ActivityResultRepositoryPort,
-      ) => new AsistentePorReglas(recursos, resultados),
-      inject: [RECURSO_APOYO_REPOSITORY, ACTIVITY_RESULT_REPOSITORY],
+        configuracion: Configuracion,
+      ) => {
+        const reglas = new AsistentePorReglas(recursos, resultados);
+
+        return configuracion.geminiEnPre === undefined
+          ? reglas
+          : new AsistenteGeminiEnPre(reglas, configuracion.geminiEnPre);
+      },
+      inject: [RECURSO_APOYO_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, CONFIGURACION],
+    },
+    {
+      provide: CONSULTAR_REGLAS_LOCALES,
+      useFactory: (recursos: RecursoApoyoRepositoryPort) =>
+        new ConsultarLasReglasLocalesUseCaseImpl(recursos),
+      inject: [RECURSO_APOYO_REPOSITORY],
     },
   ],
 })

@@ -43,7 +43,7 @@
             }
           },
           "400": {
-            "description": "El cuerpo de la peticion no es valido o incumple una regla del dominio."
+            "description": "El cuerpo de la peticion no es valido o incumple una regla del dominio, por ejemplo una sesion que no es de esa actividad (LA_SESION_NO_ES_DE_LA_ACTIVIDAD)."
           },
           "401": {
             "description": "Falta la sesion o el token no es valido."
@@ -97,7 +97,7 @@
     },
     "/api/cuenta": {
       "post": {
-        "description": "Se invoca despues de iniciar sesion. Si la persona ya tenia cuenta se devuelve tal cual, sin volver a pedir el consentimiento ni sobrescribir el que hay: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.",
+        "description": "Se invoca despues de iniciar sesion. Crear una cuenta exige la fecha de nacimiento, ser mayor de 18 anos y las dos casillas (aviso de privacidad y terminos) con las versiones vigentes; la edad la calcula el servidor. Un menor no queda registrado: su identidad se borra y la respuesta es 403 MENOR_DE_EDAD. Si la persona ya tenia cuenta se devuelve tal cual, sin sobrescribir lo que acepto: la fecha y la version guardadas son la prueba de lo que acepto ese dia. Las cuentas anteriores a que se pidiera la fecha y las casillas vienen con `registroCompleto: false`; mandar aqui el registro lo completa. Es idempotente, asi que el frontend puede llamarlo en cada inicio de sesion.",
         "operationId": "CuentaController_registrar",
         "parameters": [],
         "requestBody": {
@@ -122,13 +122,16 @@
             }
           },
           "400": {
-            "description": "El cuerpo no es valido, o falta el consentimiento. Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012)."
+            "description": "El cuerpo no es valido, falta o no sirve la fecha de nacimiento (FECHA_DE_NACIMIENTO_INVALIDA), o falta el consentimiento (CONSENTIMIENTO_NO_REGISTRADO). Sin el no hay base legal para tratar informacion relacionada con salud (Ley 1581 de 2012)."
           },
           "401": {
             "description": "Falta la sesion o el token no es valido."
           },
+          "403": {
+            "description": "MENOR_DE_EDAD: la plataforma es solo para mayores de 18 anos. No se guarda nada y la identidad se borra."
+          },
           "409": {
-            "description": "Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso."
+            "description": "Ese correo ya pertenece a otra cuenta, creada con otro metodo de acceso, o la version del aviso o de los terminos ya no es la vigente."
           }
         },
         "security": [
@@ -136,7 +139,7 @@
             "sesion": []
           }
         ],
-        "summary": "Dar de alta la cuenta, o recuperar la que ya existe",
+        "summary": "Dar de alta la cuenta, completar el registro, o recuperar la que ya existe",
         "tags": [
           "Cuenta"
         ]
@@ -171,6 +174,1168 @@
         "summary": "Consultar la cuenta propia",
         "tags": [
           "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Derecho de supresion (Ley 1581 de 2012). Borra la cuenta, sus resultados, sus entradas de diario, sus archivos y su identidad en Supabase Auth, y deja una constancia minima de lo que acepto (que la cuenta existio, cuando, y las versiones del aviso y de los terminos), sin nombre, correo ni fecha de nacimiento (ADR 0026). Se hace en tres pasos (ADR 0040): una marca, lo de fuera de la base (archivos e identidad) y las filas; si algo falla despues de la marca, la baja se termina sola en unos minutos. No tiene vuelta atras, y por eso exige la frase de confirmacion. Despues, el token de esa cuenta que todavia no haya caducado se rechaza con 401 CUENTA_INACTIVA.",
+        "operationId": "CuentaController_borrar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BorrarCuentaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "La cuenta ya no existe."
+          },
+          "400": {
+            "description": "Falta la frase de confirmacion o no es exacta."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido; o CUENTA_INACTIVA: la cuenta ya se dio de baja y su token ya no sirve."
+          },
+          "403": {
+            "description": "Hay sesion pero no hay cuenta que borrar."
+          },
+          "503": {
+            "description": "BORRADO_NO_COMPLETADO: la baja no se pudo completar en esta peticion. Si el mensaje dice que quedo pedida, se termina sola en unos minutos; si dice que no se borro nada, se puede reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Dar de baja la cuenta propia: se borra todo lo suyo y queda una constancia minima",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/aceptacion": {
+      "post": {
+        "description": "El aviso y los términos prometen que, si cambian, se le pedirá a la persona que los acepte de nuevo. Cuando la versión que aceptó ya no es la vigente, `GET /api/cuenta` lo dice en `textosPendientes` y la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo lo demás, salvo ver, exportar y borrar la cuenta. Esta ruta guarda la aceptación de **todo** lo pendiente (casilla y versión vigente de cada texto, como en el registro) y la fecha la pone el servidor. La aceptación se añade al historial y no reemplaza la anterior, que es la prueba de lo que la persona aceptó antes. Sin nada pendiente no cambia nada, así que se puede reintentar.",
+        "operationId": "CuentaController_aceptarTextos",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AceptarTextosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta, ya al día.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Falta marcar una casilla o mandar una versión de lo que está pendiente (CONSENTIMIENTO_NO_REGISTRADO)."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "REGISTRO_INCOMPLETO: antes hay que completar el registro (la fecha de nacimiento); aceptar un texto no la sustituye."
+          },
+          "409": {
+            "description": "La versión del aviso o de los términos que se mandó ya no es la vigente (VERSION_DEL_AVISO_NO_VIGENTE o VERSION_DE_LOS_TERMINOS_NO_VIGENTE)."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Volver a aceptar el aviso de privacidad y los términos cuando cambian",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/preferencias": {
+      "patch": {
+        "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga en el cuerpo se queda como estaba. El correo y el rol no se pueden cambiar por aqui: mandarlos responde 400.",
+        "operationId": "CuentaController_actualizarPreferencias",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarPreferenciasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un modulo que no existe (MODULO_DESCONOCIDO), una lista sin modulos (SIN_MODULOS_ACTIVOS), una mascota mal formada (MASCOTA_INVALIDA) o un campo que no se puede cambiar."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Cambiar el nombre, los modulos activos y la mascota",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/exportacion": {
+      "get": {
+        "description": "Derecho de acceso (Ley 1581 de 2012). Devuelve todo lo que VSD Health guarda de quien firma el token: la cuenta, los resultados y las entradas del diario. Nada de nadie mas. Se escribe por piezas, sin armar todo en memoria: los resultados, el diario y los pendientes se leen de a 200 y salen uno a uno (SCRUM-262). Es el mismo JSON de siempre, pero sin `Content-Length`: si algo falla a mitad la conexion se corta, y un archivo cortado no es un JSON valido.",
+        "operationId": "CuentaController_exportar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Los datos, en JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportacionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Exportar los datos propios",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/foto": {
+      "put": {
+        "description": "El cuerpo es la imagen misma, como `image/jpeg` o `image/png`, de menos de 50 KB y de no más de 1024 píxeles por lado. Reemplaza la que hubiera. El servidor comprueba el tipo, el peso, que el contenido sea de verdad lo que dice ser y su tamaño en píxeles: no se fía de lo que haya hecho el navegador.",
+        "operationId": "FotoDePerfilController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "FOTO_NO_ES_UNA_IMAGEN o FOTO_DEMASIADO_GRANDE (más de 1024 píxeles por lado)."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "FOTO_DEMASIADO_PESADA, o CUERPO_DEMASIADO_GRANDE si pasa de 60 KB."
+          },
+          "415": {
+            "description": "FOTO_TIPO_NO_PERMITIDO: solo .jpg y .png."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve la imagen. Solo la de quien firma el token. Va por la API y no por un enlace directo a Storage, para que cada petición lleve la sesión.",
+        "operationId": "FotoDePerfilController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La imagen."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "FOTO_NO_ENCONTRADA: no tiene foto."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la foto de perfil propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo y deja la cuenta sin foto. Quitar la que no existe no es un error.",
+        "operationId": "FotoDePerfilController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la foto de perfil",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/cuenta/mascota-propia": {
+      "put": {
+        "description": "El cuerpo es el SVG mismo, como `image/svg+xml`, de menos de 100 KB. Reemplaza el que hubiera. El servidor **no guarda lo que llega: lo reescribe** desde una lista blanca de elementos y atributos. Rechaza lo peligroso (scripts, manejadores de eventos, enlaces y referencias fuera del archivo, animaciones, DOCTYPE y entidades) y lo que no admite todavía (textos, imágenes, filtros, estilos). No la elige como mascota: eso se hace con las preferencias, poniendo la forma `propia`.",
+        "operationId": "MascotaPropiaController_guardar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/svg+xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MASCOTA_SVG_NO_ES_UN_SVG, MASCOTA_SVG_PELIGROSO, MASCOTA_SVG_NO_ADMITIDO o MASCOTA_SVG_DEMASIADO_COMPLEJO."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "MASCOTA_SVG_DEMASIADO_PESADO, o CUERPO_DEMASIADO_GRANDE si pasa de 120 KB."
+          },
+          "415": {
+            "description": "MASCOTA_SVG_TIPO_NO_PERMITIDO: solo .svg."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE: no se guardó nada. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Guardar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "get": {
+        "description": "Devuelve el SVG ya saneado. Solo el de quien firma el token. La aplicación lo muestra siempre como `<img>`, nunca incrustado en la página.",
+        "operationId": "MascotaPropiaController_leer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "El SVG."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "404": {
+            "description": "MASCOTA_PROPIA_NO_ENCONTRADA: no tiene."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Pedir la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      },
+      "delete": {
+        "description": "Borra el archivo. Si era la mascota elegida, la persona vuelve al personaje de siempre, con el nombre que le había puesto. Quitar la que no existe no es un error.",
+        "operationId": "MascotaPropiaController_quitar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "La cuenta como quedó.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "503": {
+            "description": "ALMACENAMIENTO_NO_DISPONIBLE. Reintentar."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Quitar la mascota propia",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/aviso": {
+      "get": {
+        "description": "Devuelve las versiones que hay que aceptar al dar de alta una cuenta. Es la unica fuente de esos valores: ni el frontend ni las pruebas llevan una copia propia.",
+        "operationId": "AvisoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Las versiones vigentes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvisoRespuestaDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Consultar las versiones vigentes del aviso de privacidad y de los terminos",
+        "tags": [
+          "Cuenta"
+        ]
+      }
+    },
+    "/api/diario": {
+      "get": {
+        "description": "Ordenadas por día y, dentro de cada día, por hora. Sin parámetros, las de hoy en la zona horaria de la persona. Como mucho 366 días por consulta.",
+        "operationId": "DiarioController_consultar",
+        "parameters": [
+          {
+            "name": "desde",
+            "required": false,
+            "in": "query",
+            "description": "Primer día del rango, incluido. Si no viene, el mismo que \"hasta\".",
+            "schema": {
+              "format": "date",
+              "example": "2026-09-27",
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "required": false,
+            "in": "query",
+            "description": "Último día del rango, incluido. Si no viene, hoy en la zona de la persona.",
+            "schema": {
+              "format": "date",
+              "example": "2026-10-03",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntradaDelDiarioDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un día mal escrito o un rango no válido."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar las anotaciones de un rango de días",
+        "tags": [
+          "Diario"
+        ]
+      },
+      "post": {
+        "description": "Idempotente por clientOperationId: un reintento devuelve la anotación ya guardada. Se puede escribir en un día pasado; la anotación conserva la hora real en que se escribió, que es la del dispositivo si la manda en escritaEn (escrita sin conexión y recibida después). Si la persona lo permitió en su perfil y lo escrito trae una señal de riesgo, la respuesta lo indica (sugiereAcompanamiento) y nada más: las líneas de atención no viajan aquí: se piden al asistente. No se guarda ninguna marca.",
+        "operationId": "DiarioController_escribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscribirEnElDiarioDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotacionGuardadaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido, la anotación está vacía o el día es futuro."
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          },
+          "413": {
+            "description": "El cuerpo supera 1 MB."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Escribir una anotación",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
+    "/api/diario/{id}": {
+      "patch": {
+        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribió responde 409 EDICION_FUERA_DE_PLAZO, y si otro dispositivo la cambió entretanto, 409 VERSION_DESACTUALIZADA. En los dos casos no se toca nada: el cliente guarda lo suyo como una anotación nueva (ADR 0009). El plazo se mide contra la hora de la corrección que manda el dispositivo en editadaEn (acotada: nunca en el futuro ni de hace más de 30 días) y, sin ella, contra la de la petición. Los límites los impone también la base de datos, no solo la API.",
+        "operationId": "DiarioController_editar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarAnotacionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotacionGuardadaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido o no trae nada que cambiar."
+          },
+          "404": {
+            "description": "La anotación no existe o es de otra persona; las dos se responden igual."
+          },
+          "409": {
+            "description": "EDICION_FUERA_DE_PLAZO o VERSION_DESACTUALIZADA. Guardar como anotación nueva."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Corregir una anotación durante su primera hora",
+        "tags": [
+          "Diario"
+        ]
+      }
+    },
+    "/api/pendientes": {
+      "get": {
+        "description": "Los pendientes sin hacer y los hechos en los últimos 7 días, con un recordatorio como mucho. Sin fecha límite, cuando se le acaba el plazo a su color: a los 7 días un urgente, a los 21 una prioridad y a los 30 un aplazable (con tono suave). Con fecha límite, desde ese día, que se cuenta en la zona horaria de la persona. Un pendiente pospuesto no recuerda nada. El recordatorio sugiere subir de nivel; nunca lo sube solo.",
+        "operationId": "PendientesController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemaforoDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el semáforo",
+        "tags": [
+          "Pendientes"
+        ]
+      },
+      "post": {
+        "description": "Idempotente por clientOperationId: un reintento devuelve el ya guardado.",
+        "operationId": "PendientesController_crear",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearPendienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendienteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Texto vacío, de más de 280 caracteres, nivel desconocido o fecha límite que no es un día real."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Anotar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      }
+    },
+    "/api/pendientes/{id}": {
+      "patch": {
+        "description": "Texto, nivel, fecha límite, marcarlo hecho o posponerlo. Para posponer una semana, posponerHasta es dentro de siete días; null deja de posponer. fechaLimite es un día AAAA-MM-DD; null la quita. Con version, detecta que otro dispositivo lo cambió: si ya no es la vigente, responde 409 sin tocar nada, salvo que la edición solo lo marque como hecho (se aplica) o que el pendiente ya esté como se pide (se devuelve tal cual, así un reintento tras una respuesta perdida no choca consigo mismo).",
+        "operationId": "PendientesController_editar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarPendienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendienteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo no es válido o no trae nada que cambiar."
+          },
+          "404": {
+            "description": "No existe o es de otra persona; las dos se responden igual."
+          },
+          "409": {
+            "description": "VERSION_DESACTUALIZADA: otro dispositivo lo cambió. No se tocó nada; consulta GET /api/pendientes para ver cómo quedó."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Cambiar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      },
+      "delete": {
+        "description": "Es idempotente: borrar uno que ya no esta responde igual que borrarlo la primera vez. Asi un reintento tras una respuesta perdida no atasca la sincronizacion sin conexion. Un pendiente de otra persona responde igual y no se toca.",
+        "operationId": "PendientesController_borrar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ya no esta: se borro, o no existia, o no era suyo."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Borrar un pendiente",
+        "tags": [
+          "Pendientes"
+        ]
+      }
+    },
+    "/api/notificaciones": {
+      "get": {
+        "description": "Si el servidor puede mandar avisos, la clave pública para suscribirse y la hora de cada aviso.",
+        "operationId": "NotificacionesController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesión o el token no es válido."
+          },
+          "403": {
+            "description": "Hay sesión pero todavía no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar los avisos",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/horas": {
+      "patch": {
+        "description": "HH:MM en la zona horaria de la persona. Lo que no viene se queda; null apaga ese aviso sin tocar el otro. frecuenciaSemaforo (manana, noche o dos_veces) dice cuántas veces al día avisa el semáforo respecto de su hora; el servidor devuelve en horasDelSemaforo las horas que le tocan, y ninguna cruza la medianoche.",
+        "operationId": "NotificacionesController_cambiarHoras",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarHorasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Una hora no tiene el formato HH:MM."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Elegir la hora de cada aviso",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/recordatorios": {
+      "patch": {
+        "description": "A las 8:00 y a las 20:00 de la zona horaria de la persona, que no se pueden mover. El de la noche solo sale si ese día no hizo ninguna actividad. Lo que no viene se queda.",
+        "operationId": "NotificacionesController_cambiarRecordatorios",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarRecordatoriosDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoDeLosAvisosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un valor no es verdadero ni falso."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Encender o apagar los recordatorios de las 8:00 y las 20:00",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/notificaciones/suscripciones": {
+      "post": {
+        "description": "Lo que entrega PushSubscription.toJSON(). Si este navegador recibía los avisos de otra persona, deja de hacerlo. Solo se aceptan los servicios de push de Google, Mozilla, Apple y Windows. Una cuenta guarda hasta 10 navegadores: al pasar de 10, sale el más antiguo.",
+        "operationId": "NotificacionesController_suscribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuscribirDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Suscrito."
+          },
+          "400": {
+            "description": "La suscripción no es válida, o su dirección no es la de un servicio de push conocido (AVISO_INVALIDO)."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Recibir los avisos en este navegador",
+        "tags": [
+          "Notificaciones"
+        ]
+      },
+      "delete": {
+        "description": "No falla si ya no estaba suscrito.",
+        "operationId": "NotificacionesController_desuscribir",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesuscribirDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Listo."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Dejar de recibir los avisos en este navegador",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/datos-curiosos/hoy": {
+      "get": {
+        "description": "Una frase corta de cultura general, distinta cada dia hasta recorrer todo el catalogo una vez, en un orden propio de cada persona. Es el mismo dato durante todo el dia, contado en la zona horaria de la persona. El dato es null solo si todavia no hay ningun dato publicado.",
+        "operationId": "DatosCuriososController_hoy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatoCuriosoDelDiaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el dato curioso de hoy",
+        "tags": [
+          "Datos curiosos"
+        ]
+      }
+    },
+    "/api/progreso": {
+      "get": {
+        "description": "Por cada modulo activo de quien firma el token: la etapa en la que va, las sesiones hechas, lo que le toca hoy (sin tope) y, en sugeridas, otras abiertas hasta completar un minimo sugerido de tres, que no cuentan para nada. Una sesion es un dia en el que hizo algo del modulo, contado en la zona horaria de la persona. Se calcula a partir de los resultados; no se guarda aparte. Lista vacia si todavia no eligio modulos.",
+        "operationId": "ProgresoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProgresoRespuestaDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el progreso de cada modulo activo",
+        "tags": [
+          "Progreso"
+        ]
+      }
+    },
+    "/api/progreso/{modulo}/historial": {
+      "get": {
+        "description": "Lo que la persona hizo en ese modulo, del mas reciente al mas antiguo, por paginas que arma el servidor: la actividad, su dia y la hora. Nunca el puntaje, ni el nivel, ni lo que escribio. Paginado por cursor: se pide la siguiente con el texto de siguientePagina. Es de cualquier modulo conocido, este activo o no. Sale de los resultados, asi que entra en la exportacion y se borra con la cuenta.",
+        "operationId": "ProgresoController_historialDelModulo",
+        "parameters": [
+          {
+            "name": "modulo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "bienestar",
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "description": "Cuantos hechos por pagina, de 1 a 50. Por omision 20.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "description": "El texto que dio la pagina anterior en siguientePagina. Es opaco: no se arma ni se interpreta. Sin el, la primera pagina.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDelHistorialDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un modulo que no existe, un limite fuera de rango o una pagina que no es valida."
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar el historial de un modulo",
+        "tags": [
+          "Progreso"
+        ]
+      }
+    },
+    "/api/racha": {
+      "get": {
+        "description": "Los dias seguidos en que hizo al menos una actividad, contados en la zona horaria de la persona. Hoy no rompe la cadena hasta que termina. Tres dias sin actividad por mes calendario se cubren solos (congelamientos); al cuarto la llama descansa y vuelve con la siguiente actividad. Se calcula a partir de los resultados, no se guarda aparte. Trae tambien la escalera de hitos, la semana de lunes a domingo y cuantos congelamientos quedan.",
+        "operationId": "RachaController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RachaRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar la racha de quien firma el token",
+        "tags": [
+          "Racha"
+        ]
+      }
+    },
+    "/api/acompanamiento": {
+      "get": {
+        "description": "Cuenta los dias seguidos, en la zona horaria de la persona, con al menos un resultado que requiere atencion. Hoy no rompe la cadena hasta que termina; un dia sin atencion o sin datos la rompe. 3 dias seguidos son nivel moderado y 7, critico; con el critico vienen las lineas de atencion de su pais. Aparte, `abandono` (SCRUM-256) dice si la persona venia de 3 o mas dias seguidos con atencion, su ultimo registro fue de atencion y lleva de 3 a 30 dias sin registrar nada: moderado si venia de 3 a 6 dias, critico (con lineas) si venia de 7 o mas; nunca es distinto de ninguno a la vez que `nivel`. Se calcula a partir de los resultados, no se guarda aparte, y no devuelve puntajes ni cuantos dias van. Es una senal de acompanamiento, nunca un diagnostico.",
+        "operationId": "AcompanamientoController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcompanamientoRespuestaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta la sesion o el token no es valido."
+          },
+          "403": {
+            "description": "Hay sesion pero todavia no hay cuenta."
+          }
+        },
+        "security": [
+          {
+            "sesion": []
+          }
+        ],
+        "summary": "Consultar si conviene ofrecer acompanamiento a quien firma el token",
+        "tags": [
+          "Acompanamiento"
         ]
       }
     },
@@ -219,6 +1384,32 @@
           }
         ],
         "summary": "Preguntar al asistente",
+        "tags": [
+          "Asistente"
+        ]
+      }
+    },
+    "/api/asistente/reglas-locales": {
+      "get": {
+        "description": "Los mismos datos que usa el asistente del servidor, para aplicarlos en el dispositivo: la deteccion de riesgo, la charla de todos los dias (saludo, agradecimiento y despedida), la pregunta por donde buscar ayuda y las lineas de atencion de cada pais. Es publica y lleva ETag: una lectura condicional con If-None-Match responde 304 si nada cambio. Todo lo demas que pregunte una persona exige conexion.",
+        "operationId": "ReglasLocalesDelAsistenteController_consultar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Las reglas y las lineas de ayuda de cada pais.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglasLocalesDelAsistenteDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Nada cambio desde el ETag que se envio."
+          }
+        },
+        "summary": "Consultar las reglas que responden lo basico sin conexion",
         "tags": [
           "Asistente"
         ]
@@ -277,9 +1468,15 @@
           },
           "score": {
             "type": "number",
-            "description": "Puntaje crudo obtenido, en la escala de la actividad. Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
+            "description": "Puntaje crudo obtenido, en la escala de la actividad, con hasta dos decimales: son los de la columna donde se guarda, y los de un juego que escala lo logrado al maximo (3 puntos de 8 en una escala de 10 son 3,75). Se omite en las actividades que no se valoran, como anotar el movimiento del dia, que producen datos y no una calificacion. Que una actividad se valore lo dice su escala y no su tipo: hay bitacoras que si puntuan. El maximo lo declara la actividad, no esta peticion.",
             "example": 8,
             "minimum": 0
+          },
+          "idSesion": {
+            "type": "string",
+            "description": "La sesión (el contenido) que se hizo, cuando la actividad las tiene (ADR 0030): la que vino en `sesion` del sendero. Tiene que ser una sesión de esa actividad. Una sesión que se retiró después de servirse se acepta: quien la tenía abierta puede terminarla. Se omite en las actividades que no tienen sesiones.",
+            "format": "uuid",
+            "example": "55555555-5555-4555-a555-555555555555"
           },
           "metadata": {
             "type": "object",
@@ -300,6 +1497,51 @@
           "activityId",
           "clientOperationId",
           "completedAt"
+        ]
+      },
+      "RecursoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Línea 192, opción 4"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "contacto",
+            "enum": [
+              "contacto",
+              "lectura",
+              "ejercicio"
+            ]
+          },
+          "cobertura": {
+            "type": "string",
+            "description": "Donde sirve el recurso: nacional, bogota, universidad o internacional (el directorio que recibe quien esta en un lugar sin lineas verificadas). La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
+            "example": "nacional"
+          },
+          "enlace": {
+            "type": "string",
+            "format": "uri"
+          },
+          "telefono": {
+            "type": "string",
+            "description": "El numero que marca el boton «Llamar ahora» (SCRUM-257): solo cifras, con un + delante si lleva prefijo de pais. Solo lo traen las lineas de atencion verificadas; el directorio internacional no. Si la linea pide elegir una opcion al contestar, la opcion esta en la descripcion y no se marca sola.",
+            "example": "192",
+            "pattern": "^\\+?\\d{3,15}$"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "tipo"
         ]
       },
       "ResultadoRespuestaDto": {
@@ -324,7 +1566,14 @@
           },
           "sugiereAcompanamiento": {
             "type": "boolean",
-            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado."
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: porque lo escrito trae una señal de riesgo (en el momento), o porque el resultado requiere atención y la semana tiene un patrón (al menos 4 de los últimos 7 días con atención). Un solo resultado que requiere atención no lo es: nivelOrientativo lo dice y esto es falso."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
           },
           "metadata": {
             "type": "object",
@@ -339,6 +1588,7 @@
           "id",
           "activityId",
           "sugiereAcompanamiento",
+          "lineasDeAtencion",
           "completedAt"
         ]
       },
@@ -361,6 +1611,11 @@
           "descripcion": {
             "type": "string",
             "example": "Encuentra las parejas iguales en el menor número de intentos."
+          },
+          "motor": {
+            "type": "string",
+            "example": "guia_paso_a_paso",
+            "description": "Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy."
           },
           "produceNivel": {
             "type": "boolean",
@@ -404,23 +1659,46 @@
       "RegistrarCuentaDto": {
         "type": "object",
         "properties": {
+          "fechaNacimiento": {
+            "type": "string",
+            "description": "Fecha de nacimiento, AAAA-MM-DD. Obligatoria para crear la cuenta y para completar la de quien se registró antes de que se pidiera. VSD Health es solo para mayores de 18 años: con menos, la respuesta es 403 MENOR_DE_EDAD y no se guarda nada. La edad la calcula el servidor.",
+            "example": "1998-03-14"
+          },
           "versionPolitica": {
             "type": "string",
-            "description": "Version del aviso de tratamiento de datos que la persona acepto. No basta un si o un no: las politicas cambian, y ante una reclamacion hay que poder demostrar a que se dio permiso y cuando.",
-            "example": "1.0",
+            "description": "Versión del aviso de tratamiento de datos que la persona aceptó. No basta un sí o un no: las políticas cambian, y ante una reclamación hay que poder demostrar a qué se dio permiso y cuándo. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
             "minLength": 1,
             "maxLength": 20
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "aceptaAviso": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla del aviso de privacidad. Tiene que ser true: enviar la versión sola ya no cuenta como aceptarlo."
+          },
+          "aceptaTerminos": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla de los términos. Tiene que ser true."
           },
           "nombre": {
             "type": "string",
             "description": "Nombre con el que la persona quiere que la llamen.",
             "example": "Diego",
             "maxLength": 100
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria del dispositivo, como la entrega Intl.DateTimeFormat().resolvedOptions().timeZone. Decide que dia es para la persona, y con ella se cuenta su edad. Se manda en cada entrada: si la cuenta ya existe y la zona es otra, se actualiza. Una zona que el servidor no conoce se rechaza con 400 ZONA_HORARIA_INVALIDA.",
+            "example": "America/Bogota",
+            "maxLength": 64
           }
-        },
-        "required": [
-          "versionPolitica"
-        ]
+        }
       },
       "ConsentimientoDto": {
         "type": "object",
@@ -439,6 +1717,65 @@
         "required": [
           "versionPolitica",
           "aceptadoEn"
+        ]
+      },
+      "MascotaDto": {
+        "type": "object",
+        "properties": {
+          "forma": {
+            "type": "string",
+            "description": "El personaje: fungito, sparky, ori, gato u obsidian. Una clave que el frontend no conozca se dibuja como la mascota de siempre.",
+            "example": "fungito",
+            "maxLength": 30
+          },
+          "nombre": {
+            "type": "string",
+            "description": "Nombre de la mascota.",
+            "example": "Fungito",
+            "maxLength": 30
+          },
+          "color": {
+            "type": "string",
+            "description": "Color principal, #RRGGBB. Del modelo anterior; los personajes no lo usan.",
+            "example": "#a2d9b6",
+            "maxLength": 7
+          },
+          "accesorio": {
+            "type": "string",
+            "description": "Accesorio. Del modelo anterior; los personajes no lo usan.",
+            "example": "bufanda",
+            "maxLength": 30
+          }
+        },
+        "required": [
+          "forma",
+          "nombre"
+        ]
+      },
+      "FotoDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la foto actual. Cambia con cada foto nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
+        ]
+      },
+      "MascotaPropiaDeLaCuentaDto": {
+        "type": "object",
+        "properties": {
+          "actualizadaEl": {
+            "type": "string",
+            "description": "Cuando se guardo la mascota propia actual. Cambia con cada una nueva: sirve para saber si la que se tenia ya no es la vigente.",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "actualizadaEl"
         ]
       },
       "CuentaRespuestaDto": {
@@ -474,10 +1811,90 @@
               }
             ]
           },
+          "terminos": {
+            "description": "Los términos que aceptó con su casilla, o null en las cuentas anteriores a que se pidieran.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsentimientoDto"
+              }
+            ]
+          },
+          "registroCompleto": {
+            "type": "boolean",
+            "description": "Si la cuenta tiene su registro completo: la fecha de nacimiento y el aviso y los términos aceptados con casilla. Si es false (cuentas anteriores a que se pidiera), la API responde 403 REGISTRO_INCOMPLETO a todo menos a ver, exportar y borrar la cuenta, y el frontend lleva a la pantalla «Completa tu registro»."
+          },
+          "textosPendientes": {
+            "type": "array",
+            "description": "Los textos que hay que volver a aceptar porque cambiaron desde la última vez que la persona los aceptó (SCRUM-237): `aviso_de_privacidad`, `terminos`, ninguno o los dos. Si no está vacío, la API responde 403 TEXTOS_PENDIENTES_DE_ACEPTAR a todo menos a ver, exportar y borrar la cuenta y a `POST /api/cuenta/aceptacion`, y el frontend lleva a la pantalla «Actualizamos nuestros textos».",
+            "items": {
+              "type": "string",
+              "enum": [
+                "aviso_de_privacidad",
+                "terminos"
+              ]
+            }
+          },
           "registradoEn": {
             "type": "string",
             "description": "Cuando se creo la cuenta.",
             "format": "date-time"
+          },
+          "modulosActivos": {
+            "type": "array",
+            "description": "Modulos activos, en orden. Vacio mientras la persona no ha elegido: el frontend la lleva a la bienvenida.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          "mascota": {
+            "description": "La mascota guardada, o null para usar la de siempre.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaDto"
+              }
+            ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que el diario se lea para recomendarle algo. Apagado por defecto (SCRUM-108)."
+          },
+          "acompanamientoPorDias": {
+            "type": "boolean",
+            "description": "Si permite que se miren sus resultados, dia tras dia, para ofrecerle acompanamiento. Apagado por defecto (SCRUM-177)."
+          },
+          "zonaHoraria": {
+            "type": "string",
+            "description": "Zona horaria de la persona, la que informo su dispositivo. Decide que dia es para ella (SCRUM-123).",
+            "example": "America/Bogota"
+          },
+          "foto": {
+            "description": "La foto de perfil, o null si no tiene (SCRUM-120). Aqui solo dice que hay y desde cuando; la foto se pide a GET /api/cuenta/foto.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoDeLaCuentaDto"
+              }
+            ]
+          },
+          "mascotaPropia": {
+            "description": "La mascota propia, un SVG, o null si no tiene (SCRUM-122). Aqui solo dice que hay y desde cuando; el dibujo se pide a GET /api/cuenta/mascota-propia. Para usarla como mascota, `mascota.forma` es `propia`.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaDeLaCuentaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -485,7 +1902,1492 @@
           "correo",
           "rol",
           "consentimiento",
-          "registradoEn"
+          "terminos",
+          "registroCompleto",
+          "textosPendientes",
+          "registradoEn",
+          "modulosActivos",
+          "mascota",
+          "diarioConRecomendaciones",
+          "acompanamientoPorDias",
+          "zonaHoraria",
+          "foto",
+          "mascotaPropia"
+        ]
+      },
+      "AceptarTextosDto": {
+        "type": "object",
+        "properties": {
+          "aceptaAviso": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla del aviso de privacidad. Tiene que ser true si el aviso está pendiente (`textosPendientes` de la cuenta lo incluye); si no lo está, se ignora."
+          },
+          "versionPolitica": {
+            "type": "string",
+            "description": "Versión del aviso que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "aceptaTerminos": {
+            "type": "boolean",
+            "description": "Que la persona marcó la casilla de los términos. Tiene que ser true si los términos están pendientes; si no lo están, se ignora."
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Versión de los términos que la persona aceptó. Tiene que ser la vigente, que devuelve `GET /api/aviso`; otra se rechaza con 409.",
+            "example": "2026-10-3",
+            "minLength": 1,
+            "maxLength": 20
+          }
+        }
+      },
+      "ActualizarPreferenciasDto": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "description": "Cómo quiere que la llamen. Entre 1 y 100 caracteres.",
+            "example": "Diego",
+            "maxLength": 100
+          },
+          "modulosActivos": {
+            "type": "array",
+            "description": "Modulos activos. Al menos uno. Reemplaza la lista entera, no la mezcla con la anterior.",
+            "example": [
+              "cognicion",
+              "emociones"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "cognicion",
+                "bienestar",
+                "emociones"
+              ]
+            }
+          },
+          "mascota": {
+            "description": "La mascota completa.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaDto"
+              }
+            ]
+          },
+          "diarioConRecomendaciones": {
+            "type": "boolean",
+            "description": "Si permite que lo que escribe en el diario se lea para recomendarle algo, como las líneas de atención si aparece una señal de riesgo. Apagado por defecto (SCRUM-108).",
+            "example": false
+          },
+          "acompanamientoPorDias": {
+            "type": "boolean",
+            "description": "Si permite que se miren sus resultados, día tras día, para ofrecerle acompañamiento cuando lleva varios días seguidos con atención. Es una inferencia sobre su estado, así que está apagado por defecto y solo lo cambia ella (SCRUM-177, ADR 0034).",
+            "example": false
+          }
+        }
+      },
+      "ConsentimientoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "aviso_de_privacidad",
+              "terminos"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-10-1"
+          },
+          "aceptadoEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tipo",
+          "version",
+          "aceptadoEn"
+        ]
+      },
+      "ResultadoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "activityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nivelOrientativo": {
+            "type": "string",
+            "description": "Nivel orientativo del resultado. Es una orientacion sobre como fue la actividad, nunca un diagnostico. Ausente en las actividades de registro, que no producen puntaje.",
+            "enum": [
+              "favorable",
+              "en_seguimiento",
+              "requiere_atencion"
+            ]
+          },
+          "sugiereAcompanamiento": {
+            "type": "boolean",
+            "description": "Indica si conviene mostrar recursos de apoyo profesional junto al resultado: porque lo escrito trae una señal de riesgo (en el momento), o porque el resultado requiere atención y la semana tiene un patrón (al menos 4 de los últimos 7 días con atención). Un solo resultado que requiere atención no lo es: nivelOrientativo lo dice y esto es falso."
+          },
+          "lineasDeAtencion": {
+            "description": "Las líneas de atención, ordenadas por alcance, cuando sugiereAcompanamiento es cierto. Vacía en cualquier otro caso. Viajan en la misma respuesta para no depender de una segunda petición.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Informacion propia del tipo de actividad, tal como la envio el dispositivo. En una actividad de registro es todo su contenido."
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sesion": {
+            "type": "string",
+            "description": "El título de la sesión que hizo, si la actividad tiene sesiones y la sesión sigue existiendo. No incluye su identificador ni sus parámetros.",
+            "example": "Respiración 4-6"
+          }
+        },
+        "required": [
+          "id",
+          "activityId",
+          "sugiereAcompanamiento",
+          "lineasDeAtencion",
+          "completedAt"
+        ]
+      },
+      "EntradaDelDiarioDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de la persona.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor: un árbol de nodos con \"type\", y opcionalmente \"content\", \"text\", \"marks\" y \"attrs\". Nunca HTML.",
+            "example": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hoy salí a caminar con "
+                    },
+                    {
+                      "type": "text",
+                      "text": "calma",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas de la anotación: { id, tipo: \"diagrama\", datos }. Los datos son la escena del editor de diagramas, tal cual."
+          },
+          "version": {
+            "type": "number",
+            "description": "Sube con cada edición. Hay que enviarla al editar: si no coincide, alguien la cambió desde otro dispositivo.",
+            "example": 1
+          },
+          "creadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se escribió de verdad."
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editableHasta": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
+          }
+        },
+        "required": [
+          "id",
+          "dia",
+          "titulo",
+          "contenido",
+          "adjuntos",
+          "version",
+          "creadaEn",
+          "editadaEn",
+          "editableHasta"
+        ]
+      },
+      "PendienteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "hecho": {
+            "type": "boolean"
+          },
+          "posponerHasta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Mientras no llegue, no recuerda nada."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite, en el calendario de la persona (SCRUM-119). Null: no vence un día concreto."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Empieza en 1 y sube con cada edición. Hay que devolverla al editar: si otro dispositivo lo cambió entretanto, la edición se rechaza con 409 en vez de pisarlo."
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editadoEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "texto",
+          "nivel",
+          "hecho",
+          "posponerHasta",
+          "fechaLimite",
+          "version",
+          "creadoEn",
+          "editadoEn"
+        ]
+      },
+      "AvisosExportadosDto": {
+        "type": "object",
+        "properties": {
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00"
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo (SCRUM-146)."
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30"
+          },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00 (SCRUM-126)."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00 (SCRUM-126)."
+          },
+          "navegadores": {
+            "type": "number",
+            "description": "En cuántos navegadores recibe avisos."
+          }
+        },
+        "required": [
+          "horaSemaforo",
+          "frecuenciaSemaforo",
+          "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche",
+          "navegadores"
+        ]
+      },
+      "FotoExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenidoBase64": {
+            "type": "string",
+            "description": "El archivo, en base64. Es la imagen tal como se guardó.",
+            "format": "byte"
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenidoBase64"
+        ]
+      },
+      "MascotaPropiaExportadaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "image/svg+xml"
+          },
+          "actualizadaEl": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se guardó."
+          },
+          "contenido": {
+            "type": "string",
+            "description": "El SVG, como texto. Es el que guarda VSD Health, no el que subió la persona: se reescribió sin lo que no se admite."
+          }
+        },
+        "required": [
+          "tipo",
+          "actualizadaEl",
+          "contenido"
+        ]
+      },
+      "DatoCuriosoExportadoDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El día, AAAA-MM-DD, en el calendario de la persona."
+          },
+          "texto": {
+            "type": "string",
+            "example": "Los pulpos tienen tres corazones."
+          }
+        },
+        "required": [
+          "dia",
+          "texto"
+        ]
+      },
+      "ExportacionDto": {
+        "type": "object",
+        "properties": {
+          "generadoEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se generó."
+          },
+          "cuenta": {
+            "$ref": "#/components/schemas/CuentaRespuestaDto"
+          },
+          "fechaNacimiento": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "La fecha de nacimiento que declaraste, o null si tu cuenta es anterior a que se pidiera. Solo sale aquí: el resto de la API no la devuelve."
+          },
+          "consentimientos": {
+            "description": "Todo lo que aceptaste, versión por versión, de lo más antiguo a lo más reciente: el aviso de privacidad y los términos. Solo se añade; nunca se reescribe.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentimientoExportadoDto"
+            }
+          },
+          "resultados": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultadoExportadoDto"
+            }
+          },
+          "entradasDeDiario": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntradaDelDiarioDto"
+            }
+          },
+          "pendientes": {
+            "description": "Los del semáforo, hechos o no.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendienteDto"
+            }
+          },
+          "avisos": {
+            "$ref": "#/components/schemas/AvisosExportadosDto"
+          },
+          "foto": {
+            "nullable": true,
+            "description": "La foto de perfil, si tiene (SCRUM-120).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FotoExportadaDto"
+              }
+            ]
+          },
+          "mascotaPropia": {
+            "nullable": true,
+            "description": "La mascota propia, si tiene (SCRUM-122).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MascotaPropiaExportadaDto"
+              }
+            ]
+          },
+          "datoCurioso": {
+            "nullable": true,
+            "description": "El ultimo dato curioso que se le dio y el dia (SCRUM-185).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatoCuriosoExportadoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "generadoEn",
+          "cuenta",
+          "fechaNacimiento",
+          "consentimientos",
+          "resultados",
+          "entradasDeDiario",
+          "pendientes",
+          "avisos",
+          "foto",
+          "mascotaPropia",
+          "datoCurioso"
+        ]
+      },
+      "BorrarCuentaDto": {
+        "type": "object",
+        "properties": {
+          "confirmacion": {
+            "type": "string",
+            "description": "Tiene que ser exactamente \"BORRAR MI CUENTA\".",
+            "example": "BORRAR MI CUENTA"
+          }
+        },
+        "required": [
+          "confirmacion"
+        ]
+      },
+      "AvisoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Version vigente del aviso de privacidad. Es la que hay que enviar en `versionPolitica` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
+            "example": "2026-10-3"
+          },
+          "versionTerminos": {
+            "type": "string",
+            "description": "Version vigente de los terminos. Es la que hay que enviar en `versionTerminos` al dar de alta una cuenta; cualquier otra se rechaza con 409.",
+            "example": "2026-10-3"
+          }
+        },
+        "required": [
+          "version",
+          "versionTerminos"
+        ]
+      },
+      "EscribirEnElDiarioDto": {
+        "type": "object",
+        "properties": {
+          "clientOperationId": {
+            "type": "string",
+            "description": "Identificador de la operación, generado por el dispositivo. Reenviar el mismo valor en un reintento devuelve la anotación ya guardada en lugar de crear otra.",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de la persona. Si no viene, hoy. Puede ser un día pasado, nunca uno futuro.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
+          "titulo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor, con \"type\": \"doc\". Nunca HTML."
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas: { id, tipo: \"diagrama\", datos }. Como mucho diez."
+          },
+          "escritaEn": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-07T14:00:00.000Z",
+            "description": "La hora en que el dispositivo escribió la anotación, en ISO 8601 con desplazamiento (Z o +hh:mm). Sirve cuando se escribió sin conexión y llega después: la anotación muestra esta hora y no la de cuando se recibe. Es un dato sin fiar y nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior al comienzo del día de la anotación) se ignora y se usa la hora del servidor."
+          }
+        },
+        "required": [
+          "clientOperationId",
+          "contenido"
+        ]
+      },
+      "AnotacionGuardadaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dia": {
+            "type": "string",
+            "description": "El día al que pertenece, en el calendario de la persona.",
+            "example": "2026-10-03",
+            "format": "date"
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor: un árbol de nodos con \"type\", y opcionalmente \"content\", \"text\", \"marks\" y \"attrs\". Nunca HTML.",
+            "example": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hoy salí a caminar con "
+                    },
+                    {
+                      "type": "text",
+                      "text": "calma",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "adjuntos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Los diagramas de la anotación: { id, tipo: \"diagrama\", datos }. Los datos son la escena del editor de diagramas, tal cual."
+          },
+          "version": {
+            "type": "number",
+            "description": "Sube con cada edición. Hay que enviarla al editar: si no coincide, alguien la cambió desde otro dispositivo.",
+            "example": 1
+          },
+          "creadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se escribió de verdad."
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editableHasta": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hasta cuándo se puede editar: una hora después de escribirla. Después, lo nuevo va en otra anotación."
+          },
+          "sugiereAcompanamiento": {
+            "type": "boolean",
+            "description": "Si lo escrito trae una señal de riesgo y la persona permitió que su diario se lea (SCRUM-108). Se calcula en cada respuesta y no se guarda con la anotación. No trae líneas de atención: se ofrece ayuda y se piden al asistente."
+          }
+        },
+        "required": [
+          "id",
+          "dia",
+          "titulo",
+          "contenido",
+          "adjuntos",
+          "version",
+          "creadaEn",
+          "editadaEn",
+          "editableHasta",
+          "sugiereAcompanamiento"
+        ]
+      },
+      "EditarAnotacionDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "La versión de la anotación cuando se abrió para editar. Si ya no es la actual, la edición se rechaza con 409 VERSION_DESACTUALIZADA.",
+            "minimum": 1
+          },
+          "titulo": {
+            "type": "string",
+            "maxLength": 120,
+            "nullable": true
+          },
+          "contenido": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "El documento del editor completo, con \"type\": \"doc\"."
+          },
+          "adjuntos": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "editadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-07T14:30:00.000Z",
+            "description": "La hora en que el dispositivo hizo la corrección, en ISO 8601 con desplazamiento. El plazo de una hora se mide contra ella y no contra cuando llega la petición: corregida a las 9:30 sin conexión y recibida a las 14:00, se aplica como corrección. Nunca hace fallar la petición: si no sirve (mal formada, en el futuro, de hace más de 30 días o anterior a la hora en que se escribió la anotación) se ignora y se usa la hora del servidor."
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "RecordatorioDto": {
+        "type": "object",
+        "properties": {
+          "pendienteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "dias": {
+            "type": "number",
+            "description": "Días completos desde que se anotó."
+          },
+          "nivelSugerido": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ],
+            "nullable": true,
+            "description": "El nivel que se sugiere subir. Nunca se aplica solo: lo decide la persona. Null si ya es urgente."
+          },
+          "tono": {
+            "type": "string",
+            "enum": [
+              "plazo",
+              "suave"
+            ],
+            "description": "Cómo suena. plazo: se acabó el tiempo que se le dio (urgente, prioridad). suave: no es urgente, pero que no se acumule (aplazable)."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "El día límite que llegó, o null si el recordatorio es por los días de su color (SCRUM-119)."
+          }
+        },
+        "required": [
+          "pendienteId",
+          "nivel",
+          "dias",
+          "nivelSugerido",
+          "tono",
+          "fechaLimite"
+        ]
+      },
+      "SemaforoDto": {
+        "type": "object",
+        "properties": {
+          "pendientes": {
+            "description": "Primero los sin hacer, por nivel y del más antiguo al más nuevo; después los hechos en los últimos 7 días.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendienteDto"
+            }
+          },
+          "recordatorio": {
+            "nullable": true,
+            "description": "Uno como mucho por visita, o null.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecordatorioDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "pendientes",
+          "recordatorio"
+        ]
+      },
+      "CrearPendienteDto": {
+        "type": "object",
+        "properties": {
+          "clientOperationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Generado en el dispositivo. Reenviarlo en un reintento no duplica el pendiente."
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Opcional: sin ella el pendiente no vence un día concreto."
+          }
+        },
+        "required": [
+          "clientOperationId",
+          "texto",
+          "nivel"
+        ]
+      },
+      "EditarPendienteDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "La versión que el dispositivo tenía del pendiente. Si ya no es la vigente, la edición se rechaza con 409, salvo que solo lo marque como hecho o que el pendiente ya esté como se pide. Sin ella no se comprueba nada."
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "urgente",
+              "prioridad",
+              "aplazable"
+            ]
+          },
+          "hecho": {
+            "type": "boolean"
+          },
+          "posponerHasta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Hasta cuándo no recuerda nada. Futura y como mucho a 90 días. Null deja de posponer."
+          },
+          "fechaLimite": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-10-12",
+            "description": "Día límite AAAA-MM-DD, en el calendario de la persona. Null la quita."
+          }
+        }
+      },
+      "EstadoDeLosAvisosDto": {
+        "type": "object",
+        "properties": {
+          "disponible": {
+            "type": "boolean",
+            "description": "Si este servidor puede mandar avisos. Sin claves VAPID, false."
+          },
+          "clavePublica": {
+            "type": "string",
+            "nullable": true,
+            "description": "Clave pública VAPID con la que el navegador se suscribe."
+          },
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00",
+            "description": "La hora que la persona eligió para el semáforo (la hora base), en su zona horaria. Null: apagado. Las horas a las que de verdad avisa están en horasDelSemaforo."
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "example": "manana",
+            "description": "Cuántas veces al día avisa el semáforo. manana: una vez, a la hora base (lo que hacía hasta ahora). noche: una vez, doce horas después de una hora base de la mañana, o a la propia hora base si es de las 12:00 en adelante. dos_veces: las dos. Nunca cruza la medianoche."
+          },
+          "horasDelSemaforo": {
+            "example": [
+              "08:00",
+              "20:00"
+            ],
+            "description": "Las horas HH:MM a las que avisa el semáforo, de la más temprana a la más tarde, con la frecuencia ya aplicada: una, o dos a doce horas de distancia. Vacía si está apagado.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30",
+            "description": "Hora del recordatorio de la racha, en la zona horaria de la persona. Null: apagado."
+          },
+          "recordatorioManana": {
+            "type": "boolean",
+            "description": "Recordatorio de las 8:00, en la zona horaria de la persona. La hora no se mueve: se enciende o se apaga."
+          },
+          "recordatorioNoche": {
+            "type": "boolean",
+            "description": "Recordatorio de las 20:00, en la zona horaria de la persona. Solo sale si ese día no hizo ninguna actividad."
+          }
+        },
+        "required": [
+          "disponible",
+          "clavePublica",
+          "horaSemaforo",
+          "frecuenciaSemaforo",
+          "horasDelSemaforo",
+          "horaRacha",
+          "recordatorioManana",
+          "recordatorioNoche"
+        ]
+      },
+      "CambiarHorasDto": {
+        "type": "object",
+        "properties": {
+          "horaSemaforo": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00"
+          },
+          "frecuenciaSemaforo": {
+            "type": "string",
+            "enum": [
+              "manana",
+              "noche",
+              "dos_veces"
+            ],
+            "description": "Cuántas veces al día avisa el semáforo: manana, noche o dos_veces. Lo que no viene se queda. No tiene null: apagar el aviso es horaSemaforo: null."
+          },
+          "horaRacha": {
+            "type": "string",
+            "nullable": true,
+            "example": "19:30"
+          }
+        }
+      },
+      "CambiarRecordatoriosDto": {
+        "type": "object",
+        "properties": {
+          "manana": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 8:00."
+          },
+          "noche": {
+            "type": "boolean",
+            "description": "Enciende o apaga el de las 20:00."
+          }
+        }
+      },
+      "ClavesDeSuscripcionDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string"
+          },
+          "auth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "SuscribirDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "La dirección del servicio de push del navegador (https)."
+          },
+          "keys": {
+            "$ref": "#/components/schemas/ClavesDeSuscripcionDto"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ]
+      },
+      "DesuscribirDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      },
+      "DatoCuriosoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "example": "Los pulpos tienen tres corazones."
+          },
+          "tema": {
+            "type": "string",
+            "description": "De que trata. Sirve para revisar el catalogo; no es para mostrar.",
+            "example": "animales"
+          }
+        },
+        "required": [
+          "id",
+          "texto",
+          "tema"
+        ]
+      },
+      "DatoCuriosoDelDiaRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El dia, en el calendario de la persona, al que pertenece este dato. AAAA-MM-DD.",
+            "example": "2026-10-13"
+          },
+          "dato": {
+            "nullable": true,
+            "description": "El dato de hoy, o `null` si todavia no hay ningun dato publicado.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatoCuriosoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dia",
+          "dato"
+        ]
+      },
+      "EtapaDto": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "number",
+            "description": "Numero de etapa (1 a 4) o de temporada (desde 1).",
+            "example": 2
+          },
+          "esTemporada": {
+            "type": "boolean",
+            "description": "Si ya paso las cuatro etapas y va por temporadas."
+          },
+          "sesionesHechas": {
+            "type": "number",
+            "description": "Sesiones hechas dentro de esta etapa.",
+            "example": 3
+          },
+          "sesionesDeLaEtapa": {
+            "type": "number",
+            "description": "Sesiones que tiene la etapa.",
+            "example": 10
+          }
+        },
+        "required": [
+          "numero",
+          "esTemporada",
+          "sesionesHechas",
+          "sesionesDeLaEtapa"
+        ]
+      },
+      "FrecuenciaDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "unica",
+              "rotativa"
+            ]
+          },
+          "dias": {
+            "description": "Solo en las semanales: 1 es lunes y 7 domingo.",
+            "example": [
+              1,
+              3,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tipo"
+        ]
+      },
+      "SesionDelDiaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la sesión. Es el que se manda como idSesion al registrar el resultado."
+          },
+          "titulo": {
+            "type": "string",
+            "example": "Respiración 4-6"
+          },
+          "nivel": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Dificultad o profundidad."
+          },
+          "parametros": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Lo que el motor necesita para pintar la sesión: tamaño, símbolos, guion, pasos. Su forma depende del motor."
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "nivel",
+          "parametros"
+        ]
+      },
+      "ActividadDeHoyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cómo dormiste anoche"
+          },
+          "tipo": {
+            "type": "string",
+            "example": "bitacora"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "hecha": {
+            "type": "boolean",
+            "description": "Si ya la hizo hoy."
+          },
+          "frecuencia": {
+            "description": "Cada cuanto toca, para la etiqueta del sendero (Diaria, un dia, Una vez).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrecuenciaDto"
+              }
+            ]
+          },
+          "motor": {
+            "type": "string",
+            "enum": [
+              "secuencia",
+              "tocar_el_objetivo",
+              "ver_ocultar_recordar",
+              "clasificar",
+              "palabras",
+              "calculo",
+              "guia_paso_a_paso",
+              "cuestionario_corto",
+              "escritura_breve"
+            ],
+            "description": "Qué componente pinta la mecánica (ADR 0030). Ausente en las actividades que se pintan como siempre, que son las nueve de hoy."
+          },
+          "sesion": {
+            "description": "El contenido de hoy de una mecánica con motor. Viaja con el sendero, que el dispositivo ya guarda: así se puede hacer la actividad sin conexión. Ausente cuando no hay motor.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SesionDelDiaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "hecha",
+          "frecuencia"
+        ]
+      },
+      "ProgresoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "modulo": {
+            "type": "string",
+            "enum": [
+              "cognicion",
+              "bienestar",
+              "emociones"
+            ]
+          },
+          "sesiones": {
+            "type": "number",
+            "description": "Dias distintos en los que hizo algo de este modulo.",
+            "example": 7
+          },
+          "etapa": {
+            "$ref": "#/components/schemas/EtapaDto"
+          },
+          "hoy": {
+            "description": "Lo que toca hoy, con lo hecho. Sin tope: salen todas las que tocan.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActividadDeHoyDto"
+            }
+          },
+          "sugeridas": {
+            "description": "Otras actividades abiertas del modulo que hoy no tocan, hasta completar un minimo sugerido de tres con lo de hoy (SCRUM-184). Es una sugerencia: no forma parte del plan del dia, no suma sesiones ni cuenta para la racha. Vacia cuando hoy ya llega a tres.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActividadDeHoyDto"
+            }
+          }
+        },
+        "required": [
+          "modulo",
+          "sesiones",
+          "etapa",
+          "hoy",
+          "sugeridas"
+        ]
+      },
+      "ActividadDelHechoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cómo dormiste anoche"
+          }
+        },
+        "required": [
+          "id",
+          "nombre"
+        ]
+      },
+      "HechoDelHistorialDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actividad": {
+            "$ref": "#/components/schemas/ActividadDelHechoDto"
+          },
+          "dia": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-02",
+            "description": "El dia, en la zona que la persona tenia al hacerlo."
+          },
+          "hechaEn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "La hora a la que termino la actividad."
+          }
+        },
+        "required": [
+          "id",
+          "actividad",
+          "dia",
+          "hechaEn"
+        ]
+      },
+      "PaginaDelHistorialDto": {
+        "type": "object",
+        "properties": {
+          "hechos": {
+            "description": "Del mas reciente al mas antiguo.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HechoDelHistorialDto"
+            }
+          },
+          "siguientePagina": {
+            "type": "string",
+            "nullable": true,
+            "description": "El texto para pedir la pagina siguiente en el parametro pagina, o null si no hay mas."
+          }
+        },
+        "required": [
+          "hechos",
+          "siguientePagina"
+        ]
+      },
+      "HitoDeLaEscaleraDto": {
+        "type": "object",
+        "properties": {
+          "dias": {
+            "type": "number",
+            "description": "Dias seguidos que pide este hito.",
+            "example": 14
+          },
+          "logrado": {
+            "type": "boolean",
+            "description": "Si la racha de ahora ya lo alcanzo.",
+            "example": false
+          }
+        },
+        "required": [
+          "dias",
+          "logrado"
+        ]
+      },
+      "DiaDeLaSemanaDto": {
+        "type": "object",
+        "properties": {
+          "dia": {
+            "type": "string",
+            "description": "El dia del calendario local de la persona, AAAA-MM-DD."
+          },
+          "estado": {
+            "type": "string",
+            "description": "hecho: hubo actividad; cubierto: lo cubrio un congelamiento; hoy: es hoy y todavia no hay actividad; sinActividad: paso sin actividad ni congelamiento; futuro: todavia no llega.",
+            "enum": [
+              "hecho",
+              "cubierto",
+              "hoy",
+              "sinActividad",
+              "futuro"
+            ]
+          }
+        },
+        "required": [
+          "dia",
+          "estado"
+        ]
+      },
+      "RachaRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "dias": {
+            "type": "number",
+            "description": "Dias con al menos una actividad en la cadena de ahora. Los dias cubiertos por un congelamiento no suman.",
+            "example": 12
+          },
+          "nivel": {
+            "type": "number",
+            "description": "Nivel de la llama: 0 es el ascua (menos de 7 dias); 1 desde 7 dias, 2 desde 30, 3 desde 90 y 4 desde 365.",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "example": 1
+          },
+          "hechoHoy": {
+            "type": "boolean",
+            "description": "Si ya hizo algo hoy, en el dia local de la persona."
+          },
+          "enDescanso": {
+            "type": "boolean",
+            "description": "La llama descansa: no hay cadena en pie. Es un estado, no un castigo: con la siguiente actividad vuelve con un dia."
+          },
+          "congelamientosUsados": {
+            "type": "number",
+            "description": "Congelamientos usados en el mes de hoy.",
+            "example": 1
+          },
+          "congelamientosPorMes": {
+            "type": "number",
+            "description": "Congelamientos que trae cada mes calendario.",
+            "example": 3
+          },
+          "diasCubiertos": {
+            "description": "Los dias de la cadena de ahora que se cubrieron con un congelamiento, AAAA-MM-DD, del mas viejo al mas nuevo.",
+            "example": [
+              "2026-10-11"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "congelamientosDisponibles": {
+            "type": "number",
+            "description": "Congelamientos que quedan este mes: los del mes menos los usados.",
+            "example": 2
+          },
+          "proximoHito": {
+            "type": "number",
+            "description": "El proximo hito de la escalera, siempre mayor que los dias de ahora.",
+            "example": 14
+          },
+          "escalera": {
+            "description": "Los hitos logrados y los tres que siguen. Los hitos son 3, 7, 14, 30, 50, 100, 200 y 365 dias, y despues uno cada 365.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HitoDeLaEscaleraDto"
+            }
+          },
+          "semana": {
+            "description": "La semana de hoy, de lunes a domingo: siete dias, cada uno con su estado.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiaDeLaSemanaDto"
+            }
+          }
+        },
+        "required": [
+          "dias",
+          "nivel",
+          "hechoHoy",
+          "enDescanso",
+          "congelamientosUsados",
+          "congelamientosPorMes",
+          "diasCubiertos",
+          "congelamientosDisponibles",
+          "proximoHito",
+          "escalera",
+          "semana"
+        ]
+      },
+      "AcompanamientoRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "nivel": {
+            "type": "string",
+            "description": "ninguno: nada que ofrecer. moderado: 3 dias seguidos con atencion, se ofrece hablarlo con un profesional en un aviso que se puede cerrar. critico: 7 dias seguidos, el aviso se queda a la vista con las lineas de atencion. No sale ningun puntaje ni cuantos dias van.",
+            "enum": [
+              "ninguno",
+              "moderado",
+              "critico"
+            ],
+            "example": "ninguno"
+          },
+          "abandono": {
+            "type": "string",
+            "description": "El acompanamiento por abandono (SCRUM-256): la persona venia de 3 o mas dias seguidos con atencion, su ultimo registro fue de atencion y lleva de 3 a 30 dias sin registrar nada. moderado: venia de 3 a 6 dias, se ofrece hablarlo en un aviso que se puede cerrar. critico: venia de 7 o mas, el aviso lleva las lineas de atencion y tambien se puede cerrar. Nunca es distinto de ninguno a la vez que nivel. No sale ningun puntaje ni cuantos dias fueron.",
+            "enum": [
+              "ninguno",
+              "moderado",
+              "critico"
+            ],
+            "example": "ninguno"
+          },
+          "lineasDeAtencion": {
+            "description": "Las lineas de atencion del pais de la persona, ordenadas por alcance. Solo con nivel o abandono criticos; vacio en los demas.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "nivel",
+          "abandono",
+          "lineasDeAtencion"
         ]
       },
       "ConsultarAsistenteDto": {
@@ -503,51 +3405,12 @@
           "texto"
         ]
       },
-      "RecursoDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "titulo": {
-            "type": "string",
-            "example": "Línea 192, opción 4"
-          },
-          "descripcion": {
-            "type": "string"
-          },
-          "tipo": {
-            "type": "string",
-            "example": "contacto",
-            "enum": [
-              "contacto",
-              "lectura",
-              "ejercicio"
-            ]
-          },
-          "cobertura": {
-            "type": "string",
-            "description": "Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.",
-            "example": "nacional"
-          },
-          "enlace": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": [
-          "id",
-          "titulo",
-          "tipo"
-        ]
-      },
       "AsistenteRespuestaDto": {
         "type": "object",
         "properties": {
           "intencion": {
             "type": "string",
-            "description": "Que se entendio de la pregunta.",
+            "description": "Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer, lenguaje_ofensivo o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) y el lenguaje ofensivo responden sin recursos ni lineas de atencion.",
             "example": "como_duermo_mejor"
           },
           "mensaje": {
@@ -567,6 +3430,17 @@
           "incluyeLineasDeAtencion": {
             "type": "boolean",
             "description": "Cierto cuando la respuesta trae al menos un contacto. Si senalDeRiesgo es cierto, este tambien lo es, siempre."
+          },
+          "sugerencias": {
+            "description": "Los temas que el asistente si atiende, como frases que la persona puede tocar y enviar tal cual. Solo hay algo cuando no se reconocio lo que escribio (no_reconocida): en lugar de un telefono de crisis que nadie pidio, un catalogo de lo que si puede responder. Vacio en todo lo demas.",
+            "example": [
+              "¿Cómo puedo dormir mejor?",
+              "¿Dónde busco ayuda?"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -574,7 +3448,302 @@
           "mensaje",
           "recursos",
           "senalDeRiesgo",
-          "incluyeLineasDeAtencion"
+          "incluyeLineasDeAtencion",
+          "sugerencias"
+        ]
+      },
+      "PaisConLineasDto": {
+        "type": "object",
+        "properties": {
+          "zonas": {
+            "description": "Las zonas horarias de ese pais. El pais de una persona sale de la zona de su cuenta: nunca se pide ubicacion.",
+            "example": [
+              "America/Bogota"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lineas": {
+            "description": "Ordenadas por alcance: lo nacional va primero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "zonas",
+          "lineas"
+        ]
+      },
+      "RiesgoLocalDto": {
+        "type": "object",
+        "properties": {
+          "expresiones": {
+            "description": "Las expresiones que obligan a mostrar las lineas de atencion, ya normalizadas. Se buscan dentro del texto normalizado (sin tildes, en minusculas, espacios colapsados).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "El mensaje que acompana a las lineas. Es el mismo con conexion."
+          }
+        },
+        "required": [
+          "expresiones",
+          "mensaje"
+        ]
+      },
+      "VarianteDeCharlaDto": {
+        "type": "object",
+        "properties": {
+          "patrones": {
+            "example": [
+              "buenas noches"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "¡Buenas noches! Aquí estoy si quieres preguntarme algo."
+          }
+        },
+        "required": [
+          "patrones",
+          "mensaje"
+        ]
+      },
+      "ReglaDeCharlaDto": {
+        "type": "object",
+        "properties": {
+          "intencion": {
+            "type": "string",
+            "example": "saludo"
+          },
+          "patrones": {
+            "description": "Palabras completas, sin tildes y en minusculas. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz que admite terminaciones.",
+            "example": [
+              "hola",
+              "buenas tardes",
+              "saludo*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lo que se responde sin conexion, o null si esa intencion no se puede responder sin conexion. Una regla sin mensaje se publica igual: su sitio en el orden es lo que decide que \"hola, como estas\" no sea un saludo."
+          },
+          "variantes": {
+            "description": "Respuestas distintas segun el mensaje. La primera cuyo patron aparezca gana.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VarianteDeCharlaDto"
+            }
+          }
+        },
+        "required": [
+          "intencion",
+          "patrones",
+          "mensaje",
+          "variantes"
+        ]
+      },
+      "CharlaLocalDto": {
+        "type": "object",
+        "properties": {
+          "reglas": {
+            "description": "En el orden en que se evaluan: la primera que coincide gana.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReglaDeCharlaDto"
+            }
+          },
+          "relleno": {
+            "description": "Palabras que pueden acompanar a la charla sin dejar de serlo.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "reglas",
+          "relleno"
+        ]
+      },
+      "OfensivoLocalDto": {
+        "type": "object",
+        "properties": {
+          "terminos": {
+            "description": "Lo que cuenta como insulto o como orden de callar, ya normalizado. Un patron son una o varias palabras seguidas; si termina en `*` es una raiz.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "desahogo": {
+            "description": "Si el mensaje lleva alguna, habla de quien lo escribe y no cuenta como insulto aunque lleve un termino: «soy un idiota», «me siento una mierda».",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "umbral": {
+            "type": "number",
+            "example": 3,
+            "description": "A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. El servidor no cuenta: la ventana de chat lleva la cuenta."
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Lo que se responde a un insulto, sin lineas de atencion."
+          },
+          "mensajeAlCerrar": {
+            "type": "string",
+            "description": "Lo que se dice al cerrar la conversacion."
+          }
+        },
+        "required": [
+          "terminos",
+          "desahogo",
+          "umbral",
+          "mensaje",
+          "mensajeAlCerrar"
+        ]
+      },
+      "FallbackLocalDto": {
+        "type": "object",
+        "properties": {
+          "mensaje": {
+            "type": "string",
+            "description": "Lo que se responde cuando no se reconoce lo que se escribio. Sin lineas de atencion: solo hay lineas ante una senal de riesgo."
+          },
+          "sugerencias": {
+            "description": "Los temas que si se atienden, como frases que la persona puede tocar y enviar tal cual.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mensaje",
+          "sugerencias"
+        ]
+      },
+      "ReglaDeIntencionDto": {
+        "type": "object",
+        "properties": {
+          "intencion": {
+            "type": "string",
+            "example": "donde_busco_ayuda"
+          },
+          "patrones": {
+            "example": [
+              "ayud*",
+              "psicolog*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lo que se responde sin conexion, o null si esa intencion exige conexion."
+          },
+          "conLineas": {
+            "type": "boolean",
+            "description": "Cierto si la respuesta lleva las lineas de atencion del pais de la persona."
+          }
+        },
+        "required": [
+          "intencion",
+          "patrones",
+          "mensaje",
+          "conLineas"
+        ]
+      },
+      "ReglasLocalesDelAsistenteDto": {
+        "type": "object",
+        "properties": {
+          "esquema": {
+            "type": "number",
+            "example": 1,
+            "description": "La version de la forma de este paquete. Una aplicacion que no conozca el esquema que llega debe seguir con lo que ya tenia."
+          },
+          "riesgo": {
+            "$ref": "#/components/schemas/RiesgoLocalDto"
+          },
+          "charla": {
+            "$ref": "#/components/schemas/CharlaLocalDto"
+          },
+          "ofensivo": {
+            "description": "El lenguaje ofensivo hacia el asistente (SCRUM-192). Va despues del riesgo y antes de la charla. Una aplicacion que no lo conozca lo ignora.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfensivoLocalDto"
+              }
+            ]
+          },
+          "erratas": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Erratas frecuentes, ya normalizadas, hacia la palabra que se quiso escribir (SCRUM-193): «ola» es «hola», «bamos» es «vamos». Con esta tabla y las palabras de las reglas el dispositivo corrige igual que el servidor. Una aplicacion que no la conozca la ignora."
+          },
+          "fallback": {
+            "description": "Lo que se responde cuando no se reconoce nada (SCRUM-176, SCRUM-193): sin lineas de atencion y con el catalogo de temas. Una aplicacion que no lo conozca lo ignora.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FallbackLocalDto"
+              }
+            ]
+          },
+          "intenciones": {
+            "description": "Lo demas que el servidor reconoce, en su orden.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReglaDeIntencionDto"
+            }
+          },
+          "paises": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PaisConLineasDto"
+            },
+            "description": "Los paises con lineas verificadas, por su codigo ISO de dos letras."
+          },
+          "internacional": {
+            "description": "Lo que recibe quien esta en una zona de un pais sin lineas verificadas: el directorio internacional, y ningun telefono.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecursoDto"
+            }
+          }
+        },
+        "required": [
+          "esquema",
+          "riesgo",
+          "charla",
+          "ofensivo",
+          "erratas",
+          "fallback",
+          "intenciones",
+          "paises",
+          "internacional"
         ]
       }
     }

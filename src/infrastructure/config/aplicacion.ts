@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { json, raw, type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import {
@@ -11,6 +12,49 @@ import type { Configuracion } from './environment.js';
 /** Peticiones permitidas por direccion IP dentro de la ventana. */
 export const LIMITE_DE_PETICIONES = 120;
 export const VENTANA_DEL_LIMITE_MS = 60_000;
+
+/**
+ * Tamano maximo del cuerpo en el diario (SCRUM-95).
+ *
+ * El resto de la API se queda en los 100 KB por defecto. El diario necesita
+ * mas por los diagramas, que pesan mucho mas que el texto; el dominio pone
+ * los limites finos de cada parte.
+ */
+export const LIMITE_DEL_CUERPO_DEL_DIARIO = '1mb';
+
+/**
+ * Tamano maximo del cuerpo de la foto de perfil (SCRUM-120).
+ *
+ * Un poco mas que los 50 KB que permite el dominio, a proposito: una foto de
+ * 55 KB llega hasta el dominio y recibe su mensaje claro (`FOTO_DEMASIADO_PESADA`)
+ * en lugar del generico de cuerpo demasiado grande. Lo que pase de aqui se
+ * corta sin leerlo entero.
+ */
+export const LIMITE_DEL_CUERPO_DE_LA_FOTO = '60kb';
+
+/**
+ * Tamano maximo del cuerpo de la mascota propia (SCRUM-122): un poco mas que
+ * los 100 KB que permite el dominio, por lo mismo que la foto. Un SVG de 110 KB
+ * llega hasta el dominio y recibe su mensaje claro.
+ */
+export const LIMITE_DEL_CUERPO_DE_LA_MASCOTA = '120kb';
+
+/** Los metodos que el frontend usa contra la API (SCRUM-155). */
+export const METODOS_PERMITIDOS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+/**
+ * Las cabeceras que el frontend escribe a mano en sus peticiones: el tipo del
+ * cuerpo, lo que acepta, el token y el `ETag` de su copia del catalogo
+ * (`If-None-Match`, SCRUM-138). Cualquier otra no pasa el preflight, y el navegador
+ * corta la peticion con un error de red: si el frontend escribe una cabecera nueva,
+ * va aqui tambien.
+ */
+export const CABECERAS_PERMITIDAS = [
+  'Authorization',
+  'Content-Type',
+  'Accept',
+  'If-None-Match',
+] as const;
 
 /**
  * Aplica a la aplicacion todo lo que no son rutas: protecciones, validacion
@@ -31,6 +75,20 @@ export function configurarAplicacion(
   // busque vulnerabilidades conocidas de una version concreta.
   app.getHttpAdapter().getInstance().disable('x-powered-by');
 
+  // De donde sale la direccion de quien llama. Detras de un proxy (en Render hay
+  // uno), sin esto Express ve la direccion del proxy para todo el mundo y el limite
+  // de abajo, que cuenta por direccion, es uno solo para todas las personas: una
+  // abusiva deja a las demas en 429 y el limite no frena a nadie en particular
+  // (S-03 de la auditoria 360).
+  //
+  // Es un numero de saltos, no `true`: ver TRUST_PROXY_HOPS en environment.ts. Con 0
+  // no se toca nada, que es lo correcto cuando no hay proxy (en local, en las
+  // pruebas): confiar en X-Forwarded-For sin proxy deja que cualquiera elija su
+  // propia direccion.
+  if (configuracion.saltosDeProxyDeConfianza > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', configuracion.saltosDeProxyDeConfianza);
+  }
+
   // Lo primero de la cadena, antes incluso del limite de peticiones, para que
   // hasta un 429 salga con su identificador. Un error sin identificador es
   // justamente el que nadie puede rastrear despues.
@@ -40,16 +98,57 @@ export function configurarAplicacion(
   // encuadre de la API en marcos ajenos y la fuga del referente.
   app.use(helmet());
 
+  // Antes del limite de peticiones, a proposito (SCRUM-244). Un 429 que sale sin las cabeceras de
+  // CORS el navegador lo descarta, y `fetch` falla con un error de red: el frontend lo cuenta
+  // como «sin conexión» y nunca se entera de que la API solo pidio esperar. El preflight, que
+  // `cors` responde aqui mismo, tampoco cuenta contra el limite: es una respuesta vacia.
+  app.enableCors({
+    // Se copia porque enableCors espera un arreglo mutable.
+    origin: [...configuracion.origenesAutorizados],
+
+    // Sin `credentials` (SCRUM-155). La API autentica con la cabecera
+    // `Authorization`, no con cookies, asi que permitir credenciales no hacia
+    // falta y le daba a un origen autorizado mas alcance del necesario: que el
+    // navegador adjunte cookies y certificados a sus peticiones.
+    credentials: false,
+
+    // Lo que usa el frontend y nada mas. TRACE y CONNECT, por ejemplo, no.
+    methods: [...METODOS_PERMITIDOS],
+    allowedHeaders: [...CABECERAS_PERMITIDAS],
+
+    // El navegador recuerda la respuesta del preflight diez minutos. Sin esto
+    // pregunta antes de cada PATCH o DELETE: una peticion de mas por cada
+    // escritura.
+    maxAge: 600,
+
+    // Sin esto el navegador **no deja leer** la cabecera desde otro origen,
+    // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
+    // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
+    // curl, y `headers.get` devuelve null en el navegador.
+    //
+    // ETag: la aplicacion guarda copias de lo publico para usarlo sin conexion
+    // (SCRUM-133) y con el puede preguntar "cambio?" sin descargarlo entero.
+    // Express ya lo calcula; solo faltaba dejarlo leer.
+    //
+    // Retry-After: lo manda el 429 y el 503, y el frontend lo respeta para no martillar. Sin
+    // exponerlo, `headers.get('retry-after')` es null desde otro origen y espera lo que
+    // quiere (SCRUM-244).
+    exposedHeaders: [CABECERA_DE_PETICION, 'ETag', 'Retry-After'],
+  });
+
   // Limite por direccion IP. Es imperfecto, porque varias personas detras del
-  // mismo enrutador comparten direccion, pero es lo que se puede hacer sin
-  // usuarios autenticados. En el Ciclo 5, con identidad, podra aplicarse
-  // tambien por cuenta.
+  // mismo enrutador comparten direccion, pero es lo que se puede hacer antes de
+  // saber quien es cada una. Las rutas que cuestan llevan ademas un tope por
+  // cuenta (`@LimitePorCuenta`), que se aplica ya con la identidad verificada.
   app.use(
     rateLimit({
       windowMs: VENTANA_DEL_LIMITE_MS,
       limit: LIMITE_DE_PETICIONES,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
+      // La comprobacion de conexion del frontend (`GET /health`, sin base de datos): si el limite la
+      // cortara, la aplicacion diria «sin conexión» con la API sana (SCRUM-244).
+      skip: (peticion) => peticion.path === '/health',
       message: {
         codigo: 'DEMASIADAS_PETICIONES',
         mensaje: 'Has hecho demasiadas peticiones. Espera un momento.',
@@ -57,17 +156,56 @@ export function configurarAplicacion(
     }),
   );
 
-  app.enableCors({
-    // Se copia porque enableCors espera un arreglo mutable.
-    origin: [...configuracion.origenesAutorizados],
-    credentials: true,
+  // Solo para el diario, y antes del lector general que NestJS registra al
+  // iniciar: este lee el cuerpo, y el general ve que ya esta leido y no lo
+  // vuelve a leer con su limite.
+  //
+  // Va envuelto en una funcion con nombre propio a proposito. NestJS decide si
+  // registra su lector general buscando una capa llamada `jsonParser`, y si
+  // este se llamara asi, creeria que ya hay uno y dejaria sin leer el cuerpo
+  // de todas las demas rutas.
+  const lectorDelDiario = json({ limit: LIMITE_DEL_CUERPO_DEL_DIARIO });
 
-    // Sin esto el navegador **no deja leer** la cabecera desde otro origen,
-    // aunque el servidor la envie. Es un detalle que se olvida con facilidad y
-    // cuyo sintoma es confuso: la cabecera esta en la respuesta si se mira con
-    // curl, y `headers.get` devuelve null en el navegador.
-    exposedHeaders: [CABECERA_DE_PETICION],
+  app.use(
+    '/api/diario',
+    function leerCuerpoDelDiario(peticion: Request, respuesta: Response, siguiente: NextFunction) {
+      lectorDelDiario(peticion, respuesta, siguiente);
+    },
+  );
+
+  // La foto de perfil llega como bytes de imagen, no como JSON: este lector
+  // solo atiende esos dos tipos, y con otro (un JSON, un HTML) deja el cuerpo
+  // sin tocar y el dominio rechaza el tipo. Con nombre propio por la misma
+  // razon que el del diario.
+  const lectorDeLaFoto = raw({
+    type: ['image/jpeg', 'image/png'],
+    limit: LIMITE_DEL_CUERPO_DE_LA_FOTO,
   });
+
+  app.use(
+    '/api/cuenta/foto',
+    function leerCuerpoDeLaFoto(peticion: Request, respuesta: Response, siguiente: NextFunction) {
+      lectorDeLaFoto(peticion, respuesta, siguiente);
+    },
+  );
+
+  // La mascota propia llega como el SVG mismo, no como JSON. Solo este tipo; con
+  // otro, el cuerpo se queda sin leer y el dominio rechaza el tipo.
+  const lectorDeLaMascota = raw({
+    type: 'image/svg+xml',
+    limit: LIMITE_DEL_CUERPO_DE_LA_MASCOTA,
+  });
+
+  app.use(
+    '/api/cuenta/mascota-propia',
+    function leerCuerpoDeLaMascota(
+      peticion: Request,
+      respuesta: Response,
+      siguiente: NextFunction,
+    ) {
+      lectorDeLaMascota(peticion, respuesta, siguiente);
+    },
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({

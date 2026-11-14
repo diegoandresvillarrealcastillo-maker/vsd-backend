@@ -4,6 +4,8 @@ import type { AsistentePort } from '../../domain/ports/in/AsistentePort.js';
 import type { User } from '../../domain/model/User.js';
 import { CuentaActual } from '../auth/CuentaActual.js';
 import { ASISTENTE } from '../config/tokens.js';
+import { LimitePorCuenta } from '../limites/LimitePorCuenta.js';
+import { LIMITE_DEL_ASISTENTE } from '../limites/limites.js';
 import { AsistenteRespuestaDto } from './dto/AsistenteRespuestaDto.js';
 import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
 
@@ -14,8 +16,9 @@ import { ConsultarAsistenteDto } from './dto/ConsultarAsistenteDto.js';
  * exista una implementacion con modelo de lenguaje, este archivo no cambia:
  * cambia una linea del modulo que decide cual se inyecta.
  *
- * Responde 200 y no 201 porque no crea nada. Una consulta al asistente no deja
- * rastro: el texto se usa para responder y se descarta.
+ * Responde 200 y no 201 porque no crea nada. El servidor no conserva el texto.
+ * En PRE, las preguntas no reconocidas por las reglas de cuentas autenticadas
+ * pueden enviarse a Gemini; solo deben usarse datos ficticios.
  */
 @ApiTags('Asistente')
 @ApiBearerAuth('sesion')
@@ -27,11 +30,12 @@ export class AsistenteController {
   ) {}
 
   @Post()
+  @LimitePorCuenta(LIMITE_DEL_ASISTENTE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Preguntar al asistente',
     description:
-      'VSD IA en su primera version: reglas, sin modelo de lenguaje. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion, y esa decision no depende de que se reconozca la pregunta. El asistente no diagnostica ni opina sobre la salud de nadie.',
+      'VSD IA responde por reglas. Solo en PRE, las preguntas no reconocidas de cuentas autenticadas pueden enviarse a Gemini para pruebas ficticias. Si el texto contiene una expresion de riesgo, la respuesta incluye siempre lineas de atencion y nunca se envia a Gemini. El asistente no diagnostica ni indica tratamientos.',
   })
   @ApiBody({ type: ConsultarAsistenteDto })
   @ApiResponse({
@@ -57,7 +61,15 @@ export class AsistenteController {
     //
     // Se usa el identificador de la cuenta y no el del proveedor, porque es el
     // que relaciona la tabla de resultados.
-    const respuesta = await this.asistente.responder({ userId: cuenta.id.value, texto: dto.texto });
+    const respuesta = await this.asistente.responder({
+      userId: cuenta.id.value,
+      texto: dto.texto,
+      // El pais de las lineas de atencion sale de la zona de la cuenta, no de
+      // la ubicacion: nunca se pide GPS (SCRUM-124).
+      zonaHoraria: cuenta.zonaHoraria,
+      // Solo para que "hola, Luma" se lea como un saludo. No se guarda.
+      nombreDeLaMascota: cuenta.mascota?.nombre,
+    });
 
     return AsistenteRespuestaDto.desde(respuesta);
   }

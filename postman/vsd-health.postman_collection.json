@@ -86,6 +86,24 @@
       "name": "1. Dar de alta la cuenta",
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
+              "});"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -131,7 +149,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -143,12 +161,30 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "cuenta"]
         },
-        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia."
+        "description": "El paso que traduce la identidad del proveedor en una cuenta de VSD Health.\n\nSupabase autentica, pero no sabe nada del dominio: no conoce el rol ni el consentimiento. Nuestra base usa su propio identificador, y lo mantenemos distinto del de Supabase a proposito: usarlo como clave primaria ataria todo el modelo de datos al proveedor de autenticacion.\n\nSin este paso, `resultado.id_usuario` apuntaria a una fila que no existe y PostgreSQL rechazaria el insert. Lo encontramos asi, con un 500 real, montando esta misma coleccion.\n\nEs idempotente: llamarlo de nuevo devuelve la cuenta que ya hay, sin volver a pedir el consentimiento ni sobrescribir el guardado. La version y la fecha son la prueba de lo que acepto esa persona ese dia.\n\nPara crear la cuenta hay que declarar la fecha de nacimiento y marcar las dos casillas, aviso de privacidad y terminos. La plataforma es solo para mayores de 18 anos: con menos, la respuesta es 403 MENOR_DE_EDAD, no se guarda nada y se borra la identidad de quien lo intento. Por eso esta peticion siempre manda una fecha de adulto. Enviar solo las versiones, sin las casillas, ya no basta."
       }
     },
     {
       "name": "2. Pedir rol de administrador en el alta: 400",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La version del aviso no se escribe aqui: se pide a la API, que es la",
+              "// unica fuente (SCRUM-85). Asi la coleccion sigue valiendo el dia que el",
+              "// aviso cambie, sin tocar este archivo.",
+              "pm.sendRequest(pm.environment.get('baseUrl') + '/api/aviso', function (error, respuesta) {",
+              "  if (error) {",
+              "    throw error;",
+              "  }",
+              "  pm.environment.set('versionAviso', respuesta.json().version);",
+              "  pm.environment.set('versionTerminos', respuesta.json().versionTerminos);",
+              "});"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
@@ -173,7 +209,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"versionPolitica\": \"1.0\",\n  \"rol\": \"administrador\"\n}",
+          "raw": "{\n  \"fechaNacimiento\": \"1990-06-15\",\n  \"versionPolitica\": \"{{versionAviso}}\",\n  \"versionTerminos\": \"{{versionTerminos}}\",\n  \"aceptaAviso\": true,\n  \"aceptaTerminos\": true,\n  \"rol\": \"administrador\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -219,6 +255,214 @@
           "path": ["api", "cuenta"]
         },
         "description": "Devuelve unicamente la cuenta de quien pregunta. No hay forma de consultar la de otra persona: el identificador sale del token y las politicas de la base filtran por el."
+      }
+    },
+    {
+      "name": "3a. Elegir los modulos y la mascota",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Devuelve los modulos en orden canonico', function () {",
+              "  pm.expect(pm.response.json().modulosActivos).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Guarda la mascota con el color normalizado', function () {",
+              "  pm.expect(pm.response.json().mascota).to.eql({ forma: 'fungito', nombre: 'Fungito' });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": [\n    \"emociones\",\n    \"cognicion\"\n  ],\n  \"mascota\": {\n    \"forma\": \"fungito\",\n    \"nombre\": \"Fungito\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Opera solo sobre la cuenta de quien firma el token. Lo que no venga se queda como estaba. El correo y el rol no se cambian por aqui."
+      }
+    },
+    {
+      "name": "3b. Quedarse sin modulos: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "",
+              "pm.test('Con el codigo del dominio', function () {",
+              "  pm.expect(pm.response.json().codigo).to.equal('SIN_MODULOS_ACTIVOS');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"modulosActivos\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/preferencias",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "preferencias"]
+        },
+        "description": "Tiene que quedar al menos un modulo activo: con cero, el dashboard quedaria vacio."
+      }
+    },
+    {
+      "name": "3c. Exportar mis datos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Se descarga como archivo', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+              "});",
+              "",
+              "pm.test('Es la cuenta propia, con sus resultados y su diario', function () {",
+              "  const datos = pm.response.json();",
+              "  pm.expect(datos.cuenta.id).to.equal(pm.environment.get('cuentaId'));",
+              "  pm.expect(datos.resultados).to.be.an('array');",
+              "  pm.expect(datos.entradasDeDiario).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta/exportacion",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta", "exportacion"]
+        },
+        "description": "Derecho de acceso (Ley 1581 de 2012): todo lo que VSD Health guarda de quien firma el token, y nada de nadie mas."
+      }
+    },
+    {
+      "name": "3d. Borrar la cuenta sin confirmar: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El borrado de verdad no esta en la coleccion a proposito: borraria la",
+              "// cuenta de pruebas y su identidad en Supabase, y la siguiente corrida",
+              "// ya no podria iniciar sesion. Aqui solo se comprueba que sin la frase",
+              "// exacta no se borra nada.",
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"confirmacion\": \"borrar mi cuenta\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuenta",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuenta"]
+        },
+        "description": "Hace falta la frase exacta \"BORRAR MI CUENTA\". Sin ella, 400 y la cuenta sigue."
+      }
+    },
+    {
+      "name": "3e. Consultar el progreso por modulo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "// La peticion 3a dejo activos cognicion y emociones, en ese orden.",
+              "pm.test('Un sendero por cada modulo activo, y ninguno mas', function () {",
+              "  pm.expect(pm.response.json().map(function (uno) { return uno.modulo; })).to.eql(['cognicion', 'emociones']);",
+              "});",
+              "",
+              "pm.test('Cada uno con su etapa y lo que toca hoy', function () {",
+              "  pm.response.json().forEach(function (uno) {",
+              "    pm.expect(uno.etapa.numero).to.be.a('number');",
+              "    pm.expect(uno.hoy).to.be.an('array');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/progreso",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "progreso"]
+        },
+        "description": "Por cada modulo activo: la etapa, las sesiones hechas y lo que toca hoy. Se calcula con los resultados, en hora de Colombia."
       }
     },
     {
@@ -334,6 +578,11 @@
               "",
               "pm.test('Devuelve el nivel orientativo', function () {",
               "  pm.expect(r.nivelOrientativo).to.equal('favorable');",
+              "});",
+              "",
+              "pm.test('Sin sugerencia de acompanamiento, no trae lineas de atencion (SCRUM-94)', function () {",
+              "  pm.expect(r.sugiereAcompanamiento).to.be.false;",
+              "  pm.expect(r.lineasDeAtencion).to.be.an('array').that.is.empty;",
               "});",
               "",
               "pm.test('NUNCA devuelve el puntaje numerico', function () {",
@@ -782,6 +1031,719 @@
           "path": ["api", "asistente"]
         },
         "description": "La prueba que mas importa de todo el asistente.\n\nCuando el texto contiene una expresion de riesgo, la respuesta incluye SIEMPRE lineas de atencion, y esa decision no depende de que el sistema entienda la pregunta.\n\nLa deteccion vive en el dominio y no en el asistente, a proposito: un modelo de lenguaje podra redactar mejor el mensaje, pero no puede decidir si alguien recibe un telefono de ayuda.\n\nEl primer recurso tiene cobertura nacional. No es un adorno: la Línea 106 es un servicio distrital, y dar solo ese numero a quien esta fuera de Bogota es darle un telefono que no contesta."
+      }
+    },
+    {
+      "name": "15a. Reglas del asistente sin conexion (ruta publica)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 sin sesion', function () { pm.response.to.have.status(200); });",
+              "",
+              "const r = pm.response.json();",
+              "",
+              "pm.test('Dice la version de su forma', function () {",
+              "  pm.expect(r.esquema).to.equal(1);",
+              "});",
+              "",
+              "pm.test('Lleva ETag, para no volver a bajar lo que no cambio', function () {",
+              "  pm.expect(pm.response.headers.get('ETag')).to.be.a('string').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('Trae la deteccion de riesgo y la charla de todos los dias', function () {",
+              "  pm.expect(r.riesgo.expresiones).to.be.an('array').that.is.not.empty;",
+              "  const intenciones = r.charla.reglas.map(function (regla) { return regla.intencion; });",
+              "  pm.expect(intenciones).to.include.members(['saludo', 'agradecimiento', 'despedida']);",
+              "});",
+              "",
+              "pm.test('Trae las lineas de cada pais y el directorio internacional', function () {",
+              "  pm.expect(Object.keys(r.paises)).to.have.members(['CO', 'MX', 'ES', 'US']);",
+              "  Object.values(r.paises).forEach(function (pais) {",
+              "    pm.expect(pais.lineas).to.be.an('array').that.is.not.empty;",
+              "  });",
+              "  pm.expect(r.internacional).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/asistente/reglas-locales",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "asistente", "reglas-locales"]
+        },
+        "description": "Lo que la aplicacion necesita para que VSD IA responda lo basico sin conexion (SCRUM-141): un saludo, un agradecimiento, una despedida y las lineas de atencion.\n\nSon los MISMOS datos que usa el servidor para responder con conexion: la deteccion de riesgo, las reglas de la charla, los paises y la tabla de recursos. No hay una segunda lista.\n\nEs publica a proposito: se pide justo cuando algo falla, y las lineas de ayuda no pueden quedarse detras de un inicio de sesion. Lleva ETag, asi que una lectura condicional responde 304 si nada cambio.\n\nEsta ruta solo baja. Lo que una persona escribe sin conexion no se envia despues."
+      }
+    },
+    {
+      "name": "16. Escribir en el diario",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Cada ejecucion usa su propia operacion. La 17 la reutiliza para",
+              "// demostrar la idempotencia.",
+              "pm.environment.set('operacionDiario', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201', function () { pm.response.to.have.status(201); });",
+              "",
+              "const r = pm.response.json();",
+              "pm.environment.set('anotacionId', r.id);",
+              "",
+              "pm.test('Es la version 1, con su dia y el documento tal cual', function () {",
+              "  pm.expect(r.version).to.equal(1);",
+              "  pm.expect(r.dia).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+              "  pm.expect(r.contenido.type).to.equal('doc');",
+              "});",
+              "",
+              "pm.test('Se puede editar durante una hora', function () {",
+              "  pm.expect(Date.parse(r.editableHasta) - Date.parse(r.creadaEn)).to.equal(3600000);",
+              "});",
+              "",
+              "pm.test('Sin senal de riesgo no sugiere acompanamiento, y el diario nunca trae lineas de atencion (SCRUM-194)', function () {",
+              "  pm.expect(r.sugiereAcompanamiento).to.be.false;",
+              "  pm.expect(r).to.not.have.property('lineasDeAtencion');",
+              "});",
+              "",
+              "pm.test('No devuelve el identificador de la persona', function () {",
+              "  pm.expect(r).to.not.have.property('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionDiario}}\",\n  \"titulo\": \"Sabado\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "SCRUM-95. Una anotacion del diario de hoy, en hora de Colombia.\n\nEl contenido es el documento del editor, nunca HTML. Se puede mandar \"dia\" para escribir en un dia pasado; en uno futuro responde 400."
+      }
+    },
+    {
+      "name": "17. Reenviar la misma anotacion (idempotencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201, igual que la primera vez', function () { pm.response.to.have.status(201); });",
+              "",
+              "pm.test('Devuelve LA MISMA anotacion, no crea otra', function () {",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('anotacionId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionDiario}}\",\n  \"titulo\": \"Sabado\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "La misma operacion que la 16. Es lo que hace seguro reintentar sin conexion."
+      }
+    },
+    {
+      "name": "18. Corregir la anotacion en su primera hora",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Sube a la version 2 y conserva el titulo', function () {",
+              "  const r = pm.response.json();",
+              "  pm.expect(r.version).to.equal(2);",
+              "  pm.expect(r.titulo).to.equal('Sabado');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": 1,\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato, y volvi con hambre.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario/{{anotacionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario", "{{anotacionId}}"]
+        },
+        "description": "Lo que no viene se queda como estaba. Pasada una hora desde que se escribio responde 409 EDICION_FUERA_DE_PLAZO: la base no deja editarla."
+      }
+    },
+    {
+      "name": "19. Editar con una version vieja: 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 409 VERSION_DESACTUALIZADA', function () {",
+              "  pm.response.to.have.status(409);",
+              "  pm.expect(pm.response.json().codigo).to.equal('VERSION_DESACTUALIZADA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": 1,\n  \"titulo\": \"Desde otro dispositivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario/{{anotacionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario", "{{anotacionId}}"]
+        },
+        "description": "La 18 ya la llevo a la version 2. Editar desde la 1 es lo que pasa con dos dispositivos: no se pisa la otra edicion, y el cliente guarda lo suyo como anotacion nueva (ADR 0009)."
+      }
+    },
+    {
+      "name": "20. Consultar el diario de hoy",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 con una lista', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Trae la anotacion corregida', function () {",
+              "  const r = pm.response.json().find((una) => una.id === pm.environment.get('anotacionId'));",
+              "  pm.expect(r).to.exist;",
+              "  pm.expect(r.version).to.equal(2);",
+              "});",
+              "",
+              "pm.test('Ninguna cache la guarda', function () {",
+              "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "Sin parametros, las de hoy en Colombia. Con ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD, las de ese rango (como mucho 366 dias)."
+      }
+    },
+    {
+      "name": "21. Escribir en un dia futuro: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400 DIA_EN_EL_FUTURO', function () {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().codigo).to.equal('DIA_EN_EL_FUTURO');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{$guid}}\",\n  \"dia\": \"2999-01-01\",\n  \"contenido\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Hoy sali a caminar un rato.\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/diario",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "diario"]
+        },
+        "description": "Se puede escribir en un dia pasado, nunca en uno que no ha llegado."
+      }
+    },
+    {
+      "name": "22. Anotar un pendiente",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('operacionPendiente', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 201', function () { pm.response.to.have.status(201); });",
+              "",
+              "const r = pm.response.json();",
+              "pm.environment.set('pendienteId', r.id);",
+              "",
+              "pm.test('Empieza sin hacer y sin posponer', function () {",
+              "  pm.expect(r.hecho).to.be.false;",
+              "  pm.expect(r.posponerHasta).to.be.null;",
+              "  pm.expect(r.nivel).to.equal('aplazable');",
+              "});",
+              "",
+              "pm.test('No devuelve el identificador de la persona', function () {",
+              "  pm.expect(r).to.not.have.property('userId');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionPendiente}}\",\n  \"texto\": \"Pedir la cita médica\",\n  \"nivel\": \"aplazable\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        },
+        "description": "SCRUM-97. Idempotente por clientOperationId."
+      }
+    },
+    {
+      "name": "23. Reenviar el mismo pendiente (idempotencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve EL MISMO pendiente, no crea otro', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().id).to.equal(pm.environment.get('pendienteId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{operacionPendiente}}\",\n  \"texto\": \"Pedir la cita médica\",\n  \"nivel\": \"aplazable\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
+    },
+    {
+      "name": "24. Posponerlo una semana",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('enUnaSemana', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 y queda pospuesto', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().posponerHasta).to.equal(pm.environment.get('enUnaSemana'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"posponerHasta\": \"{{enUnaSemana}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes/{{pendienteId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes", "{{pendienteId}}"]
+        },
+        "description": "Mientras no llegue esa fecha, el pendiente no recuerda nada."
+      }
+    },
+    {
+      "name": "25. Consultar el semaforo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200 con pendientes y recordatorio', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const r = pm.response.json();",
+              "  pm.expect(r.pendientes).to.be.an('array');",
+              "  pm.expect(r).to.have.property('recordatorio');",
+              "});",
+              "",
+              "pm.test('Trae el pendiente anotado', function () {",
+              "  const r = pm.response.json().pendientes.find((uno) => uno.id === pm.environment.get('pendienteId'));",
+              "  pm.expect(r).to.exist;",
+              "});",
+              "",
+              "pm.test('Ninguna cache lo guarda', function () {",
+              "  pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
+    },
+    {
+      "name": "26. Borrar el pendiente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 204', function () { pm.response.to.have.status(204); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes/{{pendienteId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes", "{{pendienteId}}"]
+        }
+      }
+    },
+    {
+      "name": "27. Un nivel que no es del semaforo: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Responde 400', function () { pm.response.to.have.status(400); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientOperationId\": \"{{$guid}}\",\n  \"texto\": \"Algo\",\n  \"nivel\": \"critico\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pendientes",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pendientes"]
+        }
+      }
+    },
+    {
+      "name": "28. Consultar las notificaciones",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Dice si hay avisos en este servidor', function () { pm.expect(pm.response.json().disponible).to.be.a('boolean'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones"]
+        }
+      }
+    },
+    {
+      "name": "29. Elegir la hora de cada aviso",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Guarda las dos horas', function () { const r = pm.response.json(); pm.expect(r.horaSemaforo).to.eql('08:00'); pm.expect(r.horaRacha).to.eql('19:30'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaSemaforo\": \"08:00\",\n  \"horaRacha\": \"19:30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
+      }
+    },
+    {
+      "name": "30. Apagar solo el de la racha",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('El del semaforo sigue encendido', function () { const r = pm.response.json(); pm.expect(r.horaSemaforo).to.eql('08:00'); pm.expect(r.horaRacha).to.eql(null); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaRacha\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
+      }
+    },
+    {
+      "name": "31. Una hora imposible: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Responde 400', function () { pm.response.to.have.status(400); });",
+              "pm.test('Con su codigo', function () { pm.expect(pm.response.json().codigo).to.eql('AVISO_INVALIDO'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"horaSemaforo\": \"25:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notificaciones/horas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notificaciones", "horas"]
+        }
       }
     }
   ]

@@ -4,13 +4,19 @@ import { ConsultarCatalogoUseCaseImpl } from '../../application/usecases/Consult
 import { RegisterActivityResultUseCaseImpl } from '../../application/usecases/RegisterActivityResultUseCaseImpl.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
 import { ActivityResultController } from '../controllers/ActivityResultController.js';
 import { CatalogoController } from '../controllers/CatalogoController.js';
 import { PrismaService } from '../persistence/PrismaService.js';
 import { InMemoryActivityRepository } from '../repositories/InMemoryActivityRepository.js';
 import { InMemoryActivityResultRepository } from '../repositories/InMemoryActivityResultRepository.js';
+import { InMemoryRecursoApoyoRepository } from '../repositories/InMemoryRecursoApoyoRepository.js';
+import { InMemorySesionesRepository } from '../repositories/InMemorySesionesRepository.js';
 import { PrismaActivityRepository } from '../repositories/PrismaActivityRepository.js';
 import { PrismaActivityResultRepository } from '../repositories/PrismaActivityResultRepository.js';
+import { PrismaRecursoApoyoRepository } from '../repositories/PrismaRecursoApoyoRepository.js';
+import { PrismaSesionesRepository } from '../repositories/PrismaSesionesRepository.js';
 import { Ambiente, type Configuracion } from './environment.js';
 import {
   ACTIVITY_REPOSITORY,
@@ -18,6 +24,8 @@ import {
   CONFIGURACION,
   CONSULTAR_CATALOGO,
   PRISMA,
+  RECURSO_APOYO_REPOSITORY,
+  SESIONES_REPOSITORY,
 } from './tokens.js';
 
 /**
@@ -55,6 +63,7 @@ import {
               // de aislamiento impide arrancar. Es preferible un servicio
               // caido y evidente a uno en pie que ya no protege nada.
               configuracion.ambiente !== Ambiente.DESARROLLO,
+              configuracion.conexionesMaximasDeBaseDeDatos,
             ),
       inject: [CONFIGURACION],
     },
@@ -82,12 +91,65 @@ import {
       inject: [PRISMA],
     },
     {
+      // Las sesiones de las mecanicas (SCRUM-205, ADR 0030). Vive aqui porque lo usan registrar un
+      // resultado (para validar la sesion), el sendero y la exportacion de datos.
+      provide: SESIONES_REPOSITORY,
+      useFactory: (
+        prisma: PrismaService | null,
+        resultados: ActivityResultRepositoryPort,
+      ): SesionesRepositoryPort => {
+        const registro = new Logger('Persistencia');
+
+        if (prisma === null) {
+          registro.warn('Sin DATABASE_URL: las sesiones de las actividades salen de la memoria.');
+
+          return new InMemorySesionesRepository(resultados);
+        }
+
+        registro.log('Sesiones de las actividades sobre PostgreSQL.');
+
+        return new PrismaSesionesRepository(prisma);
+      },
+      inject: [PRISMA, ACTIVITY_RESULT_REPOSITORY],
+    },
+    {
+      // Vive aqui y no en el modulo del asistente porque ahora lo usan los dos:
+      // registrar un resultado que sugiere apoyo devuelve las lineas de
+      // atencion (SCRUM-94). El asistente lo recibe importando este modulo.
+      provide: RECURSO_APOYO_REPOSITORY,
+      useFactory: (prisma: PrismaService | null): RecursoApoyoRepositoryPort => {
+        const registro = new Logger('Recursos');
+
+        if (prisma === null) {
+          // No es un juego de datos falsos: el adaptador en memoria trae las
+          // mismas lineas de atencion que la base. Un asistente que en local
+          // responde con telefonos inventados no se puede revisar antes de
+          // publicarlo.
+          registro.warn('Sin DATABASE_URL: los recursos de apoyo salen del catalogo en memoria.');
+
+          return new InMemoryRecursoApoyoRepository();
+        }
+
+        registro.log('Recursos de apoyo sobre PostgreSQL.');
+
+        return new PrismaRecursoApoyoRepository(prisma);
+      },
+      inject: [PRISMA],
+    },
+    {
       provide: RegisterActivityResultUseCaseImpl,
       useFactory: (
         repositorio: ActivityResultRepositoryPort,
         actividades: ActivityRepositoryPort,
-      ) => new RegisterActivityResultUseCaseImpl(repositorio, actividades),
-      inject: [ACTIVITY_RESULT_REPOSITORY, ACTIVITY_REPOSITORY],
+        recursos: RecursoApoyoRepositoryPort,
+        sesiones: SesionesRepositoryPort,
+      ) => new RegisterActivityResultUseCaseImpl(repositorio, actividades, recursos, sesiones),
+      inject: [
+        ACTIVITY_RESULT_REPOSITORY,
+        ACTIVITY_REPOSITORY,
+        RECURSO_APOYO_REPOSITORY,
+        SESIONES_REPOSITORY,
+      ],
     },
     {
       provide: ActivityResultService,
@@ -102,6 +164,12 @@ import {
       inject: [ACTIVITY_REPOSITORY],
     },
   ],
-  exports: [ACTIVITY_RESULT_REPOSITORY, PRISMA],
+  exports: [
+    ACTIVITY_RESULT_REPOSITORY,
+    ACTIVITY_REPOSITORY,
+    RECURSO_APOYO_REPOSITORY,
+    SESIONES_REPOSITORY,
+    PRISMA,
+  ],
 })
 export class ActivityResultModule {}

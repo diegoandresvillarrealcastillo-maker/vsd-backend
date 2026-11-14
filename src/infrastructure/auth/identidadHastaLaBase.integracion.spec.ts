@@ -1,18 +1,21 @@
-// Igual que las demas pruebas de integracion: vitest no lee `.env` por su
-// cuenta y aqui hace falta saber si hay una base local a la que conectarse.
-import 'dotenv/config';
-
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SESIONES, VerificadorFalso, comoUsuario } from '../../pruebas/sesionDePrueba.js';
+import {
+  REGISTRO_DE_PRUEBA,
+  SESIONES,
+  VerificadorFalso,
+  comoUsuario,
+} from '../../pruebas/sesionDePrueba.js';
 import { AppModule } from '../config/AppModule.js';
 import { configurarAplicacion } from '../config/aplicacion.js';
 import type { Configuracion } from '../config/environment.js';
 import { CONFIGURACION } from '../config/tokens.js';
 import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
+import { CLAVE_LOCAL, prepararRolDeLaAplicacion } from '../../pruebas/rolDeLaAplicacion.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * De la cabecera HTTP hasta la fila de PostgreSQL.
@@ -45,8 +48,7 @@ import { VerificadorDeIdentidad } from './VerificadorDeIdentidad.js';
  * esta prueba pasaria sin comprobar nada.
  */
 
-const URL_DUENO = process.env['DATABASE_URL'];
-const CLAVE_LOCAL = 'clave_de_pruebas_locales';
+const URL_DUENO = urlDeLaBaseDePruebas();
 
 const A = 'token-de-A';
 const B = 'token-de-B';
@@ -91,7 +93,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     dueno = new Client({ connectionString: URL_DUENO });
     await dueno.connect();
 
-    await dueno.query(`ALTER ROLE vsd_app WITH LOGIN PASSWORD '${CLAVE_LOCAL}'`);
+    await prepararRolDeLaAplicacion(dueno);
     await limpiar();
 
     // Catalogo sembrado por el dueno. Las cuentas no: esas las crea el alta.
@@ -128,7 +130,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
       const respuesta = await request(app.getHttpServer())
         .post('/api/cuenta')
         .set(...comoUsuario(token))
-        .send({ versionPolitica: '1.0' })
+        .send(REGISTRO_DE_PRUEBA)
         .expect(200);
 
       cuentas.set(token, (respuesta.body as { id: string }).id);
@@ -245,7 +247,7 @@ describe.skipIf(URL_DUENO === undefined)('La identidad del token llega hasta la 
     const respuesta = await request(app.getHttpServer())
       .post('/api/cuenta')
       .set(...comoUsuario(A))
-      .send({ versionPolitica: '1.0' })
+      .send(REGISTRO_DE_PRUEBA)
       .expect(200);
 
     expect((respuesta.body as { id: string }).id).toBe(cuentas.get(A));

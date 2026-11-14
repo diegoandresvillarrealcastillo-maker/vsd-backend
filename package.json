@@ -7,6 +7,7 @@
     "@types/node": "^26.5.1",
     "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
+    "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^5.0.0",
     "dotenv": "17.4.2",
     "embedded-postgres": "18.4.0-beta.17",
@@ -15,11 +16,11 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "prettier": "^3.9.6",
-    "prisma": "7.10.0",
+    "prisma": "7.10.1",
     "supertest": "^7.2.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.5"
   },
   "name": "vsd-backend",
   "version": "0.1.0",
@@ -33,6 +34,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integracion": "vitest run integracion.spec",
+    "test:integracion:cobertura": "vitest run integracion.spec --no-file-parallelism --coverage --config vitest.integracion.config.mts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -41,19 +43,24 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/infrastructure/main.js",
     "openapi": "npm run build && node dist/infrastructure/config/generar-openapi.js",
+    "correos": "npm run build && node dist/correos/generar.js",
     "db:arriba": "docker compose up -d",
     "db:abajo": "docker compose down",
     "db:reiniciar": "docker compose down -v && docker compose up -d",
-    "db:migrar": "prisma migrate dev",
+    "completo:arriba": "docker compose --profile completo up --build",
+    "completo:abajo": "docker compose --profile completo down",
+    "db:migrar": "node scripts/solo-local.mjs migrate dev",
     "db:aplicar": "prisma migrate deploy",
     "db:estado": "prisma migrate status",
     "db:generar": "prisma generate",
-    "db:ver": "prisma studio",
+    "db:ver": "node scripts/solo-local.mjs studio",
     "db:local": "node scripts/postgres-local.mjs",
     "postinstall": "prisma generate",
     "db:revisar": "node scripts/revisar-base.mjs",
     "db:rol": "node scripts/dar-acceso-a-vsd-app.mjs",
-    "db:preparar": "node scripts/preparar-ambiente.mjs"
+    "db:preparar": "node scripts/preparar-ambiente.mjs",
+    "mantenimiento:constancias": "npm run build && node dist/infrastructure/mantenimiento/purgar-constancias.js",
+    "vapid:generar": "web-push generate-vapid-keys"
   },
   "engines": {
     "node": ">=24"
@@ -73,17 +80,22 @@
     "@nestjs/core": "^12.0.3",
     "@nestjs/platform-express": "^12.0.3",
     "@nestjs/swagger": "^12.0.1",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "express": "5.2.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "jose": "^6.2.12",
     "pg": "8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "zod": "^4.6.5"
+    "web-push": "^3.6.7",
+    "zod": "^4.6.7"
   },
-  "type": "module"
+  "type": "module",
+  "overrides": {
+    "multer": "2.5.0"
+  }
 }

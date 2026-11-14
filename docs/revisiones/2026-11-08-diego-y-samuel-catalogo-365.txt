@@ -1,0 +1,1092 @@
+Revisión a nombre de: Diego y Samuel (equipo VSD Health)
+Fecha de la revisión: 2026-11-08
+Alcance: aprobación interna del catálogo orientativo no clínico para preproducción, otorgada por Diego y Samuel en el chat del proyecto.
+La aplicación no diagnostica, no prescribe tratamientos y no sustituye a profesionales de salud.
+
+COG-08 · Une los puntos en orden: Aprobada
+COG-10 · El lugar de la figura: Aprobada
+COG-11 · La conclusión que se sostiene: Aprobada
+COG-12 · Reto 012 · Escena · Secuencia · Cálculo · Memoria: Aprobada
+COG-13 · Reto 013 · Palabras · Secuencia · Recuerdo: Aprobada
+COG-14 · Reto 014 · Recuerdo · Memoria · Categorías · Atención: Aprobada
+COG-15 · Reto 015 · Intruso · Atención · Memoria: Aprobada
+COG-16 · Reto 016 · Secuencia · Atención · Cálculo: Aprobada
+COG-17 · Reto 017 · Intruso · Palabras · Inferencia · Memoria: Aprobada
+COG-18 · Reto 018 · Memoria · Recuerdo · Palabras: Aprobada
+COG-19 · Reto 019 · Atención · Cálculo · Recuerdo · Espacio: Aprobada
+COG-20 · Reto 020 · Atención · Recuerdo · Espacio: Aprobada
+COG-21 · Reto 021 · Intruso · Categorías · Espacio: Aprobada
+COG-22 · Reto 022 · Espacio · Memoria · Escena · Palabras: Aprobada
+COG-23 · Reto 023 · Palabras · Secuencia · Inferencia: Aprobada
+COG-24 · Reto 024 · Atención · Secuencia · Categorías: Aprobada
+COG-25 · Reto 025 · Atención · Recuerdo · Cálculo: Aprobada
+COG-26 · Reto 026 · Memoria · Inferencia · Palabras: Aprobada
+COG-27 · Reto 027 · Cálculo · Atención · Memoria: Aprobada
+COG-28 · Reto 028 · Secuencia · Espacio · Cálculo · Memoria: Aprobada
+COG-29 · Reto 029 · Escena · Memoria · Intruso: Aprobada
+COG-30 · Reto 030 · Memoria · Escena · Recuerdo: Aprobada
+COG-31 · Reto 031 · Categorías · Espacio · Intruso · Memoria: Aprobada
+COG-32 · Reto 032 · Memoria · Escena · Recuerdo · Palabras: Aprobada
+COG-33 · Reto 033 · Atención · Cálculo · Memoria · Recuerdo: Aprobada
+COG-34 · Reto 034 · Secuencia · Cálculo · Categorías · Espacio: Aprobada
+COG-35 · Reto 035 · Atención · Categorías · Palabras · Recuerdo: Aprobada
+COG-36 · Reto 036 · Atención · Espacio · Escena · Cálculo: Aprobada
+COG-37 · Reto 037 · Escena · Cálculo · Espacio: Aprobada
+COG-38 · Reto 038 · Secuencia · Atención · Escena: Aprobada
+COG-39 · Reto 039 · Secuencia · Memoria · Cálculo: Aprobada
+COG-40 · Reto 040 · Cálculo · Memoria · Categorías · Escena: Aprobada
+COG-41 · Reto 041 · Secuencia · Espacio · Inferencia · Escena: Aprobada
+COG-42 · Reto 042 · Espacio · Palabras · Escena: Aprobada
+COG-43 · Reto 043 · Secuencia · Memoria · Espacio · Atención: Aprobada
+COG-44 · Reto 044 · Cálculo · Escena · Palabras: Aprobada
+COG-45 · Reto 045 · Inferencia · Intruso · Espacio: Aprobada
+COG-46 · Reto 046 · Memoria · Escena · Categorías · Secuencia: Aprobada
+COG-47 · Reto 047 · Intruso · Cálculo · Espacio: Aprobada
+COG-48 · Reto 048 · Atención · Intruso · Escena: Aprobada
+COG-49 · Reto 049 · Cálculo · Atención · Palabras: Aprobada
+COG-50 · Reto 050 · Espacio · Atención · Cálculo · Intruso: Aprobada
+COG-51 · Reto 051 · Memoria · Inferencia · Cálculo: Aprobada
+COG-52 · Reto 052 · Palabras · Secuencia · Escena · Intruso: Aprobada
+COG-53 · Reto 053 · Escena · Inferencia · Palabras: Aprobada
+COG-54 · Reto 054 · Inferencia · Espacio · Cálculo: Aprobada
+COG-55 · Reto 055 · Recuerdo · Secuencia · Palabras · Escena: Aprobada
+COG-56 · Reto 056 · Atención · Inferencia · Cálculo: Aprobada
+COG-57 · Reto 057 · Recuerdo · Palabras · Secuencia · Inferencia: Aprobada
+COG-58 · Reto 058 · Memoria · Cálculo · Palabras · Secuencia: Aprobada
+COG-59 · Reto 059 · Escena · Intruso · Memoria · Atención: Aprobada
+COG-60 · Reto 060 · Categorías · Espacio · Escena · Recuerdo: Aprobada
+COG-61 · Reto 061 · Intruso · Palabras · Secuencia · Recuerdo: Aprobada
+COG-62 · Reto 062 · Palabras · Memoria · Escena: Aprobada
+COG-63 · Reto 063 · Palabras · Escena · Secuencia: Aprobada
+COG-64 · Reto 064 · Intruso · Inferencia · Secuencia: Aprobada
+COG-65 · Reto 065 · Inferencia · Cálculo · Recuerdo: Aprobada
+COG-66 · Reto 066 · Escena · Recuerdo · Secuencia: Aprobada
+COG-67 · Reto 067 · Espacio · Memoria · Categorías: Aprobada
+COG-68 · Reto 068 · Espacio · Memoria · Intruso: Aprobada
+COG-69 · Reto 069 · Secuencia · Recuerdo · Categorías: Aprobada
+COG-70 · Reto 070 · Recuerdo · Intruso · Secuencia: Aprobada
+COG-71 · Reto 071 · Atención · Inferencia · Intruso · Espacio: Aprobada
+COG-72 · Reto 072 · Cálculo · Memoria · Espacio · Recuerdo: Aprobada
+COG-73 · Reto 073 · Inferencia · Recuerdo · Categorías · Cálculo: Aprobada
+COG-74 · Reto 074 · Recuerdo · Cálculo · Inferencia · Memoria: Aprobada
+COG-75 · Reto 075 · Recuerdo · Memoria · Espacio: Aprobada
+COG-76 · Reto 076 · Secuencia · Intruso · Palabras: Aprobada
+COG-77 · Reto 077 · Memoria · Espacio · Secuencia · Escena: Aprobada
+COG-78 · Reto 078 · Categorías · Atención · Inferencia · Cálculo: Aprobada
+COG-79 · Reto 079 · Categorías · Secuencia · Espacio: Aprobada
+COG-80 · Reto 080 · Intruso · Memoria · Inferencia: Aprobada
+COG-81 · Reto 081 · Palabras · Espacio · Atención: Aprobada
+COG-82 · Reto 082 · Categorías · Inferencia · Espacio: Aprobada
+COG-83 · Reto 083 · Atención · Memoria · Inferencia: Aprobada
+COG-84 · Reto 084 · Palabras · Categorías · Memoria · Escena: Aprobada
+COG-85 · Reto 085 · Cálculo · Espacio · Inferencia · Palabras: Aprobada
+COG-86 · Reto 086 · Espacio · Cálculo · Memoria · Inferencia: Aprobada
+COG-87 · Reto 087 · Espacio · Secuencia · Intruso · Inferencia: Aprobada
+COG-88 · Reto 088 · Espacio · Recuerdo · Categorías · Atención: Aprobada
+COG-89 · Reto 089 · Secuencia · Categorías · Inferencia · Espacio: Aprobada
+COG-90 · Reto 090 · Escena · Categorías · Palabras · Espacio: Aprobada
+COG-91 · Reto 091 · Palabras · Secuencia · Espacio: Aprobada
+COG-92 · Reto 092 · Inferencia · Espacio · Memoria · Atención: Aprobada
+COG-93 · Reto 093 · Recuerdo · Inferencia · Atención · Intruso: Aprobada
+COG-94 · Reto 094 · Atención · Espacio · Cálculo: Aprobada
+COG-95 · Reto 095 · Intruso · Escena · Cálculo · Inferencia: Aprobada
+COG-96 · Reto 096 · Atención · Escena · Palabras: Aprobada
+COG-97 · Reto 097 · Categorías · Atención · Recuerdo: Aprobada
+COG-98 · Reto 098 · Inferencia · Espacio · Categorías · Recuerdo: Aprobada
+COG-99 · Reto 099 · Atención · Intruso · Categorías: Aprobada
+COG-100 · Reto 100 · Intruso · Escena · Categorías: Aprobada
+COG-101 · Reto 101 · Inferencia · Secuencia · Memoria: Aprobada
+COG-102 · Reto 102 · Cálculo · Memoria · Escena: Aprobada
+COG-103 · Reto 103 · Intruso · Secuencia · Espacio: Aprobada
+COG-104 · Reto 104 · Atención · Recuerdo · Cálculo · Inferencia: Aprobada
+COG-105 · Reto 105 · Escena · Inferencia · Palabras · Memoria: Aprobada
+COG-106 · Reto 106 · Espacio · Inferencia · Memoria · Secuencia: Aprobada
+COG-107 · Reto 107 · Escena · Secuencia · Palabras · Categorías: Aprobada
+COG-108 · Reto 108 · Secuencia · Espacio · Palabras · Atención: Aprobada
+COG-109 · Reto 109 · Espacio · Categorías · Intruso · Cálculo: Aprobada
+COG-110 · Reto 110 · Palabras · Recuerdo · Categorías · Escena: Aprobada
+COG-111 · Reto 111 · Secuencia · Intruso · Cálculo: Aprobada
+COG-112 · Reto 112 · Inferencia · Atención · Cálculo · Intruso: Aprobada
+COG-113 · Reto 113 · Palabras · Espacio · Intruso: Aprobada
+COG-114 · Reto 114 · Espacio · Cálculo · Secuencia · Palabras: Aprobada
+COG-115 · Reto 115 · Memoria · Cálculo · Palabras: Aprobada
+COG-116 · Reto 116 · Recuerdo · Palabras · Inferencia: Aprobada
+COG-117 · Reto 117 · Memoria · Secuencia · Palabras: Aprobada
+COG-118 · Reto 118 · Cálculo · Memoria · Inferencia · Atención: Aprobada
+COG-119 · Reto 119 · Secuencia · Memoria · Escena: Aprobada
+COG-120 · Reto 120 · Categorías · Inferencia · Escena · Cálculo: Aprobada
+COG-121 · Reto 121 · Cálculo · Secuencia · Escena: Aprobada
+COG-122 · Reto 122 · Palabras · Memoria · Intruso · Atención: Aprobada
+COG-123 · Reto 123 · Cálculo · Memoria · Recuerdo: Aprobada
+COG-124 · Reto 124 · Memoria · Inferencia · Espacio · Recuerdo: Aprobada
+COG-125 · Reto 125 · Memoria · Intruso · Secuencia: Aprobada
+COG-126 · Reto 126 · Secuencia · Palabras · Atención · Cálculo: Aprobada
+COG-127 · Reto 127 · Inferencia · Escena · Memoria · Atención: Aprobada
+COG-128 · Reto 128 · Escena · Memoria · Inferencia: Aprobada
+COG-129 · Reto 129 · Inferencia · Escena · Recuerdo: Aprobada
+COG-130 · Reto 130 · Memoria · Escena · Atención · Cálculo: Aprobada
+COG-131 · Reto 131 · Inferencia · Atención · Escena: Aprobada
+COG-132 · Reto 132 · Escena · Cálculo · Categorías · Espacio: Aprobada
+COG-133 · Reto 133 · Cálculo · Recuerdo · Espacio · Intruso: Aprobada
+COG-134 · Reto 134 · Escena · Intruso · Cálculo · Palabras: Aprobada
+COG-135 · Reto 135 · Intruso · Escena · Cálculo · Atención: Aprobada
+COG-136 · Reto 136 · Escena · Categorías · Palabras: Aprobada
+COG-137 · Reto 137 · Memoria · Espacio · Inferencia: Aprobada
+COG-138 · Reto 138 · Palabras · Espacio · Recuerdo · Escena: Aprobada
+COG-139 · Reto 139 · Escena · Inferencia · Intruso: Aprobada
+COG-140 · Reto 140 · Recuerdo · Cálculo · Inferencia · Espacio: Aprobada
+COG-141 · Reto 141 · Categorías · Palabras · Inferencia: Aprobada
+COG-142 · Reto 142 · Palabras · Inferencia · Escena · Espacio: Aprobada
+COG-143 · Reto 143 · Atención · Escena · Inferencia · Intruso: Aprobada
+COG-144 · Reto 144 · Secuencia · Memoria · Atención: Aprobada
+COG-145 · Reto 145 · Cálculo · Palabras · Intruso: Aprobada
+COG-146 · Reto 146 · Categorías · Espacio · Recuerdo: Aprobada
+COG-147 · Reto 147 · Categorías · Atención · Memoria · Secuencia: Aprobada
+COG-148 · Reto 148 · Categorías · Atención · Cálculo · Memoria: Aprobada
+COG-149 · Reto 149 · Categorías · Atención · Recuerdo · Escena: Aprobada
+COG-150 · Reto 150 · Espacio · Memoria · Cálculo: Aprobada
+COG-151 · Reto 151 · Atención · Secuencia · Palabras: Aprobada
+COG-152 · Reto 152 · Intruso · Espacio · Atención: Aprobada
+COG-153 · Reto 153 · Cálculo · Inferencia · Categorías · Palabras: Aprobada
+COG-154 · Reto 154 · Espacio · Intruso · Escena: Aprobada
+COG-155 · Reto 155 · Categorías · Cálculo · Recuerdo: Aprobada
+COG-156 · Reto 156 · Recuerdo · Espacio · Inferencia · Atención: Aprobada
+COG-157 · Reto 157 · Categorías · Escena · Memoria: Aprobada
+COG-158 · Reto 158 · Intruso · Categorías · Memoria: Aprobada
+COG-159 · Reto 159 · Recuerdo · Espacio · Palabras: Aprobada
+COG-160 · Reto 160 · Memoria · Inferencia · Categorías: Aprobada
+COG-161 · Reto 161 · Inferencia · Palabras · Espacio · Intruso: Aprobada
+COG-162 · Reto 162 · Atención · Memoria · Espacio · Palabras: Aprobada
+COG-163 · Reto 163 · Inferencia · Atención · Recuerdo · Palabras: Aprobada
+COG-164 · Reto 164 · Secuencia · Escena · Intruso · Espacio: Aprobada
+COG-165 · Reto 165 · Palabras · Categorías · Inferencia · Atención: Aprobada
+COG-166 · Reto 166 · Intruso · Cálculo · Recuerdo: Aprobada
+COG-167 · Reto 167 · Memoria · Intruso · Espacio · Recuerdo: Aprobada
+COG-168 · Reto 168 · Palabras · Recuerdo · Categorías · Espacio: Aprobada
+COG-169 · Reto 169 · Inferencia · Recuerdo · Atención: Aprobada
+COG-170 · Reto 170 · Cálculo · Secuencia · Atención · Recuerdo: Aprobada
+COG-171 · Reto 171 · Intruso · Espacio · Memoria · Escena: Aprobada
+COG-172 · Reto 172 · Cálculo · Intruso · Escena · Espacio: Aprobada
+COG-173 · Reto 173 · Recuerdo · Categorías · Palabras · Inferencia: Aprobada
+COG-174 · Reto 174 · Escena · Cálculo · Intruso · Categorías: Aprobada
+COG-175 · Reto 175 · Inferencia · Secuencia · Intruso · Palabras: Aprobada
+COG-176 · Reto 176 · Categorías · Secuencia · Intruso · Espacio: Aprobada
+COG-177 · Reto 177 · Espacio · Atención · Palabras · Categorías: Aprobada
+COG-178 · Reto 178 · Espacio · Inferencia · Categorías · Escena: Aprobada
+COG-179 · Reto 179 · Atención · Palabras · Inferencia: Aprobada
+COG-180 · Reto 180 · Espacio · Secuencia · Memoria · Recuerdo: Aprobada
+COG-181 · Reto 181 · Atención · Intruso · Recuerdo: Aprobada
+COG-182 · Reto 182 · Atención · Espacio · Inferencia · Palabras: Aprobada
+COG-183 · Reto 183 · Cálculo · Secuencia · Espacio: Aprobada
+COG-184 · Reto 184 · Palabras · Inferencia · Cálculo: Aprobada
+COG-185 · Reto 185 · Espacio · Palabras · Recuerdo · Cálculo: Aprobada
+COG-186 · Reto 186 · Palabras · Cálculo · Recuerdo: Aprobada
+COG-187 · Reto 187 · Recuerdo · Espacio · Inferencia · Intruso: Aprobada
+COG-188 · Reto 188 · Memoria · Secuencia · Palabras · Categorías: Aprobada
+COG-189 · Reto 189 · Categorías · Secuencia · Escena: Aprobada
+COG-190 · Reto 190 · Atención · Espacio · Memoria: Aprobada
+COG-191 · Reto 191 · Intruso · Secuencia · Inferencia · Cálculo: Aprobada
+COG-192 · Reto 192 · Inferencia · Espacio · Atención · Categorías: Aprobada
+COG-193 · Reto 193 · Recuerdo · Escena · Cálculo · Categorías: Aprobada
+COG-194 · Reto 194 · Atención · Intruso · Palabras · Secuencia: Aprobada
+COG-195 · Reto 195 · Secuencia · Espacio · Atención · Escena: Aprobada
+COG-196 · Reto 196 · Escena · Espacio · Categorías: Aprobada
+COG-197 · Reto 197 · Escena · Inferencia · Memoria · Categorías: Aprobada
+COG-198 · Reto 198 · Espacio · Secuencia · Inferencia: Aprobada
+COG-199 · Reto 199 · Secuencia · Memoria · Palabras · Atención: Aprobada
+COG-200 · Reto 200 · Categorías · Palabras · Atención · Memoria: Aprobada
+COG-201 · Reto 201 · Cálculo · Secuencia · Espacio · Inferencia: Aprobada
+COG-202 · Reto 202 · Palabras · Secuencia · Recuerdo · Cálculo: Aprobada
+COG-203 · Reto 203 · Intruso · Memoria · Inferencia · Secuencia: Aprobada
+COG-204 · Reto 204 · Intruso · Secuencia · Atención: Aprobada
+COG-205 · Reto 205 · Cálculo · Inferencia · Secuencia: Aprobada
+COG-206 · Reto 206 · Intruso · Cálculo · Recuerdo · Categorías: Aprobada
+COG-207 · Reto 207 · Atención · Categorías · Espacio · Secuencia: Aprobada
+COG-208 · Reto 208 · Palabras · Espacio · Inferencia · Memoria: Aprobada
+COG-209 · Reto 209 · Escena · Atención · Categorías: Aprobada
+COG-210 · Reto 210 · Palabras · Recuerdo · Inferencia · Memoria: Aprobada
+COG-211 · Reto 211 · Palabras · Atención · Espacio · Recuerdo: Aprobada
+COG-212 · Reto 212 · Atención · Recuerdo · Secuencia: Aprobada
+COG-213 · Reto 213 · Recuerdo · Intruso · Categorías: Aprobada
+COG-214 · Reto 214 · Palabras · Inferencia · Espacio · Categorías: Aprobada
+COG-215 · Reto 215 · Secuencia · Memoria · Palabras · Escena: Aprobada
+COG-216 · Reto 216 · Cálculo · Escena · Atención: Aprobada
+COG-217 · Reto 217 · Inferencia · Atención · Secuencia · Palabras: Aprobada
+COG-218 · Reto 218 · Cálculo · Inferencia · Atención · Palabras: Aprobada
+COG-219 · Reto 219 · Inferencia · Espacio · Atención: Aprobada
+COG-220 · Reto 220 · Palabras · Secuencia · Memoria · Intruso: Aprobada
+COG-221 · Reto 221 · Recuerdo · Secuencia · Atención · Escena: Aprobada
+COG-222 · Reto 222 · Cálculo · Inferencia · Intruso: Aprobada
+COG-223 · Reto 223 · Atención · Recuerdo · Intruso · Secuencia: Aprobada
+COG-224 · Reto 224 · Intruso · Atención · Palabras: Aprobada
+COG-225 · Reto 225 · Palabras · Atención · Inferencia · Memoria: Aprobada
+COG-226 · Reto 226 · Inferencia · Categorías · Recuerdo: Aprobada
+COG-227 · Reto 227 · Espacio · Palabras · Cálculo: Aprobada
+COG-228 · Reto 228 · Atención · Secuencia · Cálculo · Escena: Aprobada
+COG-229 · Reto 229 · Atención · Cálculo · Categorías: Aprobada
+COG-230 · Reto 230 · Categorías · Atención · Palabras · Cálculo: Aprobada
+COG-231 · Reto 231 · Escena · Recuerdo · Espacio: Aprobada
+COG-232 · Reto 232 · Categorías · Secuencia · Espacio · Memoria: Aprobada
+COG-233 · Reto 233 · Palabras · Memoria · Categorías: Aprobada
+COG-234 · Reto 234 · Atención · Categorías · Escena · Secuencia: Aprobada
+COG-235 · Reto 235 · Secuencia · Inferencia · Recuerdo: Aprobada
+COG-236 · Reto 236 · Intruso · Escena · Inferencia · Espacio: Aprobada
+COG-237 · Reto 237 · Categorías · Recuerdo · Secuencia · Espacio: Aprobada
+COG-238 · Reto 238 · Memoria · Atención · Espacio · Categorías: Aprobada
+COG-239 · Reto 239 · Atención · Memoria · Recuerdo: Aprobada
+COG-240 · Reto 240 · Atención · Intruso · Palabras · Espacio: Aprobada
+COG-241 · Reto 241 · Cálculo · Categorías · Intruso: Aprobada
+COG-242 · Reto 242 · Memoria · Palabras · Inferencia · Cálculo: Aprobada
+COG-243 · Reto 243 · Inferencia · Categorías · Secuencia: Aprobada
+COG-244 · Reto 244 · Atención · Categorías · Inferencia · Memoria: Aprobada
+COG-245 · Reto 245 · Secuencia · Memoria · Espacio: Aprobada
+COG-246 · Reto 246 · Recuerdo · Palabras · Intruso: Aprobada
+COG-247 · Reto 247 · Inferencia · Secuencia · Escena · Recuerdo: Aprobada
+COG-248 · Reto 248 · Atención · Intruso · Inferencia: Aprobada
+COG-249 · Reto 249 · Intruso · Escena · Cálculo: Aprobada
+COG-250 · Reto 250 · Escena · Espacio · Memoria: Aprobada
+COG-251 · Reto 251 · Cálculo · Secuencia · Atención · Memoria: Aprobada
+COG-252 · Reto 252 · Espacio · Secuencia · Intruso · Memoria: Aprobada
+COG-253 · Reto 253 · Intruso · Inferencia · Palabras · Categorías: Aprobada
+COG-254 · Reto 254 · Atención · Categorías · Memoria: Aprobada
+COG-255 · Reto 255 · Memoria · Intruso · Atención · Cálculo: Aprobada
+COG-256 · Reto 256 · Espacio · Inferencia · Escena · Atención: Aprobada
+COG-257 · Reto 257 · Atención · Categorías · Palabras: Aprobada
+COG-258 · Reto 258 · Intruso · Escena · Memoria · Cálculo: Aprobada
+COG-259 · Reto 259 · Secuencia · Categorías · Memoria: Aprobada
+COG-260 · Reto 260 · Escena · Atención · Espacio: Aprobada
+COG-261 · Reto 261 · Categorías · Inferencia · Atención: Aprobada
+COG-262 · Reto 262 · Espacio · Secuencia · Recuerdo: Aprobada
+COG-263 · Reto 263 · Espacio · Intruso · Palabras · Cálculo: Aprobada
+COG-264 · Reto 264 · Secuencia · Espacio · Recuerdo · Escena: Aprobada
+COG-265 · Reto 265 · Escena · Inferencia · Espacio: Aprobada
+COG-266 · Reto 266 · Memoria · Recuerdo · Inferencia: Aprobada
+COG-267 · Reto 267 · Atención · Inferencia · Espacio · Secuencia: Aprobada
+COG-268 · Reto 268 · Inferencia · Recuerdo · Intruso: Aprobada
+COG-269 · Reto 269 · Categorías · Espacio · Escena · Memoria: Aprobada
+COG-270 · Reto 270 · Cálculo · Inferencia · Categorías: Aprobada
+COG-271 · Reto 271 · Categorías · Memoria · Recuerdo · Secuencia: Aprobada
+COG-272 · Reto 272 · Categorías · Escena · Recuerdo: Aprobada
+COG-273 · Reto 273 · Espacio · Atención · Memoria · Recuerdo: Aprobada
+COG-274 · Reto 274 · Atención · Intruso · Inferencia · Memoria: Aprobada
+COG-275 · Reto 275 · Intruso · Escena · Recuerdo · Cálculo: Aprobada
+COG-276 · Reto 276 · Atención · Secuencia · Cálculo · Inferencia: Aprobada
+COG-277 · Reto 277 · Recuerdo · Espacio · Escena · Cálculo: Aprobada
+COG-278 · Reto 278 · Inferencia · Espacio · Recuerdo: Aprobada
+COG-279 · Reto 279 · Secuencia · Recuerdo · Cálculo: Aprobada
+COG-280 · Reto 280 · Secuencia · Escena · Cálculo · Palabras: Aprobada
+COG-281 · Reto 281 · Memoria · Inferencia · Atención · Secuencia: Aprobada
+COG-282 · Reto 282 · Espacio · Atención · Recuerdo · Secuencia: Aprobada
+COG-283 · Reto 283 · Espacio · Palabras · Categorías: Aprobada
+COG-284 · Reto 284 · Escena · Palabras · Inferencia · Atención: Aprobada
+COG-285 · Reto 285 · Secuencia · Recuerdo · Categorías · Inferencia: Aprobada
+COG-286 · Reto 286 · Cálculo · Categorías · Secuencia: Aprobada
+COG-287 · Reto 287 · Secuencia · Inferencia · Recuerdo · Intruso: Aprobada
+COG-288 · Reto 288 · Inferencia · Intruso · Palabras: Aprobada
+COG-289 · Reto 289 · Secuencia · Espacio · Atención: Aprobada
+COG-290 · Reto 290 · Cálculo · Recuerdo · Palabras · Inferencia: Aprobada
+COG-291 · Reto 291 · Atención · Secuencia · Categorías · Recuerdo: Aprobada
+COG-292 · Reto 292 · Atención · Secuencia · Recuerdo · Inferencia: Aprobada
+COG-293 · Reto 293 · Secuencia · Inferencia · Escena: Aprobada
+COG-294 · Reto 294 · Atención · Espacio · Cálculo · Palabras: Aprobada
+COG-295 · Reto 295 · Palabras · Intruso · Escena: Aprobada
+COG-296 · Reto 296 · Palabras · Recuerdo · Escena: Aprobada
+COG-297 · Reto 297 · Inferencia · Palabras · Espacio: Aprobada
+COG-298 · Reto 298 · Atención · Cálculo · Intruso: Aprobada
+COG-299 · Reto 299 · Espacio · Categorías · Escena · Intruso: Aprobada
+COG-300 · Reto 300 · Secuencia · Categorías · Atención · Intruso: Aprobada
+COG-301 · Reto 301 · Intruso · Espacio · Inferencia · Memoria: Aprobada
+COG-302 · Reto 302 · Escena · Recuerdo · Intruso: Aprobada
+COG-303 · Reto 303 · Palabras · Atención · Recuerdo: Aprobada
+COG-304 · Reto 304 · Memoria · Categorías · Recuerdo: Aprobada
+COG-305 · Reto 305 · Categorías · Inferencia · Espacio · Intruso: Aprobada
+COG-306 · Reto 306 · Memoria · Palabras · Recuerdo · Atención: Aprobada
+COG-307 · Reto 307 · Inferencia · Secuencia · Cálculo · Categorías: Aprobada
+COG-308 · Reto 308 · Atención · Espacio · Categorías: Aprobada
+COG-309 · Reto 309 · Escena · Recuerdo · Secuencia · Intruso: Aprobada
+COG-310 · Reto 310 · Escena · Memoria · Recuerdo · Secuencia: Aprobada
+COG-311 · Reto 311 · Atención · Categorías · Intruso · Recuerdo: Aprobada
+COG-312 · Reto 312 · Intruso · Palabras · Inferencia · Atención: Aprobada
+COG-313 · Reto 313 · Secuencia · Palabras · Cálculo: Aprobada
+COG-314 · Reto 314 · Recuerdo · Palabras · Espacio · Inferencia: Aprobada
+COG-315 · Reto 315 · Cálculo · Categorías · Memoria · Inferencia: Aprobada
+COG-316 · Reto 316 · Recuerdo · Palabras · Cálculo · Categorías: Aprobada
+COG-317 · Reto 317 · Escena · Cálculo · Inferencia · Palabras: Aprobada
+COG-318 · Reto 318 · Palabras · Recuerdo · Categorías: Aprobada
+COG-319 · Reto 319 · Palabras · Cálculo · Atención · Recuerdo: Aprobada
+COG-320 · Reto 320 · Secuencia · Cálculo · Categorías · Recuerdo: Aprobada
+COG-321 · Reto 321 · Cálculo · Categorías · Escena: Aprobada
+COG-322 · Reto 322 · Cálculo · Intruso · Memoria: Aprobada
+COG-323 · Reto 323 · Memoria · Secuencia · Recuerdo: Aprobada
+COG-324 · Reto 324 · Categorías · Palabras · Intruso: Aprobada
+COG-325 · Reto 325 · Intruso · Memoria · Palabras · Recuerdo: Aprobada
+COG-326 · Reto 326 · Cálculo · Secuencia · Atención · Categorías: Aprobada
+COG-327 · Reto 327 · Inferencia · Categorías · Escena: Aprobada
+COG-328 · Reto 328 · Categorías · Secuencia · Inferencia · Escena: Aprobada
+COG-329 · Reto 329 · Cálculo · Memoria · Categorías: Aprobada
+COG-330 · Reto 330 · Intruso · Espacio · Recuerdo: Aprobada
+COG-331 · Reto 331 · Atención · Inferencia · Secuencia: Aprobada
+COG-332 · Reto 332 · Memoria · Espacio · Intruso · Atención: Aprobada
+COG-333 · Reto 333 · Cálculo · Escena · Inferencia · Espacio: Aprobada
+COG-334 · Reto 334 · Intruso · Palabras · Escena · Atención: Aprobada
+COG-335 · Reto 335 · Espacio · Categorías · Atención · Cálculo: Aprobada
+COG-336 · Reto 336 · Escena · Inferencia · Cálculo: Aprobada
+COG-337 · Reto 337 · Recuerdo · Intruso · Memoria · Inferencia: Aprobada
+COG-338 · Reto 338 · Intruso · Secuencia · Escena: Aprobada
+COG-339 · Reto 339 · Categorías · Cálculo · Memoria · Recuerdo: Aprobada
+COG-340 · Reto 340 · Intruso · Memoria · Categorías · Palabras: Aprobada
+COG-341 · Reto 341 · Intruso · Espacio · Palabras · Escena: Aprobada
+COG-342 · Reto 342 · Espacio · Cálculo · Recuerdo: Aprobada
+COG-343 · Reto 343 · Inferencia · Palabras · Categorías · Memoria: Aprobada
+COG-344 · Reto 344 · Atención · Escena · Recuerdo: Aprobada
+COG-345 · Reto 345 · Intruso · Recuerdo · Memoria: Aprobada
+COG-346 · Reto 346 · Intruso · Recuerdo · Atención · Cálculo: Aprobada
+COG-347 · Reto 347 · Secuencia · Espacio · Escena: Aprobada
+COG-348 · Reto 348 · Recuerdo · Atención · Intruso · Palabras: Aprobada
+COG-349 · Reto 349 · Secuencia · Palabras · Categorías: Aprobada
+COG-350 · Reto 350 · Inferencia · Categorías · Espacio · Memoria: Aprobada
+COG-351 · Reto 351 · Memoria · Espacio · Escena · Atención: Aprobada
+COG-352 · Reto 352 · Atención · Recuerdo · Escena · Intruso: Aprobada
+COG-353 · Reto 353 · Espacio · Categorías · Cálculo: Aprobada
+COG-354 · Reto 354 · Palabras · Inferencia · Recuerdo · Escena: Aprobada
+COG-355 · Reto 355 · Categorías · Espacio · Intruso · Palabras: Aprobada
+COG-356 · Reto 356 · Categorías · Intruso · Secuencia: Aprobada
+COG-357 · Reto 357 · Cálculo · Escena · Palabras · Memoria: Aprobada
+COG-358 · Reto 358 · Intruso · Categorías · Inferencia: Aprobada
+COG-359 · Reto 359 · Memoria · Atención · Palabras: Aprobada
+COG-360 · Reto 360 · Categorías · Cálculo · Palabras: Aprobada
+COG-361 · Reto 361 · Espacio · Palabras · Memoria: Aprobada
+COG-362 · Reto 362 · Inferencia · Cálculo · Intruso · Espacio: Aprobada
+COG-363 · Reto 363 · Memoria · Palabras · Intruso: Aprobada
+COG-364 · Reto 364 · Escena · Recuerdo · Cálculo: Aprobada
+COG-365 · Reto 365 · Escena · Memoria · Atención: Aprobada
+BIE-01 · Respiración guiada: Aprobada
+BIE-02 · Pausa de estiramiento: Aprobada
+BIE-03 · El hábito de sueño de hoy: Aprobada
+BIE-04 · Un cuidado pequeño de hoy: Aprobada
+BIE-05 · La caminata del día: Aprobada
+BIE-06 · Escaneo corporal: Aprobada
+BIE-07 · Antes de dormir: Aprobada
+BIE-08 · El descanso de mañana: Aprobada
+BIE-09 · Un respiro en medio del día: Aprobada
+BIE-10 · Cuidado diario: Prepara un lugar: Aprobada
+BIE-11 · Movimiento amable: Haz una ronda: Aprobada
+BIE-12 · Descanso y ritmo: Escoge una señal: Aprobada
+BIE-13 · Vínculos: Envía a alguien: Aprobada
+BIE-14 · Creación: Inventa un título: Aprobada
+BIE-15 · Regulación emocional: Pon palabra perfecta: Aprobada
+BIE-16 · Organización cotidiana: Divide un pendiente: Aprobada
+BIE-17 · Comer con flexibilidad: Elige una comida: Aprobada
+BIE-18 · Autonomía y límites: Ensaya una respuesta: Aprobada
+BIE-19 · Juego y disfrute: Resuelve una sección: Aprobada
+BIE-20 · Bienestar digital: Silencia respuesta inmediata: Aprobada
+BIE-21 · Aire libre y comunidad: Elige un trayecto: Aprobada
+BIE-22 · Aprendizaje cotidiano: Aprende una palabra: Aprobada
+BIE-23 · Cuidado diario: Escoge una prenda: Aprobada
+BIE-24 · Movimiento amable: Prueba una secuencia: Aprobada
+BIE-25 · Descanso y ritmo: Elige qué actividad: Aprobada
+BIE-26 · Vínculos: Pregunta conversar hoy: Aprobada
+BIE-27 · Creación: Dibuja un objeto: Aprobada
+BIE-28 · Regulación emocional: Separa en dos: Aprobada
+BIE-29 · Organización cotidiana: Agrupa tus tareas: Aprobada
+BIE-30 · Comer con flexibilidad: Prueba una combinación: Aprobada
+BIE-31 · Autonomía y límites: Elige qué información: Aprobada
+BIE-32 · Juego y disfrute: Elige una canción: Aprobada
+BIE-33 · Bienestar digital: Revisa qué aplicaciones: Aprobada
+BIE-34 · Aire libre y comunidad: Si te es: Aprobada
+BIE-35 · Aprendizaje cotidiano: Pídele a alguien: Aprobada
+BIE-36 · Cuidado diario: Haz una lista: Aprobada
+BIE-37 · Movimiento amable: Dibuja en el: Aprobada
+BIE-38 · Descanso y ritmo: Haz una pantalla: Aprobada
+BIE-39 · Vínculos: Comparte un recuerdo: Aprobada
+BIE-40 · Creación: Escribe un diálogo: Aprobada
+BIE-41 · Regulación emocional: Elige una frase: Aprobada
+BIE-42 · Organización cotidiana: Elige una tarea: Aprobada
+BIE-43 · Comer con flexibilidad: Prepara un acompañamiento: Aprobada
+BIE-44 · Autonomía y límites: Pide otra manera: Aprobada
+BIE-45 · Juego y disfrute: Juega una ronda: Aprobada
+BIE-46 · Bienestar digital: Elimina una captura: Aprobada
+BIE-47 · Aire libre y comunidad: Sal harás allí: Aprobada
+BIE-48 · Aprendizaje cotidiano: Elige sus pasos: Aprobada
+BIE-49 · Cuidado diario: Cambia de sitio: Aprobada
+BIE-50 · Movimiento amable: Cambia de postura: Aprobada
+BIE-51 · Descanso y ritmo: Decide qué conversación: Aprobada
+BIE-52 · Vínculos: Agradece una ayuda: Aprobada
+BIE-53 · Creación: Crea una lista: Aprobada
+BIE-54 · Regulación emocional: Escribe qué necesitarías: Aprobada
+BIE-55 · Organización cotidiana: Prepara una lista: Aprobada
+BIE-56 · Comer con flexibilidad: Escoge una receta: Aprobada
+BIE-57 · Autonomía y límites: Decide cuánto tiempo: Aprobada
+BIE-58 · Juego y disfrute: Haz planearlas aún: Aprobada
+BIE-59 · Bienestar digital: Deja el teléfono: Aprobada
+BIE-60 · Aire libre y comunidad: Visita una tienda: Aprobada
+BIE-61 · Aprendizaje cotidiano: Mira un tutorial: Aprobada
+BIE-62 · Cuidado diario: Deja que disfrutes: Aprobada
+BIE-63 · Movimiento amable: Haz una secuencia: Aprobada
+BIE-64 · Descanso y ritmo: Prueba una nota: Aprobada
+BIE-65 · Vínculos: Invita a alguien: Aprobada
+BIE-66 · Creación: Diseña en papel: Aprobada
+BIE-67 · Regulación emocional: Haz una tarjeta: Aprobada
+BIE-68 · Organización cotidiana: Agrupa en el: Aprobada
+BIE-69 · Comer con flexibilidad: Combina dos texturas: Aprobada
+BIE-70 · Autonomía y límites: Practica otro momento: Aprobada
+BIE-71 · Juego y disfrute: Construye una figura: Aprobada
+BIE-72 · Bienestar digital: Configura un modo: Aprobada
+BIE-73 · Aire libre y comunidad: Busca una banca: Aprobada
+BIE-74 · Aprendizaje cotidiano: Lee una página: Aprobada
+BIE-75 · Cuidado diario: Elige cinco minutos: Aprobada
+BIE-76 · Movimiento amable: Coordina una mano: Aprobada
+BIE-77 · Descanso y ritmo: Elige una hora: Aprobada
+BIE-78 · Vínculos: Escucha una historia: Aprobada
+BIE-79 · Creación: Escribe una receta: Aprobada
+BIE-80 · Regulación emocional: Piensa que hiciste: Aprobada
+BIE-81 · Organización cotidiana: Crea un recordatorio: Aprobada
+BIE-82 · Comer con flexibilidad: Elige qué te: Aprobada
+BIE-83 · Autonomía y límites: Elige una preferencia: Aprobada
+BIE-84 · Juego y disfrute: Busca una palabra: Aprobada
+BIE-85 · Bienestar digital: Cancela una notificación: Aprobada
+BIE-86 · Aire libre y comunidad: Saluda tengas confianza: Aprobada
+BIE-87 · Aprendizaje cotidiano: Practica una frase: Aprobada
+BIE-88 · Cuidado diario: Revisa qué objeto: Aprobada
+BIE-89 · Movimiento amable: Sigue con los: Aprobada
+BIE-90 · Descanso y ritmo: Prepara una transición: Aprobada
+BIE-91 · Vínculos: Escribe un mensaje: Aprobada
+BIE-92 · Creación: Haz un mapa: Aprobada
+BIE-93 · Regulación emocional: Elige una acción: Aprobada
+BIE-94 · Organización cotidiana: Elimina una tarea: Aprobada
+BIE-95 · Comer con flexibilidad: Prueba mismo tiempo: Aprobada
+BIE-96 · Autonomía y límites: Escribe una frase: Aprobada
+BIE-97 · Juego y disfrute: Elige un pasatiempo: Aprobada
+BIE-98 · Bienestar digital: Organiza tus fotos: Aprobada
+BIE-99 · Aire libre y comunidad: Elige un lugar: Aprobada
+BIE-100 · Aprendizaje cotidiano: Pregunta su familia: Aprobada
+BIE-101 · Cuidado diario: Acomoda una silla: Aprobada
+BIE-102 · Movimiento amable: Practica para ti: Aprobada
+BIE-103 · Descanso y ritmo: Anota qué te: Aprobada
+BIE-104 · Vínculos: Pide haría bien: Aprobada
+BIE-105 · Creación: Inventa un final: Aprobada
+BIE-106 · Regulación emocional: Practica para pensarlo: Aprobada
+BIE-107 · Organización cotidiana: Ordena un archivo: Aprobada
+BIE-108 · Comer con flexibilidad: Invita una comida: Aprobada
+BIE-109 · Autonomía y límites: Decide qué parte: Aprobada
+BIE-110 · Juego y disfrute: Haz una competencia: Aprobada
+BIE-111 · Bienestar digital: Haz una pausa: Aprobada
+BIE-112 · Aire libre y comunidad: Recoge un papel: Aprobada
+BIE-113 · Aprendizaje cotidiano: Identifica una herramienta: Aprobada
+BIE-114 · Cuidado diario: Prepara los materiales: Aprobada
+BIE-115 · Movimiento amable: Haz una ruta: Aprobada
+BIE-116 · Descanso y ritmo: Cambia una actividad: Aprobada
+BIE-117 · Vínculos: Propón una conversación: Aprobada
+BIE-118 · Creación: Crea un ritmo: Aprobada
+BIE-119 · Regulación emocional: Nombra para aclararlo: Aprobada
+BIE-120 · Organización cotidiana: Deja una nota: Aprobada
+BIE-121 · Comer con flexibilidad: Elige una fruta: Aprobada
+BIE-122 · Autonomía y límites: Practica mensaje importante: Aprobada
+BIE-123 · Juego y disfrute: Crea una adivinanza: Aprobada
+BIE-124 · Bienestar digital: Revisa quién puede: Aprobada
+BIE-125 · Aire libre y comunidad: Llama te interese: Aprobada
+BIE-126 · Aprendizaje cotidiano: Enséñale a alguien: Aprobada
+BIE-127 · Cuidado diario: Decide qué pendiente: Aprobada
+BIE-128 · Movimiento amable: Alterna el pulgar: Aprobada
+BIE-129 · Descanso y ritmo: Escoge un sonido: Aprobada
+BIE-130 · Vínculos: Reconoce ejemplo específico: Aprobada
+BIE-131 · Creación: Escribe una nota: Aprobada
+BIE-132 · Regulación emocional: Escoge una actividad: Aprobada
+BIE-133 · Organización cotidiana: Crea pueden esperar: Aprobada
+BIE-134 · Comer con flexibilidad: Prepara poco tiempo: Aprobada
+BIE-135 · Autonomía y límites: Elige un compromiso: Aprobada
+BIE-136 · Juego y disfrute: Elige una fotografía: Aprobada
+BIE-137 · Bienestar digital: Cierra este dispositivo: Aprobada
+BIE-138 · Aire libre y comunidad: Explora una ruta: Aprobada
+BIE-139 · Aprendizaje cotidiano: Elige una actividad: Aprobada
+BIE-140 · Cuidado diario: Limpia con frecuencia: Aprobada
+BIE-141 · Movimiento amable: Prueba el cuello: Aprobada
+BIE-142 · Descanso y ritmo: Identifica una tarea: Aprobada
+BIE-143 · Vínculos: Comparte una foto: Aprobada
+BIE-144 · Creación: Dibuja una escena: Aprobada
+BIE-145 · Regulación emocional: Escribe cómo explicarías: Aprobada
+BIE-146 · Organización cotidiana: Compara dos formas: Aprobada
+BIE-147 · Comer con flexibilidad: Prueba un utensilio: Aprobada
+BIE-148 · Autonomía y límites: Formula una petición: Aprobada
+BIE-149 · Juego y disfrute: Escoge tres canciones: Aprobada
+BIE-150 · Bienestar digital: Elige una franja: Aprobada
+BIE-151 · Aire libre y comunidad: Pasa la comunidad: Aprobada
+BIE-152 · Aprendizaje cotidiano: Anota una pregunta: Aprobada
+BIE-153 · Cuidado diario: Elige una cosa: Aprobada
+BIE-154 · Movimiento amable: Imita con las: Aprobada
+BIE-155 · Descanso y ritmo: Haz sin calificarlas: Aprobada
+BIE-156 · Vínculos: Pregunta a alguien: Aprobada
+BIE-157 · Creación: Inventa una palabra: Aprobada
+BIE-158 · Regulación emocional: Prioriza una decisión: Aprobada
+BIE-159 · Organización cotidiana: Agrupa los objetos: Aprobada
+BIE-160 · Comer con flexibilidad: Elige una música: Aprobada
+BIE-161 · Autonomía y límites: Decide qué horario: Aprobada
+BIE-162 · Juego y disfrute: Prueba una receta: Aprobada
+BIE-163 · Bienestar digital: Cambia el fondo: Aprobada
+BIE-164 · Aire libre y comunidad: Elige un punto: Aprobada
+BIE-165 · Aprendizaje cotidiano: Aprende un dato: Aprobada
+BIE-166 · Cuidado diario: Separa o bolsillo: Aprobada
+BIE-167 · Movimiento amable: Haz lo necesitas: Aprobada
+BIE-168 · Descanso y ritmo: Elige un espacio: Aprobada
+BIE-169 · Vínculos: Invita su manera: Aprobada
+BIE-170 · Creación: Crea una postal: Aprobada
+BIE-171 · Regulación emocional: Elige a quién: Aprobada
+BIE-172 · Organización cotidiana: Revisa tus compromisos: Aprobada
+BIE-173 · Comer con flexibilidad: Prepara una merienda: Aprobada
+BIE-174 · Autonomía y límites: Practica una decisión: Aprobada
+BIE-175 · Juego y disfrute: Dibuja un mapa: Aprobada
+BIE-176 · Bienestar digital: Guarda una página: Aprobada
+BIE-177 · Aire libre y comunidad: Deja un libro: Aprobada
+BIE-178 · Aprendizaje cotidiano: Practica paso olvidaste: Aprobada
+BIE-179 · Cuidado diario: Haz del lugar: Aprobada
+BIE-180 · Movimiento amable: Pasa una pelota: Aprobada
+BIE-181 · Descanso y ritmo: Decide si esta: Aprobada
+BIE-182 · Vínculos: Ofrece persona decida: Aprobada
+BIE-183 · Creación: Escribe una historia: Aprobada
+BIE-184 · Regulación emocional: Describe un momento: Aprobada
+BIE-185 · Organización cotidiana: Elige un cajón: Aprobada
+BIE-186 · Comer con flexibilidad: Recuerda una comida: Aprobada
+BIE-187 · Autonomía y límites: Elige una responsabilidad: Aprobada
+BIE-188 · Juego y disfrute: Elige una película: Aprobada
+BIE-189 · Bienestar digital: Revisa qué permisos: Aprobada
+BIE-190 · Aire libre y comunidad: Busca un evento: Aprobada
+BIE-191 · Aprendizaje cotidiano: Elige un objeto: Aprobada
+BIE-192 · Cuidado diario: Deja empezar mañana: Aprobada
+BIE-193 · Movimiento amable: Acompaña una canción: Aprobada
+BIE-194 · Descanso y ritmo: Prepara una nota: Aprobada
+BIE-195 · Vínculos: Solicita una explicación: Aprobada
+BIE-196 · Creación: Diseña una portada: Aprobada
+BIE-197 · Regulación emocional: Haz una conversación: Aprobada
+BIE-198 · Organización cotidiana: Convierte una instrucción: Aprobada
+BIE-199 · Comer con flexibilidad: Organiza los ingredientes: Aprobada
+BIE-200 · Autonomía y límites: Escribe una respuesta: Aprobada
+BIE-201 · Juego y disfrute: Juega a describir: Aprobada
+BIE-202 · Bienestar digital: Ordena la pantalla: Aprobada
+BIE-203 · Aire libre y comunidad: Riega una planta: Aprobada
+BIE-204 · Aprendizaje cotidiano: Pídele parecido útil: Aprobada
+BIE-205 · Cuidado diario: Pon a cargar: Aprobada
+BIE-206 · Movimiento amable: Estira una pierna: Aprobada
+BIE-207 · Descanso y ritmo: Escoge la vez: Aprobada
+BIE-208 · Vínculos: Cuéntale a alguien: Aprobada
+BIE-209 · Creación: Haz un collage: Aprobada
+BIE-210 · Regulación emocional: Recuerda una ocasión: Aprobada
+BIE-211 · Organización cotidiana: Marca qué tarea: Aprobada
+BIE-212 · Comer con flexibilidad: Elige un alimento: Aprobada
+BIE-213 · Autonomía y límites: Señala qué condición: Aprobada
+BIE-214 · Juego y disfrute: Crea una categoría: Aprobada
+BIE-215 · Bienestar digital: Establece un límite: Aprobada
+BIE-216 · Aire libre y comunidad: Elige un comercio: Aprobada
+BIE-217 · Aprendizaje cotidiano: Aprende una regla: Aprobada
+BIE-218 · Cuidado diario: Prepara un espacio: Aprobada
+BIE-219 · Movimiento amable: Haz una coreografía: Aprobada
+BIE-220 · Descanso y ritmo: Deja un margen: Aprobada
+BIE-221 · Vínculos: Propón una llamada: Aprobada
+BIE-222 · Creación: Describe un color: Aprobada
+BIE-223 · Regulación emocional: Cambia una autocrítica: Aprobada
+BIE-224 · Organización cotidiana: Prepara un menú: Aprobada
+BIE-225 · Comer con flexibilidad: Prepara una bebida: Aprobada
+BIE-226 · Autonomía y límites: Elige si quieres: Aprobada
+BIE-227 · Juego y disfrute: Inventa un nombre: Aprobada
+BIE-228 · Bienestar digital: Lee un mensaje: Aprobada
+BIE-229 · Aire libre y comunidad: Si ya tienes: Aprobada
+BIE-230 · Aprendizaje cotidiano: Prueba una técnica: Aprobada
+BIE-231 · Cuidado diario: Guarda un objeto: Aprobada
+BIE-232 · Movimiento amable: Practica al inicio: Aprobada
+BIE-233 · Descanso y ritmo: Elige puede esperar: Aprobada
+BIE-234 · Vínculos: Haz una pregunta: Aprobada
+BIE-235 · Creación: Inventa una celebración: Aprobada
+BIE-236 · Regulación emocional: Elige una preocupación: Aprobada
+BIE-237 · Organización cotidiana: Configura una alarma: Aprobada
+BIE-238 · Comer con flexibilidad: Haz algún día: Aprobada
+BIE-239 · Autonomía y límites: Practica con claridad: Aprobada
+BIE-240 · Juego y disfrute: Haz opciones curiosas: Aprobada
+BIE-241 · Bienestar digital: Pasa una actividad: Aprobada
+BIE-242 · Aire libre y comunidad: Haz un recorrido: Aprobada
+BIE-243 · Aprendizaje cotidiano: Busca el significado: Aprobada
+BIE-244 · Cuidado diario: Elige más cómoda: Aprobada
+BIE-245 · Movimiento amable: Ponte de pie: Aprobada
+BIE-246 · Descanso y ritmo: Planea una pausa: Aprobada
+BIE-247 · Vínculos: Expresa una preferencia: Aprobada
+BIE-248 · Creación: Escribe tres versos: Aprobada
+BIE-249 · Regulación emocional: Escribe dos respuestas: Aprobada
+BIE-250 · Organización cotidiana: Cierra las pestañas: Aprobada
+BIE-251 · Comer con flexibilidad: Pregunta o comunidad: Aprobada
+BIE-252 · Autonomía y límites: Decide qué tema: Aprobada
+BIE-253 · Juego y disfrute: Elige terminarla hoy: Aprobada
+BIE-254 · Bienestar digital: Haz una copia: Aprobada
+BIE-255 · Aire libre y comunidad: Lleva una bolsa: Aprobada
+BIE-256 · Aprendizaje cotidiano: Compara dos instrucciones: Aprobada
+BIE-257 · Cuidado diario: Ajusta la altura: Aprobada
+BIE-258 · Movimiento amable: Realiza una secuencia: Aprobada
+BIE-259 · Descanso y ritmo: Haz elegir ahora: Aprobada
+BIE-260 · Vínculos: Dile a alguien: Aprobada
+BIE-261 · Creación: Dibuja un recorrido: Aprobada
+BIE-262 · Regulación emocional: Pon un nombre: Aprobada
+BIE-263 · Organización cotidiana: Elige una superficie: Aprobada
+BIE-264 · Comer con flexibilidad: Elige cómoda hoy: Aprobada
+BIE-265 · Autonomía y límites: Pide más equilibrada: Aprobada
+BIE-266 · Juego y disfrute: Construye una torre: Aprobada
+BIE-267 · Bienestar digital: Quita de favoritos: Aprobada
+BIE-268 · Aire libre y comunidad: Pregunta la zona: Aprobada
+BIE-269 · Aprendizaje cotidiano: Practica una habilidad: Aprobada
+BIE-270 · Cuidado diario: Reúne al salir: Aprobada
+BIE-271 · Movimiento amable: Imita un movimiento: Aprobada
+BIE-272 · Descanso y ritmo: Decide simplificar hoy: Aprobada
+BIE-273 · Vínculos: Comparte una recomendación: Aprobada
+BIE-274 · Creación: Crea una mini: Aprobada
+BIE-275 · Regulación emocional: Decide qué información: Aprobada
+BIE-276 · Organización cotidiana: Haz último minuto: Aprobada
+BIE-277 · Comer con flexibilidad: Prueba hayas juntado: Aprobada
+BIE-278 · Autonomía y límites: Elige qué notificaciones: Aprobada
+BIE-279 · Juego y disfrute: Crea por gusto: Aprobada
+BIE-280 · Bienestar digital: Escoge espera breve: Aprobada
+BIE-281 · Aire libre y comunidad: Elige gusto allí: Aprobada
+BIE-282 · Aprendizaje cotidiano: Elige un tema: Aprobada
+BIE-283 · Cuidado diario: Escoge tu jornada: Aprobada
+BIE-284 · Movimiento amable: Coordina un paso: Aprobada
+BIE-285 · Descanso y ritmo: Termina el día: Aprobada
+BIE-286 · Vínculos: Responde un mensaje: Aprobada
+BIE-287 · Creación: Inventa un juego: Aprobada
+BIE-288 · Regulación emocional: Haz día complicado: Aprobada
+BIE-289 · Organización cotidiana: Separa los mensajes: Aprobada
+BIE-290 · Comer con flexibilidad: Elige a solas: Aprobada
+BIE-291 · Autonomía y límites: Explica qué tipo: Aprobada
+BIE-292 · Juego y disfrute: Imita un personaje: Aprobada
+BIE-293 · Bienestar digital: Revisa tu lista: Aprobada
+BIE-294 · Aire libre y comunidad: Pasa un rato: Aprobada
+BIE-295 · Aprendizaje cotidiano: Pide quieras probar: Aprobada
+BIE-296 · Cuidado diario: Abre una ventana: Aprobada
+BIE-297 · Movimiento amable: Haz en reposo: Aprobada
+BIE-298 · Descanso y ritmo: Deja quieras disfrutar: Aprobada
+BIE-299 · Vínculos: Pide a alguien: Aprobada
+BIE-300 · Creación: Escribe un anuncio: Aprobada
+BIE-301 · Regulación emocional: Practica responder lo: Aprobada
+BIE-302 · Organización cotidiana: Revisa una rutina: Aprobada
+BIE-303 · Comer con flexibilidad: Pon la mesa: Aprobada
+BIE-304 · Autonomía y límites: Decide si quieres: Aprobada
+BIE-305 · Juego y disfrute: Diseña una búsqueda: Aprobada
+BIE-306 · Bienestar digital: Escribe de enviarla: Aprobada
+BIE-307 · Aire libre y comunidad: Toma una foto: Aprobada
+BIE-308 · Aprendizaje cotidiano: Aprende cómo se: Aprobada
+BIE-309 · Cuidado diario: Prepara una bolsa: Aprobada
+BIE-310 · Movimiento amable: Sigue un patrón: Aprobada
+BIE-311 · Descanso y ritmo: Elige ya empezó: Aprobada
+BIE-312 · Vínculos: Celebra un logro: Aprobada
+BIE-313 · Creación: Combina dos actividades: Aprobada
+BIE-314 · Regulación emocional: Identifica una emoción: Aprobada
+BIE-315 · Organización cotidiana: Elige al momento: Aprobada
+BIE-316 · Comer con flexibilidad: Explora el aroma: Aprobada
+BIE-317 · Autonomía y límites: Practica o llamada: Aprobada
+BIE-318 · Juego y disfrute: Encuentra un juego: Aprobada
+BIE-319 · Bienestar digital: Cambia el tamaño: Aprobada
+BIE-320 · Aire libre y comunidad: Comprueba si hay: Aprobada
+BIE-321 · Aprendizaje cotidiano: Explica con tus: Aprobada
+BIE-322 · Cuidado diario: Decide qué aviso: Aprobada
+BIE-323 · Movimiento amable: Mueve los dedos: Aprobada
+BIE-324 · Descanso y ritmo: Haz por hoy: Aprobada
+BIE-325 · Vínculos: Agradece a alguien: Aprobada
+BIE-326 · Creación: Haz canción inventada: Aprobada
+BIE-327 · Regulación emocional: Elige más disponibilidad: Aprobada
+BIE-328 · Organización cotidiana: Guarda un documento: Aprobada
+BIE-329 · Comer con flexibilidad: Escoge con anticipación: Aprobada
+BIE-330 · Autonomía y límites: Escoge una decisión: Aprobada
+BIE-331 · Juego y disfrute: Haz una foto: Aprobada
+BIE-332 · Bienestar digital: Elige un momento: Aprobada
+BIE-333 · Aire libre y comunidad: Lleva una nota: Aprobada
+BIE-334 · Aprendizaje cotidiano: Elige una receta: Aprobada
+BIE-335 · Cuidado diario: Busca una forma: Aprobada
+BIE-336 · Movimiento amable: Cambia de mano: Aprobada
+BIE-337 · Descanso y ritmo: Ajusta tu plan: Aprobada
+BIE-338 · Vínculos: Propón un plan: Aprobada
+BIE-339 · Creación: Diseña una etiqueta: Aprobada
+BIE-340 · Regulación emocional: Escribe un plan: Aprobada
+BIE-341 · Organización cotidiana: Haz tengas pendiente: Aprobada
+BIE-342 · Comer con flexibilidad: Comparte una comida: Aprobada
+BIE-343 · Autonomía y límites: Escribe una discusión: Aprobada
+BIE-344 · Juego y disfrute: Elige sobre ella: Aprobada
+BIE-345 · Bienestar digital: Guarda el teléfono: Aprobada
+BIE-346 · Aire libre y comunidad: Elige el tiempo: Aprobada
+BIE-347 · Aprendizaje cotidiano: Busca parecía complicado: Aprobada
+BIE-348 · Cuidado diario: Haz de mañana: Aprobada
+BIE-349 · Movimiento amable: Haz el otro: Aprobada
+BIE-350 · Descanso y ritmo: Escoge qué tarea: Aprobada
+BIE-351 · Vínculos: Aclara con respeto: Aprobada
+BIE-352 · Creación: Escribe una pregunta: Aprobada
+BIE-353 · Regulación emocional: Decide o energía: Aprobada
+BIE-354 · Organización cotidiana: Deja a la: Aprobada
+BIE-355 · Comer con flexibilidad: Anota una idea: Aprobada
+BIE-356 · Autonomía y límites: Decide qué favor: Aprobada
+BIE-357 · Juego y disfrute: Inventa una tradición: Aprobada
+BIE-358 · Bienestar digital: Revisa una carpeta: Aprobada
+BIE-359 · Aire libre y comunidad: Busca un lugar: Aprobada
+BIE-360 · Aprendizaje cotidiano: Anota qué habilidad: Aprobada
+BIE-361 · Cuidado diario: Elige cómo quieres: Aprobada
+BIE-362 · Movimiento amable: Elige un movimiento: Aprobada
+BIE-363 · Descanso y ritmo: Cierra una pestaña: Aprobada
+BIE-364 · Vínculos: Despídete por compromiso: Aprobada
+BIE-365 · Creación: Crea un patrón: Aprobada
+EMO-01 · Rueda de emociones: Aprobada
+EMO-02 · Tres cosas buenas: Aprobada
+EMO-03 · Ancla 5-4-3-2-1: Aprobada
+EMO-04 · Lo que sí controlo: Aprobada
+EMO-05 · Carta a mí de mañana: Aprobada
+EMO-07 · Mi lugar tranquilo: Aprobada
+EMO-08 · Quién me acompaña: Aprobada
+EMO-09 · El cierre del día: Aprobada
+EMO-10 · Matices del ánimo: El color del momento: Aprobada
+EMO-11 · Matices del ánimo: Una palabra más precisa: Aprobada
+EMO-12 · Matices del ánimo: Entre dos nombres: Aprobada
+EMO-13 · Matices del ánimo: Lo que no sé nombrar: Aprobada
+EMO-14 · Matices del ánimo: Un matiz inesperado: Aprobada
+EMO-15 · Matices del ánimo: La emoción de fondo: Aprobada
+EMO-16 · Matices del ánimo: La emoción más visible: Aprobada
+EMO-17 · Matices del ánimo: Una mezcla posible: Aprobada
+EMO-18 · Matices del ánimo: Cerca de la calma: Aprobada
+EMO-19 · Matices del ánimo: Cerca de la curiosidad: Aprobada
+EMO-20 · Matices del ánimo: La emoción pequeña: Aprobada
+EMO-21 · Matices del ánimo: Una emoción amplia: Aprobada
+EMO-22 · Matices del ánimo: La palabra de hoy: Aprobada
+EMO-23 · Matices del ánimo: Un matiz corporal: Aprobada
+EMO-24 · Matices del ánimo: La emoción que cambia: Aprobada
+EMO-25 · Matices del ánimo: Una emoción neutral: Aprobada
+EMO-26 · Matices del ánimo: El matiz difícil: Aprobada
+EMO-27 · Matices del ánimo: La emoción de una escena: Aprobada
+EMO-28 · Matices del ánimo: Un nombre prestado: Aprobada
+EMO-29 · Matices del ánimo: Emoción sin explicación: Aprobada
+EMO-30 · Matices del ánimo: La palabra que falta: Aprobada
+EMO-31 · Matices del ánimo: Dos emociones a la vez: Aprobada
+EMO-32 · Matices del ánimo: El matiz que acompaña: Aprobada
+EMO-33 · Matices del ánimo: Emoción y energía: Aprobada
+EMO-34 · Matices del ánimo: Lo que sí aparece: Aprobada
+EMO-35 · Matices del ánimo: Un matiz de alivio: Aprobada
+EMO-36 · Matices del ánimo: Una emoción sin etiqueta: Aprobada
+EMO-37 · Matices del ánimo: El matiz de una pausa: Aprobada
+EMO-38 · Matices del ánimo: La emoción que se mueve: Aprobada
+EMO-39 · Matices del ánimo: Un cierre con nombre: Aprobada
+EMO-40 · Señales que noto: Mapa de señales: Aprobada
+EMO-41 · Señales que noto: Ritmo interior: Aprobada
+EMO-42 · Señales que noto: El primer aviso: Aprobada
+EMO-43 · Señales que noto: Señal de descanso: Aprobada
+EMO-44 · Señales que noto: Señal de interés: Aprobada
+EMO-45 · Señales que noto: Señal de incomodidad: Aprobada
+EMO-46 · Señales que noto: Señal de conexión: Aprobada
+EMO-47 · Señales que noto: Señal de distancia: Aprobada
+EMO-48 · Señales que noto: Un cambio de energía: Aprobada
+EMO-49 · Señales que noto: La señal de curiosidad: Aprobada
+EMO-50 · Señales que noto: Tono de voz propio: Aprobada
+EMO-51 · Señales que noto: La postura del momento: Aprobada
+EMO-52 · Señales que noto: Lo que pide atención: Aprobada
+EMO-53 · Señales que noto: Señal de incertidumbre: Aprobada
+EMO-54 · Señales que noto: Señal de entusiasmo: Aprobada
+EMO-55 · Señales que noto: Señal de fastidio: Aprobada
+EMO-56 · Señales que noto: La señal de alivio: Aprobada
+EMO-57 · Señales que noto: Señal de saturación: Aprobada
+EMO-58 · Señales que noto: Un momento de quietud: Aprobada
+EMO-59 · Señales que noto: Señal de confianza: Aprobada
+EMO-60 · Señales que noto: Señal de duda: Aprobada
+EMO-61 · Señales que noto: Señal de cansancio emocional: Aprobada
+EMO-62 · Señales que noto: Señal de alegría tranquila: Aprobada
+EMO-63 · Señales que noto: Señal de necesidad: Aprobada
+EMO-64 · Señales que noto: Señal de pausa social: Aprobada
+EMO-65 · Señales que noto: La emoción en las manos: Aprobada
+EMO-66 · Señales que noto: La emoción en el rostro: Aprobada
+EMO-67 · Señales que noto: Una señal de seguridad: Aprobada
+EMO-68 · Señales que noto: Señal de cambio: Aprobada
+EMO-69 · Señales que noto: Lo que prefiero no notar: Aprobada
+EMO-70 · Escenas cotidianas: Un mensaje sin respuesta: Aprobada
+EMO-71 · Escenas cotidianas: Un plan que cambia: Aprobada
+EMO-72 · Escenas cotidianas: Una invitación inesperada: Aprobada
+EMO-73 · Escenas cotidianas: Una tarea terminada: Aprobada
+EMO-74 · Escenas cotidianas: Un elogio en público: Aprobada
+EMO-75 · Escenas cotidianas: Una espera larga: Aprobada
+EMO-76 · Escenas cotidianas: La charla por empezar: Aprobada
+EMO-77 · Escenas cotidianas: Una noticia ambigua: Aprobada
+EMO-78 · Escenas cotidianas: Un día con poco ruido: Aprobada
+EMO-79 · Escenas cotidianas: Una despedida breve: Aprobada
+EMO-80 · Escenas cotidianas: Una meta compartida: Aprobada
+EMO-81 · Escenas cotidianas: Un error pequeño: Aprobada
+EMO-82 · Escenas cotidianas: Una visita sorpresa: Aprobada
+EMO-83 · Escenas cotidianas: Un recuerdo que aparece: Aprobada
+EMO-84 · Escenas cotidianas: Una decisión aplazada: Aprobada
+EMO-85 · Escenas cotidianas: Un lugar conocido: Aprobada
+EMO-86 · Escenas cotidianas: Un favor que cuesta pedir: Aprobada
+EMO-87 · Escenas cotidianas: Una opinión diferente: Aprobada
+EMO-88 · Escenas cotidianas: Una pausa en el trabajo: Aprobada
+EMO-89 · Escenas cotidianas: Una despedida de un objeto: Aprobada
+EMO-90 · Escenas cotidianas: Una puerta que se abre: Aprobada
+EMO-91 · Escenas cotidianas: Un logro ajeno: Aprobada
+EMO-92 · Escenas cotidianas: Una pregunta difícil: Aprobada
+EMO-93 · Escenas cotidianas: Una tarde sin planes: Aprobada
+EMO-94 · Escenas cotidianas: Un cambio de horario: Aprobada
+EMO-95 · Escenas cotidianas: Una conversación que termina: Aprobada
+EMO-96 · Escenas cotidianas: Una sorpresa agradable: Aprobada
+EMO-97 · Escenas cotidianas: Una opinión propia: Aprobada
+EMO-98 · Escenas cotidianas: Un objeto perdido: Aprobada
+EMO-99 · Escenas cotidianas: Un primer intento: Aprobada
+EMO-100 · Palabras propias: Una frase para el ánimo: Aprobada
+EMO-101 · Palabras propias: Lo que me gustaría decir: Aprobada
+EMO-102 · Palabras propias: Un nombre provisional: Aprobada
+EMO-103 · Palabras propias: La emoción como clima: Aprobada
+EMO-104 · Palabras propias: Un color sin significado: Aprobada
+EMO-105 · Palabras propias: Una nota sin destinatario: Aprobada
+EMO-106 · Palabras propias: Una pregunta amable: Aprobada
+EMO-107 · Palabras propias: Un título para hoy: Aprobada
+EMO-108 · Palabras propias: Lo que no voy a resolver: Aprobada
+EMO-109 · Palabras propias: La palabra más cercana: Aprobada
+EMO-110 · Palabras propias: Una frase de permiso: Aprobada
+EMO-111 · Palabras propias: Un borde claro: Aprobada
+EMO-112 · Palabras propias: Una emoción en tres palabras: Aprobada
+EMO-113 · Palabras propias: Una respuesta que espero: Aprobada
+EMO-114 · Palabras propias: Lo que quiero conservar: Aprobada
+EMO-115 · Palabras propias: Una frase para una pausa: Aprobada
+EMO-116 · Palabras propias: Algo que cambió: Aprobada
+EMO-117 · Palabras propias: Algo que sigue igual: Aprobada
+EMO-118 · Palabras propias: La emoción y su volumen: Aprobada
+EMO-119 · Palabras propias: Un mensaje sin enviar: Aprobada
+EMO-120 · Palabras propias: La parte que necesita tiempo: Aprobada
+EMO-121 · Palabras propias: Lo que me gustaría preguntar: Aprobada
+EMO-122 · Palabras propias: Una descripción sencilla: Aprobada
+EMO-123 · Palabras propias: Una idea que puedo pausar: Aprobada
+EMO-124 · Palabras propias: Mi espacio de hoy: Aprobada
+EMO-125 · Palabras propias: El recuerdo sin juicio: Aprobada
+EMO-126 · Palabras propias: Una palabra que aprendí: Aprobada
+EMO-127 · Palabras propias: Una línea para mañana: Aprobada
+EMO-128 · Palabras propias: El final de esta frase: Aprobada
+EMO-129 · Palabras propias: Una nota para mí: Aprobada
+EMO-130 · Necesidades y preferencias: Necesito espacio: Aprobada
+EMO-131 · Necesidades y preferencias: Necesito claridad: Aprobada
+EMO-132 · Necesidades y preferencias: Una preferencia pequeña: Aprobada
+EMO-133 · Necesidades y preferencias: Lo que puede esperar: Aprobada
+EMO-134 · Necesidades y preferencias: Necesito compañía: Aprobada
+EMO-135 · Necesidades y preferencias: Un ritmo posible: Aprobada
+EMO-136 · Necesidades y preferencias: Necesito información: Aprobada
+EMO-137 · Necesidades y preferencias: Una opción más cómoda: Aprobada
+EMO-138 · Necesidades y preferencias: Pedir una pausa: Aprobada
+EMO-139 · Necesidades y preferencias: Lo que quiero cuidar: Aprobada
+EMO-140 · Necesidades y preferencias: Necesito silencio: Aprobada
+EMO-141 · Necesidades y preferencias: Una decisión sin prisa: Aprobada
+EMO-142 · Necesidades y preferencias: Puedo elegir el cómo: Aprobada
+EMO-143 · Necesidades y preferencias: Una ayuda concreta: Aprobada
+EMO-144 · Necesidades y preferencias: Necesito un límite: Aprobada
+EMO-145 · Necesidades y preferencias: Elijo no responder: Aprobada
+EMO-146 · Necesidades y preferencias: La compañía adecuada: Aprobada
+EMO-147 · Necesidades y preferencias: Una actividad que sí quiero: Aprobada
+EMO-148 · Necesidades y preferencias: Necesito menos opciones: Aprobada
+EMO-149 · Necesidades y preferencias: Necesito más tiempo: Aprobada
+EMO-150 · Necesidades y preferencias: Mi forma de participar: Aprobada
+EMO-151 · Necesidades y preferencias: Una necesidad sin culpa: Aprobada
+EMO-152 · Necesidades y preferencias: Lo que sí puedo cambiar: Aprobada
+EMO-153 · Necesidades y preferencias: Una expectativa propia: Aprobada
+EMO-154 · Necesidades y preferencias: El tipo de apoyo: Aprobada
+EMO-155 · Necesidades y preferencias: Un acuerdo conmigo: Aprobada
+EMO-156 · Necesidades y preferencias: Lo que me resulta suficiente: Aprobada
+EMO-157 · Necesidades y preferencias: Elegir con el cuerpo cómodo: Aprobada
+EMO-158 · Necesidades y preferencias: Un «no» posible: Aprobada
+EMO-159 · Necesidades y preferencias: Un «sí» propio: Aprobada
+EMO-160 · Vínculos y comunicación: Escucha sin arreglar: Aprobada
+EMO-161 · Vínculos y comunicación: Agradecer a mi manera: Aprobada
+EMO-162 · Vínculos y comunicación: Una llamada de reencuentro: Aprobada
+EMO-163 · Vínculos y comunicación: Pedir que me escuchen: Aprobada
+EMO-164 · Vínculos y comunicación: Compartir una buena noticia: Aprobada
+EMO-165 · Vínculos y comunicación: Reparar un malentendido: Aprobada
+EMO-166 · Vínculos y comunicación: Una charla con pausas: Aprobada
+EMO-167 · Vínculos y comunicación: Reconocer el esfuerzo ajeno: Aprobada
+EMO-168 · Vínculos y comunicación: Un saludo que me representa: Aprobada
+EMO-169 · Vínculos y comunicación: Hacer una pregunta abierta: Aprobada
+EMO-170 · Vínculos y comunicación: Compartir silencio: Aprobada
+EMO-171 · Vínculos y comunicación: Responder más tarde: Aprobada
+EMO-172 · Vínculos y comunicación: Decir que no entendí: Aprobada
+EMO-173 · Vínculos y comunicación: Celebrar sin comparar: Aprobada
+EMO-174 · Vínculos y comunicación: Cuidar una confidencia: Aprobada
+EMO-175 · Vínculos y comunicación: Aclarar una preferencia: Aprobada
+EMO-176 · Vínculos y comunicación: Recibir un cumplido: Aprobada
+EMO-177 · Vínculos y comunicación: Un contacto que me hace bien: Aprobada
+EMO-178 · Vínculos y comunicación: Poner fin a una charla: Aprobada
+EMO-179 · Vínculos y comunicación: Escuchar otra experiencia: Aprobada
+EMO-180 · Vínculos y comunicación: Pedir una aclaración: Aprobada
+EMO-181 · Vínculos y comunicación: Expresar desacuerdo: Aprobada
+EMO-182 · Vínculos y comunicación: Aceptar una invitación: Aprobada
+EMO-183 · Vínculos y comunicación: Rechazar un plan: Aprobada
+EMO-184 · Vínculos y comunicación: Un mensaje de apoyo: Aprobada
+EMO-185 · Vínculos y comunicación: Pedir ayuda concreta: Aprobada
+EMO-186 · Vínculos y comunicación: Hablar desde mí: Aprobada
+EMO-187 · Vínculos y comunicación: Dar espacio a otra voz: Aprobada
+EMO-188 · Vínculos y comunicación: Cuidar mi intimidad: Aprobada
+EMO-189 · Vínculos y comunicación: Reconectar sin obligación: Aprobada
+EMO-190 · Límites y decisiones: El límite del horario: Aprobada
+EMO-191 · Límites y decisiones: Una tarea compartida: Aprobada
+EMO-192 · Límites y decisiones: Una pregunta personal: Aprobada
+EMO-193 · Límites y decisiones: El espacio físico: Aprobada
+EMO-194 · Límites y decisiones: Cambiar de opinión: Aprobada
+EMO-195 · Límites y decisiones: Una petición incómoda: Aprobada
+EMO-196 · Límites y decisiones: El tiempo propio: Aprobada
+EMO-197 · Límites y decisiones: Un límite digital: Aprobada
+EMO-198 · Límites y decisiones: Un tema que pauso: Aprobada
+EMO-199 · Límites y decisiones: Decir «hasta aquí»: Aprobada
+EMO-200 · Límites y decisiones: No decidir por presión: Aprobada
+EMO-201 · Límites y decisiones: Una decisión compartida: Aprobada
+EMO-202 · Límites y decisiones: Mi espacio de trabajo: Aprobada
+EMO-203 · Límites y decisiones: Una expectativa ajena: Aprobada
+EMO-204 · Límites y decisiones: El límite de una broma: Aprobada
+EMO-205 · Límites y decisiones: Un favor posible: Aprobada
+EMO-206 · Límites y decisiones: Cuidar una conversación: Aprobada
+EMO-207 · Límites y decisiones: Elegir lo que cuento: Aprobada
+EMO-208 · Límites y decisiones: Mi respuesta auténtica: Aprobada
+EMO-209 · Límites y decisiones: Un cambio de plan: Aprobada
+EMO-210 · Límites y decisiones: Una pausa antes del sí: Aprobada
+EMO-211 · Límites y decisiones: Un límite con amabilidad: Aprobada
+EMO-212 · Límites y decisiones: Una tarea que no me toca: Aprobada
+EMO-213 · Límites y decisiones: El momento de retirarme: Aprobada
+EMO-214 · Límites y decisiones: Un acuerdo que revisar: Aprobada
+EMO-215 · Límites y decisiones: Lo que acepto hoy: Aprobada
+EMO-216 · Límites y decisiones: El límite del consejo: Aprobada
+EMO-217 · Límites y decisiones: La puerta entreabierta: Aprobada
+EMO-218 · Límites y decisiones: Un espacio para pensar: Aprobada
+EMO-219 · Límites y decisiones: Mi decisión pequeña: Aprobada
+EMO-220 · Emociones mezcladas: Dos cosas verdaderas: Aprobada
+EMO-221 · Emociones mezcladas: Agridulce: Aprobada
+EMO-222 · Emociones mezcladas: Querer y dudar: Aprobada
+EMO-223 · Emociones mezcladas: Alivio con cansancio: Aprobada
+EMO-224 · Emociones mezcladas: Alegría con nervios: Aprobada
+EMO-225 · Emociones mezcladas: Cariño y distancia: Aprobada
+EMO-226 · Emociones mezcladas: Nostalgia y presente: Aprobada
+EMO-227 · Emociones mezcladas: Orgullo y humildad: Aprobada
+EMO-228 · Emociones mezcladas: Tranquilidad e incertidumbre: Aprobada
+EMO-229 · Emociones mezcladas: Curiosidad con cautela: Aprobada
+EMO-230 · Emociones mezcladas: Fastidio y cuidado: Aprobada
+EMO-231 · Emociones mezcladas: Pena y compañía: Aprobada
+EMO-232 · Emociones mezcladas: Confianza con preguntas: Aprobada
+EMO-233 · Emociones mezcladas: Emoción sin conclusión: Aprobada
+EMO-234 · Emociones mezcladas: Un sí y un no: Aprobada
+EMO-235 · Emociones mezcladas: Recuerdo que cambia: Aprobada
+EMO-236 · Emociones mezcladas: Esperanza con paciencia: Aprobada
+EMO-237 · Emociones mezcladas: Duda con interés: Aprobada
+EMO-238 · Emociones mezcladas: Energía irregular: Aprobada
+EMO-239 · Emociones mezcladas: Una mezcla sin nombre: Aprobada
+EMO-240 · Emociones mezcladas: Risa y preocupación: Aprobada
+EMO-241 · Emociones mezcladas: Despedida y comienzo: Aprobada
+EMO-242 · Emociones mezcladas: Deseo y realidad: Aprobada
+EMO-243 · Emociones mezcladas: Satisfacción con cansancio: Aprobada
+EMO-244 · Emociones mezcladas: Confusión con una pista: Aprobada
+EMO-245 · Emociones mezcladas: Entusiasmo y pausa: Aprobada
+EMO-246 · Emociones mezcladas: Afecto y desacuerdo: Aprobada
+EMO-247 · Emociones mezcladas: Cambio y familiaridad: Aprobada
+EMO-248 · Emociones mezcladas: Lo que convive hoy: Aprobada
+EMO-249 · Emociones mezcladas: Un final abierto: Aprobada
+EMO-250 · Expresión creativa: Un paisaje interior: Aprobada
+EMO-251 · Expresión creativa: La paleta del momento: Aprobada
+EMO-252 · Expresión creativa: Una forma para la emoción: Aprobada
+EMO-253 · Expresión creativa: Ritmo emocional: Aprobada
+EMO-254 · Expresión creativa: Una canción sin letra: Aprobada
+EMO-255 · Expresión creativa: Objeto imaginario: Aprobada
+EMO-256 · Expresión creativa: Un personaje de hoy: Aprobada
+EMO-257 · Expresión creativa: La forma de una pausa: Aprobada
+EMO-258 · Expresión creativa: Un símbolo personal: Aprobada
+EMO-259 · Expresión creativa: Una viñeta sin palabras: Aprobada
+EMO-260 · Expresión creativa: Un mapa de colores: Aprobada
+EMO-261 · Expresión creativa: La emoción como sonido: Aprobada
+EMO-262 · Expresión creativa: Un título de película: Aprobada
+EMO-263 · Expresión creativa: Un objeto compañero: Aprobada
+EMO-264 · Expresión creativa: El clima en tres formas: Aprobada
+EMO-265 · Expresión creativa: Un movimiento de lápiz: Aprobada
+EMO-266 · Expresión creativa: Una escena con distancia: Aprobada
+EMO-267 · Expresión creativa: Una metáfora propia: Aprobada
+EMO-268 · Expresión creativa: Un color que falta: Aprobada
+EMO-269 · Expresión creativa: Un ritmo con las manos: Aprobada
+EMO-270 · Expresión creativa: La emoción en una postal: Aprobada
+EMO-271 · Expresión creativa: Un collage de sensaciones: Aprobada
+EMO-272 · Expresión creativa: El nombre de una nube: Aprobada
+EMO-273 · Expresión creativa: Una escena en pausa: Aprobada
+EMO-274 · Expresión creativa: Un gesto de personaje: Aprobada
+EMO-275 · Expresión creativa: Una emoción con forma: Aprobada
+EMO-276 · Expresión creativa: Una palabra dibujada: Aprobada
+EMO-277 · Expresión creativa: Una caja imaginaria: Aprobada
+EMO-278 · Expresión creativa: Una escena de dos colores: Aprobada
+EMO-279 · Expresión creativa: El final que elijo: Aprobada
+EMO-280 · Pausa y presencia: Ventana de sonidos: Aprobada
+EMO-281 · Pausa y presencia: Texturas a mano: Aprobada
+EMO-282 · Pausa y presencia: Mirada que descansa: Aprobada
+EMO-283 · Pausa y presencia: Apoyo de los pies: Aprobada
+EMO-284 · Pausa y presencia: Un objeto cercano: Aprobada
+EMO-285 · Pausa y presencia: Temperatura del aire: Aprobada
+EMO-286 · Pausa y presencia: Orientarme en el lugar: Aprobada
+EMO-287 · Pausa y presencia: Una pausa visual: Aprobada
+EMO-288 · Pausa y presencia: Sonido que se aleja: Aprobada
+EMO-289 · Pausa y presencia: Contacto con la silla: Aprobada
+EMO-290 · Pausa y presencia: Una forma en el entorno: Aprobada
+EMO-291 · Pausa y presencia: Pausa entre tareas: Aprobada
+EMO-292 · Pausa y presencia: Un color presente: Aprobada
+EMO-293 · Pausa y presencia: La habitación en silencio: Aprobada
+EMO-294 · Pausa y presencia: El peso de un objeto: Aprobada
+EMO-295 · Pausa y presencia: Un punto de apoyo: Aprobada
+EMO-296 · Pausa y presencia: Una línea que guía: Aprobada
+EMO-297 · Pausa y presencia: Distancias del lugar: Aprobada
+EMO-298 · Pausa y presencia: Manos en reposo: Aprobada
+EMO-299 · Pausa y presencia: Una cosa estable: Aprobada
+EMO-300 · Pausa y presencia: Un minuto sin tarea: Aprobada
+EMO-301 · Pausa y presencia: Vuelvo a mis sentidos: Aprobada
+EMO-302 · Pausa y presencia: El borde de un objeto: Aprobada
+EMO-303 · Pausa y presencia: El entorno por capas: Aprobada
+EMO-304 · Pausa y presencia: Una pausa en movimiento: Aprobada
+EMO-305 · Pausa y presencia: Una luz del lugar: Aprobada
+EMO-306 · Pausa y presencia: La distancia que prefiero: Aprobada
+EMO-307 · Pausa y presencia: Una respiración libre: Aprobada
+EMO-308 · Pausa y presencia: Vuelvo al presente sentado: Aprobada
+EMO-309 · Pausa y presencia: Cerrar la pausa: Aprobada
+EMO-310 · Elecciones pequeñas: Elegir cómo seguir: Aprobada
+EMO-311 · Elecciones pequeñas: Una opción amable: Aprobada
+EMO-312 · Elecciones pequeñas: Cambiar el plan: Aprobada
+EMO-313 · Elecciones pequeñas: Pedir claridad: Aprobada
+EMO-314 · Elecciones pequeñas: Un gesto pequeño: Aprobada
+EMO-315 · Elecciones pequeñas: Una respuesta posible: Aprobada
+EMO-316 · Elecciones pequeñas: El siguiente paso: Aprobada
+EMO-317 · Elecciones pequeñas: Mi espacio ahora: Aprobada
+EMO-318 · Elecciones pequeñas: Lo que quiero escuchar: Aprobada
+EMO-319 · Elecciones pequeñas: Mi transición elegida: Aprobada
+EMO-320 · Elecciones pequeñas: Una idea para después: Aprobada
+EMO-321 · Elecciones pequeñas: Cómo cerrar una tarea: Aprobada
+EMO-322 · Elecciones pequeñas: Un plan flexible: Aprobada
+EMO-323 · Elecciones pequeñas: Elijo mi compañía: Aprobada
+EMO-324 · Elecciones pequeñas: Un mensaje pendiente: Aprobada
+EMO-325 · Elecciones pequeñas: Una pregunta antes de sí: Aprobada
+EMO-326 · Elecciones pequeñas: Una versión más fácil: Aprobada
+EMO-327 · Elecciones pequeñas: Hacer una pausa social: Aprobada
+EMO-328 · Elecciones pequeñas: Un descanso elegido: Aprobada
+EMO-329 · Elecciones pequeñas: La primera prioridad: Aprobada
+EMO-330 · Elecciones pequeñas: Un compromiso posible: Aprobada
+EMO-331 · Elecciones pequeñas: Cambiar de tema: Aprobada
+EMO-332 · Elecciones pequeñas: Dejar algo sin responder: Aprobada
+EMO-333 · Elecciones pequeñas: Un lugar cómodo: Aprobada
+EMO-334 · Elecciones pequeñas: Hacerlo acompañado: Aprobada
+EMO-335 · Elecciones pequeñas: Mi manera de agradecer: Aprobada
+EMO-336 · Elecciones pequeñas: Pedir un cambio: Aprobada
+EMO-337 · Elecciones pequeñas: Decir lo que prefiero: Aprobada
+EMO-338 · Elecciones pequeñas: Pausar el teléfono: Aprobada
+EMO-339 · Elecciones pequeñas: Terminar a mi ritmo: Aprobada
+EMO-340 · Preferencias y expresión: Mi forma de recibir apoyo: Aprobada
+EMO-341 · Preferencias y expresión: Una conversación cómoda: Aprobada
+EMO-342 · Preferencias y expresión: Una invitación ideal: Aprobada
+EMO-343 · Preferencias y expresión: Mi señal de pausa: Aprobada
+EMO-344 · Preferencias y expresión: Una forma de celebrar: Aprobada
+EMO-345 · Preferencias y expresión: Una preferencia que cambia: Aprobada
+EMO-346 · Preferencias y expresión: Mi espacio para decidir: Aprobada
+EMO-347 · Preferencias y expresión: Una pregunta que me sirve: Aprobada
+EMO-348 · Preferencias y expresión: Un límite que quiero cuidar: Aprobada
+EMO-349 · Preferencias y expresión: La palabra para pedir tiempo: Aprobada
+EMO-350 · Preferencias y expresión: Mi manera de decir gracias: Aprobada
+EMO-351 · Preferencias y expresión: Una conversación que puedo posponer: Aprobada
+EMO-352 · Preferencias y expresión: Cómo me gusta escuchar: Aprobada
+EMO-353 · Preferencias y expresión: Una frase que me representa: Aprobada
+EMO-354 · Preferencias y expresión: Lo que prefiero reservar: Aprobada
+EMO-355 · Preferencias y expresión: Una forma de pedir claridad: Aprobada
+EMO-356 · Preferencias y expresión: Mi ritmo al responder: Aprobada
+EMO-357 · Preferencias y expresión: Un plan con alternativas: Aprobada
+EMO-358 · Preferencias y expresión: La compañía que prefiero: Aprobada
+EMO-359 · Preferencias y expresión: Una voz que escucho: Aprobada
+EMO-360 · Preferencias y expresión: Lo que sí quiero compartir: Aprobada
+EMO-361 · Preferencias y expresión: Mi manera de cambiar de opinión: Aprobada
+EMO-362 · Preferencias y expresión: Un espacio propio: Aprobada
+EMO-363 · Preferencias y expresión: Una petición sencilla: Aprobada
+EMO-364 · Preferencias y expresión: Un acuerdo flexible: Aprobada
+EMO-365 · Preferencias y expresión: Mi señal de comodidad: Aprobada
+EMO-366 · Preferencias y expresión: Una elección sin testigos: Aprobada

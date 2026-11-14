@@ -23,6 +23,9 @@ Cada uno es una clase distinta aunque por dentro los cuatro sean texto. Asi
 pasar un `ActivityId` donde se espera un `UserId` no compila. Confundirlos
 seria un error caro y silencioso.
 
+`SesionId` (SCRUM-204) identifica una sesion de actividad, que no es la actividad ni un dia del
+sendero. Viaja junto a `ActivityId` y por eso tambien es una clase aparte.
+
 Por que UUID y no un entero autoincremental: el dispositivo puede crear
 registros sin conexion, antes de hablar con el servidor, y un identificador no
 consecutivo no se puede enumerar para tantear datos ajenos. Ver
@@ -79,6 +82,127 @@ Si una actividad no trae sus textos se devuelve el nivel tal cual, que es feo
 pero honesto. Inventar una frase es como acaban saliendo las que suenan a
 diagnostico.
 
+### El motor y la frecuencia rotativa (SCRUM-204, ADR 0030)
+
+Una actividad del catalogo es una **mecanica**; lo que cambia cada dia es su **sesion**. Dos cosas de
+`Activity` lo preparan:
+
+- `motor` (opcional): uno de los nueve de `Motor.ts`, de M1 a M9 de las fichas. Dice que componente pinta
+  la mecanica. De las nueve actuales lo tienen cinco desde la Fase 0 (SCRUM-207); las otras cuatro son pantallas propias y no. Las tres del piloto (SCRUM-212) nacen con motor. `Activity.create` rechaza un
+  valor que no sea uno de los nueve, aunque el tipo ya lo impida: cubre lo que llega de una fila.
+- `franja` (opcional, SCRUM-221): la franja del dia en que el sendero la ofrece (`Franja.ts`: `manana` de 5:00
+  a 11:59, `tarde` de 12:00 a 18:59 y `noche` de 19:00 a 4:59). Se calcula con la hora **de la persona**
+  (ADR 0014). Vacia: a cualquier hora. Decide **que se ofrece**, no que se puede hacer: la actividad sigue en
+  el catalogo, y lo que la persona ya hizo hoy no desaparece al cambiar de franja. Una mecanica fuera de su
+  hora tampoco ocupa uno de los tres lugares de la rotacion.
+- `Frecuencia` gana `{ tipo: 'rotativa' }`, sin dias. Una rotativa **no toca por su frecuencia**: la
+  rotacion elige hasta `MECANICAS_ROTATIVAS_POR_DIA` (3) por modulo y por dia (ver "El sendero de cada
+  modulo").
+
+## `SesionDeActividad`
+
+El contenido de una vez de una mecanica (ADR 0030). **No es una actividad:** no sale en el catalogo ni en el
+sendero como un elemento propio.
+
+Es inmutable y se comprueba entera al crearla, como `Activity.create`: un contenido roto tiene que fallar al
+cargarse y no cuando alguien ya esta haciendo la sesion.
+
+- `titulo` de 1 a 100 caracteres; `nivel` entero de 1 a 3.
+- `parametros` tiene que ser JSON de verdad: un objeto plano con objetos, listas, textos, numeros finitos,
+  booleanos y nulos. Una fecha, `undefined`, `NaN`, una funcion o una referencia circular llegarian a la base
+  cambiados o perdidos en silencio. Se guarda una **copia congelada**, y una clave `__proto__` es un dato mas.
+- **Lo que no esta revisado no se publica.** `publicado` con `revision` pendiente se rechaza; la base lo
+  impone ademas con un `CHECK`.
+- Una `revisada` dice **quien y cuando**; la constancia es un rol o un nombre, **sin correo ni telefono**. Las
+  demas no pueden traer constancia de una revision que no hubo.
+
+- `parametros` cumple el **contrato de su motor** (siguiente seccion) si la actividad tiene uno. `create`
+  recibe el `motor` de la actividad: quien lee sesiones de la base lo pasa siempre (el repositorio de Prisma
+  une `actividad` para traerlo), asi que un contenido roto falla al cargarse y no en el telefono. Sin motor, o
+  con uno que todavia no tiene contrato, basta con que sea JSON.
+
+### El contrato de `parametros` por motor (SCRUM-206)
+
+`ParametrosDelMotor.ts` (`problemaDeLosParametros`) es la **sola puerta**: la usa `SesionDeActividad.create` y
+la usaran las pruebas del contenido que se siembre. Es el contrato entre el servidor y el componente que
+pinta la sesion; el frontend lo lee tal cual. Reglas para todos los motores:
+
+- **Solo las claves del contrato.** Una escrita mal (`rondaz`) se rechaza en lugar de ignorarse: el componente
+  usaria su valor por omision y nadie se enteraria.
+- Los textos que lee la persona no van vacios y tienen un largo maximo. Se informa **del primer problema**, con
+  la ruta del campo (`opciones[3].valor debe ser un número entero de 0 a 10`), sin punto final.
+- Los **nueve** motores tienen contrato desde SCRUM-220, cada uno en su archivo de `src/domain/model/contratos/`.
+  Un motor que sirve a varias mecanicas tiene un contrato **por `modo`** (`porModo`): las sesiones sembradas
+  antes de que existieran los modos no traen `modo` y siguen siendo validas.
+- Las sesiones con puntaje traen `puntosMaximos`, y cuando el motor puede saberlo, el contrato lo **ata a la
+  sesion** (las rondas, las preguntas, las veces que sale un objetivo). La prueba del contenido compara ese
+  numero con el `puntaje_maximo` de la mecanica.
+
+Los que ya tenian contrato (los rangos son enteros e inclusivos):
+
+- **`cuestionario_corto`.** `indicacion` (hasta 200: la frase que enmarca el cuestionario), `preguntas` (1 a 10: `clave` de hasta 40, unica, y `texto` de hasta 200) y
+  `opciones` (2 a 7: `valor` de 0 a 10, unico, y `texto` de hasta 40, sin repetir). **El maximo del puntaje no
+  se guarda:** es `preguntas x valor mas alto`, asi que no puede desincronizarse del `puntaje_maximo`.
+- **`secuencia`.** `casillas` (2 a 12: `clave` y `nombre` unicos, `forma` y `color` opcionales; **un `color`
+  exige `forma`**, porque el color nunca es la unica pista), `largoInicial` (1 a 10), `rondas` (1 a 50),
+  `msPorElemento` (200 a 5000), `msDeMargen` (0 a 10000) y, solo para el juego de casillas que destellan,
+  `msDestello` (**600 a 5000**, baranda de accesibilidad R10, y **no mayor que `msPorElemento`**: el destello
+  tiene que caber en el turno de la casilla; la pausa es la diferencia). La secuencia de numeros no lo usa:
+  muestra todos los digitos a la vez durante `largo x msPorElemento + msDeMargen`.
+- **`tocar_el_objetivo`.** `rondas` (1 a 60), `segundosPorRonda` (3 a 120, o `null` si no hay tiempo) y `lados`
+  (1 a 6 tamanos de cuadricula de 2 a 8, de menor a mayor y sin repetir). Las rondas se reparten en tramos
+  iguales entre los lados, asi que no puede haber menos rondas que lados.
+- **`escritura_breve`.** `invitacion` (hasta 200), `campos` (1 a 5) y `largoMaximo` (50 a 1000); opcionales
+  `ideas` (0 a 10 textos de hasta 80, sin repetir), `minimo` (**1 hasta `campos`**; con «una basta», 1: un dia sin
+  nada lo registra `permiteNingunaHoy`, no un `minimo` de 0) y `permiteNingunaHoy`.
+- **`guia_paso_a_paso`.** `advertenciaInicial` (hasta 300; **obligatoria**, va a la vista antes de empezar),
+  `patron` (`inhalaSegundos` 3 a 8, `exhalaSegundos` 3 a 10 y `pausaSegundos` 0 a 4) y `duracionSegundos`
+  (60 a 600); opcionales `ambientacion` (hasta 40), `frases` (0 a 40 de hasta 120, sin repetir) y `haptico`.
+  Las barandas de la ficha BIE-01 estan hechas rango: **ninguna retencion de mas de 4 s** y **nada de ritmos
+  rapidos** (a lo sumo 10 respiraciones por minuto). Quien revisa la sesion puede pedir limites mas estrechos.
+
+Lo que suma SCRUM-220, **por modo** (todo es opcional salvo lo que dice «obligatorio»):
+
+- **`tocar_el_objetivo`.** Sin `modo`, «Encuentra la diferencia» de siempre. `flujo` (COG-05): `objetivos` (1 o 2) y `otros` (2 a 8), cada simbolo con `clave`, `nombre` y `pictograma`; `secuencia` (10 a 60 claves, sin el
+  mismo simbolo dos veces seguidas y con al menos un objetivo), `msPorEstimulo` (**1000 a 3000**: nunca mas de
+  uno por segundo, R10) y `puntosMaximos` (**igual a las veces que sale un objetivo**). `puntos` (COG-08):
+  `indicacion`, `puntos` (5 a 20, **en el orden en que se tocan**, con `etiqueta`, `x` e `y` de 5 a 95 y a
+  **14 de distancia o mas**: el objetivo tactil minimo es de 44 px) y `puntosMaximos`.
+- **`ver_ocultar_recordar`.** `lista` (COG-06): `contexto`, `segundosVista` (5 a 30), `elementos` (3 a 8),
+  `distractores` (2 a 6, sin repetirse con los elementos) y `puntosMaximos`. `escena` (COG-09): `segundosVista`
+  (5 a 20), `filas` y `columnas` (2 a 4), `celdas` (4 a 16, cada una en un lugar propio y con nombre unico),
+  `preguntas` (3 a 8: el lugar por el que pregunta, 3 o 4 `opciones` y la `correcta`, **que es lo que habia en
+  ese lugar**) y `puntosMaximos` (**igual a las preguntas**).
+- **`clasificar`.** `intruso` (COG-02): `rondas` (3 a 10 de cuatro `palabras` distintas, el indice del
+  `intruso` y su `razon`) y `puntosMaximos` (**igual a las rondas**). `cestas` (COG-03 y EMO-04): `indicacion`,
+  `cestas` (2 o 3), `elementos` (4 a 16; cada uno puede traer su `cesta`, o una lista si es ambiguo) y, solo si
+  **todos** la traen, `puntosMaximos` (**igual a los elementos**). Si ninguno la trae es un ejercicio de
+  reflexion y no puntua: puede traer una `linea` de texto libre.
+- **`palabras`.** `completar` o `anagrama`: `palabras` (3 a 10 con `pista` y `palabra` de 3 a 8 letras) y
+  `puntosMaximos` (**igual a las palabras**). `completar` trae `faltan` (1 a 3 posiciones que existan, sin
+  dejar la palabra casi sin letras); `anagrama` trae `revuelta`, que tiene que tener **las mismas letras** y no
+  ser la palabra.
+- **`calculo`.** `rondas` (3 a 10 con `enunciado`, tres `opciones` distintas y la `correcta`) y `puntosMaximos`
+  (igual a las rondas). **No hay `segundosPorRonda`: no hay reloj** (R4).
+- **`guia_paso_a_paso`, modo `pasos`.** `avance` (`manual` o `auto`), `advertenciaInicial`, `intro`, `cierre`,
+  `avisoSiempre` (una frase que queda a la vista) y `conLineasDeAyuda` (que **pide** el aviso), y **o** `pasos`
+  (2 a 12: `texto`, y `titulo`, `pictograma` y `segundos` opcionales) **o** `elecciones` (2 a 4, cada una con
+  sus propios pasos). Con `avance: auto`, todo paso trae sus `segundos`. La respiracion de siempre acepta
+  `modo: respiracion`, y no hace falta decirlo.
+- **`cuestionario_corto`, sin puntaje.** Sin `modo`, el cuestionario de siempre. `tarjeta` (BIE-03, 04, 05): una
+  practica con `titulo`, `texto`, un `porQue` opcional y 2 a 4 `opciones` **sin `valor`**. `lista` (BIE-07): 3
+  a 6 `items`. `preguntas` (BIE-08, EMO-08): preguntas de tipo `opcion`, `varias` u `hora` (la de `hora` no
+  trae opciones). `rueda` (EMO-01): `puerta` y una `rueda` de hasta **tres niveles** cuyas hojas (las emociones)
+  traen su `definicion` de una linea, con claves unicas en toda la rueda.
+- **`escritura_breve`.** Suma `etiquetas` (una por campo), `textoNinguna` (lo que dice el boton de «hoy no»),
+  `guardarParaManana` (la carta de EMO-05; un solo campo) y `cierre` (lo que dice al terminar).
+- **`cierre`** (hasta 160) lo traen tambien `cuestionario_corto` en sus cuatro modos sin puntaje y `clasificar` en
+  `cestas`: el texto de apoyo de cada ficha es contenido que se revisa, asi que viaja en la sesion. El modo
+  `preguntas` suma `avisoSiempre` y `conLineasDeAyuda` (EMO-08: el acceso a las lineas de atencion, con su frase).
+
+**Lo que no se comprueba aqui:** el filtro de lenguaje clinico (R6) ni la lista de exclusion (R14). Son pruebas
+automaticas sobre el contenido que se siembra, y se ejecutan con ese contenido.
+
 ## `OrientativeScore`
 
 Guarda el puntaje **ya normalizado** a una escala de 0 a 100 y el nivel que la
@@ -123,9 +247,84 @@ en `exigirConsentimiento()`, que falla en vez de devolver un booleano que
 alguien pueda olvidarse de mirar. Aqui el olvido no seria un error de
 programacion, seria un incumplimiento legal.
 
-**Edad minima 18 anos**, declarada al registrarse. El tratamiento de datos
-sensibles de menores exige garantias adicionales que quedan fuera del alcance
-de esta version.
+#### Una sola version del aviso
+
+La version vigente vive en un unico sitio: `AvisoDePrivacidad.ts`. El frontend
+y la coleccion de Postman la piden a `GET /api/aviso` en lugar de llevar su
+propia copia. Antes habia tres valores para lo mismo, y segun por donde entrara
+alguien quedaba registrado que habia aceptado cosas distintas (SCRUM-85).
+
+Al darse de alta solo se acepta la version vigente: cualquier otra responde
+409 `VERSION_DEL_AVISO_NO_VIGENTE` y no crea nada. Quien ya tenia cuenta
+conserva la version con la que se creo, aunque hoy haya otra: es la prueba de
+lo que acepto aquel dia.
+
+#### La edad minima es de 18 anos, y la comprueba el servidor
+
+El tratamiento de datos sensibles de menores exige garantias adicionales que
+quedan fuera del alcance de esta version. Hasta la auditoria 360, `EDAD_MINIMA`
+existia pero nada la usaba: el registro ni siquiera pedia una fecha. Ahora:
+
+- **Se declara la fecha de nacimiento** (`FechaDeNacimiento`): una fecha real,
+  que ya paso y de no mas de 120 anos. Se guarda el dia completo, no un "es
+  mayor de edad", porque es la prueba de lo que declaro, sale en su exportacion
+  y se borra con la cuenta.
+- **La edad se cuenta en el servidor**, con el dia local de la persona
+  (`Calendario`) y no con el de UTC: quien cumple 18 hoy en Bogota a las 8 p. m.
+  ya es mayor aunque en UTC sea manana. Los nacidos un 29 de febrero cumplen el
+  1 de marzo en los anos que no son bisiestos, que no adelanta la mayoria de
+  edad ni un dia.
+- **Un menor no queda registrado.** `POST /api/cuenta` responde 403
+  `MENOR_DE_EDAD`, no crea la cuenta, y borra su identidad en Supabase Auth
+  (la via que ya usa el borrado de cuenta). El rechazo se anota sin su fecha,
+  su correo ni su identificador. Si el proveedor no deja borrar la identidad,
+  igual se rechaza y se anota que hay que limpiarla a mano.
+- **La base es la ultima defensa**: un `CHECK` impide guardar la fecha de un
+  menor, con un dia de margen por la diferencia entre la fecha UTC de la base y
+  la de la persona.
+
+#### El consentimiento lo da la persona, con una casilla
+
+Antes bastaba con enviar la version: el panel la mandaba solo, en cada carga, y
+quien entraba con Google quedaba con consentimiento registrado sin haber
+marcado nada. Ahora el alta exige `aceptaAviso: true` y `aceptaTerminos: true`
+ademas de las versiones vigentes; sin ellas responde 400
+`CONSENTIMIENTO_NO_REGISTRADO` y no crea nada.
+
+Los **terminos** se aceptan aparte del aviso, con su propia version y su propia
+fecha: son dos documentos y cada uno cambia por su lado.
+
+#### El historial de lo aceptado
+
+`usuario` guarda lo vigente; la tabla `consentimiento` guarda **todo** lo que se
+acepto alguna vez, una fila por cada vez. Solo admite altas: la aplicacion no
+tiene permiso de `UPDATE` ni de `DELETE`, porque un historial que ella misma
+pudiera reescribir no probaria nada. Se borra con la cuenta, por la clave
+foranea. Sale en la exportacion.
+
+#### Las cuentas anteriores
+
+Las creadas antes de que se pidiera la fecha y las casillas tienen
+`registroCompleto: false`. `GuardiaDeCuenta` les responde 403
+`REGISTRO_INCOMPLETO` en todo menos en lo que lleva `@PermiteRegistroIncompleto()`:
+consultar la cuenta, **exportarla y borrarla**, que son derechos que no se
+condicionan. Mandar el registro a `POST /api/cuenta` lo completa, con las mismas
+comprobaciones que un alta. Lo que habian aceptado antes queda en el historial.
+
+Ver [ADR 0021](adr/0021-la-edad-y-el-consentimiento-se-comprueban-en-el-servidor.md).
+
+#### Cuando cambian el aviso o los términos
+
+La versión que aceptó cada cuenta se compara con la vigente (`User.textosPendientes`).
+Si alguna cambió, `GET /api/cuenta` la lista en `textosPendientes` y `GuardiaDeCuenta`
+responde 403 `TEXTOS_PENDIENTES_DE_ACEPTAR` en todo menos en lo que lleva
+`@PermiteRegistroIncompleto()` (ver, exportar y borrar) y en `POST /api/cuenta/aceptacion`,
+que lleva `@PermiteTextosPendientes()` y guarda la aceptación de todo lo pendiente con
+las casillas y las versiones vigentes. La aceptación nueva se **añade** al historial:
+la anterior queda. La versión solo sube cuando el cambio afecta a lo que las personas
+autorizan, porque bloquea a todas las cuentas hasta que acepten.
+
+Ver [ADR 0032](adr/0032-cuando-cambian-el-aviso-o-los-terminos-la-cuenta-vuelve-a-aceptarlos.md).
 
 ### El administrador gestiona contenidos, no personas
 
@@ -138,11 +337,126 @@ ningun usuario.
 Ser administrador no es tener una llave maestra. Hay una prueba que lo
 comprueba.
 
-### Lo que falta por conectar
+### Las preferencias: modulos activos y mascota
 
-La regla del consentimiento esta modelada y probada en el dominio, pero
-todavia no se aplica en el flujo HTTP: para exigirla hace falta saber quien
-hace la peticion, y eso es autenticacion. Se conecta en el Ciclo 5.
+Cada persona empieza solo con los modulos que elige (`Preferencias.ts`):
+
+- Los modulos se nombran con una **clave estable** —`cognicion`, `bienestar`,
+  `emociones`—, no con el nombre visible ni con el identificador de la
+  categoria. El nombre ya cambio una vez y el identificador puede variar entre
+  bases.
+- **Una lista vacia significa "todavia no eligio"**, y es lo que lleva a la
+  bienvenida. Elegir cero, en cambio, se rechaza (`SIN_MODULOS_ACTIVOS`): el
+  dashboard quedaria vacio. Las cuentas que ya existian tambien empiezan
+  vacias, para preguntarles en lugar de suponer.
+- La **mascota** es un personaje (`fungito`, `sparky`, `ori`, `gato` u
+  `obsidian`, SCRUM-99) con un nombre de 1 a 30 caracteres. La forma se valida
+  por formato y no contra esa lista: un personaje nuevo no deberia exigir
+  desplegar el backend. Color (`#RRGGBB`) y accesorio son opcionales y vienen
+  del modelo anterior; los personajes no los usan.
+- **Trama se retiro** (SCRUM-121). A quien la tenia elegida la migracion
+  `20261010120000_retirar_a_trama` le dejo a Fungito, y si todavia le decia
+  «Trama» le cambio tambien el nombre; un nombre que la persona eligio se
+  respeta. La API sigue aceptando una forma que no conozca, y el frontend la
+  dibuja como Fungito conservando el nombre.
+
+`User.conPreferencias` devuelve una cuenta nueva y solo toca esas dos cosas.
+El correo y el rol no se pueden cambiar por `PATCH /api/cuenta/preferencias`:
+el cuerpo no tiene donde ponerlos, y mandarlos responde 400.
+
+### La foto de perfil
+
+La foto (SCRUM-120, ADR 0016) es una imagen `.jpg` o `.png` de menos de 50 KB que
+la persona elige en su perfil. El navegador la recorta y la comprime, y **la API
+la valida otra vez** sin fiarse de eso (`FotoDePerfil`): el tipo, el peso, que el
+contenido empiece como lo que dice ser y que ningun lado pase de 1024 px. Cada
+motivo de rechazo tiene su codigo (`FOTO_TIPO_NO_PERMITIDO`,
+`FOTO_DEMASIADO_PESADA`, `FOTO_DEMASIADO_GRANDE`, `FOTO_NO_ES_UNA_IMAGEN`) para
+que la pantalla diga que esta mal.
+
+- **El archivo vive en Storage; la cuenta guarda una marca**: `User.fotoActualizadaEl`,
+  si hay foto y desde cuando. Cambia con cada foto nueva.
+- Los tres casos de uso (`FotoDePerfilUseCaseImpl`: guardar, leer y quitar) reciben
+  **solo la persona**, que sale del token. No hay forma de pedir, cambiar ni
+  quitar la de otra.
+- **`conPreferencias` y `conZonaHoraria` conservan la marca.** Reconstruyen la
+  cuenta campo por campo, y si no la arrastraran, guardar el nombre borraria la
+  foto sin que nadie lo pidiera.
+- Marca sin archivo es lo mismo que no tener foto; archivo sin marca queda sin
+  ver y se limpia con la siguiente foto o al quitarla. Si el almacenamiento no
+  responde, se dice con `ALMACENAMIENTO_NO_DISPONIBLE` (503) y no se confunde con
+  «no hay foto».
+
+### La mascota propia
+
+La persona puede subir **un SVG** como su mascota (SCRUM-122, ADR 0017). Un SVG
+es un documento que puede llevar scripts y enlaces, asi que **no se guarda lo que
+llega: se reconstruye** (`SvgDeMascota`). Un lector estricto lo lee, una lista
+blanca de 16 elementos y de sus atributos decide que se queda, cada valor se
+valida contra su tipo, y lo que se guarda es un SVG nuevo escrito por el
+servidor. Lo peligroso (`peligroso`) o que no se admite (`no-admitido`: textos,
+imagenes, filtros, estilos) se rechaza **entero**, con un codigo por motivo; lo
+inofensivo (metadatos de editor, clases, titulos) se descarta.
+
+- Igual que la foto: el archivo vive en Storage (su propio bucket,
+  `mascotas-propias`) y la cuenta guarda una marca, `User.mascotaPropiaActualizadaEl`.
+- Se **elige** como mascota con las preferencias, poniendo la forma `propia`.
+  `conPreferencias` lo rechaza si no se subio (`MASCOTA_INVALIDA`).
+- **Quitarla** (`sinMascotaPropia`) devuelve a quien la tenia elegida al
+  personaje de siempre, `fungito`, **con el nombre que le habia puesto**.
+- Una cuenta con la forma `propia` y sin marca (un estado incoherente) se puede
+  leer y cambiar de nombre sin problema: lo unico que no admite es **elegirla**
+  sin haberla subido.
+- `User` reconstruye una cuenta a partir de otra en **un solo sitio**
+  (`copiaCon`). Un campo nuevo se conserva solo; hay que decidir expresamente
+  cambiarlo. Antes cada metodo copiaba campo por campo, y olvidarse de uno
+  borraba datos sin avisar.
+
+### Exportar y borrar: los derechos de acceso y de supresion
+
+La Ley 1581 de 2012 reconoce a cada persona el derecho a conocer lo que se
+guarda de ella y a pedir que se suprima (SCRUM-75).
+
+- **Exportar** (`ExportarDatosUseCaseImpl`) reune la cuenta, los resultados, las
+  entradas de diario, la foto de perfil (en base64) y la mascota propia (el SVG
+  como texto), si las tiene; si Storage no responde, la exportacion falla en vez
+  de salir sin ellas. Cada repositorio
+  filtra por la persona y la base lo impone, asi que no puede colarse nada ajeno. Los resultados salen como en el
+  resto de la API: con su nivel orientativo y sin el puntaje normalizado. Si la persona hizo una sesion (ADR 0030),
+  el resultado lleva el **titulo** de esa sesion (`sesion`), nunca su identificador ni sus parametros: son
+  contenido de todos y no le dicen nada a quien se lleva sus datos.
+- **Borrar** (`BorrarCuentaUseCaseImpl` y `InactivarCuentaUseCaseImpl`, que comparten
+  `BajaDeCuenta`) se hace en tres pasos y **ninguna transaccion espera a la red**
+  (SCRUM-267, ADR 0040): primero se deja una marca en `baja_pendiente`; despues se
+  borran, sin transaccion, los archivos de la persona y su identidad en el
+  proveedor (los dos pasos se pueden repetir); y al final se borran las filas, con la
+  constancia si la baja la pidio la persona. La marca se va con la cuenta.
+- **Si algo falla despues de la marca, la baja se termina sola.** Una tarea del API
+  (`RelojDeBajas`, cada minuto y al arrancar) toma las bajas con mas de 2 minutos
+  pedidas y repite los pasos. Quien la pidio recibe `BORRADO_NO_COMPLETADO` (503),
+  con un mensaje que dice si la baja quedo pedida (se termina sola) o si fallo antes
+  de empezar (no se borro nada y se puede reintentar). Un error ya no significa
+  siempre «no paso nada».
+
+Antes quedaba un hueco: que la base fallara al confirmar justo despues de que el
+proveedor ya borro, con las filas sin dueno. La marca lo cierra.
+
+### Como llega el consentimiento al flujo HTTP
+
+Desde el Ciclo 5 la regla se aplica en tres puntos, y ninguna peticion con
+datos de salud puede saltarselos:
+
+- **El alta lo exige.** `POST /api/cuenta` sin las dos casillas marcadas
+  responde 400 `CONSENTIMIENTO_NO_REGISTRADO` y no crea nada
+  (`RegistrarCuentaUseCaseImpl`). Y antes de pedirlas comprueba la edad.
+- **Sin cuenta no se opera.** `GuardiaDeCuenta` traduce la identidad del token
+  a la cuenta propia en cada ruta, y si no existe responde 403
+  `CUENTA_NO_REGISTRADA`. Solo se libran las rutas publicas y la del alta. Con
+  la cuenta pero sin el registro completo responde 403 `REGISTRO_INCOMPLETO`,
+  salvo en consultar, exportar y borrar la cuenta.
+- **La base no lo admite.** Las columnas del consentimiento son `NOT NULL`, y
+  `PrismaUserRepository` se niega a guardar una cuenta sin el antes de llegar
+  a PostgreSQL.
 
 ## `ActivityResult`
 
@@ -151,7 +465,10 @@ Es la entidad central. Hace cumplir tres reglas:
 1. El identificador de operacion del cliente es obligatorio.
 2. La fecha de realizacion no puede estar en el futuro. Importa en modo sin
    conexion: el reloj del dispositivo puede estar desajustado, y aceptar una
-   fecha futura desordenaria el historial.
+   fecha futura desordenaria el historial. **Con una tolerancia de cinco
+   minutos** (`ToleranciaDelReloj`, SCRUM-133): lo que se adelante hasta ese
+   margen se registra como "ahora", y lo que pase se rechaza. Ver "El reloj del
+   dispositivo" mas abajo.
 3. El puntaje, **si lo hay**, debe caer dentro del rango de la actividad, regla
    que delega en `OrientativeScore`.
 4. `metadata` no puede traer claves que ya sean campos propios.
@@ -176,6 +493,43 @@ sueno, y no daria ningun error.
 Un resultado sin puntaje tampoco sugiere acompanamiento por si solo. Un
 registro cobra sentido en la tendencia, no en una anotacion suelta, y hacer que
 un dato aislado dispare una sugerencia seria leer de mas.
+
+Con una excepcion, desde SCRUM-94: **lo que la persona escribe pasa por la
+misma deteccion de riesgo que el asistente** (`hayRiesgo`). Si algun texto de
+la `metadata`, a cualquier profundidad, trae una senal, el resultado sugiere
+acompanamiento esa misma vez, tenga puntaje o no. Pensado para el texto libre
+de «Un momento bueno del dia», pero cubre cualquier campo de texto futuro sin
+tener que acordarse de anadirlo.
+
+**Un solo resultado que requiere atencion no basta (SCRUM-200, ADR 0029).** Se
+registra con su nivel, pero no sugiere acompanamiento: lo que se mira es la
+semana. Hay **patron** cuando, en los 7 dias que terminan en el dia del
+resultado, al menos 4 dias distintos tienen un resultado que requiere atencion
+(`hayPatronEnLaSemana`). Solo entonces, y si el resultado de ahora tambien
+requiere atencion, la respuesta sugiere acompanamiento. La senal de riesgo en lo
+escrito **no espera** una semana.
+
+Cuando un resultado sugiere acompanamiento, `POST /api/resultados` devuelve en
+la misma respuesta las lineas de atencion, ordenadas por alcance. Quien recibe
+la senal recibe tambien los telefonos, sin depender de una segunda peticion que
+podria fallar justo entonces.
+
+Son las del pais de la persona, sacado de su zona horaria (SCRUM-124): ver
+[las lineas de ayuda segun el pais](#las-lineas-de-ayuda-segun-el-pais).
+
+Ese texto **no aparece en ningun registro**. El registro de peticiones solo
+anota metodo, ruta, estado y duracion. Y de los errores de Prisma, cuyo mensaje
+repite los argumentos de la llamada que fallo, se anota el nombre, el codigo y
+la traza, nunca el mensaje.
+
+### La sesion que se hizo (SCRUM-205, ADR 0030)
+
+`ActivityResult` guarda opcionalmente `sessionId`: la sesion (contenido) que se hizo. De ahi sale cual le sigue
+a la persona, sin tablas aparte. `POST /api/resultados` acepta `idSesion` (opcional) y
+`RegisterActivityResultUseCaseImpl` comprueba que sea **una sesion de esa actividad**; si no existe o es de otra
+mecanica responde 400 `LA_SESION_NO_ES_DE_LA_ACTIVIDAD`, igual en los dos casos. Una sesion **retirada** despues
+de servirse se acepta: quien la tenia abierta puede terminarla. La comprobacion va despues de la
+idempotencia: un reintento devuelve lo ya registrado sin volver a preguntar por la sesion.
 
 ### `metadata`
 
@@ -206,6 +560,34 @@ El instante actual se recibe como parametro en lugar de leer el reloj del
 sistema, para que la regla de la fecha futura se pueda probar sin depender de
 la hora a la que se ejecuten las pruebas.
 
+## El reloj del dispositivo (SCRUM-133)
+
+Sin conexion, lo que una persona hace queda guardado en su dispositivo y viaja
+despues **con la hora de ese reloj**, que puede ir unos minutos adelantado (un
+celular sin sincronizar, un equipo compartido). Rechazar esa hora seria rechazar
+el resultado **para siempre**: no es un fallo que se arregle reintentando, y la
+persona perderia lo que hizo sin enterarse hasta mucho despues.
+
+`domain/model/ToleranciaDelReloj` fija la politica, en un solo sitio:
+
+- **Cinco minutos** de tolerancia (`TOLERANCIA_DEL_RELOJ_EN_MS`).
+- `ajustarAlReloj(fecha, ahora)`: lo anterior a `ahora` **se respeta** (lo hecho
+  sin conexion hace horas es asi de viejo); lo que se adelante hasta la
+  tolerancia se registra como `ahora`; lo que pase **se rechaza**
+  (`FECHA_EN_EL_FUTURO`).
+- `conTolerancia(ahora)`: `ahora` mas el margen, para decidir hasta que dia se
+  admite una anotacion.
+
+Se aplica en dos sitios, y en los dos **antes de calcular el dia**:
+
+- **Resultados:** la hora se ajusta y de ella sale el dia. Asi un resultado de las
+  23:58 con el reloj adelantado pasada la medianoche no cae en el dia siguiente.
+- **Diario:** el dia que manda el dispositivo se admite hasta el dia que seria
+  con la tolerancia, y no uno mas (`FutureJournalDayError` para el resto).
+
+Lo que **no** cambia: un dia de verdad en el futuro se sigue rechazando, y las
+reglas de edicion del diario (plazo de una hora, versiones) no se tocan.
+
 ## La regla de idempotencia
 
 Vive en `application/usecases/RegisterActivityResultUseCaseImpl` y es la mas
@@ -230,6 +612,455 @@ Es un ejemplo concreto del principio de [seguridad.md](seguridad.md): la
 autorizacion vive en la capa de aplicacion, y se comprueba antes de devolver
 nada.
 
+## `Calendario`
+
+### El dia se cuenta en la zona de cada persona
+
+Las actividades del dia, el sendero de cada modulo, el diario y el semaforo
+dependen de "que dia es". Ese dia es el de la zona horaria de la persona, no el
+de UTC, y lo decide siempre `Calendario`. Hasta SCRUM-123 era siempre el de
+Colombia; ver el [ADR 0014](adr/0014-cada-persona-tiene-su-zona-horaria.md).
+
+Bogota va cinco horas por detras de UTC. Con la fecha UTC, algo hecho a las
+8 p. m. en Colombia contaria para el dia siguiente: la actividad sumaria en
+manana, el diario la pondria en otro dia y el progreso saldria corrido.
+
+| Metodo                | Que hace                                                                 |
+| --------------------- | ------------------------------------------------------------------------ |
+| `diaDe(instante)`     | El dia local, `AAAA-MM-DD`, al que pertenece un instante.                |
+| `limitesDelDia(dia)`  | El rango `[desde, hasta)` de instantes de ese dia, para consultar "hoy". |
+| `minutoDelDia(i)`     | Los minutos desde la medianoche local: la hora de cada aviso.            |
+| `Calendario.de(zona)` | El calendario de una zona, sin construirlo otra vez en cada peticion.    |
+
+**La regla:** ningun calculo de dia usa la fecha UTC directamente. Nada de
+`toISOString().slice(0, 10)` ni de `getUTCDate()` para decidir a que dia
+pertenece algo. Los instantes se siguen guardando en UTC, que es lo correcto;
+lo que cambia es como se agrupan por dia.
+
+**La zona es de la cuenta** (`User.zonaHoraria`, una zona IANA). La informa el
+dispositivo en cada entrada y las cuentas anteriores quedan en `America/Bogota`:
+
+- `POST /api/cuenta` acepta `zonaHoraria`. Si la cuenta ya existe y la zona es
+  otra, la actualiza; si no viene, deja la que hay. Una zona que el servidor no
+  conoce responde 400 `ZONA_HORARIA_INVALIDA`.
+- Quien necesita saber que dia es recibe la zona de la cuenta en su orden: el
+  diario, el registro de resultados y los avisos. El progreso la lee de la
+  cuenta. No hay un calendario global ni la variable `ZONA_HORARIA`.
+- Usa `Intl`, que es parte del lenguaje, asi que el dominio sigue sin
+  dependencias externas.
+
+**El dia de un resultado se guarda** (`resultado.dia`) cuando se registra, en la
+zona que la persona tenia entonces. No se recalcula al leer: si viajar moviera
+de dia lo que ya se hizo, se romperian rachas ya ganadas.
+
+**Los avisos se leen en la zona de cada persona.** La tarea de cada minuto mira
+las zonas en uso y, en cada una, a quien le toca en su minuto local. La zona de
+`preferencia_aviso` la copia la base desde la cuenta con dos disparadores, para
+que la tarea no necesite leer `usuario`.
+
+## Que sesion le toca a cada persona (SCRUM-205, ADR 0030)
+
+`elegirSesionDeHoy` (`SesionDelDia.ts`) decide, para una persona y una mecanica, cual de sus sesiones es la de
+hoy. Es una funcion de **lo que la persona hizo y de nada mas**: no hay un cursor que pueda desincronizarse
+del historial (`resultado.id_sesion` es la unica verdad), y no depende del orden en que llegaron los
+resultados, que sin conexion pueden llegar horas despues (ADR 0019). En orden:
+
+1. **Si ya hizo una hoy, es esa** (la ultima, si repitio), aunque se haya retirado despues. La actividad sale
+   como hecha y no se le ofrece otra el mismo dia.
+2. Si no, entre las publicadas, **la de menor clave que no hizo en los ultimos 365 dias**. La clave es propia
+   de cada persona (`claveDeLaSesion`), asi que cada una recorre el contenido en su orden.
+3. Si ya las hizo todas dentro de la ventana, **la que hizo hace mas tiempo**: el ciclo empieza otra vez, en el
+   mismo orden.
+
+Una sesion hecha el dia D vuelve a ser elegible el dia D + 365. Una sesion nueva entra donde le toca por su
+clave; una retirada se salta.
+
+`ClaveEstable.ts` da las claves: FNV-1a de 64 bits, pura y sin Node, para que los dos adaptadores y las
+pruebas coincidan. Nada de esto se guarda: agregar o retirar contenido no mueve a nadie.
+
+**Dos implementaciones, una regla.** El adaptador en memoria llama a `elegirSesionDeHoy` tal cual. El de
+PostgreSQL la escribe como una consulta (con `hashtextextended` como clave) para no traer al servidor todo el
+contenido de todas las mecanicas en cada lectura del sendero. Una prueba contra PostgreSQL real las compara
+sobre 160 historiales al azar, dandole a la funcion pura las mismas claves que calcula la base, con parte del
+historial puesto a proposito en el borde de los 365 dias.
+
+## El sendero de cada modulo
+
+`Sendero.ts` decide en que etapa va cada persona en cada modulo y que le toca
+hoy (SCRUM-91). Se expone en `GET /api/progreso`.
+
+- **Una sesion es un dia** en el que la persona hizo algo del modulo, contado
+  con el `Calendario`. Dos actividades el mismo dia suman una sesion, y faltar
+  un dia no deja hueco: el sendero no castiga.
+- **Etapas** de 5, 10, 15 y 20 sesiones; despues, temporadas de 25 sin fin. Al
+  completar una se pasa a la siguiente con cero hechas.
+- **Lo que toca hoy** sale de cada actividad: su `frecuencia` (diaria, ciertos
+  dias de la semana o unica) y su `desdeSesion`, que abre el sendero poco a
+  poco. Hoy cuenta como la sesion siguiente a las anteriores, la haya empezado
+  o no: hacer la primera actividad del dia no abre otras a mitad del dia.
+- Una actividad **unica** hecha otro dia no vuelve; hecha hoy, se ve hecha
+  hasta manana.
+- **Las rotativas** (ADR 0030, punto 7): de las mecanicas rotativas de un modulo se ofrecen **hasta 3 por dia**,
+  elegidas por (1) las **hechas hoy**, que siguen visibles; (2) las que **hace mas dias que no hace**, y antes
+  que todas las que **nunca hizo**; (3) a igual antiguedad, la clave propia de cada persona y dia
+  (`claveDeLaMecanica`). Es estable durante el dia: hacer una de las ofrecidas deja el mismo conjunto. Las hechas
+  hoy pueden pasar de tres, porque no se esconde lo que alguien acaba de hacer para cumplir una cifra. La
+  rotacion no limita lo que se puede hacer (SCRUM-184), solo reparte lo que se muestra.
+- **Una mecanica con motor solo se ofrece si tiene una sesion que dar**: sin ella no sale ni en lo de hoy ni
+  como sugerida, y no ocupa uno de los tres lugares. Las que no tienen motor (las nueve de hoy) no dependen de
+  esto. Lo que toca y lo sugerido llevan, cuando la mecanica tiene motor, **la sesion de hoy** (`sesion` en
+  `GET /api/progreso`), que viaja con el sendero que el dispositivo ya guarda: asi se puede hacer la actividad
+  sin conexion.
+- `ConsultarProgresoUseCaseImpl` lo arma en dos pasos y solo si el catalogo tiene mecanicas con motor: pregunta
+  **cuales tienen sesion** (una consulta barata), deja que `progresoDelModulo` decida que se ofrece, y entonces
+  pide **la sesion de cada una de las ofrecidas**, no las de todo el catalogo.
+- **No hay tope diario** (SCRUM-184). Lo que toca hoy sale entero, y nada impide
+  registrar mas: el servidor nunca limito cuantos resultados se guardan en un
+  dia (la unica unicidad es por `clientOperationId`). El "3" que se veia era el
+  tamano del catalogo, tres actividades por modulo.
+- **Un minimo sugerido de tres, sin imponerlo.** Si por frecuencia tocan menos
+  de tres, `sugeridas` trae otras actividades abiertas del modulo (que hoy no
+  tocan) hasta completar tres con lo de hoy, en el orden del catalogo. Es una
+  **sugerencia**: va aparte de `hoy`, no entra al plan del dia, no suma
+  sesiones ni cuenta para la racha (la racha es un dia con algo hecho; ver
+  ADR 0024). Con el catalogo de hoy, todas diarias, casi nunca hay sugeridas:
+  es el piso para cuando contenido ajuste frecuencias.
+
+### El historial de un modulo (SCRUM-184)
+
+`GET /api/progreso/:modulo/historial` devuelve lo que la persona hizo en un
+modulo, del mas reciente al mas antiguo, por paginas que arma el servidor.
+
+- **Solo que hizo y cuando**: la actividad, su dia y la hora. Nunca el puntaje,
+  el nivel ni lo que escribio (`metadata`): es una lista de lo hecho, no una
+  lectura de como le fue.
+- **Paginado por cursor**, no por numero de pagina. El cursor es la hora y el
+  identificador del ultimo hecho, en un texto opaco; la pagina siguiente empieza
+  justo despues, y un hecho nuevo mientras se lee no repite ni salta filas.
+  Limite de 1 a 50, por omision 20. Un cursor que no es de este sistema es 400.
+- **Sale de `resultado`**, como todo el sendero: no hay una tabla aparte que
+  pueda divergir. Por eso **entra en la exportacion y se borra con la cuenta**
+  sin hacer nada mas.
+- De **cualquier modulo conocido**, este activo o no: es lo que la persona hizo,
+  y desactivar un modulo no lo borra. Un modulo desconocido es 400.
+- Sin conexion, el cliente muestra lo de hoy (que ya viene en el progreso y
+  tiene copia local) y avisa que para ver lo anterior hace falta conexion.
+
+**No se guarda nada aparte.** Todo sale de `resultado`. Un contador propio
+podria desincronizarse del historial, y entonces la pantalla diria una cosa y
+los datos otra.
+
+Cada categoria sabe a que modulo pertenece por su columna `modulo`, con la
+misma clave estable que las preferencias. Un resultado de una actividad que ya
+no esta en el catalogo no cuenta para ningun modulo: no hay forma de saber a
+cual pertenecia.
+
+## El diario
+
+`EntradaDeDiario` es una anotacion del diario (SCRUM-95). El diario de un dia
+es el conjunto de sus anotaciones, y cada una tiene su hora: escribir algo mas
+tarde el mismo dia no reescribe lo anterior, se anade debajo. Se expone en
+`GET`, `POST` y `PATCH /api/diario`.
+
+- **El dia** es el del `Calendario`, no el de UTC. Se puede escribir en un dia
+  pasado y la anotacion conserva la hora real en que se escribio; en uno futuro
+  no (`DIA_EN_EL_FUTURO`).
+- **Una hora para editar.** `editar()` comprueba primero la hora y despues la
+  version. Fuera de plazo da `EDICION_FUERA_DE_PLAZO`. Con una version vieja,
+  porque otro dispositivo la cambio, da `VERSION_DESACTUALIZADA`. En los dos
+  casos no se toca nada y el cliente guarda lo suyo como una anotacion nueva
+  (ADR 0009). La regla esta aqui para contestar claro, pero quien la hace
+  cumplir es la base: ver `docs/modelo-de-datos.md`.
+- **La hora de escribir y de editar es la del dispositivo** (SCRUM-144, ADR 0020).
+  `POST` acepta `escritaEn` y `PATCH` acepta `editadaEn` (ISO 8601 con
+  desplazamiento). Escrita a las 9:00 sin conexion y recibida a las 14:00, la
+  anotacion muestra las 9:00; corregida a las 9:30, se aplica como correccion y
+  no como una anotacion nueva. `horaDelDispositivo()` decide que hora se cree y
+  **nunca lanza**: una hora que no sirve (mal formada, sin desplazamiento, un dia
+  que no existe, en el futuro, de hace mas de 30 dias, anterior al comienzo del
+  dia de la anotacion o a su escritura) se ignora y se usa la del servidor, sin
+  error. Un reloj adelantado unos minutos (la tolerancia de `ToleranciaDelReloj`)
+  queda en «ahora». La hora de la edicion nunca va hacia atras.
+- **El contenido es un documento del editor**, no HTML: `DocumentoDelDiario`
+  comprueba la forma del arbol (cada nodo con un `type` valido y solo las
+  claves que usa el editor), su profundidad y su tamano. No cierra la lista de
+  tipos: eso es del editor. Los diagramas van en `adjuntos`.
+- **Senales de riesgo, solo con permiso** (SCRUM-108). Nadie se mete en el
+  diario de nadie: si la persona no encendio `diarioConRecomendaciones` en su
+  perfil (apagado por defecto), lo escrito no pasa por ninguna deteccion y la
+  respuesta va sin sugerencia. Con el permiso, `contieneSenalDeRiesgo()` pasa
+  por `hayRiesgo` el titulo, el texto del documento con las frases enteras
+  aunque el editor las parta por marcas, y el texto de los diagramas, y la
+  respuesta trae `sugiereAcompanamiento`. **No trae lineas de atencion**
+  (SCRUM-194, [ADR 0028](adr/0028-el-diario-no-manda-lineas-de-atencion-la-mascota-ofrece-ayuda.md)):
+  el dispositivo ofrece ayuda y, si la persona acepta, la lleva al asistente.
+  **No se guarda ninguna marca** en la anotacion.
+- Escribir es idempotente por `clientOperationId`, por persona, igual que un
+  resultado.
+
+## El semaforo de pendientes
+
+`Pendiente` es algo por hacer con su color: urgente, prioridad o aplazable
+(SCRUM-97). Se expone en `GET`, `POST`, `PATCH` y `DELETE /api/pendientes`.
+
+- **El color lo pone la persona.** El sistema puede sugerir subirlo, nunca lo
+  sube solo.
+- **Cada color es un plazo** (SCRUM-107): urgente, esta semana; prioridad,
+  entre 7 y 21 dias; aplazable, 21 o mas.
+- **Recordatorios con calma.** `recordatorio(ahora, hoy)` dice si toca
+  recordarlo: sin hacer, sin posponer, y acabado el plazo de su color desde que
+  se anoto (7 dias urgente, 21 prioridad, 30 aplazable). Sugiere el nivel
+  siguiente; urgente no tiene siguiente. Lleva un `tono`: `plazo` para urgente
+  y prioridad, `suave` para aplazable ("no es urgente, pero que no se
+  acumule").
+- **La fecha limite es opcional** (SCRUM-119). Un pendiente puede tener un dia
+  limite, o no tenerlo: hay cosas que no vencen un dia concreto, como una tarea
+  recurrente. Es un dia `AAAA-MM-DD` del calendario de la persona y no un
+  instante. Sin fecha, todo funciona como arriba. **Con fecha, el recordatorio
+  llega desde ese dia** en lugar de esperar los dias del color, con tono de
+  `plazo` en cualquier color, y trae `fechaLimite` para que la pantalla diga que
+  llego el dia. `hoy` es el de la zona de la cuenta (ADR 0014), asi que el
+  mismo instante puede ser el dia limite para quien esta en Madrid y todavia no
+  para quien esta en Bogota. Se pone, se cambia y se quita con `PATCH`
+  (`fechaLimite: null` la quita); una que no es un dia real responde 400
+  `PENDIENTE_INVALIDO`.
+- **Uno por visita.** `elegirRecordatorio` devuelve uno como mucho: el de mayor
+  color y, a igual color, el mas antiguo.
+- **Posponer** es dar una fecha futura, como mucho a 90 dias. Hasta entonces no
+  recuerda nada; `null` deja de posponer.
+- La consulta trae los sin hacer y los hechos de los ultimos 7 dias.
+- Crear es idempotente por `clientOperationId`, por persona.
+- **Editar con version** (SCRUM-134): ver "Editar un pendiente desde dos
+  dispositivos" mas abajo.
+- **Borrar tambien es idempotente** (SCRUM-133): borrar uno que ya no esta
+  responde 204, igual que la primera vez. Sin conexion, si se pierde la respuesta
+  del primer borrado, el reintento llegaria a un error que la cola de
+  sincronizacion no sabria distinguir de un fallo de verdad. No filtra nada: el
+  pendiente de otra persona responde igual y no se toca (ADR 0010). Editar uno
+  que no existe sigue respondiendo `PENDIENTE_NO_ENCONTRADO`.
+
+### Editar un pendiente desde dos dispositivos (SCRUM-134)
+
+Sin conexion, dos dispositivos pueden editar el mismo pendiente y el ultimo en
+sincronizar pisaba al otro sin aviso. Cada pendiente lleva una `version` (empieza
+en 1 y sube con cada edicion), y `PATCH /api/pendientes/:id` acepta la que el
+dispositivo tenia. La regla, que vive en `PendientesUseCaseImpl.editar`:
+
+| El dispositivo trae...                                  | Resultado                                         |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| la version vigente                                      | se aplica; la version sube                        |
+| una version vieja, y **el pendiente ya esta como pide** | `200` con lo vigente, sin cambiar nada            |
+| una version vieja, y **solo lo marca como hecho**       | se aplica sobre lo vigente (no se pierde lo otro) |
+| una version vieja, y cualquier otra edicion             | `409 VERSION_DESACTUALIZADA`, sin tocar nada      |
+| ninguna version (dispositivos anteriores a este cambio) | se aplica, como siempre                           |
+
+Por que cada fila:
+
+- **«Ya esta como pide»** es lo que evita que un reintento choque consigo mismo.
+  Sin conexion, una edicion se envia, el servidor la aplica y la respuesta se
+  pierde; el dispositivo la reenvia con la version de antes, que ya no coincide.
+  Como cada campo de la edicion es un valor absoluto (no un incremento), basta
+  comprobar que el pendiente ya lo tiene. Tambien cubre a dos dispositivos que
+  coinciden sin saberlo. No hace falta guardar identificadores de operacion de
+  cada edicion.
+- **Marcar como hecho gana.** Es un hecho que ocurrio, no una opinion, y se lleva
+  bien con cualquier otro cambio: si un dispositivo lo marco sin conexion
+  mientras otro le cambiaba el texto, no hay nada que preguntarle a la persona,
+  queda hecho y con el texto nuevo. **Reabrirlo no es asi** (depende de lo que se
+  vio) y se trata como cualquier otra edicion.
+- **El resto es un conflicto** y no se resuelve solo. El texto, el color y las
+  fechas no se mezclan: una mezcla mal hecha produce algo que nadie escribio (el
+  mismo razonamiento del ADR 0009). La respuesta no trae el estado actual ni
+  repite lo escrito: el cliente consulta el semaforo, que es una lectura.
+- **El codigo es el mismo que el del diario** (`VERSION_DESACTUALIZADA`), a
+  proposito: para quien lo recibe es el mismo hecho, "esto ya no es lo que
+  viste", y se trata igual sea cual sea el dato.
+
+**La comparacion que cuenta la hace la base**, dentro del `UPDATE`. Si la escritura
+no pasa porque otro dispositivo la cambio entre leer y escribir: con version, es
+un conflicto; sin version o marcando como hecho, se relee y se reaplica (hasta tres
+veces) sobre lo vigente, porque esas ediciones se llevan bien con cualquier cosa.
+
+**Una version que no es un entero positivo** (cero, negativa, con decimales, texto
+o `null`) es un `400`, no un conflicto: `null` no significa «sin version».
+
+## Los avisos por Web Push
+
+`Aviso.ts` define los avisos que la aplicacion manda aunque no este abierta
+(SCRUM-102). Se exponen en `/api/notificaciones`. La ruta no es `/api/avisos`
+para no confundirla con `/api/aviso`, el aviso de privacidad.
+
+- **Cinco clases**, que se encienden y apagan por separado:
+  - `semaforo`: los pendientes sin hacer, con su titulo, a la hora elegida;
+  - `semaforo_noche` (SCRUM-146): el **segundo** aviso del semaforo, para quien
+    eligio «solo en la noche» o «dos veces al dia». Dice lo mismo que el primero
+    y tiene su propia marca de «ya se reviso hoy». Ver abajo;
+  - `racha`: una vez al dia, solo si ese dia no se hizo ninguna actividad, a la
+    hora elegida;
+  - `manana` (SCRUM-126): a las **8:00** de la persona, una invitacion a empezar
+    el dia. Sale siempre;
+  - `noche` (SCRUM-126): a las **20:00** de la persona, solo si ese dia no se
+    hizo ninguna actividad.
+- **La frecuencia del semaforo** (SCRUM-146, ADR 0036). La persona elige una
+  hora (la **hora base**) y cuantas veces al dia avisa el semaforo:
+  `manana` (una vez, a esa hora: lo que ya hacia y lo que queda a las cuentas
+  que existian), `noche` (una vez, doce horas despues de una hora de la manana, o
+  a la propia hora si es de las 12:00 en adelante) o `dos_veces` (las dos). Nunca
+  cruza la medianoche: el primer aviso de «dos veces» cae siempre antes de las
+  12:00 y el segundo de las 12:00 en adelante. `PATCH /api/notificaciones/horas`
+  recibe `frecuenciaSemaforo` y la respuesta trae `horasDelSemaforo`, las horas
+  que de verdad le tocan.
+- **La manana y la noche tienen la hora fija.** Se encienden o se apagan
+  (`PATCH /api/notificaciones/recordatorios`, con `manana` y `noche` en `true` o
+  `false`); no se mueven. `MINUTO_DE_LA_MANANA` (480) y `MINUTO_DE_LA_NOCHE`
+  (1200) son lo unico que se escribe en la base, o `NULL` para apagado. Todas las
+  cuentas que ya existian quedan con los dos apagados: nadie recibe un aviso que
+  no pidio.
+- **Una sola invitacion al dia.** La racha y la noche dicen lo mismo con otras
+  palabras. Con las dos encendidas, la que se revise primero cada dia es la
+  unica: `aQuienLeToca` no le toca a una si la otra ya se reviso hoy, haya
+  salido o no (si no salio, fue porque ya habia hecho una actividad, y entonces
+  la otra tampoco saldria). La manana y el semaforo no entran en esa regla.
+- **Las horas** van en la zona de la persona (SCRUM-123), en minutos desde la
+  medianoche.
+  `minutoDeHora("08:30")` da 510, y `Calendario.minutoDelDia(ahora)` dice que
+  minuto es.
+- **Nada de salud.** `mensajeDelSemaforo` cuenta y nombra hasta tres
+  pendientes, y sin pendientes no hay aviso. `mensajeDeLaRacha` invita ("¿Un
+  momento para ti hoy?"). Ninguno menciona un resultado, un nivel ni una
+  emocion, y hay una prueba que lo comprueba.
+- **Los textos de la manana y la noche** viven en `TextosDeLosRecordatorios.ts`
+  (doce de cada uno) y rotan: `semillaDelAviso(persona, dia)` es el numero del
+  dia mas un desfase por persona, asi que el texto cambia cada dia, no se repite
+  dos dias seguidos y no hay azar ni nada que guardar. Se escriben **con juego y
+  sin culpa**: misiones, pasos, el sendero; nunca "no pierdas", "todavia no" ni
+  una cuenta de dias. Si se quiere cambiar o ampliar uno, hay pruebas que
+  vigilan que ninguno hable de salud, ni culpe, ni se pase de largo para la
+  pantalla bloqueada. Tocarlos lleva a `/panel`, donde estan las actividades.
+- **La revision** (`RevisarAvisosUseCaseImpl`) corre cada minuto dentro del
+  API (`RelojDeAvisos`):
+  - busca a quien le toca: su hora cae en la ultima media hora y ese aviso no
+    se reviso hoy (lo unico que se mira de todos a la vez, y solo identificadores);
+  - atiende a **varias personas a la vez** (`PERSONAS_A_LA_VEZ`, 4), cada una en
+    su nombre y con el aislamiento intacto;
+  - a cada una le **reclama** el aviso de hoy **antes** de mandar
+    (`marcarRevisado` devuelve `true` solo a quien lo gana): si algo falla, se
+    pierde un aviso, pero nunca se manda dos veces. El reclamo es una sola
+    sentencia de la base, asi que tampoco hay aviso doble si dos revisiones
+    corren a la vez (dos instancias del API durante un despliegue). Con la racha
+    y la noche, reclamar una cierra la otra;
+  - decide el mensaje (la racha y la noche solo necesitan saber si hubo
+    actividad hoy: `hayActividadDesde`, una fila y no todas las del dia);
+  - entrega a cada navegador de la persona, todos a la vez (son diez como mucho),
+    y suelta los que ya no existen (404 o 410).
+- **La revision se mide.** Cada una que hizo algo deja una linea con las personas
+  atendidas, lo entregado, los navegadores soltados, los fallos y cuanto tardo;
+  solo cuentas, ni quien ni que mensaje. Avisa si tarda la mitad del minuto o mas
+  (`REVISION_LENTA_MS`), y si una revision se salta un minuto porque la anterior
+  sigue, lo dice y cuenta los seguidos. Ver [Cuanto aguanta la revision](#cuanto-aguanta-la-revision-de-avisos).
+- **Solo a servicios de push conocidos** (SCRUM-153). `suscripcionValida` acepta
+  unicamente las direcciones de Google (`fcm.googleapis.com`), Mozilla
+  (`*.push.services.mozilla.com`), Apple (`web.push.apple.com`) y Windows
+  (`*.notify.windows.com`), sin usuario, sin puerto y sin que `URL` y `web-push`
+  puedan leerla distinto; `WebPushEnviador` vuelve a comprobarlo antes de cada
+  envio. Cualquier otra es un `400` (`AVISO_INVALIDO`). Explicado en
+  [seguridad](seguridad.md).
+- **Diez navegadores por cuenta como mucho.** Al pasar de diez entra el nuevo y
+  sale el mas antiguo; no se rechaza (`MAXIMO_DE_SUSCRIPCIONES_POR_CUENTA`).
+- **Sin claves VAPID no hay avisos**, y lo demas funciona igual. En el plan
+  gratuito de Render el servicio se duerme: dormido no revisa, y al despertar
+  manda solo lo de la ultima media hora.
+
+### Cuanto aguanta la revision de avisos
+
+La revision tiene un minuto. Si dura mas, el siguiente se salta (no corren dos a
+la vez) y los avisos llegan tarde, hasta la media hora de gracia; pasada esa, se
+pierden. Lo que la hace lenta no es la base sino **esperar al servicio de push**
+(Google, Mozilla, Apple), y eso es lo que se reparte entre varias personas.
+
+**Medicion** (SCRUM-160): 2000 cuentas a las que les toca el aviso de las 8:00 en
+el mismo minuto, un navegador cada una, contra PostgreSQL local con el rol
+`vsd_app` y el aislamiento intacto, con un servicio de push de mentira que tarda
+50 ms:
+
+| Personas a la vez  | Revision de 2000 | Avisos por segundo |
+| ------------------ | ---------------- | ------------------ |
+| 1 (como antes)     | 125 s            | 16                 |
+| **4 (de fabrica)** | **31 s**         | **64**             |
+| 8                  | 16 s             | 126                |
+| 2 instancias x 4   | 16 s             | 126                |
+
+En serie, 2000 cuentas tardaban dos minutos: mas del doble de lo que tiene la
+revision. La ultima fila son dos instancias del API revisando a la vez, como en un
+despliegue: se entregaron los 2000 avisos, ninguno repetido.
+
+**La cuenta para otros servicios de push.** Cada persona cuesta lo que tarda el
+servicio de push mas unos 12 ms de base. Con 4 a la vez y un servicio que contesta
+en 200 ms, caben unos **19 avisos por segundo, es decir, unos 1100 por minuto**. Mas
+alla, la revision empieza a saltarse minutos: el registro lo avisa antes
+(`REVISION_LENTA_MS`: la mitad del minuto) y cuando ocurre.
+
+**Por que 4 y no 8.** El pool de conexiones del API es de 10 y es el mismo de las
+peticiones de la gente; Supabase en el plan gratuito tiene pocas conexiones. Cada
+persona usa una conexion solo unos milisegundos (reclamar, leer lo suyo) y la suelta
+antes de esperar al servicio de push, asi que 4 dejan de sobra para las peticiones.
+Si algun dia hace falta mas, se sube `PERSONAS_A_LA_VEZ` **junto con el pool**, no
+solo.
+
+**Repetir la medicion.** Es una prueba opcional que no corre en el CI y se niega a
+correr fuera de la base local, porque crea y borra miles de cuentas falsas:
+
+```powershell
+npm run db:local          # en otra terminal
+$env:CARGA_DE_AVISOS_PERSONAS = '2000'
+$env:CARGA_DE_AVISOS_LATENCIA_MS = '50'   # lo que tarda el servicio de push
+npx vitest run RevisarAvisos.carga
+```
+
+`CARGA_DE_AVISOS_A_LA_VEZ` (`1,4,8` por defecto) elige las configuraciones. Las
+cifras de arriba son de un equipo de desarrollo: sirven para comparar entre
+configuraciones, no como promesa de lo que hara Render.
+
+**Lo que no se hizo, a proposito.** Leer en un solo paso los pendientes, los
+resultados y las suscripciones de todas las cuentas habria sido mas rapido, pero
+exige una politica de acceso que deje a la tarea de avisos leer los datos de todas
+las personas. Hoy solo lee las horas. Con la concurrencia acotada se gana lo que
+hacia falta sin abrir esa puerta.
+
+## Las lineas de ayuda segun el pais
+
+Un numero equivocado en una crisis es el peor error posible, asi que las lineas
+que se ensenan (en el asistente, en los resultados y en el diario) son las del
+**pais de la persona**. Ver el
+[ADR 0015](adr/0015-las-lineas-de-ayuda-segun-el-pais.md).
+
+`paisDeLaZona(zona)` (`PaisDeAyuda.ts`) devuelve el codigo ISO de dos letras, o
+`undefined`. Sale de una lista de zonas escrita a mano, solo para los paises
+cuyas lineas verifico una persona: Colombia, Mexico, Espana y Estados Unidos. No
+se pide GPS ni ubicacion, y no lanza nunca: se llama cuando alguien puede estar
+mal, y una zona desconocida o mal escrita simplemente no tiene pais.
+
+**Misma hora no es mismo pais.** Peru, Ecuador y Panama comparten la hora de
+Bogota y no reciben el 192: reciben el directorio internacional.
+
+`RecursoApoyoRepositoryPort.lineasDeAtencion(pais)` recibe el pais **como
+parametro obligatorio**. Un `lineasDeAtencion()` sin pais que "devuelve todas" es
+justo la llamada que hay que impedir, y con el parametro obligatorio el
+compilador marca cada sitio donde alguien se olvide. Si el pais no tiene filas, o
+no hay pais, devuelve las filas sin pais (el directorio internacional): **nunca
+las de otro pais**.
+
+`RecursoApoyo.create` rechaza un contacto sin `fuente` o sin `verificadoEl`
+(`AAAA-MM-DD`), y la base impone lo mismo con una restriccion. Quien quiera
+agregar una linea sin decir de donde sale, no puede.
+
+**El telefono de «Llamar ahora»** (SCRUM-257, ADR 0037). `RecursoApoyo.telefono`
+es opcional: solo cifras, con un `+` opcional, y solo en un contacto (que ya
+tiene fuente y fecha). `RecursoDto.telefono` lo lleva a todo lo que ensena
+lineas: el asistente, los resultados y el acompanamiento. Sin telefono no hay
+boton, y el directorio internacional no lo lleva. Una prueba comprueba que el
+numero de la columna es siempre el que dice el texto de la linea.
+
 ## Errores
 
 Todos heredan de `DomainError` y llevan un codigo estable. El dominio no
@@ -246,6 +1077,17 @@ infraestructura del Ciclo 3 la que decida como traducirlos a una respuesta.
 | `ActivityNotFoundError`             | `ACTIVIDAD_NO_ENCONTRADA`             | La actividad no esta en el catalogo          |
 | `ScoreNotApplicableError`           | `LA_ACTIVIDAD_NO_PUNTUA`              | Llego un puntaje a una actividad de registro |
 | `InvalidActivityConfigurationError` | `CONFIGURACION_DE_ACTIVIDAD_INVALIDA` | La actividad esta mal configurada            |
+| `InvalidSessionConfigurationError`  | `CONFIGURACION_DE_SESION_INVALIDA`    | La sesion de actividad esta mal configurada  |
+| `SessionNotOfActivityError`         | `LA_SESION_NO_ES_DE_LA_ACTIVIDAD`     | La sesion no existe o es de otra actividad   |
+| `InvalidJournalEntryError`          | `ANOTACION_INVALIDA`                  | La anotacion no tiene la forma del diario    |
+| `FutureJournalDayError`             | `DIA_EN_EL_FUTURO`                    | Se escribe en un dia que no ha llegado       |
+| `InvalidDayRangeError`              | `RANGO_DE_DIAS_INVALIDO`              | El rango pedido al diario no es valido       |
+| `JournalEntryNotFoundError`         | `ANOTACION_NO_ENCONTRADA`             | No existe o es de otra persona               |
+| `EditWindowClosedError`             | `EDICION_FUERA_DE_PLAZO`              | Paso la hora para editar la anotacion        |
+| `StaleJournalEntryError`            | `VERSION_DESACTUALIZADA`              | Otro dispositivo la cambio entretanto        |
+| `InvalidTaskError`                  | `PENDIENTE_INVALIDO`                  | Texto, nivel o fecha de posponer no validos  |
+| `TaskNotFoundError`                 | `PENDIENTE_NO_ENCONTRADO`             | No existe o es de otra persona               |
+| `StaleTaskError`                    | `VERSION_DESACTUALIZADA`              | Otro dispositivo cambio el pendiente         |
 
 La clave de operacion es unica **por persona** desde el ADR 0010, asi que usar
 la de otra ya no produce un error distinto: se registra un resultado propio,
@@ -254,6 +1096,19 @@ que se retiro por eso mismo.
 
 ## Lo que todavia no existe
 
-No hay entidades `Categoria` ni `RecursoApoyo`. Se
-incorporan cuando se necesiten, no antes. Tampoco hay persistencia real: el
-unico adaptador es en memoria, y el de Prisma llega en el Ciclo 4.
+- **Contenido nuevo.** El modelo (SCRUM-204), la regla de que sesion toca y la rotacion (SCRUM-205) existen, y
+  desde la Fase 0 (SCRUM-207) cinco de las nueve actividades actuales tienen su sesion. Con el piloto (SCRUM-212)
+  hay tres mecanicas `rotativa` (Recuerda los colores, Respiracion guiada y Tres cosas buenas) con diez sesiones.
+  Las cuatro de «Recuerda los colores» (COG-01, que no pide revision) se publicaron con SCRUM-217; las seis de
+  BIE-01 y EMO-02 siguen **sin publicar**, esperan a quien las revise, y publicarlas es un paso aparte.
+- **La forma de `parametros` de los otros cuatro motores** (`ver_ocultar_recordar`, `clasificar`, `palabras` y
+  `calculo`). Se fija con el ticket que construye cada uno; hasta entonces aceptan cualquier objeto.
+- **La gestion de contenidos.** `Categoria`, `Activity` y `RecursoApoyo`
+  existen y se leen, pero el catalogo y los recursos solo cambian con una
+  migracion: todavia no hay casos de uso para que el administrador los cree o
+  los edite (SCRUM-76). El limite de ese rol ya esta escrito y probado; ver
+  "El administrador gestiona contenidos, no personas".
+- **La sincronizacion sin conexion.** La API ya es idempotente por
+  `clientOperationId`, que es lo que una cola de reintentos necesita para no
+  duplicar nada, pero la cola local del frontend todavia no existe (SCRUM-18
+  y SCRUM-19).

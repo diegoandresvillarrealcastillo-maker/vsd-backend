@@ -46,6 +46,47 @@ Solo la configuracion. Ninguna de estas diferencias vive en el codigo:
 `CORS_ORIGIN` nunca puede ser `*` en PRE ni en PROD: debe nombrar el
 dominio exacto.
 
+`SUPABASE_SERVICE_ROLE_KEY` es **obligatoria en PRE y PROD**: sin ella el
+servicio no arranca. Es la clave `service_role` de cada proyecto de Supabase,
+se pone a mano en Render y nunca pasa por Git. El backend la usa para **dos**
+cosas: borrar la identidad de quien borra su cuenta y guardar, leer y borrar los
+archivos de las personas en Supabase Storage (la foto de perfil, SCRUM-120; ver
+el [ADR 0016](adr/0016-los-archivos-de-cada-persona-viven-en-storage-y-solo-los-toca-la-api.md)).
+Nunca para leer ni escribir datos de la base. En DEV es opcional: sin ella la
+identidad no se borra en Supabase y las fotos se guardan en memoria.
+
+**El bucket de las fotos no se crea a mano.** La API crea `fotos-de-perfil` la
+primera vez que se guarda una foto: privado, sin politicas, con un limite de
+51 200 bytes y solo `image/jpeg` e `image/png`. Si ya existe, lo deja como esta.
+La primera vez en PRE hay que comprobarlo a ojo, porque en CI y en local no hay
+Storage: subir una foto desde el perfil, mirar en Supabase (Storage) que el
+bucket existe, es privado y tiene un objeto con el identificador de la cuenta
+como nombre, y quitar la foto desde el perfil y ver que el objeto desaparece.
+
+La mascota propia (SCRUM-122, ADR 0017) usa **otro bucket**, `mascotas-propias`,
+creado de la misma forma: privado, sin politicas, con un limite de 102 400 bytes
+y solo `image/svg+xml`. Se comprueba igual, subiendo un `.svg` desde el perfil.
+
+**No hay variable de zona horaria.** `ZONA_HORARIA` existio hasta SCRUM-123,
+cuando el servicio contaba el dia en una sola zona. Ahora cada cuenta guarda la
+suya y la informa el dispositivo; ver "El dia se cuenta en la zona de cada
+persona" en `dominio.md` y el ADR 0014. Si todavia esta declarada en Render, se
+puede quitar: ya no se lee.
+
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` son las claves de los
+avisos por Web Push (SCRUM-102).
+
+- **Opcionales en los tres ambientes:** sin ellas no se mandan avisos y todo lo
+  demas funciona igual. Van las tres juntas o ninguna, y una suelta impide
+  arrancar.
+- **Un par por ambiente**, generado con `npm run vapid:generar`. Lo generan
+  Diego o Samuel.
+- **La privada es un secreto:** se pone a mano en Render y nunca pasa por Git.
+  La publica viaja al navegador.
+- **Cambiarlas obliga a reactivar los avisos:** las suscripciones quedan atadas
+  a la clave publica con la que se hicieron, asi que cada persona tendria que
+  activarlos de nuevo.
+
 ## Donde vive cada valor
 
 - **En el repositorio** solo esta `.env.example`, con los nombres de las
@@ -57,6 +98,57 @@ dominio exacto.
 
 Cada ambiente tiene su propia base de datos. Los datos de prueba nunca
 se mezclan con los de personas reales.
+
+## El limite de peticiones detras del proxy de Render (`TRUST_PROXY_HOPS`)
+
+El limite general cuenta peticiones por direccion IP. Detras de un proxy —y en
+Render hay uno— Express ve la direccion del proxy para todo el mundo, y entonces
+las 120 peticiones por minuto no son de cada persona sino de **todas juntas**:
+una sola persona abusiva deja a las demas en 429 (S-03 de la auditoria 360).
+
+`TRUST_PROXY_HOPS` le dice a Express cuantos proxies de confianza hay delante.
+Vale 0 si no se pone, que es lo correcto en local y en las pruebas. En Render se
+pone un numero, **nunca** `true`:
+
+- Render **no reescribe** la cabecera `X-Forwarded-For`: anade al final la
+  direccion que ve, detras de lo que haya escrito quien llama.
+- Con un numero, Express cuenta saltos desde la derecha y se queda con la
+  direccion que anadio el proxy. Con `true` toma la de la izquierda, que escribio
+  quien llama, y el limite se esquiva cambiando una cabecera.
+- Contar de menos es seguro: el limite sigue siendo compartido. Contar **de mas**
+  no, porque se toma una direccion que escribio quien llama.
+
+### Como comprobar el numero en PRE (hay que hacerlo, no se supone)
+
+1. Empieza con `TRUST_PROXY_HOPS=1` en las variables de entorno del servicio y reinicia.
+2. Desde **dos conexiones con direccion distinta** (por ejemplo, el computador y el
+   celular con datos moviles) haz peticiones a `GET /api/aviso` y mira la cabecera
+   `RateLimit` de cada respuesta (`remaining`).
+3. Si los dos contadores bajan **por separado**, el numero esta bien. Si bajan
+   **juntos**, siguen compartiendo el cupo: sube de a uno (2, 3...) y repite. El
+   tope es 5.
+4. Para descartar que se pueda esquivar, manda una peticion con la cabecera
+   `X-Forwarded-For: 203.0.113.9` y comprueba que el contador no se reinicia ni se
+   separa del que ya tenias.
+5. Anota el numero que funciono aqui. Cualquier cambio de infraestructura delante
+   de Render (un CDN, otro proxy) cambia la cuenta: repetir la comprobacion.
+
+### Lo que salio en PRE (23/10/2026)
+
+**El valor correcto en PRE es `TRUST_PROXY_HOPS=3`**, no 1 ni 2. Con 1 y con 2 el
+contador se repartia en varios cupos (segun lo observado, cada servidor de
+Cloudflare cuenta aparte). Con 3 baja en un solo contador, y las peticiones con un
+`X-Forwarded-For` inventado no lo separan ni lo reinician: el limite no se esquiva.
+Lo comprobo Diego el 23/10 siguiendo los pasos de arriba (SCRUM-151 y SCRUM-169).
+
+**Para PROD, repetir la prueba y no copiar el numero:** otra cadena de proxies da
+otra cuenta, y contar de mas deja esquivar el limite.
+
+Ademas del limite general, las rutas que cuestan llevan un tope **por cuenta**
+(`@LimitePorCuenta`, valores en `src/infrastructure/limites/limites.ts`): exportar
+los datos, preguntar al asistente, guardar o quitar la foto y la mascota propia, y
+registrar un navegador para los avisos. Ese tope cuenta por el identificador del
+token ya verificado, asi que no depende de la direccion IP ni de este numero.
 
 ## Los principios que aplicamos
 
@@ -97,31 +189,184 @@ campo llegue a produccion. Se anota la plantilla de la ruta
 —`/api/resultados/:id`— y no la URL concreta, para que los
 identificadores no acaben en el registro solo por viajar en la direccion.
 
+## La imagen de Docker (SCRUM-131)
+
+El backend se empaqueta en una imagen (`Dockerfile`) y esa misma imagen corre en
+el CI, en el entorno completo (SCRUM-132) y en Render. La decision y lo que se
+descarto estan en el [ADR 0018](adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md).
+El frontend sigue en Vercel: no usa contenedor.
+
+```bash
+docker build -t vsd-api .
+docker run --rm -p 3000:3000 --env-file .env vsd-api
+```
+
+Lo que conviene saber:
+
+- **No lleva configuracion.** Ni `.env` ni ningun valor: todo entra como variable
+  de entorno al ejecutar, con los mismos nombres de esta pagina. `.dockerignore`
+  funciona por lista blanca para que un archivo con secretos no entre por
+  descuido.
+- **`NODE_ENV` vale `production` por omision.** Sin configurar nada, el servicio
+  se niega a arrancar y dice que falta. Para probarla en local con la base en
+  memoria hay que pedir `NODE_ENV=development` y dar `CORS_ORIGIN` y
+  `SUPABASE_URL`.
+- **No aplica migraciones.** Las aplica una persona, como siempre.
+- **Corre sin privilegios** (usuario `node`) y con el codigo de solo lectura.
+- **`PORT`** lo pone Render; si no llega, 3000.
+- **El `HEALTHCHECK`** consulta `/health` con el `fetch` de Node. Lo lee Docker
+  Compose; Render usa su propia comprobacion.
+- **El CI** (trabajo "Imagen de Docker") la construye, la arranca y comprueba lo
+  anterior. Imprime el peso en cada ejecucion.
+
+### El entorno completo (SCRUM-132)
+
+`docker compose --profile completo up --build` levanta cuatro piezas en orden,
+cada una esperando a la anterior por una **condicion** y no por una pausa:
+
+| Pieza         | Que hace                                                 | Espera a              |
+| ------------- | -------------------------------------------------------- | --------------------- |
+| `postgres`    | La base de desarrollo (PostgreSQL 17.6)                  | —                     |
+| `migraciones` | `prisma migrate deploy` y termina                        | `postgres` sana       |
+| `api`         | La imagen de arriba, en `development`, en el puerto 3000 | migraciones sin error |
+| `web`         | La imagen del frontend (nginx), en el puerto 8080        | `api` sana            |
+
+- `migraciones` usa la etapa `compilacion` del `Dockerfile` y no la imagen final,
+  porque la CLI de Prisma no viaja en la que se despliega.
+- Las piezas nuevas estan en el perfil `completo`: `docker compose up -d` y
+  `npm run db:arriba` siguen levantando solo las dos bases, como siempre.
+- El CI (trabajo «Entorno completo con Docker Compose») levanta la base, las
+  migraciones y la API, comprueba que el catalogo responde con su esquema y datos
+  y que la API acepta el origen de la web y no otro; y, si `vsd-frontend` ya
+  tiene su `Dockerfile` en `desarrollo`, levanta tambien la web.
+- Lo que **no** incluye: Supabase. El inicio de sesion usa el proyecto que se
+  indique en `SUPABASE_URL`. Y es el ambiente de desarrollo: la API conecta como
+  el dueno de las tablas, como `start:dev`.
+
+El paso a paso para quien lo use esta en el [README](../README.md).
+
+### Pasar el servicio de Render a Docker
+
+Lo hace **una persona en el panel de Render**; no se automatiza porque se toca un
+servicio vivo con sus variables. Los nombres de los campos salen de lo que se de
+Render, no de haberlos abierto: si algo no coincide, manda el panel.
+
+1. Crear un servicio web **nuevo** con el mismo repositorio y la misma rama, con
+   el lenguaje en **Docker** y el `Dockerfile` de la raiz. Dejar vacio el comando
+   de inicio: la imagen ya trae el suyo.
+2. Copiar las variables de entorno del servicio actual (incluida
+   `SUPABASE_SERVICE_ROLE_KEY`) y poner la ruta de comprobacion en `/health`.
+3. Esperar a que despliegue y comprobar `/health` y, con una sesion de PRE, el
+   perfil y el catalogo.
+4. Cambiar `VITE_API_BASE_URL` de la web de PRE (Vercel) a la direccion nueva y
+   volver a desplegarla, y **apagar el servicio viejo** solo cuando todo
+   funcione.
+5. Anotar aqui la fecha del cambio.
+
+Mientras tanto el servicio de Node actual sigue funcionando: el `Dockerfile` en el
+repositorio no cambia nada de lo desplegado hasta que alguien haga estos pasos.
+
+**Fecha del cambio: pendiente.** Al 08/10/2026 nadie ha hecho este cambio ni lo ha
+anotado aqui; el servicio de PRE sigue siendo el de Node.
+
+## El modo sin conexion en cada ambiente (SCRUM-143)
+
+El modo sin conexion (ADR 0019) **no se configura**: no agrega ninguna variable de
+entorno, ni al backend ni al frontend. Es el mismo codigo en los tres ambientes,
+como todo lo demas. Lo que si cambia con el ambiente es lo que se guarda y donde.
+
+| Que                                         | Como se comporta                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **La aplicacion guardada** (service worker) | Cada ambiente tiene su propio dominio, asi que su propio service worker y su propia copia. Precarga unos 204 archivos, unos **9,4 MiB** (`npm run build` lo imprime). No guarda nada de la API                                                                                                                                              |
+| **Lo de cada persona** (IndexedDB)          | Una base por persona **y por dominio** (`vsd-<id>`): lo hecho en PRE no se mezcla con lo de PROD, aunque sea el mismo navegador                                                                                                                                                                                                             |
+| **`index.html` y `sw.js`**                  | En la imagen de nginx van con `no-cache` (`nginx/default.conf` del frontend): se revalidan en cada visita, y por eso una version nueva se ve. En Vercel **no hay cabeceras propias** (`vercel.json` solo reescribe rutas): se confia en lo que Vercel hace por omision, y **no se ha comprobado en PRE** que `sw.js` llegue sin cache larga |
+| **`GET /health`**                           | Es lo que dice si hay conexion con la API (ADR 0019): responde sin tocar la base. Debe seguir existiendo y sin sesion                                                                                                                                                                                                                       |
+| **`GET /api/asistente/reglas-locales`**     | Publica, con `ETag`, para que VSD IA responda sin red (SCRUM-141). Se despliega **antes** que el frontend: si el frontend llega primero, lo unico que pasa es que no hay reglas guardadas y el asistente se comporta como antes                                                                                                             |
+| **CORS**                                    | La API **expone `ETag`** (SCRUM-133) para que la PWA pueda leerlo y preguntar «¿cambio?» con `If-None-Match`. Sin eso, cada lectura con copia bajaria todo de nuevo. `CORS_ORIGIN` sigue siendo el dominio exacto de la PWA de cada ambiente                                                                                                |
+
+### El arranque en frio y el modo sin conexion
+
+En el plan gratuito, Render apaga el servicio tras 15 minutos sin peticiones y
+despertarlo tarda cerca de un minuto. Para quien usa la aplicacion eso se parece
+mucho a no tener conexion, y la aplicacion lo trata asi a proposito:
+
+- La comprobacion de conexion (`GET /health`) espera **15 segundos**. Un servidor
+  dormido no contesta a tiempo, y **no cuenta como conexion**: la aplicacion puede
+  decir «Sin conexion» hasta que el servicio despierte, **aunque haya internet**. La
+  misma peticion ya lo esta despertando, y en cuanto responde vuelve a «con conexion» y
+  se envia lo guardado.
+- Un `503` o un tiempo agotado se tratan como un fallo **pasajero**: espera creciente
+  (5 s, 10 s... hasta 15 min) y no se descarta nada.
+- Las lecturas con copia (catalogo, diario, panel, perfil) usan la copia si la API
+  tarda mas de 2,5 s o no responde, y dicen de cuando es.
+- La PWA llama a `/health` en cuanto se abre (SCRUM-111), y el workflow
+  `mantener-el-api-despierto.yml` lo hace cada 10 minutos.
+
+**No se ha medido en PRE** cuanto dura exactamente ese minuto visto desde la
+aplicacion, ni se ha comprobado a mano que el indicador diga lo que debe mientras el
+servicio despierta: ver la [guia de prueba](guia-de-prueba-sin-conexion.md), caso 9.
+
+### Los limites del plan gratuito que importan aqui
+
+- **Render:** 750 horas al mes y se duerme a los 15 minutos. Con un solo servicio
+  despierto todo el mes, se usan unas 744; **no caben PRE y PROD despiertos a la vez**
+  (ver «Lo que falta para PROD»).
+- **Supabase:** dos proyectos activos por cuenta, y un proyecto sin actividad durante
+  siete dias queda en pausa.
+- **Lo que no tiene limite propio:** lo guardado en el navegador de cada persona. Su
+  cuota la decide el navegador y es finita: un almacen lleno se informa
+  (`AlmacenLleno`) y no se pierde nada en silencio. **Safari puede borrar** lo guardado
+  de un sitio que no se abre en una semana, salvo que este instalado en la pantalla de
+  inicio.
+
 ## La base de datos de cada ambiente
 
-| Ambiente | Donde vive                                | Estado            |
-| -------- | ----------------------------------------- | ----------------- |
-| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento |
-| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento |
-| PRE      | Supabase, proyecto `vsd-health-pre`       | **Preparado**     |
-| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**     |
+| Ambiente | Donde vive                                | Estado                                 |
+| -------- | ----------------------------------------- | -------------------------------------- |
+| DEV      | PostgreSQL local, Docker o `db:local`     | En funcionamiento                      |
+| CI       | Contenedor del trabajo, se crea y se tira | En funcionamiento                      |
+| PRE      | Supabase, proyecto `vsd-health-pre`       | **En uso**, con las 13 migraciones     |
+| PROD     | Supabase, proyecto `vsd-health-prod`      | **Preparado**, con 5 de 13 migraciones |
 
-Preparado quiere decir las cinco migraciones aplicadas, el catalogo sembrado y
-el rol `vsd_app` con contrasena y sujeto a las politicas de aislamiento. Los
-dos quedaron asi el **21/09/2026**, comprobados con `npm run db:revisar`.
+Preparado quiere decir las migraciones de ese momento aplicadas, el catalogo
+sembrado y el rol `vsd_app` con contrasena y sujeto a las politicas de
+aislamiento. Los dos quedaron asi el **21/09/2026**, con cinco migraciones,
+comprobados con `npm run db:revisar`. Desde entonces cada uno siguio un camino
+distinto (comprobado el 06/10/2026 en la tabla `_prisma_migrations`):
 
-Lo que todavia no existe es un despliegue que se conecte a ellas.
+- **PRE** recibio las migraciones a medida que llegaban a `preproduccion`.
+  Tiene las 13, hasta `20261005120000_avisos_push`, y es la base que usa el API
+  desplegado.
+- **PROD** sigue como quedo el 21/09: 5 de 13, hasta
+  `20260921120000_catalogo_inicial`. Le faltan las ocho siguientes, que tienen
+  que estar aplicadas antes del primer despliegue de PROD. Ver "Estado actual".
+
+> **Despues del 06/10/2026 llegaron diez migraciones mas** (`20261007120000_zona_horaria_por_persona`
+> hasta `20261015120000_edad_y_consentimiento_explicito`): ya son **23** en el
+> repositorio. Cuales estan aplicadas en cada base lo dice `npm run db:revisar`, y **las
+> aplica una persona**, en orden, antes de desplegar el backend. Tres importan para lo
+> que se acaba de construir: `20261013120000_version_del_pendiente` (SCRUM-134: el codigo
+> nuevo necesita esa columna), `20261014120000_hora_del_dispositivo_en_el_diario`
+> (SCRUM-144: cambia el disparador y la politica del diario) y
+> `20261015120000_edad_y_consentimiento_explicito` (SCRUM-147, de la Auditoria 360: agrega
+> la fecha de nacimiento, los terminos aceptados y la tabla `consentimiento`; es aditiva,
+> y las cuentas que ya existen quedan como registro incompleto hasta que lo completen,
+> ADR 0021). **Sin ellas, desplegar el backend rompe los pendientes, el diario y el
+> registro.** Esta tabla refleja lo comprobado el 06/10; no se ha vuelto a comprobar.
 
 Las migraciones llevan consigo todo lo que tiene que ser igual en los tres
-ambientes: las seis tablas, el aislamiento por Row Level Security, las tres
-lineas de atencion y **el catalogo de tres categorias y nueve actividades**.
+ambientes: las tablas, el aislamiento por Row Level Security, las tres lineas
+de atencion y **el catalogo de tres categorias y doce actividades** (las nueve de
+siempre y las tres mecanicas del piloto; de estas, solo «Recuerda los colores» tiene sus sesiones
+publicadas, y las otras dos esperan a quien las revise).
 
 El catalogo se siembra con una migracion y no desde el panel justamente por
 eso. Si PRE y PROD tuvieran actividades distintas, probar en PRE dejaria de
 significar algo, y el fallo no daria ningun error: la aplicacion se veria bien
 y mostraria cosas distintas en cada sitio.
 
-Ninguno de los dos contiene datos de ninguna persona.
+PROD no contiene datos de ninguna persona. PRE si tiene cuentas, creadas desde
+la PWA desplegada.
 
 Los dos proyectos viven en la organizacion de Samuel, no en `VSD-COMPANY`. El
 plan gratuito de Supabase permite **dos proyectos activos por cuenta**, y los
@@ -189,13 +434,29 @@ politicas apagadas.
 Las variables de los tres ambientes estan documentadas en
 `.env.example`, en este repositorio y en `vsd-frontend`.
 
-Las bases de PRE y PROD estan preparadas y listas para recibir conexiones,
-pero **todavia no hay ningun despliegue** que las use: la API solo corre en
-local y en el contenedor del CI. Los despliegues se configuran en el ciclo correspondiente, y esta
-seccion se actualiza cuando eso cambie.
+| Ambiente | API                                                        | PWA                                 | Base                                       |
+| -------- | ---------------------------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| DEV      | `http://localhost:3000`                                    | `http://localhost:5173`             | Local                                      |
+| PRE      | Render, servicio `vsd-api-pre`: `vsd-api-pre.onrender.com` | Vercel: `vsd-health-pre.vercel.app` | `vsd-health-pre`                           |
+| PROD     | Sin desplegar                                              | Sin desplegar                       | `vsd-health-prod`, preparada pero atrasada |
 
-Los dos pasos manuales de cada ambiente —aplicar las migraciones y darle
-contrasena a `vsd_app`— ya estan hechos. Se hicieron con `npm run db:preparar`,
+**PRE esta desplegado y en uso.** Las variables de cada servicio se cargaron a
+mano en Render y en Vercel; ninguna paso por Git. Dos cosas propias de este
+despliegue:
+
+- **Vercel sirve la PWA en cualquier ruta.** `vercel.json` reescribe toda ruta
+  a `index.html`, porque las rutas las resuelve React en el navegador. Sin eso,
+  entrar directo a `/panel` o recargar respondia 404 (SCRUM-104).
+- **Render se duerme.** En el plan gratuito apaga el servicio tras 15 minutos
+  sin peticiones, y despertarlo tarda cerca de un minuto. Lo cubren dos cosas
+  (SCRUM-111): la PWA llama a `/health` en cuanto se abre, y el workflow
+  `mantener-el-api-despierto.yml` lo llama cada 10 minutos. GitHub ejecuta los
+  workflows programados desde la rama por defecto, `produccion`, asi que ese
+  ultimo empieza a correr cuando SCRUM-111 llegue alli; mientras tanto se lanza
+  a mano desde Actions.
+
+Los dos pasos manuales de cada base —aplicar las migraciones y darle
+contrasena a `vsd_app`— se hicieron en PRE y en PROD con `npm run db:preparar`,
 que los encadena en el orden correcto: el rol lo crea una migracion, asi que
 darle contrasena antes no funciona.
 
@@ -203,5 +464,30 @@ Las contrasenas viven en el gestor del equipo y **son distintas por ambiente**.
 Si una se compromete, la otra no se va con ella. No pasan por Git ni por
 ningun chat.
 
-Queda anotar las dos URL en el gestor de secretos del proveedor de despliegue,
-cuando ese despliegue exista.
+### Los correos de Supabase Auth
+
+Confirmar la cuenta, recuperar la contrasena, el codigo al cambiarla desde el
+perfil, cambiar el correo y los avisos de seguridad (contrasena cambiada, correo
+cambiado, metodo de acceso vinculado) los manda Supabase, y cada proyecto guarda
+**sus propias plantillas**: no viajan con las migraciones. Las del equipo estan
+en [`correos/`](../correos/README.md) (SCRUM-125 y SCRUM-171), que explica cuales
+pegar y cuales avisos activar, y las **pega una persona** en cada ambiente, en
+_Authentication → Emails → Templates_. Salen de una sola plantilla y usan
+`{{ .SiteURL }}` para el logo y las mascotas, asi que la **Site URL** de cada
+proyecto tiene que ser la de su PWA (PRE: `https://vsd-health-pre.vercel.app`).
+
+### Lo que falta para PROD
+
+1. **Ponerle al dia la base.** Aplicar a `vsd-health-prod` las ocho
+   migraciones que le faltan con `npm run db:aplicar`, con `DIRECT_URL`
+   apuntando al session pooler de PROD en la misma orden. Lo hace una persona
+   del equipo, y antes de ejecutarlo se comprueba a que host apunta.
+2. **Crear el servicio del API y el proyecto de la PWA**, con sus propias
+   variables: `CORS_ORIGIN` con el dominio exacto de PROD, su propio par de
+   claves VAPID y la `DATABASE_URL` de `vsd_app` en PROD.
+3. **Pegar las plantillas de correo** de [`correos/generados/`](../correos/README.md)
+   en `vsd-health-prod`, con la Site URL de la PWA de PROD, y activar los tres
+   avisos de seguridad que ahi se indican.
+4. **Elegir el plan de Render.** En el gratuito no caben PRE y PROD despiertos
+   en el mismo espacio de trabajo: uno solo usa unas 744 de las 750 horas del
+   mes. Ver el encabezado de `mantener-el-api-despierto.yml`.

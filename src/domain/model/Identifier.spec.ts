@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidIdentifierError } from './DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, SesionId, UserId } from './Identifier.js';
 
 const UUID_VALIDO = '11111111-1111-4111-8111-111111111111';
 
@@ -26,6 +26,12 @@ describe('Identifier', () => {
   it('indica en el error de que tipo de identificador se trata', () => {
     expect(() => new ActivityId('roto')).toThrow(/actividad/);
     expect(() => new ClientOperationId('roto')).toThrow(/operacion del cliente/);
+    expect(() => new SesionId('roto')).toThrow(/sesion de la actividad/);
+  });
+
+  it('una sesion no se confunde con la actividad a la que pertenece', () => {
+    // Dos identificadores que viajan juntos en el sendero: intercambiarlos seria un error caro.
+    expect(new SesionId(UUID_VALIDO).equals(new ActivityId(UUID_VALIDO))).toBe(false);
   });
 
   it('considera iguales dos identificadores del mismo tipo y valor', () => {

@@ -34,6 +34,7 @@ node_modules/
 
 # ---------- Pruebas y cobertura ----------
 coverage/
+coverage-integracion/
 .nyc_output/
 playwright-report/
 test-results/
@@ -82,3 +83,8 @@ prisma/generated/
 # Datos del PostgreSQL local de desarrollo (scripts/postgres-local.mjs).
 # Es una base de trabajo, no algo que compartir.
 /.postgres-local/
+
+# Resultados del laboratorio de carga local (scripts/carga, SCRUM-279).
+ram-local.csv
+metricas-k6-local.json
+resumen-k6-local.json

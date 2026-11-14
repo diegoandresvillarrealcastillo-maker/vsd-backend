@@ -1,12 +1,11 @@
-// Vitest no lee `.env` por su cuenta.
-import 'dotenv/config';
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Activity, DireccionEscala } from '../../domain/model/Activity.js';
 import { ActivityId } from '../../domain/model/Identifier.js';
 import { NivelOrientativo } from '../../domain/model/OrientativeScore.js';
+import { todosLosLotes } from '../../pruebas/catalogo/lotes.ts';
 import { PrismaService } from '../persistence/PrismaService.js';
+import { urlDeLaBaseDePruebas } from '../../pruebas/baseDePruebas.js';
 
 /**
  * El catalogo, comprobado contra la base de verdad.
@@ -18,11 +17,11 @@ import { PrismaService } from '../persistence/PrismaService.js';
  *
  * Por eso esta comprobacion corre en el CI contra una base creada desde cero.
  */
-const URL_BASE = process.env['DATABASE_URL'];
+const URL_BASE = urlDeLaBaseDePruebas();
 
 if (process.env['PRUEBAS_DE_INTEGRACION'] === 'obligatorias' && URL_BASE === undefined) {
   throw new Error(
-    'Sin DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
+    'Sin TEST_DATABASE_URL donde las pruebas de integracion son obligatorias: ' +
       'se habrian saltado en silencio. Revisa el servicio de PostgreSQL del trabajo.',
   );
 }
@@ -47,6 +46,17 @@ const ACTIVIDADES = [
   'Qué te está pesando',
   'Un momento bueno del día',
 ];
+
+/** Las tres mecanicas del piloto (SCRUM-212, ADR 0030), sembradas despues, con sus sesiones sin publicar. */
+const DEL_PILOTO = ['Recuerda los colores', 'Respiración guiada', 'Tres cosas buenas'];
+
+/**
+ * Las mecanicas nuevas de los lotes de contenido (SCRUM-222 a SCRUM-224): salen del propio contenido que
+ * genera las migraciones, asi que un lote nuevo entra aqui solo.
+ */
+const DEL_CATALOGO_COMPLETO = todosLosLotes().flatMap((una) =>
+  una.lote.mecanicas.filter((m) => m.yaExiste !== true).map((m) => m.nombre),
+);
 
 /**
  * Palabras que en castellano solo existen con tilde.
@@ -116,17 +126,17 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
     }
   });
 
-  it('las nueve actividades estan sembradas, y solo esas', () => {
+  it('las nueve de siempre, las tres del piloto y las del catalogo completo estan sembradas, y solo esas', () => {
     const nombres = filas.map((fila) => fila.nombre);
+    const esperadas = [...ACTIVIDADES, ...DEL_PILOTO, ...DEL_CATALOGO_COMPLETO];
 
-    for (const actividad of ACTIVIDADES) {
+    for (const actividad of esperadas) {
       expect(nombres).toContain(actividad);
     }
 
-    // Que sean exactamente nueve importa tanto como que esten: una fila de mas
-    // con este prefijo significaria que alguien sembro algo fuera de la
-    // migracion, y entonces los ambientes ya no coinciden.
-    expect(filas).toHaveLength(ACTIVIDADES.length);
+    // Que sean exactamente esas importa tanto como que esten: una fila de mas con este prefijo
+    // significaria que alguien sembro algo fuera de la migracion, y entonces los ambientes ya no coinciden.
+    expect([...nombres].sort()).toEqual([...esperadas].sort());
   });
 
   it('cada actividad se puede construir en el dominio', () => {
@@ -247,5 +257,45 @@ describe.skipIf(URL_BASE === undefined)('Catalogo sembrado en PostgreSQL', () =>
         expect(texto, `"${texto}" en ${fila.nombre}`).not.toMatch(/\d+\s*(puntos?|\/|%)/iu);
       }
     }
+  });
+
+  it('cada categoria sembrada sabe a que modulo pertenece', async () => {
+    // Sin esto, el progreso por modulo (SCRUM-91) no encontraria ninguna
+    // actividad y todos los senderos saldrian vacios.
+    const categorias = await prisma.$queryRaw<{ nombre: string; modulo: string | null }[]>`
+      SELECT c."nombre", c."modulo"
+        FROM "categoria" c
+       WHERE EXISTS (SELECT 1 FROM "actividad" a
+                      WHERE a."id_categoria" = c."id_categoria"
+                        AND a."id_actividad"::text LIKE '0acd0000-0000-4000-8000-%')
+       ORDER BY c."modulo"
+    `;
+
+    expect(categorias.map((categoria) => categoria.modulo)).toEqual([
+      'bienestar',
+      'cognicion',
+      'emociones',
+    ]);
+  });
+
+  it('las nueve de siempre son diarias y estan abiertas desde la primera sesion', async () => {
+    // Las nueve llevan 1 a 9 al final del identificador; las del piloto, a, b y c.
+    const frecuencias = await prisma.$queryRaw<{ frecuencia: string; desde_sesion: number }[]>`
+      SELECT DISTINCT a."frecuencia"::text AS frecuencia, a."desde_sesion"
+        FROM "actividad" a
+       WHERE a."id_actividad"::text ~ '^0acd0000-0000-4000-8000-00000000000[1-9]$'
+    `;
+
+    expect(frecuencias).toEqual([{ frecuencia: 'diaria', desde_sesion: 1 }]);
+  });
+
+  it('las tres del piloto son rotativas y estan abiertas desde la primera sesion', async () => {
+    const frecuencias = await prisma.$queryRaw<{ frecuencia: string; desde_sesion: number }[]>`
+      SELECT DISTINCT a."frecuencia"::text AS frecuencia, a."desde_sesion"
+        FROM "actividad" a
+       WHERE a."id_actividad"::text ~ '^0acd0000-0000-4000-8000-00000000000[a-c]$'
+    `;
+
+    expect(frecuencias).toEqual([{ frecuencia: 'rotativa', desde_sesion: 1 }]);
   });
 });

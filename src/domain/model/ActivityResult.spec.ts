@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Activity, DireccionEscala } from './Activity.js';
 import { ActivityResult, type DatosDeResultado } from './ActivityResult.js';
 import { FutureCompletionDateError, ReservedMetadataKeyError } from './DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from './Identifier.js';
+import { ActivityId, ClientOperationId, ResultId, SesionId, UserId } from './Identifier.js';
 import { OrientativeScore } from './OrientativeScore.js';
 
 const USUARIO_A = '11111111-1111-4111-8111-111111111111';
@@ -31,6 +31,7 @@ function datos(sobrescribir: Partial<DatosDeResultado> = {}): DatosDeResultado {
     clientOperationId: new ClientOperationId(OPERACION),
     score: OrientativeScore.create(8, actividad()),
     completedAt: new Date('2026-09-14T11:00:00.000Z'),
+    dia: '2026-09-14',
     ...sobrescribir,
   };
 }
@@ -86,8 +87,22 @@ describe('ActivityResult', () => {
       AHORA,
     );
 
-    expect(bajo.sugiereAcompanamiento()).toBe(true);
-    expect(alto.sugiereAcompanamiento()).toBe(false);
+    expect(bajo.sugiereAcompanamientoPorSiSolo()).toBe(true);
+    expect(alto.sugiereAcompanamientoPorSiSolo()).toBe(false);
+  });
+});
+
+describe('ActivityResult y la sesion que se hizo (ADR 0030)', () => {
+  const SESION = '66666666-6666-4666-a666-666666666666';
+
+  it('sin sesion es lo de siempre: asi son los resultados de las nueve actividades actuales', () => {
+    expect(ActivityResult.create(datos(), AHORA).sessionId).toBeUndefined();
+  });
+
+  it('guarda la sesion que se hizo', () => {
+    const resultado = ActivityResult.create(datos({ sessionId: new SesionId(SESION) }), AHORA);
+
+    expect(resultado.sessionId?.value).toBe(SESION);
   });
 });
 
@@ -128,7 +143,53 @@ describe('ActivityResult sin puntaje', () => {
     // tendencia, no en una anotacion suelta.
     const resultado = ActivityResult.create(datos({ score: undefined }), AHORA);
 
-    expect(resultado.sugiereAcompanamiento()).toBe(false);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(false);
+  });
+});
+
+describe('ActivityResult y lo que la persona escribio (SCRUM-94)', () => {
+  // El texto libre pasa por la misma deteccion de riesgo que el asistente. Una
+  // senal no espera a ninguna tendencia: sugiere acompanamiento esa vez.
+
+  it('una senal de riesgo en el texto sugiere acompanamiento, aunque no haya puntaje', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { texto: 'Hoy no hubo nada, ya no puedo más' } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(true);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(true);
+  });
+
+  it('busca en cualquier campo de texto y a cualquier profundidad', () => {
+    const resultado = ActivityResult.create(
+      datos({
+        score: undefined,
+        metadata: { notas: [{ del: 'mañana', texto: 'pensé en quitarme la vida' }] },
+      }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(true);
+  });
+
+  it('un momento bueno de verdad no sugiere nada', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { texto: 'Almorcé con mi abuela y nos reímos mucho' } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(false);
+    expect(resultado.sugiereAcompanamientoPorSiSolo()).toBe(false);
+  });
+
+  it('los numeros y las claves no cuentan como texto escrito', () => {
+    const resultado = ActivityResult.create(
+      datos({ score: undefined, metadata: { despertares: 3, seMovio: false, tipos: ['caminar'] } }),
+      AHORA,
+    );
+
+    expect(resultado.contieneSenalDeRiesgo()).toBe(false);
   });
 });
 

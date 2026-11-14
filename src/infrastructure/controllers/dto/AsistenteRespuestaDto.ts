@@ -1,31 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { RecursoApoyo } from '../../../domain/model/RecursoApoyo.js';
+import { ApiProperty } from '@nestjs/swagger';
 import type { RespuestaDelAsistente } from '../../../domain/ports/in/AsistentePort.js';
-
-/** Un recurso tal y como sale por la API. */
-export class RecursoDto {
-  @ApiProperty({ format: 'uuid' })
-  id!: string;
-
-  @ApiProperty({ example: 'Línea 192, opción 4' })
-  titulo!: string;
-
-  @ApiPropertyOptional()
-  descripcion?: string;
-
-  @ApiProperty({ example: 'contacto', enum: ['contacto', 'lectura', 'ejercicio'] })
-  tipo!: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Donde sirve el recurso. La interfaz deberia mostrarlo: un telefono que solo atiende en una ciudad no ayuda a quien esta fuera de ella.',
-    example: 'nacional',
-  })
-  cobertura?: string;
-
-  @ApiPropertyOptional({ format: 'uri' })
-  enlace?: string;
-}
+import { RecursoDto } from './RecursoDto.js';
 
 /**
  * Respuesta del asistente.
@@ -36,7 +11,8 @@ export class RecursoDto {
  */
 export class AsistenteRespuestaDto {
   @ApiProperty({
-    description: 'Que se entendio de la pregunta.',
+    description:
+      'Que se entendio de la pregunta: que_significa_mi_resultado, como_duermo_mejor, me_siento_mal, donde_busco_ayuda, saludo, agradecimiento, despedida, como_estas, que_puedes_hacer, lenguaje_ofensivo o no_reconocida. La charla (saludo, agradecimiento, despedida, como_estas y que_puedes_hacer) y el lenguaje ofensivo responden sin recursos ni lineas de atencion.',
     example: 'como_duermo_mejor',
   })
   intencion!: string;
@@ -59,36 +35,23 @@ export class AsistenteRespuestaDto {
   })
   incluyeLineasDeAtencion!: boolean;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Los temas que el asistente si atiende, como frases que la persona puede tocar y enviar tal cual. Solo hay algo cuando no se reconocio lo que escribio (no_reconocida): en lugar de un telefono de crisis que nadie pidio, un catalogo de lo que si puede responder. Vacio en todo lo demas.',
+    example: ['¿Cómo puedo dormir mejor?', '¿Dónde busco ayuda?'],
+  })
+  sugerencias!: string[];
+
   static desde(respuesta: RespuestaDelAsistente): AsistenteRespuestaDto {
     const dto = new AsistenteRespuestaDto();
 
     dto.intencion = respuesta.intencion;
     dto.mensaje = respuesta.mensaje;
-    dto.recursos = respuesta.recursos.map((recurso) => AsistenteRespuestaDto.recurso(recurso));
+    dto.recursos = respuesta.recursos.map((recurso) => RecursoDto.desde(recurso));
     dto.senalDeRiesgo = respuesta.senalDeRiesgo;
     dto.incluyeLineasDeAtencion = respuesta.incluyeLineasDeAtencion;
-
-    return dto;
-  }
-
-  private static recurso(recurso: RecursoApoyo): RecursoDto {
-    const dto = new RecursoDto();
-
-    dto.id = recurso.id;
-    dto.titulo = recurso.titulo;
-    dto.tipo = recurso.tipo;
-
-    if (recurso.descripcion !== undefined) {
-      dto.descripcion = recurso.descripcion;
-    }
-
-    if (recurso.cobertura !== undefined) {
-      dto.cobertura = recurso.cobertura;
-    }
-
-    if (recurso.enlace !== undefined) {
-      dto.enlace = recurso.enlace;
-    }
+    dto.sugerencias = [...respuesta.sugerencias];
 
     return dto;
   }

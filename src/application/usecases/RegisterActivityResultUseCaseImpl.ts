@@ -1,13 +1,33 @@
 import { ActivityResult } from '../../domain/model/ActivityResult.js';
-import { ActivityNotFoundError, ScoreNotApplicableError } from '../../domain/model/DomainError.js';
-import { ActivityId, ClientOperationId, ResultId, UserId } from '../../domain/model/Identifier.js';
+import { Calendario } from '../../domain/model/Calendario.js';
+import {
+  ActivityNotFoundError,
+  ScoreNotApplicableError,
+  SessionNotOfActivityError,
+} from '../../domain/model/DomainError.js';
+import {
+  ActivityId,
+  ClientOperationId,
+  ResultId,
+  SesionId,
+  UserId,
+} from '../../domain/model/Identifier.js';
 import { OrientativeScore } from '../../domain/model/OrientativeScore.js';
+import { paisDeLaZona } from '../../domain/model/PaisDeAyuda.js';
+import { DIAS_DE_LA_VENTANA, hayPatronEnLaSemana } from '../../domain/model/PatronDeLaSemana.js';
+import { RecursoApoyo } from '../../domain/model/RecursoApoyo.js';
+import { ajustarAlReloj } from '../../domain/model/ToleranciaDelReloj.js';
 import type {
   RegisterActivityResultUseCase,
   RegistrarResultadoCommand,
+  RegistroDeResultado,
 } from '../../domain/ports/in/RegisterActivityResultUseCase.js';
 import type { ActivityRepositoryPort } from '../../domain/ports/out/ActivityRepositoryPort.js';
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
+import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
+import type { SesionesRepositoryPort } from '../../domain/ports/out/SesionesRepositoryPort.js';
+
+const UN_DIA_EN_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Registra el resultado de una actividad.
@@ -24,16 +44,71 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
   constructor(
     private readonly repositorio: ActivityResultRepositoryPort,
     private readonly actividades: ActivityRepositoryPort,
+    private readonly recursos: RecursoApoyoRepositoryPort,
+    private readonly sesiones: SesionesRepositoryPort,
     private readonly generarId: () => ResultId = () => new ResultId(globalThis.crypto.randomUUID()),
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
-  async execute(command: RegistrarResultadoCommand): Promise<ActivityResult> {
+  async execute(command: RegistrarResultadoCommand): Promise<RegistroDeResultado> {
+    const resultado = await this.registrar(command);
+    const sugiereAcompanamiento = await this.convieneAcompanar(resultado);
+
+    // Las lineas acompanan al resultado que sugiere apoyo, sea por una senal de
+    // riesgo en lo escrito o por un patron de la semana. Tambien en un
+    // reintento: quien repite la operacion tiene que ver lo mismo que la
+    // primera vez.
+    const lineasDeAtencion = sugiereAcompanamiento
+      ? RecursoApoyo.ordenarPorAlcance(
+          await this.recursos.lineasDeAtencion(paisDeLaZona(command.zonaHoraria)),
+        )
+      : [];
+
+    return { resultado, sugiereAcompanamiento, lineasDeAtencion };
+  }
+
+  /**
+   * Si conviene acompanar a la persona (SCRUM-200).
+   *
+   * - Si el resultado, por si solo, no sugiere nada, no hay nada que mirar.
+   * - **Una senal de riesgo en lo escrito no espera una semana**: se acompana en el momento.
+   * - Un nivel que requiere atencion necesita un **patron**: 4 dias con atencion de los 7 que
+   *   terminan en el dia de este resultado. Un dia flojo, o un juego que no salio, no es una
+   *   semana dificil.
+   *
+   * La semana se mide contra el dia **del resultado** (el que quedo fijado al registrarlo) y no
+   * contra hoy. Asi un resultado hecho sin conexion se mide con la semana en que ocurrio, y un
+   * reintento ve lo mismo que la primera vez aunque despues se hayan registrado mas dias.
+   */
+  private async convieneAcompanar(resultado: ActivityResult): Promise<boolean> {
+    if (!resultado.sugiereAcompanamientoPorSiSolo()) {
+      return false;
+    }
+
+    if (resultado.contieneSenalDeRiesgo()) {
+      return true;
+    }
+
+    // Un margen de un dia sobre la ventana: lo que se mide son dias locales ya fijados, y el
+    // filtro por hora solo acota la consulta.
+    const desde = new Date(
+      resultado.completedAt.getTime() - (DIAS_DE_LA_VENTANA + 1) * UN_DIA_EN_MS,
+    );
+    const recientes = await this.repositorio.ultimosDe(resultado.userId, desde);
+
+    return hayPatronEnLaSemana(
+      [resultado, ...recientes].map((r) => ({ dia: r.dia, nivel: r.score?.level })),
+      resultado.dia,
+    );
+  }
+
+  private async registrar(command: RegistrarResultadoCommand): Promise<ActivityResult> {
     // Validar en la frontera: si algo viene mal formado, falla aqui y no
     // a medio camino con datos ya escritos.
     const userId = new UserId(command.userId);
     const activityId = new ActivityId(command.activityId);
     const clientOperationId = new ClientOperationId(command.clientOperationId);
+    const sessionId = command.sessionId === undefined ? undefined : new SesionId(command.sessionId);
     // La actividad es la que sabe interpretar el puntaje: sobre que maximo se
     // obtuvo, hacia donde va su escala y donde estan sus cortes de nivel. Sin
     // ella no se puede derivar un nivel que signifique algo.
@@ -70,6 +145,25 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
       return existente;
     }
 
+    // La sesion tiene que ser de esta actividad (ADR 0030). Se mira despues de la idempotencia: un
+    // reintento devuelve lo ya registrado sin volver a preguntar por ella. Una sesion retirada se acepta.
+    if (sessionId !== undefined) {
+      const sesion = await this.sesiones.porId(sessionId);
+
+      if (sesion === null || !sesion.idActividad.equals(activityId)) {
+        throw new SessionNotOfActivityError();
+      }
+    }
+
+    const ahora = this.reloj();
+
+    // La hora la pone el dispositivo, y sin conexion puede viajar horas despues.
+    // Un reloj adelantado unos minutos no es un error de la persona (ver
+    // ToleranciaDelReloj): se registra como "ahora". Se ajusta ANTES de calcular
+    // el dia, para que un resultado de las 23:58 con el reloj adelantado no
+    // caiga en el dia siguiente.
+    const completedAt = ajustarAlReloj(command.completedAt, ahora);
+
     const resultado = ActivityResult.create(
       {
         id: this.generarId(),
@@ -77,14 +171,18 @@ export class RegisterActivityResultUseCaseImpl implements RegisterActivityResult
         activityId,
         clientOperationId,
         score,
-        completedAt: command.completedAt,
+        completedAt,
+        // El dia queda fijado aqui, en la zona que la persona tiene ahora. Si
+        // despues viaja, este resultado sigue siendo de ese dia.
+        dia: Calendario.de(command.zonaHoraria).diaDe(completedAt),
         metadata: command.metadata,
+        sessionId,
       },
-      this.reloj(),
+      ahora,
     );
 
-    await this.repositorio.save(resultado);
-
-    return resultado;
+    // Lo que devuelve es lo que quedo guardado: si otro reintento de esta misma operacion llego a
+    // la vez y gano, es el suyo (SCRUM-258). Quien repite ve lo mismo que la primera vez.
+    return this.repositorio.save(resultado);
   }
 }

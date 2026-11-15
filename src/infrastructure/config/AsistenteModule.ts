@@ -3,7 +3,7 @@ import { ConsultarLasReglasLocalesUseCaseImpl } from '../../application/usecases
 import type { ActivityResultRepositoryPort } from '../../domain/ports/out/ActivityResultRepositoryPort.js';
 import type { RecursoApoyoRepositoryPort } from '../../domain/ports/out/RecursoApoyoRepositoryPort.js';
 import { AsistentePorReglas } from '../asistente/AsistentePorReglas.js';
-import { AsistenteGeminiEnPre } from '../asistente/AsistenteGeminiEnPre.js';
+import { AsistenteGemini } from '../asistente/AsistenteGeminiEnPre.js';
 import { AsistenteController } from '../controllers/AsistenteController.js';
 import { ReglasLocalesDelAsistenteController } from '../controllers/ReglasLocalesDelAsistenteController.js';
 import { ActivityResultModule } from './ActivityResultModule.js';
@@ -47,9 +47,9 @@ import {
       ) => {
         const reglas = new AsistentePorReglas(recursos, resultados);
 
-        return configuracion.geminiEnPre === undefined
+        return configuracion.gemini === undefined
           ? reglas
-          : new AsistenteGeminiEnPre(reglas, configuracion.geminiEnPre);
+          : new AsistenteGemini(reglas, configuracion.gemini);
       },
       inject: [RECURSO_APOYO_REPOSITORY, ACTIVITY_RESULT_REPOSITORY, CONFIGURACION],
     },

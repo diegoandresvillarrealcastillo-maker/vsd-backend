@@ -14,11 +14,11 @@ vi.mock('web-push', () => {
     }
   }
 
-  return { default: { sendNotification, WebPushError }, WebPushError };
+  return { sendNotification, WebPushError };
 });
 
 const { WebPushEnviador, EntregaFallidaError } = await import('./WebPushEnviador.js');
-const webPush = (await import('web-push')).default;
+const webPush = await import('web-push');
 
 const CLAVES = { publica: 'publica', privada: 'privada', contacto: 'mailto:a@ejemplo.co' };
 const SUSCRIPCION = {

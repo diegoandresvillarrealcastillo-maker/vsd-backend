@@ -1,4 +1,4 @@
-import webPush from 'web-push';
+import { sendNotification, WebPushError } from 'web-push';
 import {
   esLaDireccionDeUnServicioDePush,
   type MensajeDeAviso,
@@ -63,7 +63,7 @@ export class WebPushEnviador implements EnviadorDePushPort {
     }
 
     try {
-      await webPush.sendNotification(
+      await sendNotification(
         {
           endpoint: suscripcion.endpoint,
           keys: { p256dh: suscripcion.p256dh, auth: suscripcion.auth },
@@ -92,7 +92,7 @@ export class WebPushEnviador implements EnviadorDePushPort {
 
       return 'entregado';
     } catch (error) {
-      const estado = error instanceof webPush.WebPushError ? error.statusCode : undefined;
+      const estado = error instanceof WebPushError ? error.statusCode : undefined;
 
       // 404 y 410: ese navegador ya no existe para el servicio de push.
       if (estado === 404 || estado === 410) {

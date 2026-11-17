@@ -1,5 +1,5 @@
 # ============================================================
-#  VSD Health - que el API de PRE no se duerma (SCRUM-111)
+#  VSD Health - que el API de PROD no se duerma (SCRUM-111)
 # ============================================================
 #  En el plan gratuito, Render apaga el servicio tras 15 minutos
 #  sin peticiones, y despertarlo tarda cerca de un minuto. Quien
@@ -12,9 +12,9 @@
 #
 #  Las horas: Render da 750 gratis al mes por espacio de trabajo, y
 #  un servicio despierto todo el mes usa unas 744. Alcanza para uno.
-#  Por eso aqui solo esta PRE: PROD, si tambien es gratuito y esta
-#  en el mismo espacio, no cabe. Para PROD, un plan de pago, que no
-#  se duerme y no necesita esto.
+#  Por eso aqui solo esta PROD. PRE esta en pausa y no debe gastar
+#  las horas del unico servicio gratuito que cabe despierto todo el
+#  mes. Un plan de pago no se duerme y no necesita este workflow.
 #
 #  GitHub ejecuta los programados desde la rama por defecto
 #  (produccion), puede retrasarlos unos minutos en horas de mucha
@@ -36,14 +36,14 @@ permissions:
 
 jobs:
   despertar:
-    name: Llamar a /health de PRE
+    name: Llamar a /health de PROD
     runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
       - name: Llamar a /health
         env:
-          URL: https://vsd-api-pre.onrender.com/health
+          URL: https://vsd-api-prod.onrender.com/health
         # Si el servicio estaba dormido, la primera llamada lo
         # despierta y puede tardar cerca de un minuto: de ahi el
         # --max-time de 120 segundos y los reintentos.

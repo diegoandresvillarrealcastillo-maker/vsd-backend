@@ -167,10 +167,16 @@ const REFERENCIA_INTERNA = /^#[A-Za-z_][A-Za-z0-9_.-]{0,63}$/;
 const URL_INTERNA = /^url\(\s*#[A-Za-z_][A-Za-z0-9_.-]{0,63}\s*\)$/;
 const COLOR =
   /^(?:none|currentColor|transparent|inherit|#(?:[0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})|[A-Za-z]{3,30}|(?:rgb|rgba|hsl|hsla)\([0-9.,%\s/+-]{1,60}\))$/;
-const TRANSFORMACION =
-  /^(?:\s*(?:matrix|translate|scale|rotate|skewX|skewY)\s*\(\s*[-+0-9.eE]+(?:[\s,]+[-+0-9.eE]+)*\s*\)\s*,?)+\s*$/;
 const DATOS_DEL_TRAZO = /^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\-\s]+$/;
 const ASPECTO = /^(?:none|x(?:Min|Mid|Max)Y(?:Min|Mid|Max))(?:\s+(?:meet|slice))?$/;
+const FUNCIONES_DE_TRANSFORMACION = new Set([
+  'matrix',
+  'translate',
+  'scale',
+  'rotate',
+  'skewX',
+  'skewY',
+]);
 
 const MAGNITUD_MAXIMA = 1e7;
 
@@ -229,8 +235,47 @@ function enumeracion(...permitidos: string[]): Validador {
   return (valor) => (permitidos.includes(valor.trim()) ? valor.trim() : undefined);
 }
 
-const transformacion: Validador = (valor) =>
-  valor.length <= 2_000 && TRANSFORMACION.test(valor) ? valor.trim() : undefined;
+function esTransformacion(valor: string): boolean {
+  if (valor.length > 2_000) return false;
+
+  let cursor = 0;
+  let encontroFuncion = false;
+
+  while (cursor < valor.length) {
+    while (/\s/.test(valor[cursor] ?? '')) cursor += 1;
+    if (valor[cursor] === ',') {
+      if (!encontroFuncion) return false;
+      cursor += 1;
+    }
+    while (/\s/.test(valor[cursor] ?? '')) cursor += 1;
+
+    const inicioNombre = cursor;
+    while (/[A-Za-z]/.test(valor[cursor] ?? '')) cursor += 1;
+    const nombre = valor.slice(inicioNombre, cursor);
+    if (!FUNCIONES_DE_TRANSFORMACION.has(nombre)) return false;
+
+    while (/\s/.test(valor[cursor] ?? '')) cursor += 1;
+    if (valor[cursor] !== '(') return false;
+    cursor += 1;
+
+    const finArgumentos = valor.indexOf(')', cursor);
+    if (finArgumentos === -1) return false;
+    const textoArgumentos = valor.slice(cursor, finArgumentos).trim();
+    if (!textoArgumentos || textoArgumentos.startsWith(',') || textoArgumentos.endsWith(',')) {
+      return false;
+    }
+
+    const argumentos = textoArgumentos.split(/[\s,]+/);
+    if (!argumentos.every((argumento) => NUMERO.test(argumento))) return false;
+
+    cursor = finArgumentos + 1;
+    encontroFuncion = true;
+  }
+
+  return encontroFuncion;
+}
+
+const transformacion: Validador = (valor) => (esTransformacion(valor) ? valor.trim() : undefined);
 
 const identificador: Validador = (valor) => (IDENTIFICADOR.test(valor) ? valor : undefined);
 
